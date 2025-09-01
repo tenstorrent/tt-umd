@@ -5,16 +5,16 @@
  */
 #include "gtest/gtest.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_soc_descriptor.h"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
 
 using namespace tt::umd;
 
 // Test soc descriptor API for Wormhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<tt_xy_pair> wormhole_tensix_cores = wormhole::TENSIX_CORES_NOC0;
@@ -34,7 +34,7 @@ TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
 
 // Test soc descriptor API for getting DRAM cores.
 TEST(SocDescriptor, SocDescriptorWormholeDRAM) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
@@ -51,7 +51,7 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
     const std::vector<tt_xy_pair> wormhole_tensix_cores = wormhole::TENSIX_CORES_NOC0;
     const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = (1 << 0)};
 
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -80,7 +80,7 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
 
 // Test ETH translation from logical to noc0 coordinates.
 TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToNOC0) {
-    const tt_SocDescriptor soc_desc(
+    const SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<tt_xy_pair>& wormhole_eth_cores = wormhole::ETH_CORES_NOC0;
@@ -119,7 +119,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
 
         const HarvestingMasks harvesting_masks = {.eth_harvesting_mask = eth_harvesting_mask};
 
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
             {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -152,7 +152,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
 
 // Test soc descriptor API for Blackhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorBlackholeNoHarvesting) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<tt_xy_pair> blackhole_tensix_cores = blackhole::TENSIX_CORES_NOC0;
@@ -177,7 +177,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeOneRowHarvesting) {
 
     const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 1};
 
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -210,7 +210,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeOneRowHarvesting) {
 
 // Test soc descriptor API for getting DRAM cores.
 TEST(SocDescriptor, SocDescriptorBlackholeDRAM) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
@@ -231,7 +231,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
 
     const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 0, .dram_harvesting_mask = 1};
 
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -265,7 +265,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
 }
 
 TEST(SocDescriptor, CustomSocDescriptor) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), {.noc_translation_enabled = true});
 
     const CoreCoord tensix_core_01 = CoreCoord(0, 1, CoreType::TENSIX, CoordSystem::NOC0);
@@ -323,7 +323,7 @@ TEST(SocDescriptor, CustomSocDescriptor) {
 }
 
 TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<tt_xy_pair> cores_noc0 = wormhole::TENSIX_CORES_NOC0;
@@ -349,7 +349,7 @@ TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
 }
 
 TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), {.noc_translation_enabled = true});
 
     const std::vector<tt_xy_pair> cores_noc0 = blackhole::TENSIX_CORES_NOC0;
@@ -376,7 +376,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
 
 TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
     const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 1};
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -389,7 +389,7 @@ TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
 
 TEST(SocDescriptor, SocDescriptorBlackholeNoLogicalForHarvestedCores) {
     const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 1};
-    tt_SocDescriptor soc_desc(
+    SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -404,7 +404,7 @@ TEST(SocDescriptor, NocTranslation) {
     // Test when noc translation is disabled.
     {
         const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 1};
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
             {.noc_translation_enabled = false, .harvesting_masks = harvesting_masks});
 
@@ -418,7 +418,7 @@ TEST(SocDescriptor, NocTranslation) {
     // Test when noc translation is enabled.
     {
         const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 1};
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
             {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
@@ -433,16 +433,16 @@ TEST(SocDescriptor, NocTranslation) {
 
 TEST(SocDescriptor, BoardBasedPCIE) {
     // Expect invalid configuration to throw an exception.
-    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
+    EXPECT_ANY_THROW(SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = {0, 0, 0, 0x1}, .board_type = BoardType::P150}));
-    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
+    EXPECT_ANY_THROW(SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true,
          .harvesting_masks = {0, 0, 0, 0},
          .board_type = BoardType::P300,
          .asic_location = 0}));
-    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
+    EXPECT_ANY_THROW(SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true,
          .harvesting_masks = {0, 0, 0, 0},
@@ -450,7 +450,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
          .asic_location = 1}));
 
     {
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
             {.noc_translation_enabled = true, .harvesting_masks = {0, 0, 0, 0x1}, .board_type = BoardType::P100});
         EXPECT_EQ(soc_desc.get_cores(CoreType::PCIE).size(), 1);
@@ -460,7 +460,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
     }
 
     {
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
             {.noc_translation_enabled = true, .harvesting_masks = {0, 0, 0, 0x2}, .board_type = BoardType::P150});
         EXPECT_EQ(soc_desc.get_cores(CoreType::PCIE).size(), 1);
@@ -470,7 +470,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
     }
 
     {
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
             {.noc_translation_enabled = true,
              .harvesting_masks = {0, 0, 0, 0x2},
@@ -483,7 +483,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
     }
 
     {
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
             {.noc_translation_enabled = true,
              .harvesting_masks = {0, 0, 0, 0x1},
@@ -497,7 +497,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
 
     // If board type is not provided, just pass through what was described by the soc descriptor.
     EXPECT_EQ(
-        tt_SocDescriptor(
+        SocDescriptor(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), {.noc_translation_enabled = true})
             .get_cores(CoreType::PCIE)
             .size(),
@@ -525,11 +525,11 @@ TEST(SocDescriptor, WormholeNOC1Cores) {
     };
     // clang-format on
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
-    tt_SocDescriptor soc_desc_arch(
+    SocDescriptor soc_desc_arch(
         tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     const std::vector<CoreCoord> tensix_cores_noc1_yaml = soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
@@ -576,11 +576,11 @@ TEST(SocDescriptor, BlackholeNOC1Cores) {
     };
     // clang-format on
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
-    tt_SocDescriptor soc_desc_arch(
+    SocDescriptor soc_desc_arch(
         tt::ARCH::BLACKHOLE, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     const std::vector<CoreCoord> tensix_cores_noc1_yaml = soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
@@ -616,7 +616,7 @@ TEST(SocDescriptor, AllSocDescriptors) {
          }) {
         std::cout << "Testing " << soc_desc_yaml << std::endl;
 
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/" + soc_desc_yaml), {.noc_translation_enabled = true});
     }
 }
@@ -624,13 +624,13 @@ TEST(SocDescriptor, AllSocDescriptors) {
 TEST(SocDescriptor, SocDescriptorWormholeNoSecurityCores) {
     HarvestingMasks harvesting_masks;
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::SECURITY).size(), 0);
 
-    tt_SocDescriptor soc_desc_arch(
+    SocDescriptor soc_desc_arch(
         tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::SECURITY).size(), 0);
@@ -639,13 +639,13 @@ TEST(SocDescriptor, SocDescriptorWormholeNoSecurityCores) {
 TEST(SocDescriptor, SocDescriptorBlackholeSecurity) {
     HarvestingMasks harvesting_masks;
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::SECURITY).size(), 1);
 
-    tt_SocDescriptor soc_desc_arch(
+    SocDescriptor soc_desc_arch(
         tt::ARCH::BLACKHOLE, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::SECURITY).size(), 1);
@@ -654,13 +654,13 @@ TEST(SocDescriptor, SocDescriptorBlackholeSecurity) {
 TEST(SocDescriptor, SocDescriptorWormholeNoL2CPUCores) {
     HarvestingMasks harvesting_masks;
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::L2CPU).size(), 0);
 
-    tt_SocDescriptor soc_desc_arch(
+    SocDescriptor soc_desc_arch(
         tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 0);
@@ -669,13 +669,13 @@ TEST(SocDescriptor, SocDescriptorWormholeNoL2CPUCores) {
 TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
     HarvestingMasks harvesting_masks;
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::L2CPU).size(), 4);
 
-    tt_SocDescriptor soc_desc_arch(
+    SocDescriptor soc_desc_arch(
         tt::ARCH::BLACKHOLE, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 4);
@@ -685,10 +685,10 @@ TEST(SocDescriptor, SocDescriptorSerialize) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
 
         std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-        tt_SocDescriptor soc(
+        SocDescriptor soc(
             file_path.string(),
             {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
              .harvesting_masks = soc_descriptor.harvesting_masks});
@@ -696,22 +696,22 @@ TEST(SocDescriptor, SocDescriptorSerialize) {
 }
 
 TEST(SocDescriptor, SerializeSimulatorBlackhole) {
-    const tt_SocDescriptor& soc_descriptor = tt_SocDescriptor(
+    const SocDescriptor& soc_descriptor = SocDescriptor(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), {.noc_translation_enabled = false});
 
     std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-    tt_SocDescriptor soc(
+    SocDescriptor soc(
         file_path.string(),
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
 }
 
 TEST(SocDescriptor, SerializeSimulatorQuasar) {
-    const tt_SocDescriptor& soc_descriptor = tt_SocDescriptor(
+    const SocDescriptor& soc_descriptor = SocDescriptor(
         test_utils::GetAbsPath("tests/soc_descs/quasar_simulation_1x1.yaml"), {.noc_translation_enabled = false});
 
     std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-    tt_SocDescriptor soc(
+    SocDescriptor soc(
         file_path.string(),
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
@@ -720,7 +720,7 @@ TEST(SocDescriptor, SerializeSimulatorQuasar) {
 TEST(SocDescriptor, SocDescriptorCreatFromSerialized) {
     HarvestingMasks harvesting_masks;
 
-    tt_SocDescriptor soc_desc_yaml(
+    SocDescriptor soc_desc_yaml(
         test_utils::GetAbsPath("tests/soc_descs/serialized.yaml"),
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 }

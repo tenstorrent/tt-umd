@@ -3,14 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <thread>
 
-#include "device/api/umd/device/warm_reset.h"
+#include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+
 using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
@@ -26,7 +27,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         ChipInfo chip_info = tt_device->get_chip_info();
 
-        tt_SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -69,7 +70,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         tt_device->init_tt_device();
         ChipInfo chip_info = tt_device->get_chip_info();
 
-        tt_SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -169,7 +170,7 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     auto chip_locations = cluster_desc->get_chip_locations();
 
@@ -191,8 +192,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         remote_communication->set_remote_transfer_ethernet_cores(
             closest_local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-            std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), remote_eth_coord);
+        auto remote_tt_device = TTDevice::create(std::move(remote_communication), remote_eth_coord);
         remote_tt_device->init_tt_device();
 
         std::vector<CoreCoord> tensix_cores =

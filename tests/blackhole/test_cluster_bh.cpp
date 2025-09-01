@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <umd/device/cluster.h>
-
 #include <memory>
 #include <thread>
 
@@ -13,8 +11,9 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
 using namespace tt::umd;
 
@@ -71,7 +70,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 }
 
 TEST(SiliconDriverBH, CreateDestroy) {
-    tt_device_params default_params;
+    device_params default_params;
     for (int i = 0; i < 50; i++) {
         Cluster cluster;
         set_barrier_params(cluster);
@@ -84,7 +83,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
+//         std::unique_ptr<ClusterDescriptor> cluster_desc_uniq =
 //             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
@@ -113,7 +112,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
+//         std::unique_ptr<ClusterDescriptor> cluster_desc_uniq =
 //             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
@@ -145,7 +144,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         }
 //     }
 
-//     tt_device_params default_params;
+//     device_params default_params;
 //     cluster.start_device(default_params);
 
 //     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -227,7 +226,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
         }
     }
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
@@ -281,7 +280,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 
     printf("MT: Static TLBs set\n");
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -321,7 +320,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     Cluster cluster;
     set_barrier_params(cluster);
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -385,7 +384,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
 
     set_barrier_params(cluster);
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
 
     std::thread th1 = std::thread([&] {
@@ -453,7 +452,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
         }
     }
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> readback_membar_vec = {};
@@ -553,7 +552,7 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
@@ -630,7 +629,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster.start_device(default_params);
     auto eth_version = cluster.get_ethernet_fw_version();
     bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) &&
@@ -716,7 +715,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(tt_device_params{});  // no special parameters
+    cluster.start_device(device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
@@ -770,7 +769,7 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     });
 
     set_barrier_params(cluster);
-    cluster.start_device(tt_device_params{});  // no special parameters
+    cluster.start_device(device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
     const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
@@ -827,7 +826,7 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 
     const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
     const uint32_t num_active_channels = cluster_desc->get_active_eth_channels(0).size();
     const uint32_t num_idle_channels = cluster_desc->get_idle_eth_channels(0).size();
 

@@ -5,9 +5,9 @@
  */
 #include <sys/mman.h>
 
-#include "common/microbenchmark_utils.h"
+#include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 

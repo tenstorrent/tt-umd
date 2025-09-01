@@ -8,8 +8,8 @@
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
 using namespace tt::umd;
 
@@ -37,7 +37,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
              "wormhole_N300_with_remote_connections.yaml",
          }) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
+        std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(
             test_utils::GetAbsPath("tests/cluster_descriptor_examples/" + cluster_desc_yaml));
 
         std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
@@ -59,7 +59,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(
         test_utils::GetAbsPath("tests/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
@@ -88,7 +88,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(
         test_utils::GetAbsPath("tests/cluster_descriptor_examples/wormhole_4xN300_mesh.yaml"));
 
     // Lambda which counts of unique chip links.
@@ -123,7 +123,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(cluster_desc->get_chip_locations().size(), 8);
 
     // Create with just two PCI chips
-    std::unique_ptr<tt_ClusterDescriptor> constrained_cluster_desc =
+    std::unique_ptr<ClusterDescriptor> constrained_cluster_desc =
         cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1});
 
     EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 2);

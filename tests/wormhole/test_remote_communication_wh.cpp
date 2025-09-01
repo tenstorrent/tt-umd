@@ -4,11 +4,11 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/cluster.h"
-#include "umd/device/remote_communication.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/types/cluster_types.h"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
@@ -29,7 +29,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     remote_comm->set_remote_transfer_ethernet_cores(local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
         cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id), CoordSystem::TRANSLATED));
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     std::vector<uint32_t> data_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> data_read(10, 0);

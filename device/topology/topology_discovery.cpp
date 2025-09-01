@@ -3,29 +3,29 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/topology/topology_discovery.h"
+#include "umd/device/topology/topology_discovery.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/topology/topology_discovery.h"
-#include "api/umd/device/topology/topology_discovery_blackhole.h"
-#include "api/umd/device/topology/topology_discovery_wormhole.h"
-#include "umd/device/chip/local_chip.h"
-#include "umd/device/remote_communication.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
-#include "umd/device/types/cluster_types.h"
-#include "umd/device/wormhole_implementation.h"
+#include "api/umd/device/topology/topology_discovery.hpp"
+#include "api/umd/device/topology/topology_discovery_blackhole.hpp"
+#include "api/umd/device/topology/topology_discovery_wormhole.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
     std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) {
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_target_devices);
     if (pci_devices_info.empty()) {
-        return std::make_unique<tt_ClusterDescriptor>();
+        return std::make_unique<ClusterDescriptor>();
     }
 
     switch (pci_devices_info.begin()->second.get_arch()) {
@@ -41,9 +41,9 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
 TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
     pci_target_devices(pci_target_devices), sdesc_path(sdesc_path) {}
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
-    cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+    cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_pcie_connected_chips();
     discover_remote_chips();
     fill_cluster_descriptor_info();
@@ -104,13 +104,25 @@ void TopologyDiscovery::discover_remote_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
+        std::vector<uint32_t> intermesh_eth_links;
+        if (eth_cores.size() > 0) {
+            intermesh_eth_links = extract_intermesh_eth_links(chip, eth_cores.front());
+        }
+
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t port_status = read_port_status(chip, eth_core);
 
             if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
-                channel++;
-                continue;
+                if (std::find(intermesh_eth_links.begin(), intermesh_eth_links.end(), channel) ==
+                    intermesh_eth_links.end()) {
+                    channel++;
+                    continue;
+                }
+                if (!is_intermesh_eth_link_trained(chip, eth_core)) {
+                    channel++;
+                    continue;
+                }
             }
 
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);

@@ -4,12 +4,12 @@
 #include <cxxopts.hpp>
 #include <tt-logger/tt-logger.hpp>
 
-#include "common.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_core_coordinates.h"
-#include "umd/device/tt_soc_descriptor.h"
-#include "umd/device/types/cluster_descriptor_types.h"
+#include "common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 
@@ -49,7 +49,7 @@ UbbId get_ubb_id(Cluster* cluster, const chip_id_t chip_id, const unsigned long 
 }
 
 bool check_if_external_cable_is_used(
-    tt_ClusterDescriptor* cluster_descriptor,
+    ClusterDescriptor* cluster_descriptor,
     const BoardType board_type,
     const chip_id_t chip_id,
     const unsigned long unique_chip_id,
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> unexpected_system_states;
     for (const auto& [chip_id, unique_chip_id] : unique_chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         const auto& logical_coord = soc_desc.get_cores(CoreType::ETH, CoordSystem::LOGICAL);
         std::stringstream chip_id_ss;
         chip_id_ss << std::dec << "Chip: " << chip_id << " Unique ID: " << std::hex << unique_chip_id;

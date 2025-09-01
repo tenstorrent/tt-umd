@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip_helpers/sysmem_manager.h"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
@@ -15,7 +15,7 @@
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "umd/device/hugepage.h"
+#include "hugepage.hpp"
 
 namespace tt::umd {
 
@@ -203,7 +203,7 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
 
         // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
         // numanode as TT device.
-        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)) {
+        if (!tt::cpuset::cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)) {
             log_warning(
                 LogSiliconDriver,
                 "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: "

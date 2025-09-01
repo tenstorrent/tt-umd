@@ -4,17 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/local_chip.h"
+#include "umd/device/chip/local_chip.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/chip_helpers/tlb_manager.h"
-#include "umd/device/driver_atomics.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/blackhole_arc.h"
-#include "umd/device/types/blackhole_eth.h"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 
 extern bool umd_use_noc1;
 
@@ -30,12 +30,12 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
 
-    tt_SocDescriptor soc_descriptor;
+    SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = tt_SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
-        soc_descriptor = tt_SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
     return std::unique_ptr<tt::umd::LocalChip>(
@@ -43,7 +43,7 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    int pci_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
@@ -52,7 +52,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
 }
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
+LocalChip::LocalChip(SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
     Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
@@ -101,23 +101,26 @@ void LocalChip::initialize_default_chip_mutexes() {
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
+
+    // Initialize mutex guarding initialized chips.
+    lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
 }
 
 void LocalChip::initialize_membars() {
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
-        tt_MemBarFlag::RESET,
+        MemBarFlag::RESET,
         l1_address_params.tensix_l1_barrier_base);
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
-        tt_MemBarFlag::RESET,
+        MemBarFlag::RESET,
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
         dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
     }
-    set_membar_flag(dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
+    set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -129,6 +132,11 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
+    // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
+    // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
+    // TODO: Uncommenting the line bellow will prevent multiple drivers being fully initialized on the same chip.
+    // chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE,
+    // tt_device_->get_pci_device()->get_device_num()));
     check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
@@ -142,11 +150,12 @@ void LocalChip::close_device() {
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-        set_power_state(tt_DevicePowerState::LONG_IDLE);
+        set_power_state(DevicePowerState::LONG_IDLE);
         send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         sysmem_manager_->unpin_or_unmap_sysmem();
     }
+    chip_started_lock_.reset();
 };
 
 int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
@@ -466,8 +475,8 @@ void LocalChip::set_membar_flag(
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads
     auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
-    set_membar_flag(cores, tt_MemBarFlag::SET, barrier_addr);
-    set_membar_flag(cores, tt_MemBarFlag::RESET, barrier_addr);
+    set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
+    set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
@@ -536,13 +545,13 @@ void LocalChip::deassert_risc_resets() {
     }
 }
 
-void LocalChip::set_power_state(tt_DevicePowerState state) {
+void LocalChip::set_power_state(DevicePowerState state) {
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        if (state == tt_DevicePowerState::BUSY) {
+        if (state == DevicePowerState::BUSY) {
             exit_code =
                 tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
         } else {

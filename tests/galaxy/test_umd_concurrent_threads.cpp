@@ -8,12 +8,12 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "gtest/gtest.h"
-#include "test_galaxy_common.h"
+#include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "tests/wormhole/test_wh_common.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "tests/wormhole/test_wh_common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
@@ -22,7 +22,7 @@
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     // Galaxy Setup
 
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+    std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     std::set<chip_id_t> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     std::set<chip_id_t> target_devices_th2 = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
     std::unordered_set<chip_id_t> all_devices = {};
@@ -51,7 +51,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
 
     // Test
@@ -115,7 +115,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     // Galaxy Setup
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+    std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     std::set<chip_id_t> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32};
     std::set<chip_id_t> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
     std::unordered_set<chip_id_t> all_devices = {};
@@ -144,7 +144,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
 
     // Test
@@ -199,7 +199,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+    std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     std::unordered_set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8};
     for (const auto& chip : target_devices) {
         // Verify that selected chips are in the cluster
@@ -214,7 +214,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 

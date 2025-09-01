@@ -3,18 +3,18 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/topology/topology_discovery_blackhole.h"
+#include "umd/device/topology/topology_discovery_blackhole.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/topology/topology_discovery_blackhole.h"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/chip/local_chip.h"
-#include "umd/device/chip/remote_chip.h"
-#include "umd/device/remote_communication.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/types/blackhole_eth.h"
-#include "umd/device/types/cluster_types.h"
+#include "api/umd/device/topology/topology_discovery_blackhole.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
 
@@ -160,6 +160,16 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto& [remote_chip, remote_channel] = eth_connections_fixed.second;
         ethernet_connections.push_back({{local_chip, local_channel}, {remote_chip, remote_channel}});
     }
+}
+
+std::vector<uint32_t> TopologyDiscoveryBlackhole::extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) {
+    // This function is not important for Blackhole.
+    return {};
+}
+
+bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
+    // This function is not important for Blackhole.
+    return false;
 }
 
 }  // namespace tt::umd

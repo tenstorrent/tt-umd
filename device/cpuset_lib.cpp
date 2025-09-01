@@ -15,7 +15,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "cpuset_lib.hpp"
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 namespace tt::cpuset {
 
@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 /////////////////////////////////////////////////////////////////////////
 
 // Constructor for singleton class cpu id allocator
-tt_cpuset_allocator::tt_cpuset_allocator() {
+cpuset_allocator::cpuset_allocator() {
     m_pid = getpid();
     m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") ? true : false;
 
@@ -36,7 +36,7 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
     auto system_tid = std::this_thread::get_id();
     log_debug(
         LogSiliconDriver,
-        "Starting tt_cpuset_allocator constructor now for process_id: {} thread_id: {}",
+        "Starting cpuset_allocator constructor now for process_id: {} thread_id: {}",
         m_pid,
         system_tid);
 
@@ -60,7 +60,7 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
 
         log_debug(
             LogSiliconDriver,
-            "Finished tt_cpuset_allocator constructor now with m_enable_cpuset_allocator: {} for process_id: {} "
+            "Finished cpuset_allocator constructor now with m_enable_cpuset_allocator: {} for process_id: {} "
             "thread_id: {} ",
             m_enable_cpuset_allocator,
             m_pid,
@@ -69,8 +69,8 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
 }
 
 // Step 1 : Initialize and perform m_topology detection
-bool tt_cpuset_allocator::init_topology_init_and_load() {
-    log_debug(LogSiliconDriver, "Inside tt_cpuset_allocator::topology_init_and_load()");
+bool cpuset_allocator::init_topology_init_and_load() {
+    log_debug(LogSiliconDriver, "Inside cpuset_allocator::topology_init_and_load()");
 
     if (!m_enable_cpuset_allocator) {
         return false;
@@ -94,12 +94,12 @@ bool tt_cpuset_allocator::init_topology_init_and_load() {
 
 // Step 2 - Find TT PCI devices in topology by vendor_id to get their PCI bus_id and physical device_id, and package and
 // numamode.
-bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
+bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
     if (!m_enable_cpuset_allocator) {
         return false;
     }
 
-    log_debug(LogSiliconDriver, "Starting tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
+    log_debug(LogSiliconDriver, "Starting cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
     m_num_tt_device_by_pci_device_id_map.clear();
 
     hwloc_obj_t pci_device_obj = NULL;
@@ -199,7 +199,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
 
     log_debug(
         LogSiliconDriver,
-        "Finshed tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() found {} devices",
+        "Finshed cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() found {} devices",
         m_all_tt_devices.size());
 
     // Sort these 2 vectors of device_ids before we are done, since discovery can be in any order.
@@ -213,7 +213,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
 }
 
 // Step 3 : Detect the number of packages.
-bool tt_cpuset_allocator::init_get_number_of_packages() {
+bool cpuset_allocator::init_get_number_of_packages() {
     if (!m_enable_cpuset_allocator) {
         return false;
     }
@@ -224,7 +224,7 @@ bool tt_cpuset_allocator::init_get_number_of_packages() {
 }
 
 // Step 4 : Return true if all packages are models we want to support. Env-var can be used to ignore this check.
-bool tt_cpuset_allocator::init_is_cpu_model_supported() {
+bool cpuset_allocator::init_is_cpu_model_supported() {
     if (!m_enable_cpuset_allocator) {
         return false;
     }
@@ -236,7 +236,7 @@ bool tt_cpuset_allocator::init_is_cpu_model_supported() {
 
     bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") ? true : false;
 
-    log_debug(LogSiliconDriver, "Inside tt_cpuset_allocator::check_if_cpu_model_supported()");
+    log_debug(LogSiliconDriver, "Inside cpuset_allocator::check_if_cpu_model_supported()");
 
     // Supported CPU Models for enabling CPUSET Allocator.  Keep the list small to production machines to start.
     std::vector<std::string> supported_cpu_models = {
@@ -286,12 +286,12 @@ bool tt_cpuset_allocator::init_is_cpu_model_supported() {
 
 // Step 5: Get all target allocation objects (ie. L3Cache if IO thread to be allocated per L3Cache cpuset) for a given
 // socket/package.
-bool tt_cpuset_allocator::init_determine_cpuset_allocations() {
+bool cpuset_allocator::init_determine_cpuset_allocations() {
     if (!m_enable_cpuset_allocator) {
         return false;
     }
 
-    log_debug(LogSiliconDriver, "Inside tt_cpuset_allocator::init_determine_cpuset_allocations()");
+    log_debug(LogSiliconDriver, "Inside cpuset_allocator::init_determine_cpuset_allocations()");
     for (const auto &package : m_package_id_to_devices_map) {
         int package_id = package.first;
         auto num_tt_devices_for_cpu_package = package.second.size();
@@ -407,7 +407,7 @@ bool tt_cpuset_allocator::init_determine_cpuset_allocations() {
 
 // Given a physical device_id, determine the right numa nodes associated with it and attempt to membind a previously
 // allocated memory region to it.
-bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void *addr, size_t len) {
+bool cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void *addr, size_t len) {
     auto tid = std::this_thread::get_id();
     log_debug(
         LogSiliconDriver,
@@ -467,7 +467,7 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
     return true;  // Success
 }
 
-int tt_cpuset_allocator::_get_num_tt_pci_devices() {
+int cpuset_allocator::_get_num_tt_pci_devices() {
     for (auto &d : m_physical_device_id_to_package_id_map) {
         log_trace(LogSiliconDriver, "Found physical_device_id: {} ", d.first);
     }
@@ -478,7 +478,7 @@ int tt_cpuset_allocator::_get_num_tt_pci_devices() {
 // Helper Functions //////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-std::string tt_cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj) {
+std::string cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj) {
     std::string pci_bus_id_str = "";
 
     if (hwloc_obj_type_is_io(pci_device_obj->type)) {
@@ -489,7 +489,7 @@ std::string tt_cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj) {
     return pci_bus_id_str;
 }
 
-int tt_cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, chip_id_t physical_device_id) {
+int cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, chip_id_t physical_device_id) {
     auto pci_bus_id_str = m_physical_device_id_to_pci_bus_id_map.at(physical_device_id);
 
     log_debug(
@@ -535,7 +535,7 @@ int tt_cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, 
     return package_id;
 }
 
-hwloc_nodeset_t tt_cpuset_allocator::get_numa_nodeset_from_device(
+hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(
     hwloc_obj_t pci_device_obj, chip_id_t physical_device_id) {
     hwloc_nodeset_t nodeset = 0x0;
 
@@ -581,7 +581,7 @@ hwloc_nodeset_t tt_cpuset_allocator::get_numa_nodeset_from_device(
     return nodeset;
 }
 
-int tt_cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision) {
+int cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision) {
     std::pair<uint16_t, uint16_t> device_id_revision = std::make_pair(device_id, revision);
 
     if (m_num_tt_device_by_pci_device_id_map.find(device_id_revision) != m_num_tt_device_by_pci_device_id_map.end()) {
@@ -601,7 +601,7 @@ int tt_cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t devic
 /////////////////////////////////////////////////////////////////////////
 
 // Get all PU ids (or numa nodes) in a vector, for legacy/back-compat/debug purposes.
-std::vector<int> tt_cpuset_allocator::get_hwloc_bitmap_vector(hwloc_bitmap_t &bitmap) {
+std::vector<int> cpuset_allocator::get_hwloc_bitmap_vector(hwloc_bitmap_t &bitmap) {
     std::vector<int> indices;
     int index;
     if (bitmap) {
@@ -611,25 +611,25 @@ std::vector<int> tt_cpuset_allocator::get_hwloc_bitmap_vector(hwloc_bitmap_t &bi
     return indices;
 }
 
-std::vector<int> tt_cpuset_allocator::get_hwloc_cpuset_vector(hwloc_obj_t &obj) {
+std::vector<int> cpuset_allocator::get_hwloc_cpuset_vector(hwloc_obj_t &obj) {
     return get_hwloc_bitmap_vector(obj->cpuset);
 }
 
-std::vector<int> tt_cpuset_allocator::get_hwloc_nodeset_vector(hwloc_obj_t &obj) {
+std::vector<int> cpuset_allocator::get_hwloc_nodeset_vector(hwloc_obj_t &obj) {
     return get_hwloc_bitmap_vector(obj->nodeset);
 }
 
 // Nicer way to print pu ids as a vector on single line.
-void tt_cpuset_allocator::print_hwloc_cpuset(hwloc_obj_t &obj) {
+void cpuset_allocator::print_hwloc_cpuset(hwloc_obj_t &obj) {
     std::cout << " Number: " << hwloc_bitmap_weight(obj->cpuset) << " cpuset_pu_ids: " << get_hwloc_cpuset_vector(obj);
 }
 
-void tt_cpuset_allocator::print_hwloc_nodeset(hwloc_obj_t &obj) {
+void cpuset_allocator::print_hwloc_nodeset(hwloc_obj_t &obj) {
     std::cout << " Number: " << hwloc_bitmap_weight(obj->nodeset)
               << " nodeset node_ids: " << get_hwloc_nodeset_vector(obj);
 }
 
-void tt_cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool verbose, bool show_cpuids) {
+void cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool verbose, bool show_cpuids) {
     char type[32], attr[1024];
 
     hwloc_obj_type_snprintf(type, sizeof(type), obj, verbose);

@@ -7,12 +7,12 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "gtest/gtest.h"
-#include "test_galaxy_common.h"
+#include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "tests/wormhole/test_wh_common.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "tests/wormhole/test_wh_common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
@@ -22,7 +22,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -122,7 +122,7 @@ void run_data_mover_test(
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -227,7 +227,7 @@ void run_data_broadcast_test(
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -275,7 +275,7 @@ void run_data_broadcast_test(
 
 // L1 to L1 single chip
 TEST(GalaxyDataMovement, BroadcastData1) {
-    tt_SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(4, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -288,7 +288,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
 
 // L1 to L1 multi chip
 TEST(GalaxyDataMovement, BroadcastData2) {
-    tt_SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(12, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -330,7 +330,7 @@ TEST(GalaxyDataMovement, BroadcastData2) {
 
 // Dram to L1
 TEST(GalaxyDataMovement, BroadcastData3) {
-    tt_SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(10, CoreCoord(0, 0, CoreType::DRAM, CoordSystem::VIRTUAL), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -348,7 +348,7 @@ TEST(GalaxyDataMovement, BroadcastData3) {
 
 // L1 to Dram
 TEST(GalaxyDataMovement, BroadcastData4) {
-    tt_SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(17, CoreCoord(8, 8, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -365,7 +365,7 @@ TEST(GalaxyDataMovement, BroadcastData4) {
 
 // Dram to Dram
 TEST(GalaxyDataMovement, BroadcastData5) {
-    tt_SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(31, CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;

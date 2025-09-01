@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "gtest/gtest.h"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/coordinate_manager.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 
 using namespace tt::umd;
 

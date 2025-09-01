@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/mock_chip.h"
+#include "umd/device/chip/mock_chip.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
 
-MockChip::MockChip(tt_SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
+MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 
@@ -71,7 +71,7 @@ void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
 void MockChip::deassert_risc_resets() {}
 
-void MockChip::set_power_state(tt_DevicePowerState state) {}
+void MockChip::set_power_state(DevicePowerState state) {}
 
 int MockChip::get_clock() { return 0; }
 

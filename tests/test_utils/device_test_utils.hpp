@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
 using namespace tt::umd;
 

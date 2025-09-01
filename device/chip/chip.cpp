@@ -4,32 +4,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/chip.h"
+#include "umd/device/chip/chip.hpp"
 
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/architecture_implementation.h"
-#include "umd/device/driver_atomics.h"
-#include "umd/device/pci_device.hpp"
-#include "umd/device/tt_silicon_driver_common.hpp"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
-    set_default_params(soc_descriptor.arch);
-}
+Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) { set_default_params(soc_descriptor.arch); }
 
-Chip::Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor) :
+Chip::Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor) :
     chip_info_(chip_info), soc_descriptor_(soc_descriptor) {
     set_default_params(soc_descriptor.arch);
 }
 
-tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
+SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
@@ -136,7 +134,7 @@ void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions&
     send_tensix_risc_reset(core, set_selected_riscs);
 }
 
-uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
+uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
@@ -200,12 +198,12 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
-void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t target_aiclk = 0;
-    if (power_state == tt_DevicePowerState::BUSY) {
+    if (power_state == DevicePowerState::BUSY) {
         target_aiclk = tt_device->get_max_clock_freq();
-    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+    } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }
     uint32_t aiclk = tt_device->get_clock();

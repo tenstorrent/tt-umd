@@ -5,7 +5,7 @@
  */
 #include <sys/mman.h>
 
-#include "common/microbenchmark_utils.h"
+#include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 
@@ -109,7 +109,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
-    cluster->start_device(tt_device_params{});
+    cluster->start_device(device_params{});
 
     std::vector<std::vector<std::string>> rows;
 
@@ -132,7 +132,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
 TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
-    cluster->start_device(tt_device_params{});
+    cluster->start_device(device_params{});
 
     constexpr uint64_t limit_buf_size = one_mb;
 
@@ -162,7 +162,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
 TEST(MicrobenchmarkPCIeDMA, DramSweepSizes) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
-    cluster->start_device(tt_device_params{});
+    cluster->start_device(device_params{});
 
     constexpr uint64_t limit_buf_size = one_gb;
 
@@ -209,7 +209,7 @@ TEST(MicrobenchmarkPCIeDMA, Dram) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
-    cluster->start_device(tt_device_params{});
+    cluster->start_device(device_params{});
 
     const std::vector<std::string> headers = {
         "Size (MB)",
@@ -379,7 +379,7 @@ TEST(MicrobenchmarkPCIeDMA, Eth) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
-    cluster->start_device(tt_device_params{});
+    cluster->start_device(device_params{});
 
     std::vector<std::vector<std::string>> rows;
 
@@ -439,7 +439,7 @@ TEST(MicrobenchmarkPCIeDMA, EthZeroCopy) {
 TEST(MicrobenchmarkPCIeDMA, EthSweepSizes) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
-    cluster->start_device(tt_device_params{});
+    cluster->start_device(device_params{});
 
     constexpr uint64_t limit_buf_size = 128 * one_kb;
     constexpr uint32_t address = 128 * one_kb;

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 #include <fcntl.h>      // for ::open
 #include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
@@ -22,7 +22,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
-#include "umd/device/types/arch.h"
+#include "umd/device/types/arch.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

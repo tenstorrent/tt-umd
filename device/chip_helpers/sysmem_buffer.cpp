@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip_helpers/sysmem_buffer.h"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 

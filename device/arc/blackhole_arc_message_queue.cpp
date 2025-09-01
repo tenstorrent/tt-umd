@@ -3,9 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/arc/blackhole_arc_message_queue.h"
+#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 
 extern bool umd_use_noc1;
 

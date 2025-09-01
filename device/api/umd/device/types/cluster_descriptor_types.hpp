@@ -187,24 +187,17 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
 }
 
 inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
-    // P100
     {0x36, BoardType::P100},
     {0x43, BoardType::P100},
-    // P150
     {0x40, BoardType::P150},
     {0x41, BoardType::P150},
     {0x42, BoardType::P150},
-    // P300
     {0x44, BoardType::P300},
     {0x45, BoardType::P300},
     {0x46, BoardType::P300},
-    // N150
     {0x18, BoardType::N150},
-    // N300
     {0x14, BoardType::N300},
-    // GALAXY
     {0xB, BoardType::GALAXY},
-    // UBB
     {0x35, BoardType::UBB},
 };
 

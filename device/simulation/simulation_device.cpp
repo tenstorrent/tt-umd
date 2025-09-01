@@ -192,6 +192,55 @@ void SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft
     send_tensix_risc_reset({0, 0}, soft_resets);
 }
 
+RiscType SimulationDevice::get_tensix_risc_reset(CoreCoord core) {
+    // TODO: Not implemented
+    return RiscType::NONE;
+}
+
+void SimulationDevice::assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
+    // Only a few scenarios are implemented at the moment.
+    if (arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::BLACKHOLE) {
+        if (selected_riscs == RiscType::ALL_TENSIX) {
+            send_tensix_risc_reset(core, TENSIX_ASSERT_SOFT_RESET);
+        } else {
+            TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        }
+    } else if (arch_name == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL_DMS_NEO) {
+            auto wr_buffer = create_flatbuffer(
+                DEVICE_COMMAND_ALL_DMS_NEO_RESET_ASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+            host.send_to_device(wr_buffer.GetBufferPointer(), wr_buffer.GetSize());
+        } else {
+            TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        }
+    } else {
+        TT_THROW("Invalid simulation arch {}.", arch_name);
+    }
+}
+
+void SimulationDevice::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
+    // Only a few scenarios are implemented at the moment.
+    if (arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::BLACKHOLE) {
+        if (selected_riscs == RiscType::ALL_TENSIX) {
+            send_tensix_risc_reset(core, TENSIX_DEASSERT_SOFT_RESET);
+        } else {
+            TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        }
+    } else if (arch_name == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL_DMS_NEO) {
+            auto wr_buffer = create_flatbuffer(
+                DEVICE_COMMAND_ALL_DMS_NEO_RESET_DEASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+            host.send_to_device(wr_buffer.GetBufferPointer(), wr_buffer.GetSize());
+        } else {
+            TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        }
+    } else {
+        TT_THROW("Invalid simulation arch {}.", arch_name);
+    }
+}
+
 void SimulationDevice::close_device() {
     // disconnect from remote connection
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");

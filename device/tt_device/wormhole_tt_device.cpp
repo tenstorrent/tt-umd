@@ -408,7 +408,8 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
 
 uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
-    uint32_t time_taken = 0;
+    uint32_t time_taken_heartbeat = 0;
+    uint32_t time_taken_port = 0;
     auto start = std::chrono::system_clock::now();
     uint32_t heartbeat_val;
     read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
@@ -418,8 +419,8 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
         read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken += duration.count();
-        if (duration.count() > timeout_ms) {
+        time_taken_heartbeat = duration.count();
+        if (time_taken_heartbeat > timeout_ms) {
             throw std::runtime_error(fmt::format("ETH training timed out after {} ms", timeout_ms));
             break;
         }
@@ -431,8 +432,8 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
         port_status = read_port_status(eth_core);
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken += duration.count();
-        if (duration.count() > timeout_ms) {
+        time_taken_port = duration.count();
+        if (time_taken_port > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
@@ -440,7 +441,7 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
             break;
         }
     }
-    return time_taken;
+    return time_taken_heartbeat + time_taken_port;
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }

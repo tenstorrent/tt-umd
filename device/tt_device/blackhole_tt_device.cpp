@@ -228,8 +228,8 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken += duration.count();
-        if (duration.count() > timeout_ms) {
+        time_taken = duration.count();
+        if (time_taken > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.

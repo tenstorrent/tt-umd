@@ -18,8 +18,9 @@ constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
 /* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/lib_tt_jtag.so");
+/* static */ std::unique_ptr<Jtag> JtagDevice::jtag;
 
-JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {
+JtagDevice::JtagDevice() {
     jtag->close_jlink();
 
     std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
@@ -73,8 +74,12 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
         }
     }
 
-    std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(binary_directory.c_str());
-    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag));
+    // Keeping jtag library opener a singleton.
+    // Only one instance per process prevents multiple unnecessary initializations.
+    if (!jtag) {
+        jtag = std::make_unique<Jtag>(binary_directory.c_str());
+    }
+    auto jtag_device = std::shared_ptr<JtagDevice>(new JtagDevice());
 
     // Check that all chips are of the same type
     auto arch = jtag_device->get_jtag_arch(0);

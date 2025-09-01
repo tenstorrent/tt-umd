@@ -70,7 +70,13 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
-    LocalChip(SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
+    LocalChip(
+        tt_SocDescriptor soc_descriptor,
+        std::unique_ptr<TTDevice> tt_device,
+        std::unique_ptr<TLBManager> tlb_manager,
+        std::unique_ptr<SysmemManager> sysmem_manager,
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        int num_host_mem_channels);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

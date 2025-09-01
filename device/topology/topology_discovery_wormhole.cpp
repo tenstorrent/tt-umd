@@ -255,10 +255,25 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pai
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
 void TopologyDiscoveryWormhole::init_topology_discovery() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        return;
+    int device_id = 0;
+    switch (io_device_type) {
+        case IODeviceType::JTAG: {
+            auto device_cnt = JtagDevice::create()->get_device_cnt();
+            if (!device_cnt) {
+                return;
+            }
+            break;
+        }
+        case IODeviceType::PCIe: {
+            std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+            if (pci_device_ids.empty()) {
+                return;
+            }
+            device_id = pci_device_ids[0];
+            break;
+        }
+        default:
+            TT_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);

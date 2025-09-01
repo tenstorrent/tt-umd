@@ -212,8 +212,9 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
 
     auto board_type_it = board_upi_map.find(upi);
-    if (board_type_it != board_upi_map.end())
+    if (board_type_it != board_upi_map.end()) {
         return board_type_it->second;
+    }
 
     throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
 }

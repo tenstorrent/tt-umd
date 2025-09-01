@@ -8,6 +8,7 @@
 
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 
 #include <cstdint>
 #include <string>
@@ -64,15 +65,15 @@ enum class RiscType : std::uint32_t {
     DM7 = 1 << 27,
 
     // Combined constants for each NEO triplet
-    ALL_TRISCS_NEO0 = NEO0_TRISC0 | NEO0_TRISC1 | NEO0_TRISC2,
-    ALL_TRISCS_NEO1 = NEO1_TRISC0 | NEO1_TRISC1 | NEO1_TRISC2,
-    ALL_TRISCS_NEO2 = NEO2_TRISC0 | NEO2_TRISC1 | NEO2_TRISC2,
-    ALL_TRISCS_NEO3 = NEO3_TRISC0 | NEO3_TRISC1 | NEO3_TRISC2,
+    ALL_NEO_TRISCS0 = NEO0_TRISC0 | NEO0_TRISC1 | NEO0_TRISC2,
+    ALL_NEO_TRISCS1 = NEO1_TRISC0 | NEO1_TRISC1 | NEO1_TRISC2,
+    ALL_NEO_TRISCS2 = NEO2_TRISC0 | NEO2_TRISC1 | NEO2_TRISC2,
+    ALL_NEO_TRISCS3 = NEO3_TRISC0 | NEO3_TRISC1 | NEO3_TRISC2,
 
     // Combined constants for all cores of each type
-    ALL_TRISCS_NEO = NEO0_TRISC0 | NEO1_TRISC0 | NEO2_TRISC0 | NEO3_TRISC0,
-    ALL_DMS_NEO = DM0 | DM1 | DM2 | DM3 | DM4 | DM5 | DM6 | DM7,
-    ALL_NEO = ALL_TRISCS_NEO | ALL_DMS_NEO,
+    ALL_NEO_TRISCS = NEO0_TRISC0 | NEO1_TRISC0 | NEO2_TRISC0 | NEO3_TRISC0,
+    ALL_NEO_DMS = DM0 | DM1 | DM2 | DM3 | DM4 | DM5 | DM6 | DM7,
+    ALL_NEO = ALL_NEO_TRISCS | ALL_NEO_DMS,
 };
 
 std::string RiscTypeToString(RiscType value);
@@ -102,16 +103,11 @@ constexpr RiscType& operator&=(RiscType& lhs, RiscType rhs) {
     lhs = lhs & rhs;
     return lhs;
 }
+
+inline std::ostream& operator<<(std::ostream& os, const RiscType& risc_type) {
+    return os << RiscTypeToString(risc_type);
+}
 }  // namespace tt::umd
 
-namespace fmt {
 template <>
-struct formatter<tt::umd::RiscType> {
-    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
-
-    template <typename Context>
-    constexpr auto format(tt::umd::RiscType const& risc_type, Context& ctx) const {
-        return format_to(ctx.out(), "{}", tt::umd::RiscTypeToString(risc_type));
-    }
-};
-}  // namespace fmt
+struct fmt::formatter<tt::umd::RiscType> : fmt::ostream_formatter {};

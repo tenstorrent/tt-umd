@@ -214,7 +214,9 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
     write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 }
 
-void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+    uint32_t time_taken = 0;
+
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
@@ -226,6 +228,7 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        time_taken += duration.count();
         if (duration.count() > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
@@ -234,6 +237,7 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
             break;
         }
     }
+    return time_taken;
 }
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }

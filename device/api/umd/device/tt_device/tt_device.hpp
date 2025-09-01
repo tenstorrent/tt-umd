@@ -230,7 +230,11 @@ public:
      */
     virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
-    virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+    /**
+     * Waits for ETH core training to complete.
+     * Returns time left from timeout in ms.
+     */
+    virtual uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
     void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
 

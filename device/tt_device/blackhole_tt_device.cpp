@@ -168,10 +168,6 @@ uint32_t BlackholeTTDevice::get_clock() {
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
 
-// TODO: figure out if Blackhole has the information on maximum possible
-// clock frequency. For now, we are using the maximum possible value.
-uint32_t BlackholeTTDevice::get_max_clock_freq() { return blackhole::AICLK_BUSY_VAL; }
-
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {

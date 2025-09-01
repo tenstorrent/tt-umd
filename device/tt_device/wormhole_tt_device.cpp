@@ -120,11 +120,6 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
-uint32_t WormholeTTDevice::get_max_clock_freq() {
-    // TODO: figure out if this exists in new telemetry.
-    return tt::umd::wormhole::AICLK_BUSY_VAL;
-}
-
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

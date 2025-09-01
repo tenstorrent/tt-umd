@@ -252,7 +252,7 @@ public:
 
     virtual uint32_t get_clock() = 0;
 
-    virtual uint32_t get_max_clock_freq() = 0;
+    uint32_t get_max_clock_freq();
 
     virtual uint32_t get_min_clock_freq() = 0;
 

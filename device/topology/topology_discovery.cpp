@@ -218,7 +218,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 
         if (chip->is_mmio_capable()) {
             cluster_desc->chips_with_mmio.insert(
-                {current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_num()});
+                {current_chip_id, chip->get_tt_device()->get_communication_device_id()});
         }
 
         cluster_desc->chip_board_type.insert({current_chip_id, chip->get_chip_info().board_type});

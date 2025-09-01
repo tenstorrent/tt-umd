@@ -176,7 +176,13 @@ void Cluster::log_pci_device_summary() {
     log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
 }
 
-void Cluster::log_jtag_device_summary() {}
+void Cluster::log_jtag_device_summary() {
+    if (local_chip_ids_.empty()) {
+        return;
+    }
+    // TODO: move read_kmd_version from PCIDevice to something more universal.
+    log_info(LogSiliconDriver, "KMD version: {}", PCIDevice::read_kmd_version().to_string());
+}
 
 void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
@@ -221,9 +227,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             remote_chip_ids_);
 
         verify_fw_bundle_version();
-        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
-            log_pci_device_summary();
-        }
+        log_device_summary();
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
@@ -261,8 +265,16 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto chip = LocalChip::create(cluster_desc->get_chips_with_mmio().at(chip_id), soc_desc, num_host_mem_channels);
-        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+        auto chip = LocalChip::create(
+            cluster_desc->get_chips_with_mmio().at(chip_id),
+            soc_desc,
+            num_host_mem_channels,
+            cluster_desc->io_device_type);
+
+        // Currrently remote transfer is only supported by PCIe.
+        // TODO: implement remote transfer for JTAG comm.
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0 &&
+            cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }
@@ -388,7 +400,7 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
             options.sdesc_path,
-            options.io_device_type == IODeviceType::JTAG ? options.target_devices : options.pci_target_devices,
+            options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.target_devices,
             options.io_device_type);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }

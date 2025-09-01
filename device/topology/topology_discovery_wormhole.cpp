@@ -270,7 +270,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
             break;
         }
         default:
-            TT_THROW("Unsupported IODeviceType during topology discovery");
+            TT_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);

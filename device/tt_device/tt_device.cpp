@@ -579,4 +579,6 @@ ChipInfo TTDevice::get_chip_info() {
     return chip_info;
 }
 
+uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
+
 }  // namespace tt::umd

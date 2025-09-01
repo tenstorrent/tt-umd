@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <ostream>
 
+#include <fmt/ostream.h>
+
 #include "umd/device/utils/common.hpp"
 
 // Arch is common to everything related in TT, and not just UMD. It might move to some common folder someday.
@@ -57,3 +59,6 @@ static inline std::string arch_to_str(const tt::ARCH arch) {
 static inline std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch) { return out << arch_to_str(arch); }
 
 }  // namespace tt
+
+template <>
+struct fmt::formatter<tt::ARCH> : fmt::ostream_formatter {};

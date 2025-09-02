@@ -232,7 +232,9 @@ public:
 
     /**
      * Waits for ETH core training to complete.
-     * Returns time left from timeout in ms.
+     * @param eth_core Specific ETH core to wait on.
+     * @param timeout_ms Timeout in ms.
+     * @return Time taken in ms.
      */
     virtual uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 

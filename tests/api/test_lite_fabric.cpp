@@ -36,6 +36,11 @@ protected:
 
         fabric_chip = LocalChip::create(pci_devices_ids[0]);
 
+        if (pci_devices_ids.size() < 2 || fabric_chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
+                            "be connected to the host.";
+        }
+
         auto eth_cores = fabric_chip->get_soc_descriptor().get_cores(CoreType::ETH);
         eth_cores_up.clear();
         for (auto& eth_core : eth_cores) {
@@ -73,7 +78,23 @@ CoreCoord LiteFabricFixture::tensix_core = CoreCoord(1, 2, CoreType::TENSIX, Coo
 // Dummy value, it will be overriden inside SetUpTestSuite.
 CoreCoord LiteFabricFixture::eth_core_transfer = CoreCoord(0, 0, CoreType::ETH, CoordSystem::TRANSLATED);
 
+bool should_skip_lite_fabric_tests() {
+    std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
+
+    auto chip = LocalChip::create(pci_devices_ids[0]);
+
+    if (pci_devices_ids.size() < 2 || chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+        return true;
+    }
+
+    return false;
+}
+
 TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
+    if (should_skip_lite_fabric_tests()) {
+        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
+                        "connected to the host.";
+    }
     uint32_t test_value = 0xdeadbeef;
     uint32_t test_addr = 0x1000;
 
@@ -85,6 +106,10 @@ TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
+    if (should_skip_lite_fabric_tests()) {
+        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
+                        "be connected to the host.";
+    }
     uint32_t test_value = 0xdeadbeef;
     uint32_t test_addr = 0x1000;
 
@@ -96,6 +121,10 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
+    if (should_skip_lite_fabric_tests()) {
+        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
+                        "connected to the host.";
+    }
     uint32_t test_addr = 0;
 
     std::vector<uint8_t> write_data(1 << 20, 2);
@@ -108,6 +137,10 @@ TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
 }
 
 TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
+    if (should_skip_lite_fabric_tests()) {
+        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
+                        "connected to the host.";
+    }
     uint32_t test_addr = 0;
 
     std::vector<uint8_t> write_data(1 << 20, 3);

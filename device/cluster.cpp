@@ -255,13 +255,13 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (chip_type == ChipType::TTSIM) {
-#ifdef TT_UMD_BUILD_TTSIM
+#ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogSiliconDriver, "Creating TTSim Simulation device");
         return std::make_unique<TTSimDevice>(simulator_directory);
 #else
         throw std::runtime_error(
-            "TTSim device is not supported in this build. Set '-DTT_UMD_BUILD_TTSIM=ON' during cmake configuration to "
-            "enable TTSim device.");
+            "TTSim device is not supported in this build. Set '-TT_UMD_BUILD_SIMULATION=ON' during cmake configuration "
+            "to enable TTSim device.");
 #endif
     }
 

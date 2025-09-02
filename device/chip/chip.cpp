@@ -67,6 +67,7 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
             timeout_left -=
                 tt_device->wait_eth_core_training(translate_chip_coord_to_translated(eth_core), timeout_left);
         }
+        log_debug(LogSiliconDriver, "!!!ETH Training {} took {} ms.", eth_core.str(), timeout_ms - timeout_left);
     }
 }
 

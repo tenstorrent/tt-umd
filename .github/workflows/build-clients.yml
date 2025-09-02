@@ -88,7 +88,7 @@ jobs:
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
 
-    name: Build tt-metal with newest UMD
+    name: Build and run ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
@@ -98,6 +98,13 @@ jobs:
         TRACY_NO_ISA_EXTENSIONS: 1
 
     steps:
+      - name: Checkout ttsim repo
+        uses: actions/checkout@v4
+        with:
+          path: ttsim
+          repository: tenstorrent/ttsim
+          submodules: recursive
+
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4
         with:
@@ -122,13 +129,6 @@ jobs:
           export PYTHONPATH=$(pwd)
           ./build_metal.sh --build-all --enable-ccache --enable-profiler --build-programming-examples
           cd ../
-
-      - name: Checkout ttsim repo
-        uses: actions/checkout@v4
-        with:
-          path: ttsim
-          repository: tenstorrent/ttsim
-          submodules: recursive
 
       - name: Build tt-sim
         run: |

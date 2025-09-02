@@ -104,6 +104,7 @@ jobs:
           path: ttsim
           repository: tenstorrent/ttsim
           submodules: recursive
+          token: ${{ secrets.TTSIM_TOKEN }}
 
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4

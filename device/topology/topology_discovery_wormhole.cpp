@@ -7,6 +7,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
 extern bool umd_use_noc1;
@@ -14,8 +15,8 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
-    TopologyDiscovery(pci_target_devices, sdesc_path) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type) :
+    TopologyDiscovery(target_devices, sdesc_path, device_type) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -276,7 +277,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
             TT_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =

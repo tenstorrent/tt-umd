@@ -10,6 +10,7 @@
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/types/communication.hpp"
 
 namespace tt::umd {
 
@@ -19,9 +20,15 @@ public:
     // necessary information needed for soc descriptor construction. Due to this inverse member initialization order, we
     // cannot have simple constructors as they require the base class to be constructed first.
     static std::unique_ptr<LocalChip> create(
-        int pci_device_id, std::string sdesc_path = "", int num_host_mem_channels = 0);
+        int device_id,
+        std::string sdesc_path = "",
+        int num_host_mem_channels = 0,
+        IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
-        int pci_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels = 0);
+        int device_id,
+        SocDescriptor soc_descriptor,
+        int num_host_mem_channels = 0,
+        IODeviceType device_type = IODeviceType::PCIe);
 
     ~LocalChip();
 

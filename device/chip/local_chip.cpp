@@ -25,9 +25,10 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+std::unique_ptr<LocalChip> LocalChip::create(
+    int device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(pci_device_id);
+    auto tt_device = TTDevice::create(device_id);
     tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
@@ -42,9 +43,9 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int pci_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    int device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(pci_device_id);
+    auto tt_device = TTDevice::create(device_id);
     tt_device->init_tt_device();
 
     std::unique_ptr<TLBManager> tlb_mgr;

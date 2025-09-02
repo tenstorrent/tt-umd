@@ -12,7 +12,9 @@ namespace tt::umd {
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
     TopologyDiscoveryWormhole(
-        std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
+        std::unordered_set<chip_id_t> pci_target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType device_type = IODeviceType::PCIe);
 
 protected:
     struct EthAddresses {

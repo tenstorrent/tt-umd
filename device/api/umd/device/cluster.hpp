@@ -98,6 +98,12 @@ struct ClusterOptions {
      * This parameter is used only for SIMULATION chip type.
      */
     std::filesystem::path simulator_directory = "";
+
+    /**
+     * I/O device type to use for the cluster.
+     * This determines how the cluster will communicate with the underlying hardware.
+     */
+    IODeviceType io_device_type = IODeviceType::PCIe;
 };
 
 /**
@@ -135,7 +141,9 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
+        std::string sdesc_path = "",
+        std::unordered_set<chip_id_t> pci_target_devices = {},
+        IODeviceType device_type = IODeviceType::PCIe);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
@@ -642,7 +650,9 @@ private:
 
     // Test functions
     void verify_fw_bundle_version();
+    void log_device_summary();
     void log_pci_device_summary();
+    void log_jtag_device_summary();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
     void verify_sysmem_initialized();

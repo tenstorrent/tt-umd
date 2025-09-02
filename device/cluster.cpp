@@ -244,6 +244,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
+        log_info(LogSiliconDriver, "Creating Simulation device");
         // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
         return std::make_unique<SimulationDevice>(simulator_directory);
 #else
@@ -255,6 +256,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
     if (chip_type == ChipType::TTSIM) {
 #ifdef TT_UMD_BUILD_TTSIM
+        log_info(LogSiliconDriver, "Creating TTSim Simulation device");
         return std::make_unique<TTSimDevice>(simulator_directory);
 #else
         throw std::runtime_error(

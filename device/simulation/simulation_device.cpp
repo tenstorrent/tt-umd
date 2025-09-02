@@ -115,13 +115,12 @@ void SimulationDevice::start_device() {
     nng_free(buf_ptr, buf_size);
 }
 
-void SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+void SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
-    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         auto wr_buffer =
-            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
         size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -130,7 +129,7 @@ void SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftRe
     } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         auto wr_buffer =
-            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
         size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -140,8 +139,12 @@ void SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftRe
     }
 }
 
+void SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
+}
+
 void SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset(soc_descriptor_.get_coord_at({0, 0}, CoordSystem::TRANSLATED), soft_resets);
+    send_tensix_risc_reset({0, 0}, soft_resets);
 }
 
 void SimulationDevice::close_device() {

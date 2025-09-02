@@ -93,6 +93,8 @@ public:
         uint32_t* return_4 = nullptr) override;
 
 private:
+    void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
+
     // State variables
     driver_noc_params noc_params;
     std::set<chip_id_t> target_devices_in_cluster = {};

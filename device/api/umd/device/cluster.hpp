@@ -42,6 +42,7 @@ class RemoteChip;
 enum ChipType {
     SILICON,
     SIMULATION,
+    TTSIM,
     MOCK,
 };
 

@@ -50,6 +50,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/simulation/simulation_device.hpp"
+#include "umd/device/simulation/ttsim_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
@@ -252,6 +253,16 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 #endif
     }
 
+    if (chip_type == ChipType::TTSIM) {
+#ifdef TT_UMD_BUILD_TTSIM
+        return std::make_unique<TTSimDevice>(simulator_directory);
+#else
+        throw std::runtime_error(
+            "TTSim device is not supported in this build. Set '-DTT_UMD_BUILD_TTSIM=ON' during cmake configuration to "
+            "enable TTSim device.");
+#endif
+    }
+
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         auto chip = LocalChip::create(cluster_desc->get_chips_with_mmio().at(chip_id), soc_desc, num_host_mem_channels);
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
@@ -329,7 +340,8 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::TTSIM ||
+        cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -425,11 +437,15 @@ Cluster::Cluster(ClusterOptions options) {
             if (options.chip_type == ChipType::SIMULATION) {
                 SimulationDeviceInit init(options.simulator_directory);
                 arch = init.get_soc_descriptor().arch;
+            } else if (options.chip_type == ChipType::TTSIM) {
+                TTSimDeviceInit init(options.simulator_directory);
+                arch = init.get_soc_descriptor().arch;
             }
 #endif
             cluster_desc = ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
         }
-        if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
+        if (options.sdesc_path.empty() &&
+            (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::TTSIM)) {
             options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
         }
     }

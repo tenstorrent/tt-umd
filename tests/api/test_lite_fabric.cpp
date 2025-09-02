@@ -99,49 +99,30 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
     EXPECT_EQ(readback, test_value);
 }
 
-// TODO(pjanevski): not working...
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
     uint32_t test_addr = 0;
 
     uint64_t target_noc_addr = (uint64_t(target_tensix.y) << (36 + 6)) | (uint64_t(target_tensix.x) << 36) | test_addr;
 
-    std::vector<uint32_t> write_data(1 << 20, 2);
+    std::vector<uint8_t> write_data(1 << 20, 2);
 
     host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_noc_addr);
 
-    std::vector<uint32_t> readback_data(1 << 20, 0);
+    std::vector<uint8_t> readback_data(1 << 20, 0);
     host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, target_noc_addr);
-    // EXPECT_EQ(write_data, readback_data);
-
-    for (int i = 0; i < readback_data.size(); i++) {
-        if (readback_data[i] != 2) {
-            printf("readback_data[%d] = %x\n", i, readback_data[i]);
-            return;
-        }
-        // EXPECT_EQ(readback_data[i], 2);
-    }
+    EXPECT_EQ(write_data, readback_data);
 }
 
-// TODO(pjanevski): not working...
 TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
     uint32_t test_addr = 0;
 
     uint64_t target_noc_addr = (uint64_t(target_tensix.y) << (36 + 6)) | (uint64_t(target_tensix.x) << 36) | test_addr;
 
-    std::vector<uint32_t> write_data(1 << 20, 3);
+    std::vector<uint8_t> write_data(1 << 20, 3);
 
     host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_noc_addr);
 
-    std::vector<uint32_t> readback_data(1 << 20, 0);
-    non_fabric_chip->read_from_device(
-        tensix_core, readback_data.data(), test_addr, readback_data.size() * sizeof(uint32_t));
-    // EXPECT_EQ(write_data, readback_data);
-
-    for (int i = 0; i < readback_data.size(); i++) {
-        if (readback_data[i] != 3) {
-            printf("readback_data[%d] = %x\n", i, readback_data[i]);
-            return;
-        }
-        // EXPECT_EQ(readback_data[i], 3);
-    }
+    std::vector<uint8_t> readback_data(1 << 20, 0);
+    non_fabric_chip->read_from_device(tensix_core, readback_data.data(), test_addr, readback_data.size());
+    EXPECT_EQ(write_data, readback_data);
 }

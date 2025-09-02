@@ -13,7 +13,77 @@ on:
     branches: ["main"]
 
 jobs:
-  build-tt-metal:
+  # build-tt-metal:
+  #   # Due to parsing bug, fromJSON is used to convert string to number.
+  #   # In pull_request or push events, the input context is not available, stating the default again here.
+  #   timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+
+  #   name: Build tt-metal with newest UMD
+  #   runs-on: tt-ubuntu-2204-large-stable
+  #   container:
+  #     image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+  #     env:
+  #       # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
+  #       TRACY_NO_INVARIANT_CHECK: 1
+  #       TRACY_NO_ISA_EXTENSIONS: 1
+
+  #   steps:
+  #     - name: Checkout tt-metal repo
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # Clone under tt-metal directory
+  #         path: tt-metal
+  #         repository: tenstorrent/tt-metal
+  #         submodules: recursive
+  #         fetch-depth: 500 # Need enough history for `git describe`
+  #         fetch-tags: true # Need tags for `git describe`
+
+  #     - name: Checkout UMD
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # Clone directly into tt-metal directory for umd
+  #         path: tt-metal/tt_metal/third_party/umd
+  #         submodules: recursive
+
+  #     - name: Build tt-metal
+  #       run: |
+  #         cd tt-metal
+  #         export TT_METAL_HOME=$(pwd)
+  #         export PYTHONPATH=$(pwd)
+  #         ./build_metal.sh --build-all --enable-ccache --enable-profiler
+  #         cd ../
+
+  # build-tt-exalens:
+  #   timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+
+  #   name: Build tt-exalens with newest UMD
+  #   runs-on: ubuntu-22.04
+  #   container:
+  #     image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
+
+  #   steps:
+  #     - name: Checkout tt-exalens repo
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # Clone under tt-exalens directory
+  #         path: tt-exalens
+  #         repository: tenstorrent/tt-exalens
+  #         submodules: recursive
+
+  #     - name: Checkout UMD
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # Clone directly into tt-exalens directory for umd
+  #         path: tt-exalens/third_party/umd
+  #         submodules: recursive
+
+  #     - name: Build tt-exalens
+  #       run: |
+  #         cd tt-exalens
+  #         make build
+  #         cd ../
+
+  build-tt-sim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
@@ -50,35 +120,36 @@ jobs:
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
-          ./build_metal.sh --build-all --enable-ccache --enable-profiler
+          ./build_metal.sh --build-all --enable-ccache --enable-profiler --build-programming-examples
           cd ../
 
-  build-tt-exalens:
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
-
-    name: Build tt-exalens with newest UMD
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
-
-    steps:
-      - name: Checkout tt-exalens repo
+      - name: Checkout ttsim repo
         uses: actions/checkout@v4
         with:
-          # Clone under tt-exalens directory
-          path: tt-exalens
-          repository: tenstorrent/tt-exalens
+          path: ttsim
+          repository: tenstorrent/ttsim
           submodules: recursive
 
-      - name: Checkout UMD
-        uses: actions/checkout@v4
-        with:
-          # Clone directly into tt-exalens directory for umd
-          path: tt-exalens/third_party/umd
-          submodules: recursive
-
-      - name: Build tt-exalens
+      - name: Build tt-sim
         run: |
-          cd tt-exalens
-          make build
+          cd ttsim
+          ../scripts/make.py _out/release_wh/ttsim
+          ../scripts/make.py _out/release_bh/ttsim
+          ../scripts/make.py _out/release_qsr/ttsim
           cd ../
+          echo "Preparing sim paths"
+          mkdir -p sim_wh sim_bh
+          cp ttsim/src/_out/release_wh/ttsim sim_wh/run.sh
+          cp ttsim/src/_out/release_bh/ttsim sim_bh/run.sh
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
+
+      - name: Run tt-sim wormhole tests
+        run: |
+          export TT_METAL_SIMULATOR=$(pwd)/sim_wh
+          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+
+      - name: Run tt-sim blackhole tests
+        run: |
+          export TT_METAL_SIMULATOR=$(pwd)/sim_bh
+          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv

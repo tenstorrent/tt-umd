@@ -170,6 +170,17 @@ struct HostToLiteFabricInterface {
         d2h.fabric_receiver_channel_index = 0;
     }
 
+    void read(void* mem_ptr, size_t size, CoreCoord receiver_core, tt_xy_pair src_core, uint64_t src_addr) {
+        uint64_t src_noc_addr = (uint64_t(src_core.y) << (36 + 6)) | (uint64_t(src_core.x) << 36) | src_addr;
+        read_noc_addr(mem_ptr, size, receiver_core, src_noc_addr);
+    }
+
+    void write(void* mem_ptr, size_t size, CoreCoord sender_core, tt_xy_pair dst_core, uint64_t dst_addr) {
+        uint64_t dst_noc_addr = (uint64_t(dst_core.y) << (36 + 6)) | (uint64_t(dst_core.x) << 36) | dst_addr;
+        write_noc_addr(mem_ptr, size, sender_core, dst_noc_addr);
+    }
+
+private:
     constexpr uint32_t get_max_payload_data_size_bytes() const {
         // Additional 16B to be used only for unaligned reads/writes.
         return CHANNEL_BUFFER_SIZE - sizeof(FabricLiteHeader) - 16;
@@ -318,7 +329,7 @@ struct HostToLiteFabricInterface {
         send_payload_flush_non_blocking_from_address(header, sender_core, sender_channel_base);
     }
 
-    void write(void* mem_ptr, size_t size, CoreCoord sender_core, uint64_t dst_noc_addr) {
+    void write_noc_addr(void* mem_ptr, size_t size, CoreCoord sender_core, uint64_t dst_noc_addr) {
         size_t num_pages = size / get_max_payload_data_size_bytes();
         for (size_t i = 0; i < num_pages; i++) {
             write_one_page(
@@ -368,7 +379,7 @@ struct HostToLiteFabricInterface {
         flush_h2d(receiver_core);
     }
 
-    void read(void* mem_ptr, size_t size, CoreCoord receiver_core, uint64_t src_noc_addr) {
+    void read_noc_addr(void* mem_ptr, size_t size, CoreCoord receiver_core, uint64_t src_noc_addr) {
         size_t num_pages = size / get_max_payload_data_size_bytes();
         for (size_t i = 0; i < num_pages; i++) {
             read_one_page(

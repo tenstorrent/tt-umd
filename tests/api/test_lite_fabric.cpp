@@ -77,12 +77,10 @@ TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
     uint32_t test_value = 0xdeadbeef;
     uint32_t test_addr = 0x1000;
 
-    uint64_t target_noc_addr = (uint64_t(target_tensix.y) << (36 + 6)) | (uint64_t(target_tensix.x) << 36) | test_addr;
-
-    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, target_noc_addr);
+    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, target_tensix, test_addr);
 
     uint32_t fabric_readback = 0;
-    host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, target_noc_addr);
+    host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, target_tensix, test_addr);
     EXPECT_EQ(fabric_readback, test_value);
 }
 
@@ -90,9 +88,7 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
     uint32_t test_value = 0xdeadbeef;
     uint32_t test_addr = 0x1000;
 
-    uint64_t target_noc_addr = (uint64_t(target_tensix.y) << (36 + 6)) | (uint64_t(target_tensix.x) << 36) | test_addr;
-
-    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, target_noc_addr);
+    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, target_tensix, test_addr);
 
     uint32_t readback = 0;
     non_fabric_chip->read_from_device(tensix_core, &readback, test_addr, sizeof(readback));
@@ -102,25 +98,21 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
     uint32_t test_addr = 0;
 
-    uint64_t target_noc_addr = (uint64_t(target_tensix.y) << (36 + 6)) | (uint64_t(target_tensix.x) << 36) | test_addr;
-
     std::vector<uint8_t> write_data(1 << 20, 2);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_noc_addr);
+    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_tensix, test_addr);
 
     std::vector<uint8_t> readback_data(1 << 20, 0);
-    host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, target_noc_addr);
+    host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, target_tensix, test_addr);
     EXPECT_EQ(write_data, readback_data);
 }
 
 TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
     uint32_t test_addr = 0;
 
-    uint64_t target_noc_addr = (uint64_t(target_tensix.y) << (36 + 6)) | (uint64_t(target_tensix.x) << 36) | test_addr;
-
     std::vector<uint8_t> write_data(1 << 20, 3);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_noc_addr);
+    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_tensix, test_addr);
 
     std::vector<uint8_t> readback_data(1 << 20, 0);
     non_fabric_chip->read_from_device(tensix_core, readback_data.data(), test_addr, readback_data.size());

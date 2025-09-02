@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/jtag/jtag_device.h"
 
 #include <cstdint>
 #include <cstring>
@@ -10,7 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/jtag/jtag.hpp"
+#include "umd/device/jtag/jtag.h"
 
 constexpr uint32_t ROW_LEN = 12;
 constexpr uint32_t WORMHOLE_ID = 0x138a5;
@@ -18,9 +18,8 @@ constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
 /* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/lib_tt_jtag.so");
-/* static */ std::unique_ptr<Jtag> JtagDevice::jtag;
 
-JtagDevice::JtagDevice() {
+JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {
     jtag->close_jlink();
 
     std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
@@ -61,8 +60,10 @@ JtagDevice::JtagDevice() {
     }
 }
 
-/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(std::filesystem::path& binary_directory) {
-    if (binary_directory.empty()) {
+/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(const std::filesystem::path& binary_directory) {
+    std::filesystem::path actual_path = binary_directory;
+
+    if (actual_path.empty()) {
         char buffer[PATH_MAX + 1];
         ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
 
@@ -70,16 +71,12 @@ JtagDevice::JtagDevice() {
             buffer[len] = '\0';
             std::string path(buffer);
             std::string::size_type pos = path.find_last_of("/");
-            binary_directory = path.substr(0, pos);
+            actual_path = path.substr(0, pos);
         }
     }
 
-    // Keeping jtag library opener a singleton.
-    // Only one instance per process prevents multiple unnecessary initializations.
-    if (!jtag) {
-        jtag = std::make_unique<Jtag>(binary_directory.c_str());
-    }
-    auto jtag_device = std::shared_ptr<JtagDevice>(new JtagDevice());
+    std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
+    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag));
 
     // Check that all chips are of the same type
     auto arch = jtag_device->get_jtag_arch(0);

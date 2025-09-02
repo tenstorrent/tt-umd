@@ -234,7 +234,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         }
         log_info(
             LogSiliconDriver,
-            "Opening local chip ids/pci ids: {}/{} and remote chip ids {}",
+            "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
+            DeviceTypeToString.at(cluster_desc->get_io_device_type()),
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);

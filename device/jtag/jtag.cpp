@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/jtag/jtag.hpp"
 
-#include <dlfcn.h>
 #include <stdint.h>
 
 #include <filesystem>
@@ -15,6 +14,8 @@
 
 #include "assert.hpp"
 
+/*static*/ DlHandle Jtag::handle;
+
 void DlCloser::operator()(void* handle) const {
     if (handle) {
         dlclose(handle);
@@ -22,23 +23,27 @@ void DlCloser::operator()(void* handle) const {
     }
 }
 
-DlHandle openLibrary(const std::string& filePath, int flags = RTLD_LAZY) {
+void Jtag::openLibrary(const std::string& filePath, int flags) {
     if (!std::filesystem::exists(filePath)) {
         TT_THROW(
             "You do not have a JTAG library at {}.\n"
             "File path could be wrong.",
             filePath);
     }
-    void* handle = dlopen(filePath.c_str(), flags);
+    if (handle) {
+        return;
+    }
+
+    handle = DlHandle(dlopen(filePath.c_str(), flags));
+
     if (!handle) {
         TT_THROW("Failed to open JTAG library: {}", dlerror());
     }
 
     log_info(tt::LogSiliconDriver, "JTAG library {} opened successfully.", filePath);
-    return DlHandle(handle);
 }
 
-Jtag::Jtag(const char* lib_path) : handle(openLibrary(lib_path)) {}
+Jtag::Jtag(const char* lib_path) { openLibrary(lib_path); }
 
 void* Jtag::load_function(const char* name) {
     std::lock_guard<std::mutex> lock(mtx);

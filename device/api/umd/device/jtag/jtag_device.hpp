@@ -9,14 +9,17 @@
 #include <memory>
 #include <optional>
 
-#include "umd/device/jtag/jtag.h"
-#include "umd/device/types/arch.h"
+#include "umd/device/jtag/jtag.hpp"
+#include "umd/device/types/arch.hpp"
 
 class JtagDevice {
 public:
+    explicit JtagDevice(std::unique_ptr<Jtag> jtag_device);
     ~JtagDevice();
 
-    static std::shared_ptr<JtagDevice> create(std::filesystem::path& binary_directory = jtag_library_path);
+    static std::shared_ptr<JtagDevice> create(const std::filesystem::path& binary_directory = jtag_library_path);
+
+    void close_device() {}
 
     uint32_t get_device_cnt() const;
     std::optional<uint32_t> get_efuse_harvesting(uint8_t chip_id) const;
@@ -61,9 +64,8 @@ public:
     static std::filesystem::path jtag_library_path;
 
 private:
-    JtagDevice();
     void select_device(uint8_t chip_id);
-    static std::unique_ptr<Jtag> jtag;
+    std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;
     std::vector<uint32_t> efuse_harvesting;
     std::optional<uint8_t> curr_device_idx = std::nullopt;

@@ -121,6 +121,10 @@ TEST_F(ApiJtagDeviceTest, JtagIOLessThanWordSizeUnalignedAddress) {
 }
 
 TEST(ApiJtagClusterTest, JtagClusterIOTest) {
+    if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
+        GTEST_SKIP() << "JTAG library does not exist at " << JtagDevice::jtag_library_path.string();
+    }
+
     if (!JtagDevice::create()->get_device_cnt()) {
         GTEST_SKIP() << "No usable JTAG devices with current JTAG implementation.";
     }

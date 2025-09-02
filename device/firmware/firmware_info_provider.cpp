@@ -102,4 +102,11 @@ uint32_t FirmwareInfoProvider::get_max_clock_freq() {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::AICLK_LIMIT_MAX);
 }
 
+uint8_t FirmwareInfoProvider::get_asic_location() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    return telemetry->is_entry_available(TelemetryTag::ASIC_LOCATION)
+               ? static_cast<uint8_t>(telemetry->read_entry(TelemetryTag::ASIC_LOCATION))
+               : 0;
+}
+
 }  // namespace tt::umd

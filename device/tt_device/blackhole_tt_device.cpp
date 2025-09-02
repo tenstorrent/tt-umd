@@ -131,8 +131,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
     }
 
-    chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
-
     return chip_info;
 }
 

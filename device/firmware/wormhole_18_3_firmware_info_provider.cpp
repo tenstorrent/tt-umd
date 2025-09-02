@@ -54,4 +54,11 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() {
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
+uint8_t Wormhole_18_3_FirmwareInfoProvider::get_asic_location() {
+    // 0 is a placeholder value for older WH fw versions. This is something that is not used by SW for older Wormhole FW
+    // versions.
+    // TODO: support asic location to be optional if needed, at the moment this is not a priroty.
+    return 0;
+}
+
 }  // namespace tt::umd

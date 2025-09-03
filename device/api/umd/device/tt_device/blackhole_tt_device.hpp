@@ -50,16 +50,13 @@ public:
     bool wait_arc_post_reset(const uint32_t timeout_ms) override;
 
 protected:
-    BlackholeTTDevice() = default;
-
-private:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 
+private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;
-    tt_xy_pair arc_core;
 };
 
 }  // namespace tt::umd

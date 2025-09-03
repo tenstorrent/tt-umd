@@ -512,6 +512,10 @@ TEST(TestCluster, WarmResetScratch) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
+    }
+
     uint32_t write_test_data = 0xDEADBEEF;
 
     auto chip_id = *cluster->get_target_device_ids().begin();
@@ -542,6 +546,10 @@ TEST(TestCluster, WarmReset) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
 
     auto arch = cluster->get_tt_device(0)->get_arch();

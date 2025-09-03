@@ -6,6 +6,7 @@
 #include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -123,7 +124,7 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     }
 
     auto cluster = std::make_unique<Cluster>();
-    if (is_galaxy_configuration(cluster)) {
+    if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
 

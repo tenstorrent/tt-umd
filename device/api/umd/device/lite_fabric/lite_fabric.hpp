@@ -380,7 +380,6 @@ private:
     }
 
     void read_noc_addr(void* mem_ptr, size_t size, CoreCoord receiver_core, uint64_t src_noc_addr) {
-        std::cout << "read noc addr " << std::hex << src_noc_addr << std::dec << std::endl;
         size_t num_pages = size / get_max_payload_data_size_bytes();
         for (size_t i = 0; i < num_pages; i++) {
             read_one_page(

@@ -140,14 +140,10 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 }
 
 void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
-    std::cout << "wait arc core start " << arc_core.x << " " << arc_core.y << std::endl;
-
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        std::cout << "scrath ram 2 " << std::endl;
         read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
-        std::cout << "scratch ram 2 end" << std::endl;
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -161,7 +157,6 @@ void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
                 "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
         }
     }
-    std::cout << "arc core started" << std::endl;
 }
 
 uint32_t BlackholeTTDevice::get_clock() {
@@ -195,8 +190,6 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 }
 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    uint64_t noc_addr = get_arc_noc_base_address() + arc_addr_offset;
-    std::cout << "noc addr: " << std::hex << noc_addr << std::dec << std::endl;
     read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 };
 

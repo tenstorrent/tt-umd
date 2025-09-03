@@ -26,9 +26,9 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
+    int physical_device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(device_id);
+    auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
@@ -39,18 +39,38 @@ std::unique_ptr<LocalChip> LocalChip::create(
         soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
-    return create(device_id, soc_descriptor, num_host_mem_channels, device_type);
+    std::unique_ptr<TLBManager> tlb_mgr = nullptr;
+    std::unique_ptr<SysmemManager> sysmem_mgr = nullptr;
+    std::unique_ptr<RemoteCommunication> remote_comm = nullptr;
+
+    // The variables bellow are only needed when using PCIe.
+    // JTAG(currently the only communication protocol other than PCIe) has no use of them.
+    if (device_type == IODeviceType::PCIe) {
+        tlb_mgr = std::make_unique<TLBManager>(tt_device.get());
+        sysmem_mgr = std::make_unique<SysmemManager>(tlb_mgr.get(), num_host_mem_channels);
+        remote_comm = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_mgr.get());
+    }
+
+    return std::unique_ptr<LocalChip>(new LocalChip(
+        soc_descriptor,
+        std::move(tt_device),
+        std::move(tlb_mgr),
+        std::move(sysmem_mgr),
+        std::move(remote_comm),
+        num_host_mem_channels));
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
+    int physical_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(device_id);
+    // physical_device_id is not actually physical for JTAG devices here.
+    // It represents the index within a vector of jlink devices discovered by JtagDevice.
+    auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
-    std::unique_ptr<TLBManager> tlb_mgr;
-    std::unique_ptr<SysmemManager> sysmem_mgr;
-    std::unique_ptr<RemoteCommunication> remote_comm;
+    std::unique_ptr<TLBManager> tlb_mgr = nullptr;
+    std::unique_ptr<SysmemManager> sysmem_mgr = nullptr;
+    std::unique_ptr<RemoteCommunication> remote_comm = nullptr;
 
     // The variables bellow are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
@@ -80,11 +100,11 @@ LocalChip::LocalChip(
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
-    if (tlb_manager_) {
+    if (tlb_manager_ != nullptr) {
         initialize_tlb_manager();
     }
     wait_chip_to_be_ready();
-    if (tlb_manager_) {
+    if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();
     }
 }
@@ -159,7 +179,7 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+    if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
         return;
     }
 
@@ -257,7 +277,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    if (!tlb_manager_) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, core, l1_dest, size);
         return;
     }
@@ -349,7 +369,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    if (!tlb_manager_) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
@@ -381,7 +401,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    if (!tlb_manager_) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
@@ -427,10 +447,11 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
-    if (!tlb_manager_) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, core, reg_dest, size);
         return;
     }
+
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
@@ -450,10 +471,11 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
-    if (!tlb_manager_) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, core, reg_src, size);
         return;
     }
+
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
@@ -466,6 +488,8 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 
 void LocalChip::ethernet_broadcast_write(
     const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header) {
+    // Depending on the device type, the implementation may vary.
+    // Currently JTAG doesn't support remote communication.
     if (!remote_communication_) {
         TT_THROW(
             "Ethernet remote transfer is currently not supported for {} devices.",
@@ -481,6 +505,8 @@ void LocalChip::wait_for_non_mmio_flush() {
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    // Depending on the device type, the implementation may vary.
+    // Currently JTAG doesn't support remote communication.
     if (!remote_communication_) {
         TT_THROW(
             "Ethernet remote transfer is currently not supported for {} devices.",
@@ -493,6 +519,8 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    // Depending on the device type, the implementation may vary.
+    // Currently JTAG doesn't support remote communication.
     if (!remote_communication_) {
         TT_THROW(
             "Ethernet remote transfer is currently not supported for {} devices.",

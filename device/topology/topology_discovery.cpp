@@ -94,7 +94,7 @@ void TopologyDiscovery::get_connected_chips() {
             TT_THROW("Unsupported device type.");
     }
     for (auto& device_id : device_ids) {
-        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
+        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type);
 
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);

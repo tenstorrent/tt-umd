@@ -263,6 +263,10 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
             if (!device_cnt) {
                 return;
             }
+            // JTAG devices (j-links) are referred to with their index within a vector
+            // that's stored inside of a JtagDevice object.
+            // That index is completely different from the actual JTAG device id.
+            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
             break;
         }
         case IODeviceType::PCIe: {

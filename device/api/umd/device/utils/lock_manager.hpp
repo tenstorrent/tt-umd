@@ -9,7 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {

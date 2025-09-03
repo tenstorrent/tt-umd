@@ -88,6 +88,12 @@ struct ClusterOptions {
      * of the PCIE chips on certain board is specified, UMD will take all chips from the board.
      */
     std::unordered_set<chip_id_t> pci_target_devices = {};
+
+    /**
+     * Same rules apply here as for pci_target_devices. The only difference is the protocol type (jtag).
+     */
+    std::unordered_set<chip_id_t> jtag_target_devices = {};
+
     /**
      * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
      * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
@@ -142,7 +148,7 @@ public:
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
         std::string sdesc_path = "",
-        std::unordered_set<chip_id_t> pci_target_devices = {},
+        std::unordered_set<chip_id_t> target_devices = {},
         IODeviceType device_type = IODeviceType::PCIe);
 
     /**
@@ -652,7 +658,6 @@ private:
     void verify_fw_bundle_version();
     void log_device_summary();
     void log_pci_device_summary();
-    void log_jtag_device_summary();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
     void verify_sysmem_initialized();

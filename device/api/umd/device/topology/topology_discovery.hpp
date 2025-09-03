@@ -21,11 +21,11 @@ class ClusterDescriptor;
 class TopologyDiscovery {
 public:
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<chip_id_t> pci_target_devices = {},
+        std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
     TopologyDiscovery(
-        std::unordered_set<chip_id_t> pci_target_devices = {},
+        std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
     virtual ~TopologyDiscovery() = default;

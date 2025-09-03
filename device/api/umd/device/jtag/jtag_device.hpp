@@ -68,5 +68,5 @@ private:
     std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;
     std::vector<uint32_t> efuse_harvesting;
-    std::optional<uint8_t> curr_device_idx = std::nullopt;
+    static std::optional<uint8_t> curr_device_idx;
 };

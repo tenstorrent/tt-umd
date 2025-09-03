@@ -123,10 +123,10 @@ void Cluster::log_device_summary() {
             log_pci_device_summary();
             break;
         case IODeviceType::JTAG:
-            log_jtag_device_summary();
+            // Currently no specific device logging needed for JTAG.
             break;
         default:
-            log_info(LogSiliconDriver, "Unknown device type for logging.");
+            TT_THROW("Unknown device type for logging.");
             break;
     }
 }
@@ -174,14 +174,6 @@ void Cluster::log_pci_device_summary() {
     }
 
     log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
-}
-
-void Cluster::log_jtag_device_summary() {
-    if (local_chip_ids_.empty()) {
-        return;
-    }
-    // TODO: move read_kmd_version from PCIDevice to something more universal.
-    log_info(LogSiliconDriver, "KMD version: {}", PCIDevice::read_kmd_version().to_string());
 }
 
 void Cluster::verify_fw_bundle_version() {
@@ -279,7 +271,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         auto chip = LocalChip::create(
-            cluster_desc->get_chips_with_mmio().at(chip_id),
+            (cluster_desc->io_device_type == IODeviceType::JTAG ? chip_id
+                                                                : cluster_desc->get_chips_with_mmio().at(chip_id)),
             soc_desc,
             num_host_mem_channels,
             cluster_desc->io_device_type);
@@ -413,7 +406,7 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
             options.sdesc_path,
-            options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.target_devices,
+            options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
             options.io_device_type);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
@@ -1138,8 +1131,8 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices, IODeviceType device_type) {
-    return TopologyDiscovery::create_cluster_descriptor(pci_target_devices, sdesc_path, device_type);
+    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type) {
+    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
 }
 
 }  // namespace tt::umd

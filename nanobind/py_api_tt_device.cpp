@@ -15,8 +15,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication.hpp"
-
+#include "umd/device/types/communication_protocol.hpp"
 namespace nb = nanobind;
 
 using namespace tt::umd;

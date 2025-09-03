@@ -435,7 +435,11 @@ Cluster::Cluster(ClusterOptions options) {
 
     if (options.sdesc_path.empty() &&
         (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::TTSIM)) {
-        options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
+        if (options.simulator_directory.extension() == ".so") {
+            options.sdesc_path = options.simulator_directory.parent_path() / "soc_descriptor.yaml";
+        } else {
+            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
+        }
     }
 
     // Construct all the required chips from the cluster descriptor.

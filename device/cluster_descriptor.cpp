@@ -461,7 +461,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
-    const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
+    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     BoardType board_type;

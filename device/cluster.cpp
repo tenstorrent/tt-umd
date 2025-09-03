@@ -391,49 +391,17 @@ Cluster::Cluster(ClusterOptions options) {
     // If the cluster descriptor is not provided, create a new one.
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
-    if (temp_full_cluster_desc == nullptr) {
-        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
-        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
-    }
     chip_type_ = options.chip_type;
 
-    std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
-    // If no target devices are passed, obtain them from the cluster descriptor.
-    if (chips_to_construct.empty()) {
-        chips_to_construct = temp_full_cluster_desc->get_all_chips();
-        // If no target devices are passed and the cluster descriptor is not constrained, we can use the full cluster.
-        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
-        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
-        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
-        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
-    } else {
-        // Create constrained cluster descriptor which only contains the chips to be in this Cluster.
-        cluster_desc =
-            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
-    }
-    std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
-    // Check target_devices against the cluster descriptor in case of silicon chips.
-    // We also have to sort them so that local chips are constructed first.
-    // For MOCK and SIMULATION chip types, passing target_devices which are not in cluster descriptor is allowed.
-    if (options.chip_type == ChipType::SILICON) {
-        chips_to_construct_vec = cluster_desc->get_chips_local_first(chips_to_construct);
-    } else {
-        // If we're running on a system where system chips don't match what was requested through target_chips for non
-        // silicon chip, then just create a mock cluster descriptor so we still have info for those chips. This includes
-        // systems with no silicon chips.
-        bool construct_mock_cluster_descriptor = false;
-        for (auto const& chip_id : chips_to_construct_vec) {
-            if (temp_full_cluster_desc->get_all_chips().find(chip_id) ==
-                temp_full_cluster_desc->get_all_chips().end()) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Chip {} not found in cluster descriptor, creating mock cluster descriptor.",
-                    chip_id);
-                construct_mock_cluster_descriptor = true;
-                break;
-            }
-        }
-        if (construct_mock_cluster_descriptor) {
+    // We need to constuct a cluster descriptor if a custom one was not passed.
+    if (temp_full_cluster_desc == nullptr) {
+        if (options.chip_type == ChipType::SILICON) {
+            // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
+            temp_full_cluster_desc_ptr =
+                Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
+        } else {
+            // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
+            // descriptor from passed target devices.
             auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
             if (options.chip_type == ChipType::SIMULATION) {
@@ -444,14 +412,34 @@ Cluster::Cluster(ClusterOptions options) {
                 arch = init.get_soc_descriptor().arch;
             }
 #endif
-            cluster_desc = ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
+            temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster(options.target_devices, arch);
         }
-        if (options.sdesc_path.empty() &&
-            (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::TTSIM)) {
-            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
-        }
+        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
-    for (auto& chip_id : chips_to_construct_vec) {
+
+    // If target devices were passed, we want to honour it by constraining the cluster descriptor to only include the
+    // chips in the target devices. Note that we can skip this step in case of mock cluster descriptor, since it was
+    // already created using the target devices.
+    if (!options.target_devices.empty() && options.chip_type == ChipType::SILICON) {
+        // If target devices are passed create constrained cluster descriptor which only contains the chips to be in
+        // this Cluster.
+        cluster_desc =
+            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
+    } else {
+        // If no target devices are passed, we can use the full cluster.
+        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
+        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
+        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
+        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+    }
+
+    if (options.sdesc_path.empty() &&
+        (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::TTSIM)) {
+        options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
+    }
+
+    // Construct all the required chips from the cluster descriptor.
+    for (auto& chip_id : cluster_desc->get_all_chips()) {
         // Combine passed simulated_harvesting_masks
         HarvestingMasks simulated_harvesting_masks =
             options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=

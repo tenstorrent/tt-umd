@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
-#include <fmt/format.h>
-#include <fmt/ranges.h> 
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
@@ -145,7 +145,9 @@ void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
+        std::cout << "scrath ram 2 " << std::endl;
         read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        std::cout << "scratch ram 2 end" << std::endl;
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -156,10 +158,7 @@ void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             throw std::runtime_error(fmt::format(
-                "Timed out after waiting {} ms for arc core ({}, {}) to start",
-                timeout_ms,
-                arc_core.x,
-                arc_core.y));
+                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
         }
     }
     std::cout << "arc core started" << std::endl;
@@ -196,6 +195,8 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 }
 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    uint64_t noc_addr = get_arc_noc_base_address() + arc_addr_offset;
+    std::cout << "noc addr: " << std::hex << noc_addr << std::dec << std::endl;
     read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 };
 

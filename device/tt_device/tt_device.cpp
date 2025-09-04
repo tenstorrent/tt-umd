@@ -571,6 +571,14 @@ std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 
+ChipInfo TTDevice::get_chip_info() {
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
+    chip_info.chip_uid.board_id = get_board_id();
+    chip_info.board_type = get_board_type();
+    return chip_info;
+}
+
 uint32_t TTDevice::get_risc_soft_reset(tt_xy_pair core) {
     uint32_t tensix_risc_state;
     read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));

@@ -102,7 +102,7 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 }
 
 ChipInfo BlackholeTTDevice::get_chip_info() {
-    ChipInfo chip_info;
+    ChipInfo chip_info = TTDevice::get_chip_info();
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         tt::ARCH::BLACKHOLE,
         telemetry->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
@@ -129,22 +129,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     if (pcie1_usage != pcie_usage_endpoint) {
         chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
-    }
-
-    // TODO: Read asic location of the chip from telemetry when it is available.
-    // Until then we have to read it from ETH core, it happens during topology exploration.
-    // chip_info.chip_uid.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
-
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
-
-    // It is expected that these entries are always available.
-    chip_info.chip_uid.board_id = get_board_id();
-
-    chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
-
-    // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
-    if (chip_info.board_type == BoardType::P100) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
     chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
@@ -214,7 +198,9 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
     write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 }
 
-void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+    uint32_t time_taken = 0;
+
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
@@ -226,7 +212,8 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
+        time_taken = duration.count();
+        if (time_taken > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.
@@ -234,6 +221,7 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
             break;
         }
     }
+    return time_taken;
 }
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }

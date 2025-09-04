@@ -212,7 +212,7 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info() = 0;
+    virtual ChipInfo get_chip_info();
 
     semver_t get_firmware_version();
 
@@ -230,7 +230,13 @@ public:
      */
     virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
-    virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+    /**
+     * Waits for ETH core training to complete.
+     * @param eth_core Specific ETH core to wait on.
+     * @param timeout_ms Timeout in ms.
+     * @return Time taken in ms.
+     */
+    virtual uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
     void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
 

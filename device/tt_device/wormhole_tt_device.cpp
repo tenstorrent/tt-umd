@@ -59,8 +59,7 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
 }
 
 ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info;
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
+    ChipInfo chip_info = TTDevice::get_chip_info();
 
     std::vector<uint32_t> arc_msg_return_values = {0};
     const uint32_t timeout_ms = 1000;
@@ -77,10 +76,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.harvesting_masks.tensix_harvesting_mask =
         CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
-
-    chip_info.chip_uid.board_id = get_board_id();
-
-    chip_info.board_type = get_board_type();
 
     return chip_info;
 }
@@ -406,8 +401,10 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
         wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
+    uint32_t time_taken_heartbeat = 0;
+    uint32_t time_taken_port = 0;
     auto start = std::chrono::system_clock::now();
     uint32_t heartbeat_val;
     read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
@@ -417,7 +414,8 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
         read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
+        time_taken_heartbeat = duration.count();
+        if (time_taken_heartbeat > timeout_ms) {
             throw std::runtime_error(fmt::format("ETH training timed out after {} ms", timeout_ms));
             break;
         }
@@ -429,7 +427,8 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
         port_status = read_port_status(eth_core);
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
+        time_taken_port = duration.count();
+        if (time_taken_port > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
@@ -437,6 +436,7 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
             break;
         }
     }
+    return time_taken_heartbeat + time_taken_port;
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }

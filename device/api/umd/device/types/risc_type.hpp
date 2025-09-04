@@ -10,6 +10,7 @@
 #include <fmt/format.h>
 
 #include <cstdint>
+#include <ostream>
 #include <string>
 
 namespace tt::umd {
@@ -102,6 +103,10 @@ constexpr RiscType& operator&=(RiscType& lhs, RiscType rhs) {
     lhs = lhs & rhs;
     return lhs;
 }
+
+// Stream output operator for cout
+inline std::ostream& operator<<(std::ostream& os, RiscType risc_type) { return os << RiscTypeToString(risc_type); }
+
 }  // namespace tt::umd
 
 namespace fmt {

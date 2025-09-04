@@ -108,11 +108,11 @@ jobs:
 
       - name: Build tt-sim
         run: |
-          cd ttsim
+          cd ttsim/src
           ../scripts/make.py _out/release_wh/ttsim
           ../scripts/make.py _out/release_bh/ttsim
           ../scripts/make.py _out/release_qsr/ttsim
-          cd ../
+          cd ../../
 
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4

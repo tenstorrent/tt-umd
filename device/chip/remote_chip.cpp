@@ -23,8 +23,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     std::string sdesc_path) {
-    auto remote_communication =
-        std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
@@ -47,8 +47,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
-    auto remote_communication =
-        std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));

@@ -136,6 +136,8 @@ jobs:
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
+          echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
+          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh --build-all --enable-ccache --enable-profiler --build-programming-examples
           cd ../
 

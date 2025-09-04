@@ -4,10 +4,9 @@ name: Automated Release
 on:
   push:
     branches:
-      - brosko/release_flow
       - main
-    # paths:
-    #   - 'VERSION'
+    paths:
+      - 'VERSION'
 
 env:
   RELEASE_BUILD_TYPE: Release
@@ -481,8 +480,8 @@ jobs:
 
           echo "Sending Slack notification..."
           # TODO: Uncomment this
-          # curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-          #   -H "Content-Type: application/json" \
-          #   -d @/tmp/payload.json
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json
 
           echo "Slack notification sent!"

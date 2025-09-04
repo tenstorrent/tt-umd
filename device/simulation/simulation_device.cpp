@@ -60,7 +60,7 @@ SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulato
 
 SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    lock_manager.initialize_mutex(MutexType::TT_SIMULATOR);
+    lock_manager.initialize_mutex(MutexType::TT_SIMULATOR, MutexImplementationType::PROCESS_LOCAL);
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
     arch_name = init.get_arch_name();
     target_devices_in_cluster = {0};

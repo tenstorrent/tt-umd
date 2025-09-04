@@ -28,14 +28,15 @@ const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToStr
     {IODeviceType::JTAG, "JTAG"},
 };
 
-void LockManager::initialize_mutex(MutexType mutex_type) {
-    initialize_mutex_internal(MutexTypeToString.at(mutex_type));
+void LockManager::initialize_mutex(MutexType mutex_type, MutexImplementationType mutex_impl_type) {
+    initialize_mutex_internal(MutexTypeToString.at(mutex_type), mutex_impl_type);
 }
 
-void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
+void LockManager::initialize_mutex(
+    MutexType mutex_type, int device_id, IODeviceType device_type, MutexImplementationType mutex_impl_type) {
     std::string mutex_name =
         MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    initialize_mutex_internal(mutex_name);
+    initialize_mutex_internal(mutex_name, mutex_impl_type);
 }
 
 void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
@@ -57,9 +58,10 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex(
     return acquire_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+void LockManager::initialize_mutex(
+    std::string mutex_prefix, int device_id, IODeviceType device_type, MutexImplementationType mutex_impl_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    initialize_mutex_internal(mutex_name);
+    initialize_mutex_internal(mutex_name, mutex_impl_type);
 }
 
 void LockManager::clear_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
@@ -73,14 +75,14 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex(
     return acquire_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
+void LockManager::initialize_mutex_internal(const std::string& mutex_name, MutexImplementationType mutex_impl_type) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
         log_warning(LogSiliconDriver, "Mutex already initialized: {}", mutex_name);
         return;
     }
 
-    mutexes.emplace(mutex_name, RobustMutex(mutex_name));
-    mutexes.at(mutex_name).initialize();
+    mutexes.emplace(mutex_name, RobustMutex::create(mutex_name, mutex_impl_type));
+    mutexes.at(mutex_name)->initialize();
 }
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
@@ -96,7 +98,7 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::str
     if (mutexes.find(mutex_name) == mutexes.end()) {
         throw std::runtime_error("Mutex not initialized: " + mutex_name);
     }
-    return std::unique_lock(mutexes.at(mutex_name));
+    return std::unique_lock(*mutexes.at(mutex_name));
 }
 
 }  // namespace tt::umd

@@ -72,6 +72,8 @@ target_sources(
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
+        utils/robust_process_mutex.cpp
+        utils/robust_system_mutex.cpp
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
@@ -122,6 +124,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
+                api/umd/device/utils/robust_process_mutex.hpp
+                api/umd/device/utils/robust_system_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/blackhole_tt_device.hpp

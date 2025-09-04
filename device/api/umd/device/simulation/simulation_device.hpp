@@ -17,6 +17,14 @@
 
 namespace tt::umd {
 
+typedef void (*libttsim_init_t)();
+typedef void (*libttsim_exit_t)();
+typedef void (*libttsim_tile_rd_bytes_t)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size);
+typedef void (*libttsim_tile_wr_bytes_t)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size);
+typedef void (*libttsim_tensix_reset_deassert_t)(uint32_t x, uint32_t y);
+typedef void (*libttsim_tensix_reset_assert_t)(uint32_t x, uint32_t y);
+typedef void (*libttsim_clock_t)(uint32_t n_clocks);
+
 class SimulationDeviceInit {
 public:
     SimulationDeviceInit(const std::filesystem::path& simulator_directory);
@@ -25,7 +33,7 @@ public:
 
     const SocDescriptor& get_soc_descriptor() const { return soc_descriptor; }
 
-    std::filesystem::path get_simulator_path() const { return simulator_directory / "run.sh"; }
+    std::filesystem::path get_simulator_path() const { return simulator_directory; }
 
 private:
     std::filesystem::path simulator_directory;
@@ -107,6 +115,15 @@ private:
     // the simulation device code should acquire a lock
     // to ensure it can be called safely from multiple threads.
     LockManager lock_manager;
+
+    void* libttsim_handle = nullptr;
+    libttsim_init_t pfn_libttsim_init = nullptr;
+    libttsim_exit_t pfn_libttsim_exit = nullptr;
+    libttsim_tile_rd_bytes_t pfn_libttsim_tile_rd_bytes = nullptr;
+    libttsim_tile_wr_bytes_t pfn_libttsim_tile_wr_bytes = nullptr;
+    libttsim_tensix_reset_deassert_t pfn_libttsim_tensix_reset_deassert = nullptr;
+    libttsim_tensix_reset_assert_t pfn_libttsim_tensix_reset_assert = nullptr;
+    libttsim_clock_t pfn_libttsim_clock = nullptr;
 };
 
 }  // namespace tt::umd

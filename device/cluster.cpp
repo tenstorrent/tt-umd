@@ -439,7 +439,7 @@ Cluster::Cluster(ClusterOptions options) {
     }
 
     // Construct all the required chips from the cluster descriptor.
-    for (auto& chip_id : cluster_desc->get_all_chips()) {
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         // Combine passed simulated_harvesting_masks
         HarvestingMasks simulated_harvesting_masks =
             options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=

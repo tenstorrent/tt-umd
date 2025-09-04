@@ -106,6 +106,14 @@ jobs:
           submodules: recursive
           token: ${{ secrets.TTSIM_TOKEN }}
 
+      - name: Build tt-sim
+        run: |
+          cd ttsim
+          ../scripts/make.py _out/release_wh/ttsim
+          ../scripts/make.py _out/release_bh/ttsim
+          ../scripts/make.py _out/release_qsr/ttsim
+          cd ../
+
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4
         with:
@@ -131,13 +139,8 @@ jobs:
           ./build_metal.sh --build-all --enable-ccache --enable-profiler --build-programming-examples
           cd ../
 
-      - name: Build tt-sim
+      - name: Prepare sim paths
         run: |
-          cd ttsim
-          ../scripts/make.py _out/release_wh/ttsim
-          ../scripts/make.py _out/release_bh/ttsim
-          ../scripts/make.py _out/release_qsr/ttsim
-          cd ../
           echo "Preparing sim paths"
           mkdir -p sim_wh sim_bh
           cp ttsim/src/_out/release_wh/ttsim sim_wh/run.sh

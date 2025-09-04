@@ -110,7 +110,7 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    get_tt_device()->set_risc_soft_reset(core, valid_val);
+    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), valid_val);
 }
 
 // TODO: Remove this API once we switch to the new one.

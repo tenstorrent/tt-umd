@@ -73,6 +73,8 @@ public:
     virtual RiscType get_tensix_risc_reset(CoreCoord core);
     virtual void assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs);
     virtual void deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    virtual void assert_tensix_risc_reset(const RiscType selected_riscs);
+    virtual void deassert_tensix_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
     virtual void set_power_state(DevicePowerState state) = 0;
     virtual int get_clock() = 0;

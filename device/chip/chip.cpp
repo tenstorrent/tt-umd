@@ -144,6 +144,18 @@ void Chip::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_ri
     get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
 }
 
+void Chip::assert_tensix_risc_reset(const RiscType selected_riscs) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+        assert_tensix_risc_reset(core, selected_riscs);
+    }
+}
+
+void Chip::deassert_tensix_risc_reset(const RiscType selected_riscs, bool staggered_start) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+        deassert_tensix_risc_reset(core, selected_riscs, staggered_start);
+    }
+}
+
 uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {

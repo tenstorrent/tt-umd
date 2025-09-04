@@ -66,7 +66,8 @@ SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulato
     simulator_directory(simulator_directory),
     soc_descriptor(
         (simulator_directory.extension() == ".so") ? (simulator_directory.parent_path() / "soc_descriptor.yaml")
-                                                   : (simulator_directory / "soc_descriptor.yaml")) {}
+                                                   : (simulator_directory / "soc_descriptor.yaml"),
+        ChipInfo{.noc_translation_enabled = (simulator_directory.extension() == ".so")}) {}
 
 SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");

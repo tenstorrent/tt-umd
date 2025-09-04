@@ -95,13 +95,13 @@ TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
         GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
                         "connected to the host.";
     }
-    uint32_t test_value = 0xdeadbeef;
+    uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 
-    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, target_tensix, test_addr);
+    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
 
     uint32_t fabric_readback = 0;
-    host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, target_tensix, test_addr);
+    host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, tensix_core, test_addr);
     EXPECT_EQ(fabric_readback, test_value);
 }
 
@@ -110,14 +110,35 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
         GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
                         "be connected to the host.";
     }
-    uint32_t test_value = 0xdeadbeef;
+    uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 
-    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, target_tensix, test_addr);
+    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
 
     uint32_t readback = 0;
     non_fabric_chip->read_from_device(tensix_core, &readback, test_addr, sizeof(readback));
     EXPECT_EQ(readback, test_value);
+}
+
+TEST_F(LiteFabricFixture, FabricReadMMIOWrite4Bytes) {
+    if (should_skip_lite_fabric_tests()) {
+        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
+                        "be connected to the host.";
+    }
+    uint32_t test_value = 0xca11abcd;
+    uint32_t test_addr = 0x1000;
+
+    non_fabric_chip->write_to_device(tensix_core, &test_value, test_addr, sizeof(test_value));
+
+    non_fabric_chip->l1_membar({tensix_core});
+
+    uint32_t readback_mmio = 0;
+    non_fabric_chip->read_from_device(tensix_core, &readback_mmio, test_addr, sizeof(test_value));
+    EXPECT_EQ(test_value, readback_mmio);
+
+    uint32_t readback_fabric = 0;
+    host_interface.read(&readback_fabric, sizeof(readback_fabric), eth_core_transfer, tensix_core, test_addr);
+    EXPECT_EQ(readback_fabric, test_value);
 }
 
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
@@ -129,10 +150,10 @@ TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
 
     std::vector<uint8_t> write_data(1 << 20, 2);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_tensix, test_addr);
+    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
 
     std::vector<uint8_t> readback_data(1 << 20, 0);
-    host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, target_tensix, test_addr);
+    host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
     EXPECT_EQ(write_data, readback_data);
 }
 
@@ -145,9 +166,30 @@ TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
 
     std::vector<uint8_t> write_data(1 << 20, 3);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, target_tensix, test_addr);
+    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
 
     std::vector<uint8_t> readback_data(1 << 20, 0);
     non_fabric_chip->read_from_device(tensix_core, readback_data.data(), test_addr, readback_data.size());
     EXPECT_EQ(write_data, readback_data);
+}
+
+TEST_F(LiteFabricFixture, FabricARC) {
+    if (should_skip_lite_fabric_tests()) {
+        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
+                        "connected to the host.";
+    }
+    // This is an address of ARC status register, the value of it should be set by ARC fw and
+    // should be 5, it was chosen for potential easier debug in the future.
+    uint32_t test_addr = 0x80030408;
+
+    CoreCoord target_arc_core = CoreCoord(8, 0, CoreType::ARC, CoordSystem::TRANSLATED);
+
+    uint32_t arc_boot_status_fabric = 1;
+    host_interface.read(&arc_boot_status_fabric, sizeof(uint32_t), eth_core_transfer, target_arc_core, test_addr);
+
+    uint32_t arc_boot_status_check;
+    non_fabric_chip->read_from_device(
+        target_arc_core, &arc_boot_status_check, test_addr, sizeof(arc_boot_status_check));
+
+    EXPECT_EQ(arc_boot_status_fabric, arc_boot_status_check);
 }

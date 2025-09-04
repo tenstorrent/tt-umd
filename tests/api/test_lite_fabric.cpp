@@ -23,15 +23,12 @@ protected:
     lite_fabric::HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
 
-    static tt_xy_pair target_tensix;
     static CoreCoord tensix_core;
     static CoreCoord eth_core_transfer;
 
     bool running_first_test = true;
 
     static void SetUpTestSuite() {
-        tensix_core = CoreCoord(target_tensix.x, target_tensix.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-
         std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
 
         fabric_chip = LocalChip::create(pci_devices_ids[0]);
@@ -73,7 +70,6 @@ protected:
 std::unique_ptr<LocalChip> LiteFabricFixture::fabric_chip = nullptr;
 std::unique_ptr<LocalChip> LiteFabricFixture::non_fabric_chip = nullptr;
 std::vector<CoreCoord> LiteFabricFixture::eth_cores_up = {};
-tt_xy_pair LiteFabricFixture::target_tensix = {1, 2};
 CoreCoord LiteFabricFixture::tensix_core = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::TRANSLATED);
 // Dummy value, it will be overriden inside SetUpTestSuite.
 CoreCoord LiteFabricFixture::eth_core_transfer = CoreCoord(0, 0, CoreType::ETH, CoordSystem::TRANSLATED);

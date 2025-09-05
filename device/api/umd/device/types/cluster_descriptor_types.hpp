@@ -18,7 +18,17 @@
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 
-// TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
+namespace tt::umd {
+
+// Small performant hash combiner taken from boost library.
+// Not using boost::hash_combine due to dependency complications.
+inline void boost_hash_combine(std::size_t &seed, const int value) {
+    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+using chip_id_t = int;
+using ethernet_channel_t = int;
+
 enum BoardType : uint32_t {
     E75,
     E150,
@@ -33,17 +43,6 @@ enum BoardType : uint32_t {
     QUASAR,
     UNKNOWN,
 };
-
-namespace tt::umd {
-
-// Small performant hash combiner taken from boost library.
-// Not using boost::hash_combine due to dependency complications.
-inline void boost_hash_combine(std::size_t &seed, const int value) {
-    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
-
-using chip_id_t = int;
-using ethernet_channel_t = int;
 
 struct eth_coord_t {
     int cluster_id;  // This is the same for connected chips.
@@ -241,15 +240,6 @@ enum class DramTrainingStatus : uint8_t {
 
 }  // namespace tt::umd
 
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::chip_id_t;
-using tt::umd::eth_coord_t;
-using tt::umd::ethernet_channel_t;
-
-namespace tt::umd {
-using BoardType = ::BoardType;
-}
-
 namespace std {
 template <>
 struct hash<tt::umd::eth_coord_t> {
@@ -268,11 +258,11 @@ struct hash<tt::umd::eth_coord_t> {
 
 namespace fmt {
 template <>
-struct formatter<eth_coord_t> {
+struct formatter<tt::umd::eth_coord_t> {
     constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
 
     template <typename Context>
-    constexpr auto format(eth_coord_t const &coord, Context &ctx) const {
+    constexpr auto format(tt::umd::eth_coord_t const &coord, Context &ctx) const {
         return format_to(
             ctx.out(), "({}, {}, {}, {}, {})", coord.cluster_id, coord.x, coord.y, coord.rack, coord.shelf);
     }

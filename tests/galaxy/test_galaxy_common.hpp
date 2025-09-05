@@ -14,7 +14,7 @@
 
 #include "fmt/core.h"
 #include "umd/device/cluster.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 

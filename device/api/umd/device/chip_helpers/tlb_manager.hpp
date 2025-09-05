@@ -7,8 +7,8 @@
 
 #include <unordered_map>
 
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

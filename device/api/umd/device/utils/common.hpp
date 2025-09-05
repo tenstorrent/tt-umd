@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vector<tt_xy_pair>>& vector_of_vectors) {
     std::vector<tt_xy_pair> flat_vector;

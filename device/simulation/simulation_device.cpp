@@ -95,8 +95,9 @@ SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init
         DLSYM_FUNCTION(libttsim_tensix_reset_assert)
         DLSYM_FUNCTION(libttsim_clock)
     } else {
+        host.init();
+
         // Start simulator process
-        uv_loop_t* loop = uv_default_loop();
         std::string simulator_path_string = simulator_path / "run.sh";
         if (!std::filesystem::exists(simulator_path_string)) {
             TT_THROW("Simulator binary not found at: ", simulator_path_string);
@@ -115,6 +116,7 @@ SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init
         child_options.stdio_count = 3;
         child_options.stdio = child_stdio;
 
+        uv_loop_t* loop = uv_default_loop();
         uv_process_t child_p;
         int rv = uv_spawn(loop, &child_p, &child_options);
         if (rv) {

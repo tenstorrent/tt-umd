@@ -19,6 +19,7 @@ public:
     SimulationHost();
     ~SimulationHost();
 
+    void init();
     void start_host();
     void send_to_device(uint8_t *buf, size_t buf_size);
     size_t recv_from_device(void **data_ptr);

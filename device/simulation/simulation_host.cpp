@@ -44,7 +44,9 @@ SimulationHost::SimulationHost() {
     // Initialize socket and listener
     host_socket = std::make_unique<nng_socket>();
     host_listener = std::make_unique<nng_listener>();
+}
 
+void SimulationHost::init() {
     // Check if NNG_SOCKET_LOCAL_PORT is set
     const char *local_socket_port_str = std::getenv("NNG_SOCKET_LOCAL_PORT");
     std::string nng_socket_addr_str;

@@ -22,6 +22,7 @@ void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, ui
 
 void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     remote_communication_->write_to_non_mmio(target_chip_, core, mem_ptr, addr, size);
+    wait_for_non_mmio_flush();
 }
 
 void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

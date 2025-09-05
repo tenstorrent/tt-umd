@@ -12,7 +12,7 @@
 
 namespace tt::umd {
 
-/* This class captures Wormhole firmware versions 18.7.0 and later.
+/* This class captures Blackhole firmware up to version 18.7.0.
  * In this firmware release there was not ASIC id information available,
  * as well as maximum possible AICLK on the device. So these functions return
  * placeholder values in this class.

@@ -109,9 +109,9 @@ jobs:
       - name: Build tt-sim
         run: |
           cd ttsim/src
-          ../scripts/make.py _out/release_wh/ttsim
-          ../scripts/make.py _out/release_bh/ttsim
-          ../scripts/make.py _out/release_qsr/ttsim
+          ../scripts/make.py _out/release_wh/libttsim.so
+          ../scripts/make.py _out/release_bh/libttsim.so
+          ../scripts/make.py _out/release_qsr/libttsim.so
           cd ../../
 
       - name: Checkout tt-metal repo
@@ -145,17 +145,17 @@ jobs:
         run: |
           echo "Preparing sim paths"
           mkdir -p sim_wh sim_bh
-          cp ttsim/src/_out/release_wh/ttsim sim_wh/run.sh
-          cp ttsim/src/_out/release_bh/ttsim sim_bh/run.sh
+          cp ttsim/src/_out/release_wh/libttsim.so sim_wh/libttsim.so
+          cp ttsim/src/_out/release_bh/libttsim.so sim_bh/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
 
       - name: Run tt-sim wormhole tests
         run: |
-          export TT_METAL_SIMULATOR=$(pwd)/sim_wh
+          export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
       - name: Run tt-sim blackhole tests
         run: |
-          export TT_METAL_SIMULATOR=$(pwd)/sim_bh
+          export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv

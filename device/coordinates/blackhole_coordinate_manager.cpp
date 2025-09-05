@@ -247,12 +247,12 @@ void BlackholeCoordinateManager::translate_l2cpu_coords() {
     size_t unharvested_logical_l2cpu_index = 0;
     for (size_t l2cpu_core_index = 0; l2cpu_core_index < l2cpu_cores.size(); l2cpu_core_index++) {
         const tt_xy_pair& l2cpu_core = l2cpu_cores[l2cpu_core_index];
-        const tt_xy_pair& virtual_core = l2cpu_core;
+        tt_xy_pair virtual_core = l2cpu_core;
 
         if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
-            const tt_xy_pair& virtual_core = l2cpu_cores[harvested_l2cpu_start_index++];
+            virtual_core = l2cpu_cores[harvested_l2cpu_start_index++];
         } else {
-            const tt_xy_pair& virtual_core = l2cpu_cores[unharvested_logical_l2cpu_index++];
+            virtual_core = l2cpu_cores[unharvested_logical_l2cpu_index++];
         }
 
         CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::L2CPU, CoordSystem::VIRTUAL);

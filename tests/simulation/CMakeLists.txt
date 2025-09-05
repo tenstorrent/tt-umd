@@ -1,4 +1,7 @@
-set(SIMULATION_TEST_SRCS test_simulation_device.cpp)
+set(SIMULATION_TEST_SRCS
+    test_simulation_device.cpp
+    test_ttsim_device.cpp
+)
 
 foreach(TEST ${SIMULATION_TEST_SRCS})
     get_filename_component(TEST_NAME ${TEST} NAME_WE)

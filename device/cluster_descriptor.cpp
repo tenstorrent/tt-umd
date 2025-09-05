@@ -461,7 +461,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
-    const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
+    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     BoardType board_type;
@@ -492,7 +492,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
         /* NOC translation is not supported for Simulation chips */
-        desc->noc_translation_enabled.insert({logical_id, false});
+        desc->noc_translation_enabled.insert({logical_id, true});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();

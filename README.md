@@ -192,6 +192,14 @@ You can also manually auto format the whole repo using mentioned pre-commit:
    pre-commit run --all-files
 ```
 
+## Bumping the UMD version
+
+There is an automated workflow for creating releases. It is triggered by merging a PR to main which changes the VERSION file.
+
+You can change the VERSION as part of another PR or as an isolated PR. Please also update the CHANGELOG with the exact version you are changeing to.
+
+Once the PR is merged, a draft Release will be created with the generated changelog and artifacts. Please review it and publish it using the tag which exactly matches the version of the release.
+
 # Grayskull End of Life
 
 Grayskull is no longer actively supported by Tenstorrent. [Last UMD commit](https://github.com/tenstorrent/tt-umd/commit/a5b4719b7d44f0c7c953542803faf6851574329a) supporting Grayskull.

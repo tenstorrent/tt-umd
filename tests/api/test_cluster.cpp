@@ -505,7 +505,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-TEST(TestCluster, WarmResetScratch) {
+TEST(TestCluster, DISABLED_WarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

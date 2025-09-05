@@ -185,25 +185,27 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
     }
 }
 
+inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
+    {0x36, BoardType::P100},
+    {0x43, BoardType::P100},
+    {0x40, BoardType::P150},
+    {0x41, BoardType::P150},
+    {0x42, BoardType::P150},
+    {0x44, BoardType::P300},
+    {0x45, BoardType::P300},
+    {0x46, BoardType::P300},
+    {0x18, BoardType::N150},
+    {0x14, BoardType::N300},
+    {0xB, BoardType::GALAXY},
+    {0x35, BoardType::UBB},
+};
+
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
 
-    if (upi == 0x36) {
-        return BoardType::P100;
-    } else if (upi == 0x43) {
-        return BoardType::P100;
-    } else if (upi == 0x40 || upi == 0x41 || upi == 0x42) {
-        return BoardType::P150;
-    } else if (upi == 0x44 || upi == 0x45 || upi == 0x46) {
-        return BoardType::P300;
-    } else if (upi == 0x14) {
-        return BoardType::N300;
-    } else if (upi == 0x18) {
-        return BoardType::N150;
-    } else if (upi == 0xB) {
-        return BoardType::GALAXY;
-    } else if (upi == 0x35) {
-        return BoardType::UBB;
+    auto board_type_it = board_upi_map.find(upi);
+    if (board_type_it != board_upi_map.end()) {
+        return board_type_it->second;
     }
 
     throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));

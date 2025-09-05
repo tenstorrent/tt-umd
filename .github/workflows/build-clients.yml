@@ -138,7 +138,7 @@ jobs:
           export PYTHONPATH=$(pwd)
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          ./build_metal.sh --build-all --enable-ccache --enable-profiler --build-programming-examples
+          ./build_metal.sh --build-programming-examples
           cd ../
 
       - name: Prepare sim paths

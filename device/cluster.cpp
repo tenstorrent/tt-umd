@@ -189,11 +189,13 @@ void Cluster::verify_fw_bundle_version() {
         semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
 
     if (compare_fw_bundle_with_latest == 1) {
-        throw std::runtime_error(fmt::format(
-            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture.",
+        log_warning(
+            LogSiliconDriver,
+            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
+            "features may not be supported.",
             fw_bundle_version.to_string(),
             latest_supported_fw_version.to_string(),
-            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
     }
 
     bool all_device_same_fw_bundle_version = true;

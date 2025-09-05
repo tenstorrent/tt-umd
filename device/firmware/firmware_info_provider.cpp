@@ -17,21 +17,20 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {}
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
-    static const semver_t aiclk_max_fw_version = semver_t(18, 8, 0);
-    static const semver_t new_telemetry_fw_version = semver_t(18, 4, 0);
+    static const semver_t fw_version_18_7 = semver_t(18, 7, 0);
+    static const semver_t fw_version_18_3 = semver_t(18, 3, 0);
 
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
             semver_t fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_18_8_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, aiclk_max_fw_version);
-            if (compare_18_8_bundle_result >= 0) {
+            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 
-            int compare_18_4_bundle_result =
-                semver_t::compare_firmware_bundle(fw_bundle_version, new_telemetry_fw_version);
-            if (compare_18_4_bundle_result >= 0) {
+            int compare_18_3_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
+            if (compare_18_3_bundle_result > 0) {
                 return std::make_unique<Wormhole_18_7_FirmwareInfoProvider>(tt_device);
             }
 
@@ -40,8 +39,8 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
         case ARCH::BLACKHOLE: {
             semver_t fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_18_8_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, aiclk_max_fw_version);
-            if (compare_18_8_bundle_result >= 0) {
+            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 

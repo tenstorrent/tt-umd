@@ -13,10 +13,8 @@
 namespace tt::umd {
 
 /* This class captures Wormhole firmware up to version 18.7.0.
- * In this firmware release there was not ASIC id information available,
- * as well as maximum possible AICLK on the device. So these functions return
- * placeholder values in this class.
- * Release: https://github.com/tenstorrent/tt-firmware/releases/tag/v18.8.0
+ * Firmware releases with this and older versions don't have max AICLK inside
+ * new telemetry for Wormhole so that has to be read from SM bus telemetry.
  */
 class Wormhole_18_7_FirmwareInfoProvider : public FirmwareInfoProvider {
 public:

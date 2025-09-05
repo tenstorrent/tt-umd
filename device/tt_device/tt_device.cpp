@@ -16,7 +16,7 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 

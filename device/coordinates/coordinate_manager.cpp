@@ -57,6 +57,7 @@ void CoordinateManager::initialize() {
     this->translate_eth_coords();
     this->translate_arc_coords();
     this->translate_pcie_coords();
+    this->translate_l2cpu_coords();
     this->translate_router_coords();
     this->translate_security_coords();
     this->translate_l2cpu_coords();

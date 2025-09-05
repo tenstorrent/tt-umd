@@ -508,6 +508,10 @@ std::vector<CoreCoord> CoordinateManager::get_pcie_cores() const { return get_al
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_pcie_cores() const { return {}; }
 
+std::vector<CoreCoord> CoordinateManager::get_l2cpu_cores() const { return get_all_noc0_cores(CoreType::L2CPU); }
+
+std::vector<CoreCoord> CoordinateManager::get_harvested_l2cpu_cores() const { return {}; }
+
 std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:

@@ -238,6 +238,8 @@ protected:
     virtual std::vector<CoreCoord> get_harvested_eth_cores() const;
     virtual std::vector<CoreCoord> get_pcie_cores() const;
     virtual std::vector<CoreCoord> get_harvested_pcie_cores() const;
+    virtual std::vector<CoreCoord> get_l2cpu_cores() const;
+    virtual std::vector<CoreCoord> get_harvested_l2cpu_cores() const;
     virtual tt_xy_pair get_tensix_grid_size() const = 0;
     virtual tt_xy_pair get_dram_grid_size() const;
     virtual tt_xy_pair get_harvested_tensix_grid_size() const;

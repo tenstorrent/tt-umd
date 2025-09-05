@@ -131,6 +131,15 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
     }
 
+    const uint32_t l2cpu_enabled = telemetry->read_entry(TelemetryTag::ENABLED_L2CPU);
+    // Shuffle the L2CPU harvesting mask so it follows NOC0 core order instead of physical.
+    // See tt::umd::blackhole::L2CPU_CORES_NOC0.
+    chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
+    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x1) ? 1 << 0 : 0;  // 8, 3
+    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x2) ? 1 << 3 : 0;  // 8, 9
+    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x4) ? 1 << 1 : 0;  // 8, 5
+    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x8) ? 1 << 2 : 0;  // 8, 7
+
     chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
 
     return chip_info;

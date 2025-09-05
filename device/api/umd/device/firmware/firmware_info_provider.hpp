@@ -37,7 +37,7 @@ public:
     static semver_t get_minimum_compatible_firmware_version(tt::ARCH arch);
 
     /**
-     * This function should capture laters firmware version that is supported by the UMD.
+     * This function should capture latest firmware version that is supported by the UMD.
      * It is used to verify that the firmware running on the device is not newer than what UMD supports.
      * The function is meant to change on every FW release, so we can keep track of supported features
      * from new FW versions.

@@ -16,7 +16,7 @@
 
 using namespace tt::umd;
 
-using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, TensixSoftResetOptions>;
+using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, RiscType>;
 using RiscSetUnderTest = std::vector<RiscCoreProgramConfig>;
 
 class ClusterAssertDeassertRiscsTest : public ::testing::TestWithParam<RiscSetUnderTest> {
@@ -54,10 +54,10 @@ public:
             make_counter_program(ncrisc_counter_address | register_instruction)};
 
         std::vector<RiscCoreProgramConfig> triscs_and_ncrisc{
-            {trisc0_code_address, trisc0_counter_address, trisc0_program, TensixSoftResetOptions::TRISC0},
-            {trisc1_code_address, trisc1_counter_address, trisc1_program, TensixSoftResetOptions::TRISC1},
-            {trisc2_code_address, trisc2_counter_address, trisc2_program, TensixSoftResetOptions::TRISC2},
-            {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, TensixSoftResetOptions::NCRISC}};
+            {trisc0_code_address, trisc0_counter_address, trisc0_program, RiscType::TRISC0},
+            {trisc1_code_address, trisc1_counter_address, trisc1_program, RiscType::TRISC1},
+            {trisc2_code_address, trisc2_counter_address, trisc2_program, RiscType::TRISC2},
+            {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, RiscType::NCRISC}};
 
         const auto all_trisc_and_ncrisc_combinations = generate_all_non_empty_risc_core_combinations(triscs_and_ncrisc);
 

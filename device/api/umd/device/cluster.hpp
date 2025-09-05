@@ -42,7 +42,6 @@ class RemoteChip;
 enum ChipType {
     SILICON,
     SIMULATION,
-    TTSIM,
     MOCK,
 };
 
@@ -96,7 +95,8 @@ struct ClusterOptions {
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
     /**
-     * This parameter is used only for SIMULATION chip type.
+     * This parameter is used only for SIMULATION chip type.  It points to a file for the .so path and a directory
+     * for the socket path, so perhaps it should be renamed simulator_path.
      */
     std::filesystem::path simulator_directory = "";
 };
@@ -655,7 +655,7 @@ private:
         ClusterDescriptor* cluster_desc,
         SocDescriptor& soc_desc,
         int num_host_mem_channels,
-        const std::filesystem::path& simulator_directory);
+        const std::filesystem::path& simulator_path);
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path,
         chip_id_t chip_id,

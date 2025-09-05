@@ -86,8 +86,6 @@ if(TT_UMD_BUILD_SIMULATION)
         PRIVATE
             simulation/simulation_device.cpp
             simulation/simulation_host.cpp
-            simulation/ttsim_device.cpp
-            simulation/ttsim_host.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -137,8 +135,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/simulation/simulation_host.hpp
-                api/umd/device/simulation/ttsim_device.hpp
-                api/umd/device/simulation/ttsim_host.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/tt_xy_pair.h
                 api/umd/device/utils/common.hpp

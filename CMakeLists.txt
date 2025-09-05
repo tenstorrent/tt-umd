@@ -31,7 +31,7 @@ project(
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES
-        CXX
+        C CXX
 )
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)

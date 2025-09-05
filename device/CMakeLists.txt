@@ -78,6 +78,7 @@ target_sources(
         tt_device/remote_communication.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
+        tt_kmd_lib/tt_kmd_lib.c
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -175,6 +176,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag.h
                 api/umd/device/logging/config.h
                 api/umd/device/tt_device/tt_device.h
+                api/umd/device/tt_kmd_lib/tt_kmd_lib.h
     )
 endif()
 

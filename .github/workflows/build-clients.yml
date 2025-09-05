@@ -98,22 +98,6 @@ jobs:
         TRACY_NO_ISA_EXTENSIONS: 1
 
     steps:
-      - name: Checkout ttsim repo
-        uses: actions/checkout@v4
-        with:
-          path: ttsim
-          repository: tenstorrent/ttsim
-          submodules: recursive
-          token: ${{ secrets.TTSIM_TOKEN }}
-
-      - name: Build tt-sim
-        run: |
-          cd ttsim/src
-          ../scripts/make.py _out/release_wh/libttsim.so
-          ../scripts/make.py _out/release_bh/libttsim.so
-          ../scripts/make.py _out/release_qsr/libttsim.so
-          cd ../../
-
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4
         with:
@@ -130,6 +114,44 @@ jobs:
           # Clone directly into tt-metal directory for umd
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
+
+      - name: Get ttsim ref
+        id: get-ttsim-ref
+        run: |
+          # Extract the ref value from tt-metal's ttsim.yaml
+          # Look for the "Checkout ttsim" step and extract the ref value
+          if [ -f "tt-metal/.github/workflows/ttsim.yaml" ]; then
+            TTSIM_REF=$(grep -A 10 "name: Checkout ttsim" tt-metal/.github/workflows/ttsim.yaml \
+                      | grep "ref:" | head -1 \
+                      | sed 's/.*ref: *\(.*\)/\1/' \
+                      | tr -d ' ')
+            if [ -z "$TTSIM_REF" ]; then
+              echo "Warning: Could not extract ttsim ref, using main branch"
+              TTSIM_REF="main"
+            fi
+          else
+            echo "Warning: ttsim.yaml not found, using main branch"
+            TTSIM_REF="main"
+          fi
+          echo "Extracted ttsim ref: $TTSIM_REF"
+          echo "ttsim-ref=$TTSIM_REF" >> $GITHUB_OUTPUT
+
+      - name: Checkout ttsim repo
+        uses: actions/checkout@v4
+        with:
+          path: ttsim
+          repository: tenstorrent/ttsim
+          ref: ${{ steps.get-ttsim-ref.outputs.ttsim-ref }}
+          submodules: recursive
+          token: ${{ secrets.TTSIM_TOKEN }}
+
+      - name: Build tt-sim
+        run: |
+          cd ttsim/src
+          ../scripts/make.py _out/release_wh/libttsim.so
+          ../scripts/make.py _out/release_bh/libttsim.so
+          ../scripts/make.py _out/release_qsr/libttsim.so
+          cd ../../
 
       - name: Build tt-metal
         run: |

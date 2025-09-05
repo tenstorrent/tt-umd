@@ -196,6 +196,22 @@ void Cluster::verify_fw_bundle_version() {
             arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
     }
 
+    semver_t latest_supported_fw_version = FirmwareInfoProvider::get_latest_supported_firmware_version(
+        chips_.begin()->second->get_tt_device()->get_arch());
+
+    int compare_fw_bundle_with_latest =
+        semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
+
+    if (compare_fw_bundle_with_latest == 1) {
+        log_warning(
+            LogSiliconDriver,
+            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
+            "features may not be supported.",
+            fw_bundle_version.to_string(),
+            latest_supported_fw_version.to_string(),
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
+    }
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {

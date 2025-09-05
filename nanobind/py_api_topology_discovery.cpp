@@ -19,16 +19,16 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 void bind_topology_discovery(nb::module_ &m) {
-    nb::class_<tt_ClusterDescriptor>(m, "ClusterDescriptor")
-        .def("get_all_chips", &tt_ClusterDescriptor::get_all_chips)
-        .def("is_chip_mmio_capable", &tt_ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
-        .def("is_chip_remote", &tt_ClusterDescriptor::is_chip_remote, nb::arg("chip_id"))
-        .def("get_closest_mmio_capable_chip", &tt_ClusterDescriptor::get_closest_mmio_capable_chip, nb::arg("chip"))
-        .def("get_chips_local_first", &tt_ClusterDescriptor::get_chips_local_first, nb::arg("chips"))
-        .def("get_chip_locations", &tt_ClusterDescriptor::get_chip_locations)
-        .def("get_chips_with_mmio", &tt_ClusterDescriptor::get_chips_with_mmio)
-        .def("get_active_eth_channels", &tt_ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
-        .def("get_arch", &tt_ClusterDescriptor::get_arch, nb::arg("chip_id"));
+    nb::class_<ClusterDescriptor>(m, "ClusterDescriptor")
+        .def("get_all_chips", &ClusterDescriptor::get_all_chips)
+        .def("is_chip_mmio_capable", &ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
+        .def("is_chip_remote", &ClusterDescriptor::is_chip_remote, nb::arg("chip_id"))
+        .def("get_closest_mmio_capable_chip", &ClusterDescriptor::get_closest_mmio_capable_chip, nb::arg("chip"))
+        .def("get_chips_local_first", &ClusterDescriptor::get_chips_local_first, nb::arg("chips"))
+        .def("get_chip_locations", &ClusterDescriptor::get_chip_locations)
+        .def("get_chips_with_mmio", &ClusterDescriptor::get_chips_with_mmio)
+        .def("get_active_eth_channels", &ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
+        .def("get_arch", &ClusterDescriptor::get_arch, nb::arg("chip_id"));
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

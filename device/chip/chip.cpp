@@ -110,7 +110,12 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), valid_val);
+    write_to_device_reg(
+        core,
+        &valid_val,
+        get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(uint32_t));
+    tt_driver_atomics::sfence();
 }
 
 // TODO: Remove this API once we switch to the new one.
@@ -130,7 +135,12 @@ void Chip::assert_tensix_risc_reset(CoreCoord core, const RiscType selected_risc
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
-    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), soft_reset_new);
+    write_to_device_reg(
+        core,
+        &soft_reset_new,
+        get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(uint32_t));
+    tt_driver_atomics::sfence();
 }
 
 void Chip::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
@@ -141,7 +151,12 @@ void Chip::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_ri
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
         soft_reset_new | get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start();
-    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
+    write_to_device_reg(
+        core,
+        &soft_reset_new_with_staggered_start,
+        get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(uint32_t));
+    tt_driver_atomics::sfence();
 }
 
 void Chip::assert_tensix_risc_reset(const RiscType selected_riscs) {

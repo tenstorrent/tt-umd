@@ -29,9 +29,6 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
     }
 
     for (int jlink_id : potential_devices) {
-        // if(jlink_id == 269307644){
-        //     continue;
-        // }
         uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
             continue;

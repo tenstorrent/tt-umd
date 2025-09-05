@@ -39,24 +39,24 @@ std::unique_ptr<LocalChip> LocalChip::create(
         soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
-    std::unique_ptr<TLBManager> tlb_mgr = nullptr;
-    std::unique_ptr<SysmemManager> sysmem_mgr = nullptr;
-    std::unique_ptr<RemoteCommunication> remote_comm = nullptr;
+    std::unique_ptr<TLBManager> tlb_manager = nullptr;
+    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
     // The variables bellow are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
-        tlb_mgr = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_mgr = std::make_unique<SysmemManager>(tlb_mgr.get(), num_host_mem_channels);
-        remote_comm = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_mgr.get());
+        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
     }
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
         std::move(tt_device),
-        std::move(tlb_mgr),
-        std::move(sysmem_mgr),
-        std::move(remote_comm),
+        std::move(tlb_manager),
+        std::move(sysmem_manager),
+        std::move(remote_communication),
         num_host_mem_channels));
 }
 
@@ -68,23 +68,23 @@ std::unique_ptr<LocalChip> LocalChip::create(
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
-    std::unique_ptr<TLBManager> tlb_mgr = nullptr;
-    std::unique_ptr<SysmemManager> sysmem_mgr = nullptr;
-    std::unique_ptr<RemoteCommunication> remote_comm = nullptr;
+    std::unique_ptr<TLBManager> tlb_manager = nullptr;
+    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
     // The variables bellow are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
-        tlb_mgr = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_mgr = std::make_unique<SysmemManager>(tlb_mgr.get(), num_host_mem_channels);
-        remote_comm = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_mgr.get());
+        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
     }
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
         std::move(tt_device),
-        std::move(tlb_mgr),
-        std::move(sysmem_mgr),
-        std::move(remote_comm),
+        std::move(tlb_manager),
+        std::move(sysmem_manager),
+        std::move(remote_communication),
         num_host_mem_channels));
 }
 
@@ -325,7 +325,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         l1_src,
         size);
 
-    if (!tlb_manager_) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, core, l1_src, size);
         return;
     }

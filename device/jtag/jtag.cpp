@@ -17,7 +17,7 @@
 /*static*/ DlHandle Jtag::handle;
 
 void DlCloser::operator()(void* handle) const {
-    if (handle) {
+    if (handle != nullptr) {
         dlclose(handle);
         log_debug(tt::LogSiliconDriver, "JTAG library closed");
     }
@@ -30,7 +30,7 @@ void Jtag::openLibrary(const std::string& filePath, int flags) {
             "File path could be wrong.",
             filePath);
     }
-    if (handle) {
+    if (handle != nullptr) {
         return;
     }
 

@@ -108,6 +108,7 @@ target_sources(
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp
         ${LITE_FABRIC_EMBED} # include generated embed file
+        tt_kmd_lib/tt_kmd_lib.c
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -210,6 +211,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
+                api/umd/device/tt_kmd_lib/tt_kmd_lib.h
     )
 endif()
 

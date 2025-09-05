@@ -23,8 +23,6 @@ public:
 
     uint32_t get_clock() override;
 
-    uint32_t get_max_clock_freq() override;
-
     uint32_t get_min_clock_freq() override;
 
     bool get_noc_translation_enabled() override;

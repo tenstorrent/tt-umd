@@ -92,6 +92,16 @@ public:
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
     /**
+     * Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
+     * representation in NOC0 layout: Bit 0 being set means the first row in NOC0 coords is harvested.
+     *
+     * @param arch Architecture of the device. Important because physical layouts differ between architectures.
+     * @param l2cpu_enabled_physical_layout Core enabled mask in physical layout.
+     * @return Harvesting mask in NOC0 layout.
+     */
+    static uint32_t shuffle_l2cpu_harvesting_mask(tt::ARCH arch, uint32_t l2cpu_enabled_physical_layout);
+
+    /**
      * Translate core coordinates to target coordinate system. Input coordinates will have both the core type
      * and coordinate system set. Translation has some usecases when the translation is not possible, for example
      * harvested cores don't have logical coordinate system.

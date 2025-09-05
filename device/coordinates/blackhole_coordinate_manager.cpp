@@ -253,11 +253,13 @@ void BlackholeCoordinateManager::translate_l2cpu_coords() {
             virtual_core = l2cpu_cores[harvested_l2cpu_start_index++];
         } else {
             virtual_core = l2cpu_cores[unharvested_logical_l2cpu_index++];
+            CoreCoord logical_coord =
+                CoreCoord(0, unharvested_logical_l2cpu_index - 1, CoreType::L2CPU, CoordSystem::LOGICAL);
+            add_core_translation(logical_coord, l2cpu_core);
         }
 
         CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::L2CPU, CoordSystem::VIRTUAL);
-        CoreCoord translated_coord =
-            CoreCoord(virtual_core.x, virtual_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
         add_core_translation(virtual_coord, l2cpu_core);
         add_core_translation(translated_coord, l2cpu_core);
     }

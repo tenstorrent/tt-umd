@@ -116,29 +116,29 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
                                                          ? (~telemetry->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
                                                          : 0;
 
-    uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
-
-    uint32_t pcie0_usage = pcie_usage & 0x3;
-    uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
-
-    const uint32_t pcie_usage_endpoint = 1;
     chip_info.harvesting_masks.pcie_harvesting_mask = 0;
-    if (pcie0_usage != pcie_usage_endpoint) {
-        chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+    if (telemetry->is_entry_available(TelemetryTag::PCIE_USAGE)) {
+        uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
+
+        uint32_t pcie0_usage = pcie_usage & 0x3;
+        uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
+
+        const uint32_t pcie_usage_endpoint = 1;
+        chip_info.harvesting_masks.pcie_harvesting_mask = 0;
+        if (pcie0_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+        }
+
+        if (pcie1_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+        }
     }
 
-    if (pcie1_usage != pcie_usage_endpoint) {
-        chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
-    }
-
-    const uint32_t l2cpu_enabled = telemetry->read_entry(TelemetryTag::ENABLED_L2CPU);
-    // Shuffle the L2CPU harvesting mask so it follows NOC0 core order instead of physical.
-    // See tt::umd::blackhole::L2CPU_CORES_NOC0.
     chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
-    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x1) ? 1 << 0 : 0;  // 8, 3
-    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x2) ? 1 << 3 : 0;  // 8, 9
-    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x4) ? 1 << 1 : 0;  // 8, 5
-    chip_info.harvesting_masks.l2cpu_harvesting_mask |= (~l2cpu_enabled & 0x8) ? 1 << 2 : 0;  // 8, 7
+    if (telemetry->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
+        chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
+            tt::ARCH::BLACKHOLE, telemetry->read_entry(TelemetryTag::ENABLED_L2CPU));
+    }
 
     chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
 

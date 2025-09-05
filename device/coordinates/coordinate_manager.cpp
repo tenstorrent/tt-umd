@@ -432,6 +432,20 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     return new_harvesting_mask;
 }
 
+uint32_t CoordinateManager::shuffle_l2cpu_harvesting_mask(tt::ARCH arch, uint32_t l2cpu_enabled_physical_layout) {
+    if (arch != tt::ARCH::BLACKHOLE) {
+        throw std::runtime_error("L2CPU cores currently only present in Blackhole.");
+    }
+
+    uint32_t harvesting_mask = 0;
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x1) ? 1 << 0 : 0;  // 8, 3
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x2) ? 1 << 3 : 0;  // 8, 9
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x4) ? 1 << 1 : 0;  // 8, 5
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x8) ? 1 << 2 : 0;  // 8, 7
+
+    return harvesting_mask;
+}
+
 const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:

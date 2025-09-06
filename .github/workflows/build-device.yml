@@ -10,7 +10,7 @@ on:
         description: 'The timeout for the job in minutes'
         type: number
         default: 15
-  # pull_request:
+  pull_request:
   push:
     branches: ["main"]
 
@@ -50,7 +50,7 @@ jobs:
           submodules: recursive
 
       - name: Set GCC compiler
-          # In case clang is selected, don't set these variables, cmake will find it by default.
+        # In case clang is selected, don't set these variables, cmake will find it by default.
         if: ${{ matrix.image.compiler != 'clang' }}
         run: |
           echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV

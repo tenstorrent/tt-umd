@@ -116,19 +116,28 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
                                                          ? (~telemetry->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
                                                          : 0;
 
-    uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
-
-    uint32_t pcie0_usage = pcie_usage & 0x3;
-    uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
-
-    const uint32_t pcie_usage_endpoint = 1;
     chip_info.harvesting_masks.pcie_harvesting_mask = 0;
-    if (pcie0_usage != pcie_usage_endpoint) {
-        chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+    if (telemetry->is_entry_available(TelemetryTag::PCIE_USAGE)) {
+        uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
+
+        uint32_t pcie0_usage = pcie_usage & 0x3;
+        uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
+
+        const uint32_t pcie_usage_endpoint = 1;
+        chip_info.harvesting_masks.pcie_harvesting_mask = 0;
+        if (pcie0_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+        }
+
+        if (pcie1_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+        }
     }
 
-    if (pcie1_usage != pcie_usage_endpoint) {
-        chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+    chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
+    if (telemetry->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
+        chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
+            tt::ARCH::BLACKHOLE, telemetry->read_entry(TelemetryTag::ENABLED_L2CPU));
     }
 
     return chip_info;

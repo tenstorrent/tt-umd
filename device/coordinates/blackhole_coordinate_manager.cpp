@@ -241,6 +241,30 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
     }
 }
 
+void BlackholeCoordinateManager::translate_l2cpu_coords() {
+    size_t num_harvested_l2cpu_cores = CoordinateManager::get_num_harvested(harvesting_masks.l2cpu_harvesting_mask);
+    size_t harvested_l2cpu_start_index = l2cpu_cores.size() - num_harvested_l2cpu_cores;
+    size_t unharvested_logical_l2cpu_index = 0;
+    for (size_t l2cpu_core_index = 0; l2cpu_core_index < l2cpu_cores.size(); l2cpu_core_index++) {
+        const tt_xy_pair& l2cpu_core = l2cpu_cores[l2cpu_core_index];
+        tt_xy_pair virtual_core = l2cpu_core;
+
+        if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
+            virtual_core = l2cpu_cores[harvested_l2cpu_start_index++];
+        } else {
+            virtual_core = l2cpu_cores[unharvested_logical_l2cpu_index++];
+            CoreCoord logical_coord =
+                CoreCoord(0, unharvested_logical_l2cpu_index - 1, CoreType::L2CPU, CoordSystem::LOGICAL);
+            add_core_translation(logical_coord, l2cpu_core);
+        }
+
+        CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::L2CPU, CoordSystem::VIRTUAL);
+        CoreCoord translated_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
+        add_core_translation(virtual_coord, l2cpu_core);
+        add_core_translation(translated_coord, l2cpu_core);
+    }
+}
+
 void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
     size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
     if (eth_cores.size() == 0) {
@@ -547,6 +571,34 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_pcie_cores() co
     }
 
     return harvested_pcie_cores;
+}
+
+std::vector<CoreCoord> BlackholeCoordinateManager::get_l2cpu_cores() const {
+    std::vector<CoreCoord> unharvested_l2cpu_cores;
+    for (size_t x = 0; x < l2cpu_cores.size(); x++) {
+        if (harvesting_masks.l2cpu_harvesting_mask & (1 << x)) {
+            continue;
+        }
+        const tt_xy_pair core = l2cpu_cores[x];
+        CoreCoord core_coord(core.x, core.y, CoreType::L2CPU, CoordSystem::NOC0);
+        unharvested_l2cpu_cores.push_back(core_coord);
+    }
+
+    return unharvested_l2cpu_cores;
+}
+
+std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_l2cpu_cores() const {
+    std::vector<CoreCoord> harvested_l2cpu_cores;
+    for (size_t x = 0; x < l2cpu_cores.size(); x++) {
+        if (!(harvesting_masks.l2cpu_harvesting_mask & (1 << x))) {
+            continue;
+        }
+        const tt_xy_pair core = l2cpu_cores[x];
+        CoreCoord core_coord(core.x, core.y, CoreType::L2CPU, CoordSystem::NOC0);
+        harvested_l2cpu_cores.push_back(core_coord);
+    }
+
+    return harvested_l2cpu_cores;
 }
 
 tt_xy_pair BlackholeCoordinateManager::get_harvested_tensix_grid_size() const {

@@ -71,7 +71,6 @@ SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulato
 
 SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    lock_manager.initialize_mutex(MutexType::TT_SIMULATOR);
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
     arch_name = init.get_arch_name();
     target_devices_in_cluster = {0};
@@ -130,14 +129,13 @@ SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init
 }
 
 SimulationDevice::~SimulationDevice() {
-    lock_manager.clear_mutex(MutexType::TT_SIMULATOR);
     if (libttsim_handle) {
         dlclose(libttsim_handle);
     }
 }
 
 void SimulationDevice::start_device() {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
+    std::lock_guard<std::mutex> lock(device_lock);
     if (libttsim_handle) {
         pfn_libttsim_init();
     } else {
@@ -155,7 +153,7 @@ void SimulationDevice::start_device() {
 }
 
 void SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
+    std::lock_guard<std::mutex> lock(device_lock);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         if (libttsim_handle) {
@@ -211,7 +209,7 @@ void SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_
 
 // Runtime Functions
 void SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
+    std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     if (libttsim_handle) {
@@ -229,7 +227,7 @@ void SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t
 }
 
 void SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
+    std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     if (libttsim_handle) {
         pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, l1_src, dest, size);

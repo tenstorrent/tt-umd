@@ -114,7 +114,7 @@ private:
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock
     // to ensure it can be called safely from multiple threads.
-    LockManager lock_manager;
+    std::mutex device_lock;
 
     void* libttsim_handle = nullptr;
     libttsim_init_t pfn_libttsim_init = nullptr;

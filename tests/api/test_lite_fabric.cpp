@@ -57,8 +57,7 @@ protected:
     }
 
     void SetUp() override {
-        host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface();
-        lite_fabric::set_chip(fabric_chip.get());
+        host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get());
         lite_fabric::launch_lite_fabric(fabric_chip.get(), eth_cores_up);
         std::vector<uint8_t> zero_data(1 << 20, 0);
         non_fabric_chip->write_to_device(tensix_core, zero_data.data(), 0, zero_data.size());

@@ -39,12 +39,6 @@ auto wrap_increment(T val) -> T {
     }
 }
 
-static Chip* chip_local = nullptr;
-
-static void set_chip(Chip* chip) { chip_local = chip; }
-
-static Chip* get_chip() { return chip_local; }
-
 /*
 Initialization process for Lite Fabric
 
@@ -162,6 +156,7 @@ struct HostToLiteFabricInterface {
     uint32_t mmio_device_id = 0;
     uint32_t mmio_eth_core_x = 0;
     uint32_t mmio_eth_core_y = 0;
+    Chip* chip = nullptr;
 
     inline void init() volatile {
         h2d.sender_host_write_index = 0;
@@ -197,7 +192,6 @@ private:
     }
 
     void wait_for_empty_write_slot(CoreCoord virtual_core_sender) {
-        Chip* chip = get_chip();
         uint32_t offset = offsetof(HostToLiteFabricInterface, d2h);
         do {
             chip->read_from_device(
@@ -210,7 +204,6 @@ private:
 
     void wait_for_read_event(CoreCoord virtual_core_sender, uint32_t read_event_addr) {
         tt_driver_atomics::mfence();
-        Chip* chip = get_chip();
         volatile FabricLiteHeader header;
         header.command_fields.noc_read.event = 0;
         const auto expectedOrderId = HostToLiteFabricReadEvent::get();
@@ -234,7 +227,6 @@ private:
     }
 
     void barrier(CoreCoord virtual_core_sender) {
-        Chip* chip = get_chip();
         auto soc_d = chip->get_soc_descriptor();
         const auto& eth_cores = soc_d.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
         const auto& tensix_cores = soc_d.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -275,7 +267,7 @@ private:
         if (!header.get_payload_size_excluding_header()) {
             return;
         }
-        Chip* chip = get_chip();
+
         uint32_t addr = get_next_send_buffer_slot_address(channel_address);
 
         chip->write_to_device(virtual_core_sender, &header, addr, sizeof(FabricLiteHeader));
@@ -297,7 +289,6 @@ private:
         if (size > CHANNEL_BUFFER_SIZE - sizeof(FabricLiteHeader)) {
             throw std::runtime_error("Payload size exceeds channel buffer size");
         }
-        Chip* chip = get_chip();
         uint32_t addr = get_next_send_buffer_slot_address(channel_address) + sizeof(FabricLiteHeader);
         log_debug(LogSiliconDriver, "Send {}B payload only {:#x}", size, addr);
         chip->write_to_device(virtual_core_sender, data, addr, size);
@@ -305,7 +296,7 @@ private:
 
     void flush_h2d(CoreCoord virtual_core_sender) {
         tt_driver_atomics::mfence();
-        Chip* chip = get_chip();
+
         chip->write_to_device(
             virtual_core_sender,
             (void*)(reinterpret_cast<uintptr_t>(this) + offsetof(HostToLiteFabricInterface, h2d)),
@@ -354,10 +345,7 @@ private:
         FabricLiteHeader header;
         header.to_chip_unicast(1);
         header.to_noc_read(lite_fabric::NocReadCommandHeader{src_noc_addr, HostToLiteFabricReadEvent::get()}, size);
-        // header.unaligned_offset = src_noc_addr & (l1_alignment_bytes - 1);
         header.unaligned_offset = 0;
-
-        Chip* chip = get_chip();
 
         uint32_t receiver_header_address = get_next_receiver_buffer_slot_address(receiver_channel_base);
         log_debug(
@@ -429,7 +417,7 @@ struct LiteFabricMemoryMap {
     HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
 
-    static auto make_host_interface() {
+    static auto make_host_interface(Chip* chip) {
         lite_fabric::HostToLiteFabricInterface<SENDER_NUM_BUFFERS_ARRAY[0], CHANNEL_BUFFER_SIZE> host_interface;
         host_interface.host_interface_on_device_addr = lite_fabric::LiteFabricMemoryMap::get_host_interface_addr();
         host_interface.sender_channel_base = lite_fabric::LiteFabricMemoryMap::get_send_channel_addr();
@@ -442,6 +430,7 @@ struct LiteFabricMemoryMap {
         host_interface.eth_barrier_addr = eth_barrier_addr;
         host_interface.tensix_barrier_addr = tensix_barrier_addr;
         host_interface.l1_alignment_bytes = l1_alignment_bytes;
+        host_interface.chip = chip;
 
         host_interface.init();
         return host_interface;

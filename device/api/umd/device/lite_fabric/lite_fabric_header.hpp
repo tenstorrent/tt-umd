@@ -104,6 +104,7 @@ struct FabricLiteHeader {
     // otherwise.
     uint8_t src_ch_id{};
     LiteFabricRoutingFields routing_fields{};
+    unsigned char unused[32]{};
 
     explicit FabricLiteHeader() = default;
 
@@ -159,7 +160,7 @@ struct FabricLiteHeader {
     }
 };
 
-static_assert(sizeof(FabricLiteHeader) == 32);
+static_assert(sizeof(FabricLiteHeader) == 64);
 
 }  // namespace lite_fabric
 

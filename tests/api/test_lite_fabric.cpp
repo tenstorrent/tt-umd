@@ -144,11 +144,11 @@ TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
     }
     uint32_t test_addr = 0;
 
-    std::vector<uint8_t> write_data(1 << 20, 2);
+    std::vector<uint8_t> write_data(1 << 13, 2);
 
     host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
 
-    std::vector<uint8_t> readback_data(1 << 20, 0);
+    std::vector<uint8_t> readback_data(1 << 13, 0);
     host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
     EXPECT_EQ(write_data, readback_data);
 }

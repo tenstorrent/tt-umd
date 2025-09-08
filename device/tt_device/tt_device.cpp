@@ -104,7 +104,9 @@ bool TTDevice::is_hardware_hung() {
         TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
-    uint32_t scratch_data = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4);
+    uint32_t scratch_data = bar_read32(
+        architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
+        6 * 4);
 
     // volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
     //                             (architecture_impl_->get_arc_axi_apb_peripheral_offset() +

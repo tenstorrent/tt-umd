@@ -930,6 +930,7 @@ TEST(TestCluster, BAR0) {
         // std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_id);
 
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         ChipInfo chip_info = tt_device->get_chip_info();
 

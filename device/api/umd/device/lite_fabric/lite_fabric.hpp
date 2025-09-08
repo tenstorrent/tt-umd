@@ -182,8 +182,8 @@ struct HostToLiteFabricInterface {
 
 private:
     constexpr uint32_t get_max_payload_data_size_bytes() const {
-        // Additional 16B to be used only for unaligned reads/writes.
-        return CHANNEL_BUFFER_SIZE - sizeof(FabricLiteHeader) - 16;
+        // Additional 64B to be used only for unaligned reads/writes.
+        return CHANNEL_BUFFER_SIZE - sizeof(FabricLiteHeader) - GLOBAL_ALIGNMENT;
     }
 
     uint32_t get_next_send_buffer_slot_address(uint32_t channel_address) const {
@@ -354,7 +354,8 @@ private:
         FabricLiteHeader header;
         header.to_chip_unicast(1);
         header.to_noc_read(lite_fabric::NocReadCommandHeader{src_noc_addr, HostToLiteFabricReadEvent::get()}, size);
-        header.unaligned_offset = src_noc_addr & (l1_alignment_bytes - 1);
+        // header.unaligned_offset = src_noc_addr & (l1_alignment_bytes - 1);
+        header.unaligned_offset = 0;
 
         Chip* chip = get_chip();
 
@@ -365,14 +366,21 @@ private:
             receiver_core.str(),
             receiver_header_address,
             header.unaligned_offset);
-        uint32_t receiver_data_address = receiver_header_address + sizeof(FabricLiteHeader) + header.unaligned_offset;
+        uint32_t receiver_data_address = receiver_header_address + sizeof(FabricLiteHeader);
 
         wait_for_empty_write_slot(receiver_core);
         send_payload_flush_non_blocking_from_address(header, receiver_core, sender_channel_base);
 
         wait_for_read_event(receiver_core, receiver_header_address);
 
-        chip->read_from_device(receiver_core, mem_ptr, receiver_data_address, size);
+        uint8_t read_back_unaligned_offset = 0;
+        chip->read_from_device(
+            receiver_core,
+            &read_back_unaligned_offset,
+            receiver_header_address + offsetof(FabricLiteHeader, unaligned_offset),
+            sizeof(uint8_t));
+
+        chip->read_from_device(receiver_core, mem_ptr, receiver_data_address + read_back_unaligned_offset, size);
 
         h2d.receiver_host_read_index =
             lite_fabric::wrap_increment<RECEIVER_NUM_BUFFERS_ARRAY[0]>(h2d.receiver_host_read_index);
@@ -409,13 +417,14 @@ struct LiteFabricMemoryMap {
     uint32_t sender_connection_live_semaphore{};
     unsigned char padding1[12]{};
     uint32_t worker_semaphore{};
-    unsigned char padding2[12]{};
+    unsigned char padding2[92]{};
     unsigned char sender_channel_buffer[lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0] * lite_fabric::CHANNEL_BUFFER_SIZE]{};
+    unsigned char padding3[192]{};
     unsigned char
         receiver_channel_buffer[lite_fabric::RECEIVER_NUM_BUFFERS_ARRAY[0] * lite_fabric::CHANNEL_BUFFER_SIZE]{};
     // L1 address of the service_lite_fabric function.
     uint32_t service_lite_fabric_addr{};
-    unsigned char padding3[12]{};
+    unsigned char padding4[12]{};
     // Must be last because it has members that are only stored on the host.
     HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
@@ -429,7 +438,7 @@ struct LiteFabricMemoryMap {
         // TODO: these constants need to be moved to HAL once we have it.
         constexpr uint32_t eth_barrier_addr = 12;
         constexpr uint32_t tensix_barrier_addr = 12;
-        constexpr uint32_t l1_alignment_bytes = 16;
+        constexpr uint32_t l1_alignment_bytes = GLOBAL_ALIGNMENT;
         host_interface.eth_barrier_addr = eth_barrier_addr;
         host_interface.tensix_barrier_addr = tensix_barrier_addr;
         host_interface.l1_alignment_bytes = l1_alignment_bytes;
@@ -463,8 +472,8 @@ struct LiteFabricMemoryMap {
 static_assert(offsetof(LiteFabricMemoryMap, sender_flow_control_semaphore) % 16 == 0);
 static_assert(offsetof(LiteFabricMemoryMap, sender_connection_live_semaphore) % 16 == 0);
 static_assert(offsetof(LiteFabricMemoryMap, worker_semaphore) % 16 == 0);
-static_assert(offsetof(LiteFabricMemoryMap, sender_channel_buffer) % 16 == 0);
-static_assert(offsetof(LiteFabricMemoryMap, receiver_channel_buffer) % 16 == 0);
+static_assert(offsetof(LiteFabricMemoryMap, sender_channel_buffer) % GLOBAL_ALIGNMENT == 0);
+static_assert(offsetof(LiteFabricMemoryMap, receiver_channel_buffer) % GLOBAL_ALIGNMENT == 0);
 static_assert(offsetof(LiteFabricMemoryMap, host_interface) % 16 == 0);
 
 }  // namespace lite_fabric

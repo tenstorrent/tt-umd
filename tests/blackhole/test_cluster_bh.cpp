@@ -854,11 +854,9 @@ TEST(ClusterBH, L2CPUCores) {
 
     for (chip_id_t chip : cluster->get_target_device_ids()) {
         const auto& l2cpu_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::L2CPU);
-
-        EXPECT_EQ(l2cpu_cores.size(), 4);
-
         const auto& harvested_l2cpu_cores = cluster->get_soc_descriptor(chip).get_harvested_cores(CoreType::L2CPU);
 
         EXPECT_LE(harvested_l2cpu_cores.size(), 2);
+        EXPECT_EQ(l2cpu_cores.size() + harvested_l2cpu_cores.size(), 4);
     }
 }

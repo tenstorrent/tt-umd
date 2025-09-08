@@ -536,10 +536,11 @@ std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) co
             return get_eth_cores();
         case CoreType::PCIE:
             return get_pcie_cores();
+        case CoreType::L2CPU:
+            return get_l2cpu_cores();
         case CoreType::ARC:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
-        case CoreType::L2CPU:
             return get_all_noc0_cores(core_type);
         default:
             throw std::runtime_error("Core type is not supported for getting cores");

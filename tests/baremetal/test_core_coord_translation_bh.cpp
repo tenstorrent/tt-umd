@@ -821,3 +821,36 @@ TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUTranslation) {
         EXPECT_EQ(noc0_coord.y, translated_coord.y);
     }
 }
+
+TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUHarvesting) {
+    size_t l2cpu_harvesting_mask = 0x3;  // Harvest 2 L2CPU cores: (8, 3) and (8, 5)
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0, 0, l2cpu_harvesting_mask});
+
+    for (size_t i = 0; i < blackhole::L2CPU_CORES_NOC0.size(); i++) {
+        const CoreCoord noc0_coord = CoreCoord(
+            blackhole::L2CPU_CORES_NOC0[i].x, blackhole::L2CPU_CORES_NOC0[i].y, CoreType::L2CPU, CoordSystem::NOC0);
+
+        const CoreCoord translated_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::TRANSLATED);
+        EXPECT_EQ(translated_coord.x, noc0_coord.x);
+        EXPECT_EQ(translated_coord.y, noc0_coord.y);
+
+        // The first two cores are harvested, so their virtual coordinates should be shifted
+        // and they should not have logical coordinates.
+        if (i < 2) {
+            EXPECT_THROW(coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LOGICAL), std::runtime_error);
+
+            const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
+            EXPECT_EQ(virtual_coord.x, noc0_coord.x);
+            EXPECT_EQ(virtual_coord.y, noc0_coord.y + 4);
+        } else {
+            const CoreCoord logical_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LOGICAL);
+            EXPECT_EQ(logical_coord.x, 0);
+            EXPECT_EQ(logical_coord.y, i - 2);
+
+            const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
+            EXPECT_EQ(virtual_coord.x, noc0_coord.x);
+            EXPECT_EQ(virtual_coord.y, noc0_coord.y - 4);
+        }
+    }
+}

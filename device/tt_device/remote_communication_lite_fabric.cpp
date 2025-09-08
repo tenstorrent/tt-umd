@@ -9,7 +9,7 @@ namespace tt::umd {
 
 RemoteCommunicationLiteFabric::RemoteCommunicationLiteFabric(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
     RemoteCommunication(local_tt_device, sysmem_manager) {
-    host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface();
+    host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(local_tt_device);
 }
 
 void RemoteCommunicationLiteFabric::read_non_mmio(

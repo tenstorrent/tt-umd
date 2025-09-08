@@ -90,12 +90,14 @@ TTDevice::TTDevice() {}
 std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
     switch (remote_communication->get_local_device()->get_arch()) {
-        case tt::ARCH::WORMHOLE_B0:
+        case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<RemoteWormholeTTDevice>(
                 new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
-        case tt::ARCH::BLACKHOLE:
+        }
+        case tt::ARCH::BLACKHOLE: {
             return std::unique_ptr<RemoteBlackholeTTDevice>(
                 new RemoteBlackholeTTDevice(std::move(remote_communication)));
+        }
         default:
             throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
     }

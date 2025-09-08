@@ -147,7 +147,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
-                initialize_remote_communication(remote_chip.get());
+                // initialize_remote_communication(remote_chip.get());
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_chips.insert(remote_asic_id);

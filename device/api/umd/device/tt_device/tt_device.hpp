@@ -252,11 +252,13 @@ public:
 
     virtual uint32_t get_clock() = 0;
 
-    virtual uint32_t get_max_clock_freq() = 0;
+    uint32_t get_max_clock_freq();
 
     virtual uint32_t get_min_clock_freq() = 0;
 
     uint64_t get_board_id();
+
+    uint8_t get_asic_location();
 
     BoardType get_board_type();
 

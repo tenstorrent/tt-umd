@@ -22,7 +22,7 @@ class TTDevice;
  * firmware version, ASIC temperature, and DRAM training status.
  * The idea behind the design is that base class provides most up to date functionality, while
  * derived classes can override methods to provide backward compatibility with older firmware versions.
- * For examples, look at Wormhole_18_4_FirmwareInfoProvider and WormholeLegacyFirmwareInfoProvider classes.
+ * For examples, look at Wormhole_18_3_FirmwareInfoProvider and WormholeLegacyFirmwareInfoProvider classes.
  */
 class FirmwareInfoProvider {
 public:
@@ -36,6 +36,14 @@ public:
 
     static semver_t get_minimum_compatible_firmware_version(tt::ARCH arch);
 
+    /**
+     * This function should capture latest firmware version that is supported by the UMD.
+     * It is used to verify that the firmware running on the device is not newer than what UMD supports.
+     * The function is meant to change on every FW release, so we can keep track of supported features
+     * from new FW versions.
+     */
+    static semver_t get_latest_supported_firmware_version(tt::ARCH arch);
+
     virtual uint64_t get_board_id();
 
     virtual uint32_t get_eth_fw_version();
@@ -43,6 +51,10 @@ public:
     virtual double get_asic_temperature();
 
     virtual DramTrainingStatus get_dram_training_status(uint32_t dram_channel);
+
+    virtual uint32_t get_max_clock_freq();
+
+    virtual uint8_t get_asic_location();
 
 protected:
     TTDevice* tt_device = nullptr;

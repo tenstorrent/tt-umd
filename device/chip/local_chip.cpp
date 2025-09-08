@@ -25,9 +25,10 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+std::unique_ptr<LocalChip> LocalChip::create(
+    int physical_device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(pci_device_id);
+    auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
@@ -38,28 +39,74 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
         soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
-    return std::unique_ptr<tt::umd::LocalChip>(
-        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
+    std::unique_ptr<TLBManager> tlb_manager = nullptr;
+    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
+
+    // The variables bellow are only needed when using PCIe.
+    // JTAG(currently the only communication protocol other than PCIe) has no use of them.
+    if (device_type == IODeviceType::PCIe) {
+        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
+    }
+
+    return std::unique_ptr<LocalChip>(new LocalChip(
+        soc_descriptor,
+        std::move(tt_device),
+        std::move(tlb_manager),
+        std::move(sysmem_manager),
+        std::move(remote_communication),
+        num_host_mem_channels));
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int pci_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    int physical_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(pci_device_id);
+    // physical_device_id is not actually physical for JTAG devices here.
+    // It represents the index within a vector of jlink devices discovered by JtagDevice.
+    auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
-    return std::unique_ptr<tt::umd::LocalChip>(
-        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
+    std::unique_ptr<TLBManager> tlb_manager = nullptr;
+    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
+
+    // The variables bellow are only needed when using PCIe.
+    // JTAG(currently the only communication protocol other than PCIe) has no use of them.
+    if (device_type == IODeviceType::PCIe) {
+        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
+    }
+    return std::unique_ptr<LocalChip>(new LocalChip(
+        soc_descriptor,
+        std::move(tt_device),
+        std::move(tlb_manager),
+        std::move(sysmem_manager),
+        std::move(remote_communication),
+        num_host_mem_channels));
 }
 
-LocalChip::LocalChip(SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
-    Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
-    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
-    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(tt_device_.get(), sysmem_manager_.get());
-    initialize_tlb_manager();
+LocalChip::LocalChip(
+    tt_SocDescriptor soc_descriptor,
+    std::unique_ptr<TTDevice> tt_device,
+    std::unique_ptr<TLBManager> tlb_manager,
+    std::unique_ptr<SysmemManager> sysmem_manager,
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    int num_host_mem_channels) :
+    Chip(tt_device->get_chip_info(), soc_descriptor),
+    tlb_manager_(std::move(tlb_manager)),
+    sysmem_manager_(std::move(sysmem_manager)),
+    remote_communication_(std::move(remote_communication)),
+    tt_device_(std::move(tt_device)) {
+    if (tlb_manager_ != nullptr) {
+        initialize_tlb_manager();
+    }
     wait_chip_to_be_ready();
-    initialize_default_chip_mutexes();
+    if (tlb_manager_ != nullptr) {
+        initialize_default_chip_mutexes();
+    }
 }
 
 LocalChip::~LocalChip() {
@@ -132,6 +179,10 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
+    if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
+        return;
+    }
+
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
     chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
@@ -152,14 +203,40 @@ void LocalChip::close_device() {
         set_power_state(DevicePowerState::LONG_IDLE);
         send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
-        sysmem_manager_->unpin_or_unmap_sysmem();
+        if (sysmem_manager_) {
+            sysmem_manager_->unpin_or_unmap_sysmem();
+        }
     }
     chip_started_lock_.reset();
 };
 
-int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
+int LocalChip::get_num_host_channels() {
+    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // the program should still work. It removes the need for refactoring the whole code in case
+    // pcie device breaks or isn't present.
+    if (!sysmem_manager_) {
+        log_warning(
+            LogSiliconDriver,
+            "sysmem_manager was not initialized for {} communication protocol",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+        return 0;
+    }
+
+    return sysmem_manager_->get_num_host_mem_channels();
+}
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
+    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // the program should still work. It removes the need for refactoring the whole code in case
+    // pcie device breaks or isn't present.
+    if (!sysmem_manager_) {
+        log_warning(
+            LogSiliconDriver,
+            "sysmem_manager was not initialized for {} communication protocol",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+        return 0;
+    }
+
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
     hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
     TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
@@ -167,23 +244,49 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
 }
 
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // the program should still work. It removes the need for refactoring the whole code in case
+    // pcie device breaks or isn't present.
+    if (!sysmem_manager_) {
+        log_warning(
+            LogSiliconDriver,
+            "sysmem_manager was not initialized for {} communication protocol",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+        return;
+    }
     sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // the program should still work. It removes the need for refactoring the whole code in case
+    // pcie device breaks or isn't present.
+    if (!sysmem_manager_) {
+        log_warning(
+            LogSiliconDriver,
+            "sysmem_manager was not initialized for {} communication protocol",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+        return;
+    }
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
-
     log_trace(
         LogSiliconDriver,
-        "Chip::write_to_device to pci dev {} core {} at 0x{:x} size: {}",
-        tt_device_->get_pci_device()->get_device_num(),
+        "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
+        DeviceTypeToString.at(tt_device_->get_communication_device_type()),
+        tt_device_->get_communication_device_id(),
         core.str(),
         l1_dest,
         size);
+
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->write_to_device(src, core, l1_dest, size);
+        return;
+    }
+
+    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
@@ -219,11 +322,18 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     log_trace(
         LogSiliconDriver,
-        "Chip::read_from_device from pci device {} core {} at 0x{:x} size: {}",
-        tt_device_->get_pci_device()->get_device_num(),
+        "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
+        DeviceTypeToString.at(tt_device_->get_communication_device_type()),
+        tt_device_->get_communication_device_id(),
         core.str(),
         l1_src,
         size);
+
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->read_from_device(dest, core, l1_src, size);
+        return;
+    }
+
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
@@ -263,6 +373,12 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        TT_THROW(
+            "DMA operations are not supported for {} devices.",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
@@ -289,6 +405,12 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        TT_THROW(
+            "DMA operations are not supported for {} devices.",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
     static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = static_cast<uint8_t*>(dst);
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
@@ -329,6 +451,11 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->write_to_device(src, core, reg_dest, size);
+        return;
+    }
+
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
@@ -348,6 +475,11 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->read_from_device(dest, core, reg_src, size);
+        return;
+    }
+
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
@@ -360,6 +492,14 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 
 void LocalChip::ethernet_broadcast_write(
     const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header) {
+    // Depending on the device type, the implementation may vary.
+    // Currently JTAG doesn't support remote communication.
+    if (!remote_communication_) {
+        TT_THROW(
+            "Ethernet remote transfer is currently not supported for {} devices.",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
     // target_chip and target_core are ignored when broadcast is enabled.
     remote_communication_->write_to_non_mmio({0, 0, 0, 0}, {0, 0}, src, core_dest, size, true, broadcast_header);
 }
@@ -369,12 +509,28 @@ void LocalChip::wait_for_non_mmio_flush() {
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    // Depending on the device type, the implementation may vary.
+    // Currently JTAG doesn't support remote communication.
+    if (!remote_communication_) {
+        TT_THROW(
+            "Ethernet remote transfer is currently not supported for {} devices.",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
     // Set cores to be used by the broadcast communication.
     remote_communication_->set_remote_transfer_ethernet_cores(
         get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    // Depending on the device type, the implementation may vary.
+    // Currently JTAG doesn't support remote communication.
+    if (!remote_communication_) {
+        TT_THROW(
+            "Ethernet remote transfer is currently not supported for {} devices.",
+            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
     // Set cores to be used by the broadcast communication.
     remote_communication_->set_remote_transfer_ethernet_cores(
         get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));

@@ -6,11 +6,13 @@
 
 #include "gtest/gtest.h"
 #include "tt-logger/tt-logger.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 using namespace tt::umd;
 
 class ApiJtagDeviceTest : public ::testing::Test {
@@ -115,5 +117,53 @@ TEST_F(ApiJtagDeviceTest, JtagIOLessThanWordSizeUnalignedAddress) {
     std::vector<uint8_t> data_write = {10, 20, 30};
     for (const auto& device : device_data_) {
         check_io(device, address, data_write);
+    }
+}
+
+TEST(ApiJtagClusterTest, JtagClusterIOTest) {
+    if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
+        GTEST_SKIP() << "JTAG library does not exist at " << JtagDevice::jtag_library_path.string();
+    }
+
+    if (!JtagDevice::create()->get_device_cnt()) {
+        GTEST_SKIP() << "No usable JTAG devices with current JTAG implementation.";
+    }
+
+    std::unique_ptr<Cluster> umd_cluster =
+        std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
+
+    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
+
+        umd_cluster->wait_for_non_mmio_flush(chip_id);
+    }
+
+    // Now read back the data.
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
+
+        ASSERT_EQ(data, readback_data);
     }
 }

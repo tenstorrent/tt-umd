@@ -9,7 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {
@@ -28,8 +28,6 @@ enum class MutexType {
     MEM_BARRIER,
     // Used for calling CEM tool.
     CREATE_ETH_MAP,
-    // Used to enable DPRINT usage in the Simulator.
-    TT_SIMULATOR,
     // Used for guarding against multiple users initializing the same chip.
     CHIP_IN_USE,
 };

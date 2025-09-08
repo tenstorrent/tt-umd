@@ -183,6 +183,10 @@ void LocalChip::start_device() {
         return;
     }
 
+    // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
+    // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
+    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+
     check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {

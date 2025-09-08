@@ -827,30 +827,47 @@ TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0, 0, l2cpu_harvesting_mask});
 
-    for (size_t i = 0; i < blackhole::L2CPU_CORES_NOC0.size(); i++) {
-        const CoreCoord noc0_coord = CoreCoord(
-            blackhole::L2CPU_CORES_NOC0[i].x, blackhole::L2CPU_CORES_NOC0[i].y, CoreType::L2CPU, CoordSystem::NOC0);
+    const CoreCoord l2cpu_0 = CoreCoord(8, 3, CoreType::L2CPU, CoordSystem::NOC0);
+    const CoreCoord l2cpu_1 = CoreCoord(8, 5, CoreType::L2CPU, CoordSystem::NOC0);
+    const CoreCoord l2cpu_2 = CoreCoord(8, 7, CoreType::L2CPU, CoordSystem::NOC0);
+    const CoreCoord l2cpu_3 = CoreCoord(8, 9, CoreType::L2CPU, CoordSystem::NOC0);
 
-        const CoreCoord translated_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::TRANSLATED);
-        EXPECT_EQ(translated_coord.x, noc0_coord.x);
-        EXPECT_EQ(translated_coord.y, noc0_coord.y);
+    const CoreCoord translated_l2cpu_0 = coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::TRANSLATED);
+    const CoreCoord translated_l2cpu_1 = coordinate_manager->translate_coord_to(l2cpu_1, CoordSystem::TRANSLATED);
+    const CoreCoord translated_l2cpu_2 = coordinate_manager->translate_coord_to(l2cpu_2, CoordSystem::TRANSLATED);
+    const CoreCoord translated_l2cpu_3 = coordinate_manager->translate_coord_to(l2cpu_3, CoordSystem::TRANSLATED);
 
-        // The first two cores are harvested, so their virtual coordinates should be shifted
-        // and they should not have logical coordinates.
-        if (i < 2) {
-            EXPECT_THROW(coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LOGICAL), std::runtime_error);
+    EXPECT_EQ(translated_l2cpu_0.x, l2cpu_0.x);
+    EXPECT_EQ(translated_l2cpu_0.y, l2cpu_0.y);
+    EXPECT_EQ(translated_l2cpu_1.x, l2cpu_1.x);
+    EXPECT_EQ(translated_l2cpu_1.y, l2cpu_1.y);
+    EXPECT_EQ(translated_l2cpu_2.x, l2cpu_2.x);
+    EXPECT_EQ(translated_l2cpu_2.y, l2cpu_2.y);
+    EXPECT_EQ(translated_l2cpu_3.x, l2cpu_3.x);
+    EXPECT_EQ(translated_l2cpu_3.y, l2cpu_3.y);
 
-            const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
-            EXPECT_EQ(virtual_coord.x, noc0_coord.x);
-            EXPECT_EQ(virtual_coord.y, noc0_coord.y + 4);
-        } else {
-            const CoreCoord logical_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LOGICAL);
-            EXPECT_EQ(logical_coord.x, 0);
-            EXPECT_EQ(logical_coord.y, i - 2);
+    // Virtual coordinates should have harvested cores moved below unharvested cores.
+    const CoreCoord virtual_l2cpu_0 = coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_l2cpu_1 = coordinate_manager->translate_coord_to(l2cpu_1, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_l2cpu_2 = coordinate_manager->translate_coord_to(l2cpu_2, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_l2cpu_3 = coordinate_manager->translate_coord_to(l2cpu_3, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_l2cpu_0.x, l2cpu_2.x);
+    EXPECT_EQ(virtual_l2cpu_0.y, l2cpu_2.y);
+    EXPECT_EQ(virtual_l2cpu_1.x, l2cpu_3.x);
+    EXPECT_EQ(virtual_l2cpu_1.y, l2cpu_3.y);
+    EXPECT_EQ(virtual_l2cpu_2.x, l2cpu_0.x);
+    EXPECT_EQ(virtual_l2cpu_2.y, l2cpu_0.y);
+    EXPECT_EQ(virtual_l2cpu_3.x, l2cpu_1.x);
+    EXPECT_EQ(virtual_l2cpu_3.y, l2cpu_1.y);
 
-            const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
-            EXPECT_EQ(virtual_coord.x, noc0_coord.x);
-            EXPECT_EQ(virtual_coord.y, noc0_coord.y - 4);
-        }
-    }
+    // Logical cores should be invalid for harvested cores.
+    EXPECT_THROW(coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::LOGICAL), std::runtime_error);
+    EXPECT_THROW(coordinate_manager->translate_coord_to(l2cpu_1, CoordSystem::LOGICAL), std::runtime_error);
+
+    const CoreCoord logical_l2cpu_2 = coordinate_manager->translate_coord_to(l2cpu_2, CoordSystem::LOGICAL);
+    const CoreCoord logical_l2cpu_3 = coordinate_manager->translate_coord_to(l2cpu_3, CoordSystem::LOGICAL);
+    EXPECT_EQ(logical_l2cpu_2.x, 0);
+    EXPECT_EQ(logical_l2cpu_2.y, 0);
+    EXPECT_EQ(logical_l2cpu_3.x, 0);
+    EXPECT_EQ(logical_l2cpu_3.y, 1);
 }

@@ -38,6 +38,7 @@ protected:
     void translate_dram_coords() override;
     void translate_eth_coords() override;
     void translate_pcie_coords() override;
+    void translate_l2cpu_coords() override;
 
     void fill_tensix_noc0_translated_mapping() override;
     void fill_dram_noc0_translated_mapping() override;
@@ -53,6 +54,8 @@ protected:
     std::vector<CoreCoord> get_harvested_eth_cores() const override;
     std::vector<CoreCoord> get_pcie_cores() const override;
     std::vector<CoreCoord> get_harvested_pcie_cores() const override;
+    std::vector<CoreCoord> get_l2cpu_cores() const override;
+    std::vector<CoreCoord> get_harvested_l2cpu_cores() const override;
     tt_xy_pair get_tensix_grid_size() const override;
     tt_xy_pair get_dram_grid_size() const override;
     tt_xy_pair get_harvested_tensix_grid_size() const override;

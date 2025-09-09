@@ -71,7 +71,11 @@ protected:
         non_fabric_chip->write_to_device(tensix_core, zero_data.data(), 0, zero_data.size());
     }
 
-    void TearDown() override { lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up); }
+    void TearDown() override {
+        if (fabric_chip.get() != nullptr) {
+            lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up);
+        }
+    }
 
     bool should_skip_lite_fabric_tests() {
         std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
@@ -98,6 +102,7 @@ CoreCoord LiteFabricFixture::tensix_core = CoreCoord(1, 2, CoreType::TENSIX, Coo
 CoreCoord LiteFabricFixture::eth_core_transfer = CoreCoord(0, 0, CoreType::ETH, CoordSystem::TRANSLATED);
 
 TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
+    std::cout << "i am running fabric read write 4 bytes test" << std::endl;
     uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 

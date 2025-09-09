@@ -98,7 +98,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
         set_reset_state(chip, tunnel_1x, true);
         set_pc(chip, tunnel_1x, k_PcResetAddress, k_FirmwareStart);
 
-        std::vector<uint8_t> binary_data = read_binary_file("lite_fabric.bin");
+        std::vector<uint8_t> binary_data = read_binary_file("device/libs/lite_fabric.bin");
         size_t bin_size = binary_data.size();
 
         // Set up configuration

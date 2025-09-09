@@ -147,7 +147,9 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
-                // initialize_remote_communication(remote_chip.get());
+                // TODO: we should probably initialize remote communication for remote chips as well.
+                // This is not needed currently for any Blackhole topology, but we should work on enabling this in
+                // general. The change required is to not initialize the communication on already initialized ETH cores.
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_chips.insert(remote_asic_id);

@@ -14,6 +14,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication.hpp"
@@ -86,10 +87,20 @@ TTDevice::TTDevice() {}
     }
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
-    return std::unique_ptr<RemoteWormholeTTDevice>(
-        new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
+    switch (remote_communication->get_local_device()->get_arch()) {
+        case tt::ARCH::WORMHOLE_B0: {
+            return std::unique_ptr<RemoteWormholeTTDevice>(
+                new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
+        }
+        case tt::ARCH::BLACKHOLE: {
+            return std::unique_ptr<RemoteBlackholeTTDevice>(
+                new RemoteBlackholeTTDevice(std::move(remote_communication)));
+        }
+        default:
+            throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
+    }
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
@@ -578,5 +589,7 @@ ChipInfo TTDevice::get_chip_info() {
     chip_info.board_type = get_board_type();
     return chip_info;
 }
+
+tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 }  // namespace tt::umd

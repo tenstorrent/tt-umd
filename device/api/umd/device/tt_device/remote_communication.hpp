@@ -17,24 +17,25 @@ class SysmemManager;
 class RemoteCommunication {
 public:
     RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr);
-    virtual ~RemoteCommunication();
+    virtual ~RemoteCommunication() = default;
+
+    static std::unique_ptr<RemoteCommunication> create_remote_communication(
+        TTDevice* local_tt_device, eth_coord_t target_chip, SysmemManager* sysmem_manager = nullptr);
 
     // Target core should be in translated coords.
     // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should
     // probably be redesigned in some way.
-    void read_non_mmio(
-        eth_coord_t target_chip, tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes);
+    virtual void read_non_mmio(tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes) = 0;
 
-    void write_to_non_mmio(
-        eth_coord_t target_chip,
+    virtual void write_to_non_mmio(
         tt_xy_pair target_core,
         const void* src,
         uint64_t core_dest,
         uint32_t size_in_bytes,
         bool broadcast = false,
-        std::vector<int> broadcast_header = {});
+        std::vector<int> broadcast_header = {}) = 0;
 
-    void wait_for_non_mmio_flush();
+    virtual void wait_for_non_mmio_flush() = 0;
 
     // Set the ethernet cores which can be used for remote communication on the assigned local chip.
     // The cores should be in translated coordinates.
@@ -42,7 +43,7 @@ public:
 
     TTDevice* get_local_device();
 
-private:
+protected:
     tt_xy_pair get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();
 

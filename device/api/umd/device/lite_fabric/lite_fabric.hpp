@@ -156,7 +156,7 @@ struct HostToLiteFabricInterface {
     uint32_t mmio_device_id = 0;
     uint32_t mmio_eth_core_x = 0;
     uint32_t mmio_eth_core_y = 0;
-    Chip* chip = nullptr;
+    TTDevice* tt_device = nullptr;
 
     inline void init() volatile {
         h2d.sender_host_write_index = 0;
@@ -194,9 +194,9 @@ private:
     void wait_for_empty_write_slot(CoreCoord virtual_core_sender) {
         uint32_t offset = offsetof(HostToLiteFabricInterface, d2h);
         do {
-            chip->read_from_device(
-                virtual_core_sender,
+            tt_device->read_from_device(
                 (void*)(reinterpret_cast<uintptr_t>(this) + offset),
+                virtual_core_sender,
                 host_interface_on_device_addr + offset,
                 sizeof(DeviceToHost));
         } while ((h2d.sender_host_write_index + 1) % NUM_BUFFERS == d2h.fabric_sender_channel_index);
@@ -208,9 +208,10 @@ private:
         header.command_fields.noc_read.event = 0;
         const auto expectedOrderId = HostToLiteFabricReadEvent::get();
         while (true) {
-            chip->read_from_device(
-                virtual_core_sender,
+            tt_device->read_from_device(
                 const_cast<void*>(static_cast<volatile void*>(&header)),
+                virtual_core_sender,
+
                 read_event_addr,
                 sizeof(FabricLiteHeader));
             if (header.command_fields.noc_read.event == expectedOrderId) {
@@ -227,37 +228,37 @@ private:
     }
 
     void barrier(CoreCoord virtual_core_sender) {
-        auto soc_d = chip->get_soc_descriptor();
-        const auto& eth_cores = soc_d.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
-        const auto& tensix_cores = soc_d.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+        // auto soc_d = chip->get_soc_descriptor();
+        // const auto& eth_cores = soc_d.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+        // const auto& tensix_cores = soc_d.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-        std::vector<uint32_t> barrier_value{0, 0};
-        const auto do_barrier = [&](const std::vector<tt::umd::CoreCoord>& virtual_cores,
-                                    const std::string& core_type_name,
-                                    uint32_t barrier_addr) -> void {
-            for (const auto& virtual_core : virtual_cores) {
-                const uint64_t dest_noc_upper =
-                    (uint64_t(virtual_core.y) << (36 + 6)) | (uint64_t(virtual_core.x) << 36);
-                uint64_t dest_noc_addr = dest_noc_upper | (uint64_t)barrier_addr;
-                write_one_page(
-                    barrier_value.data(), barrier_value.size() * sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+        // std::vector<uint32_t> barrier_value{0, 0};
+        // const auto do_barrier = [&](const std::vector<tt::umd::CoreCoord>& virtual_cores,
+        //                             const std::string& core_type_name,
+        //                             uint32_t barrier_addr) -> void {
+        //     for (const auto& virtual_core : virtual_cores) {
+        //         const uint64_t dest_noc_upper =
+        //             (uint64_t(virtual_core.y) << (36 + 6)) | (uint64_t(virtual_core.x) << 36);
+        //         uint64_t dest_noc_addr = dest_noc_upper | (uint64_t)barrier_addr;
+        //         write_one_page(
+        //             barrier_value.data(), barrier_value.size() * sizeof(uint32_t), virtual_core_sender,
+        //             dest_noc_addr);
 
-                std::vector<uint32_t> read_barrier(barrier_value.size(), 0);
-                read_one_page(
-                    read_barrier.data(), barrier_value.size() * sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+        //         std::vector<uint32_t> read_barrier(barrier_value.size(), 0);
+        //         read_one_page(
+        //             read_barrier.data(), barrier_value.size() * sizeof(uint32_t), virtual_core_sender,
+        //             dest_noc_addr);
 
-                if (read_barrier != barrier_value) {
-                    throw std::runtime_error(fmt::format(
-                        "Chip memory corruption on {} virtual core {}: barrier value mismatch: Read {} but expected {}",
-                        core_type_name,
-                        virtual_core.str(),
-                        fmt::format("{:#x}", fmt::join(read_barrier, ", ")),
-                        fmt::format("{:#x}", fmt::join(barrier_value, ", "))));
-                }
-            }
-        };
+        //         if (read_barrier != barrier_value) {
+        //             throw std::runtime_error(fmt::format(
+        //                 "Chip memory corruption on {} virtual core {}: barrier value mismatch: Read {} but expected
+        //                 {}", core_type_name, virtual_core.str(), fmt::format("{:#x}", fmt::join(read_barrier, ", ")),
+        //                 fmt::format("{:#x}", fmt::join(barrier_value, ", "))));
+        //         }
+        //     }
+        // };
 
-        do_barrier({virtual_core_sender}, "ethernet", eth_barrier_addr);
+        // do_barrier({virtual_core_sender}, "ethernet", eth_barrier_addr);
         // do_barrier(eth_cores, "ethernet", eth_barrier_addr);
         // do_barrier(tensix_cores, "tensix", tensix_barrier_addr);
     }
@@ -270,9 +271,9 @@ private:
 
         uint32_t addr = get_next_send_buffer_slot_address(channel_address);
 
-        chip->write_to_device(virtual_core_sender, &header, addr, sizeof(FabricLiteHeader));
+        tt_device->write_to_device(&header, virtual_core_sender, addr, sizeof(FabricLiteHeader));
 
-        chip->l1_membar({virtual_core_sender});
+        // chip->l1_membar({virtual_core_sender});
 
         h2d.sender_host_write_index =
             lite_fabric::wrap_increment<SENDER_NUM_BUFFERS_ARRAY[0]>(h2d.sender_host_write_index);
@@ -291,19 +292,20 @@ private:
         }
         uint32_t addr = get_next_send_buffer_slot_address(channel_address) + sizeof(FabricLiteHeader);
         log_debug(LogSiliconDriver, "Send {}B payload only {:#x}", size, addr);
-        chip->write_to_device(virtual_core_sender, data, addr, size);
+        tt_device->write_to_device(data, virtual_core_sender, addr, size);
     }
 
     void flush_h2d(CoreCoord virtual_core_sender) {
         tt_driver_atomics::mfence();
 
-        chip->write_to_device(
-            virtual_core_sender,
+        tt_device->write_to_device(
             (void*)(reinterpret_cast<uintptr_t>(this) + offsetof(HostToLiteFabricInterface, h2d)),
+            virtual_core_sender,
+
             host_interface_on_device_addr + offsetof(HostToLiteFabricInterface, h2d),
             sizeof(HostToDevice));
 
-        chip->l1_membar({virtual_core_sender});
+        // chip->l1_membar({virtual_core_sender});
     }
 
     void write_one_page(void* mem_ptr, size_t size, CoreCoord sender_core, uint64_t dst_noc_addr) {
@@ -362,13 +364,14 @@ private:
         wait_for_read_event(receiver_core, receiver_header_address);
 
         uint8_t read_back_unaligned_offset = 0;
-        chip->read_from_device(
-            receiver_core,
+        tt_device->read_from_device(
             &read_back_unaligned_offset,
+            receiver_core,
+
             receiver_header_address + offsetof(FabricLiteHeader, unaligned_offset),
             sizeof(uint8_t));
 
-        chip->read_from_device(receiver_core, mem_ptr, receiver_data_address + read_back_unaligned_offset, size);
+        tt_device->read_from_device(mem_ptr, receiver_core, receiver_data_address + read_back_unaligned_offset, size);
 
         h2d.receiver_host_read_index =
             lite_fabric::wrap_increment<RECEIVER_NUM_BUFFERS_ARRAY[0]>(h2d.receiver_host_read_index);
@@ -417,7 +420,7 @@ struct LiteFabricMemoryMap {
     HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
 
-    static auto make_host_interface(Chip* chip) {
+    static auto make_host_interface(TTDevice* tt_device) {
         lite_fabric::HostToLiteFabricInterface<SENDER_NUM_BUFFERS_ARRAY[0], CHANNEL_BUFFER_SIZE> host_interface;
         host_interface.host_interface_on_device_addr = lite_fabric::LiteFabricMemoryMap::get_host_interface_addr();
         host_interface.sender_channel_base = lite_fabric::LiteFabricMemoryMap::get_send_channel_addr();
@@ -430,7 +433,7 @@ struct LiteFabricMemoryMap {
         host_interface.eth_barrier_addr = eth_barrier_addr;
         host_interface.tensix_barrier_addr = tensix_barrier_addr;
         host_interface.l1_alignment_bytes = l1_alignment_bytes;
-        host_interface.chip = chip;
+        host_interface.tt_device = tt_device;
 
         host_interface.init();
         return host_interface;

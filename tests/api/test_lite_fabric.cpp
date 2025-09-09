@@ -29,9 +29,14 @@ protected:
     static void SetUpTestSuite() {
         std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
 
+        if (pci_devices_ids.size() < 2) {
+            GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
+                            "be connected to the host.";
+        }
+
         fabric_chip = LocalChip::create(pci_devices_ids[0]);
 
-        if (pci_devices_ids.size() < 2 || fabric_chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+        if (fabric_chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
             GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
                             "be connected to the host.";
         }
@@ -71,9 +76,13 @@ protected:
     bool should_skip_lite_fabric_tests() {
         std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
 
+        if (pci_devices_ids.size() < 2) {
+            return true;
+        }
+
         auto chip = LocalChip::create(pci_devices_ids[0]);
 
-        if (pci_devices_ids.size() < 2 || chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+        if (chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
             return true;
         }
 

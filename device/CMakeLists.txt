@@ -53,8 +53,9 @@ target_sources(
         tt_device/remote_wormhole_tt_device.cpp
         tt_device/remote_blackhole_tt_device.cpp
         firmware/firmware_info_provider.cpp
-        firmware/wormhole_legacy_firmware_info_provider.cpp
-        firmware/wormhole_18_4_firmware_info_provider.cpp
+        firmware/wormhole_18_3_firmware_info_provider.cpp
+        firmware/wormhole_18_7_firmware_info_provider.cpp
+        firmware/blackhole_18_7_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
         soc_descriptor.cpp
@@ -86,8 +87,6 @@ if(TT_UMD_BUILD_SIMULATION)
         PRIVATE
             simulation/simulation_device.cpp
             simulation/simulation_host.cpp
-            simulation/ttsim_device.cpp
-            simulation/ttsim_host.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -130,15 +129,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_blackhole_tt_device.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
-                api/umd/device/firmware/wormhole_legacy_firmware_info_provider.hpp
-                api/umd/device/firmware/wormhole_18_4_firmware_info_provider.hpp
+                api/umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp
+                api/umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp
+                api/umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/simulation/simulation_host.hpp
-                api/umd/device/simulation/ttsim_device.hpp
-                api/umd/device/simulation/ttsim_host.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/tt_xy_pair.h
                 api/umd/device/utils/common.hpp

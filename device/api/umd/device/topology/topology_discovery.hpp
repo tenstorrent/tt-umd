@@ -21,13 +21,18 @@ class ClusterDescriptor;
 class TopologyDiscovery {
 public:
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
-    TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
+        std::unordered_set<chip_id_t> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
+    TopologyDiscovery(
+        std::unordered_set<chip_id_t> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
     virtual ~TopologyDiscovery() = default;
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
 protected:
-    void get_pcie_connected_chips();
+    void get_connected_chips();
 
     void discover_remote_chips();
 
@@ -114,7 +119,7 @@ protected:
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
 
-    std::unordered_set<chip_id_t> pci_target_devices = {};
+    std::unordered_set<chip_id_t> target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;
@@ -122,6 +127,8 @@ protected:
     std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_chip;
 
     const std::string sdesc_path;
+
+    const IODeviceType io_device_type;
 };
 
 }  // namespace tt::umd

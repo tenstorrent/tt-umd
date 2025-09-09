@@ -50,7 +50,8 @@ enum TelemetryTag : uint8_t {
     ENABLED_L2CPU = 37,
     PCIE_USAGE = 38,
     NUMBER_OF_TAGS = 39,
-    ASIC_LOCATION = 52
+    ASIC_LOCATION = 52,
+    AICLK_LIMIT_MAX = 63,
 };
 
 }  // namespace tt::umd

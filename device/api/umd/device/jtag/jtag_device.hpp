@@ -17,7 +17,7 @@ public:
     explicit JtagDevice(std::unique_ptr<Jtag> jtag_device);
     ~JtagDevice();
 
-    static std::shared_ptr<JtagDevice> create(std::filesystem::path& binary_directory = jtag_library_path);
+    static std::shared_ptr<JtagDevice> create(const std::filesystem::path& binary_directory = jtag_library_path);
 
     void close_device() {}
 
@@ -68,5 +68,5 @@ private:
     std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;
     std::vector<uint32_t> efuse_harvesting;
-    std::optional<uint8_t> curr_device_idx = std::nullopt;
+    static std::optional<uint8_t> curr_device_idx;
 };

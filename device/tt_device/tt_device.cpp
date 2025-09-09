@@ -16,7 +16,7 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -571,12 +571,19 @@ std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 
+uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
+
 ChipInfo TTDevice::get_chip_info() {
     ChipInfo chip_info;
+
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
     chip_info.chip_uid.board_id = get_board_id();
     chip_info.board_type = get_board_type();
+    chip_info.asic_location = get_asic_location();
+
     return chip_info;
 }
+
+uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
 }  // namespace tt::umd

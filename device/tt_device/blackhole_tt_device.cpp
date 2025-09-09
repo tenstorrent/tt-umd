@@ -131,8 +131,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
     }
 
-    chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
-
     return chip_info;
 }
 
@@ -167,10 +165,6 @@ uint32_t BlackholeTTDevice::get_clock() {
 
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
-
-// TODO: figure out if Blackhole has the information on maximum possible
-// clock frequency. For now, we are using the maximum possible value.
-uint32_t BlackholeTTDevice::get_max_clock_freq() { return blackhole::AICLK_BUSY_VAL; }
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 

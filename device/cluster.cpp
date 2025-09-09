@@ -50,7 +50,6 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/simulation/simulation_device.hpp"
-#include "umd/device/simulation/ttsim_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
@@ -118,6 +117,20 @@ void Cluster::verify_sysmem_initialized() {
     }
 }
 
+void Cluster::log_device_summary() {
+    switch (cluster_desc->get_io_device_type()) {
+        case IODeviceType::PCIe:
+            log_pci_device_summary();
+            break;
+        case IODeviceType::JTAG:
+            // Currently no specific device logging needed for JTAG.
+            break;
+        default:
+            TT_THROW("Unknown device type for logging.");
+            break;
+    }
+}
+
 void Cluster::log_pci_device_summary() {
     if (local_chip_ids_.empty()) {
         return;
@@ -182,6 +195,22 @@ void Cluster::verify_fw_bundle_version() {
             arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
     }
 
+    semver_t latest_supported_fw_version = FirmwareInfoProvider::get_latest_supported_firmware_version(
+        chips_.begin()->second->get_tt_device()->get_arch());
+
+    int compare_fw_bundle_with_latest =
+        semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
+
+    if (compare_fw_bundle_with_latest == 1) {
+        log_warning(
+            LogSiliconDriver,
+            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
+            "features may not be supported.",
+            fw_bundle_version.to_string(),
+            latest_supported_fw_version.to_string(),
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
+    }
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
@@ -213,16 +242,19 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         }
         log_info(
             LogSiliconDriver,
-            "Opening local chip ids/pci ids: {}/{} and remote chip ids {}",
+            "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
+            DeviceTypeToString.at(cluster_desc->get_io_device_type()),
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
         verify_fw_bundle_version();
-        log_pci_device_summary();
+        log_device_summary();
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
-        verify_sysmem_initialized();
+        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
+            verify_sysmem_initialized();
+        }
     }
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
@@ -254,20 +286,18 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 #endif
     }
 
-    if (chip_type == ChipType::TTSIM) {
-#ifdef TT_UMD_BUILD_SIMULATION
-        log_info(LogSiliconDriver, "Creating TTSim Simulation device");
-        return std::make_unique<TTSimDevice>(simulator_directory);
-#else
-        throw std::runtime_error(
-            "TTSim device is not supported in this build. Set '-TT_UMD_BUILD_SIMULATION=ON' during cmake configuration "
-            "to enable TTSim device.");
-#endif
-    }
-
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto chip = LocalChip::create(cluster_desc->get_chips_with_mmio().at(chip_id), soc_desc, num_host_mem_channels);
-        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+        auto chip = LocalChip::create(
+            (cluster_desc->io_device_type == IODeviceType::JTAG ? chip_id
+                                                                : cluster_desc->get_chips_with_mmio().at(chip_id)),
+            soc_desc,
+            num_host_mem_channels,
+            cluster_desc->io_device_type);
+
+        // Currrently remote transfer is only supported by PCIe.
+        // TODO: implement remote transfer for JTAG comm.
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0 &&
+            cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }
@@ -342,8 +372,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::TTSIM ||
-        cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -397,8 +426,10 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr =
-                Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+                options.sdesc_path,
+                options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
+                options.io_device_type);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -406,9 +437,6 @@ Cluster::Cluster(ClusterOptions options) {
 #ifdef TT_UMD_BUILD_SIMULATION
             if (options.chip_type == ChipType::SIMULATION) {
                 SimulationDeviceInit init(options.simulator_directory);
-                arch = init.get_soc_descriptor().arch;
-            } else if (options.chip_type == ChipType::TTSIM) {
-                TTSimDeviceInit init(options.simulator_directory);
                 arch = init.get_soc_descriptor().arch;
             }
 #endif
@@ -433,8 +461,7 @@ Cluster::Cluster(ClusterOptions options) {
         cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
     }
 
-    if (options.sdesc_path.empty() &&
-        (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::TTSIM)) {
+    if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
         if (options.simulator_directory.extension() == ".so") {
             options.sdesc_path = options.simulator_directory.parent_path() / "soc_descriptor.yaml";
         } else {
@@ -1112,8 +1139,8 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    return TopologyDiscovery::create_cluster_descriptor(pci_target_devices, sdesc_path);
+    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type) {
+    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
 }
 
 }  // namespace tt::umd

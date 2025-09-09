@@ -1198,4 +1198,6 @@ uint8_t ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
     return it->second;
 }
 
+IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
+
 }  // namespace tt::umd

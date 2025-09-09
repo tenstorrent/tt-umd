@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <dlfcn.h>
+
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -44,9 +46,10 @@ public:
     uint32_t read_id();
 
 private:
-    DlHandle handle;
+    static DlHandle handle;
     std::unordered_map<std::string, void*> func_map;
     std::mutex mtx;
 
     void* load_function(const char* name);
+    void openLibrary(const std::string& filePath, int flags = RTLD_LAZY);
 };

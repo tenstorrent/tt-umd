@@ -175,6 +175,33 @@ struct HostToLiteFabricInterface {
         write_noc_addr(mem_ptr, size, sender_core, dst_noc_addr);
     }
 
+    void barrier(CoreCoord virtual_core_sender) {
+        uint32_t barrier_value = 0xca11ba11;
+        const auto do_barrier =
+            [&](const CoreCoord& virtual_core, const std::string& core_type_name, uint32_t barrier_addr) -> void {
+            const uint64_t dest_noc_upper = (uint64_t(virtual_core.y) << (36 + 6)) | (uint64_t(virtual_core.x) << 36);
+            uint64_t dest_noc_addr = dest_noc_upper | (uint64_t)barrier_addr;
+            write_one_page(&barrier_value, sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+
+            uint32_t read_barrier = 0;
+            read_one_page(&read_barrier, sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+
+            if (read_barrier != barrier_value) {
+                throw std::runtime_error(fmt::format(
+                    "Lite fabric barrier failed. Chip memory corruption on {} translated core ({}, {}): barrier value "
+                    "mismatch {:#x} != {:#x}",
+                    core_type_name,
+                    virtual_core.x,
+                    virtual_core.y,
+                    read_barrier,
+                    barrier_value));
+            }
+        };
+
+        CoreCoord barrier_coord = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        do_barrier(barrier_coord, "tensix", tensix_barrier_addr);
+    }
+
 private:
     constexpr uint32_t get_max_payload_data_size_bytes() const {
         // Additional 64B to be used only for unaligned reads/writes.
@@ -225,42 +252,6 @@ private:
         };
 
         HostToLiteFabricReadEvent::increment();
-    }
-
-    void barrier(CoreCoord virtual_core_sender) {
-        // auto soc_d = chip->get_soc_descriptor();
-        // const auto& eth_cores = soc_d.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
-        // const auto& tensix_cores = soc_d.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-
-        // std::vector<uint32_t> barrier_value{0, 0};
-        // const auto do_barrier = [&](const std::vector<tt::umd::CoreCoord>& virtual_cores,
-        //                             const std::string& core_type_name,
-        //                             uint32_t barrier_addr) -> void {
-        //     for (const auto& virtual_core : virtual_cores) {
-        //         const uint64_t dest_noc_upper =
-        //             (uint64_t(virtual_core.y) << (36 + 6)) | (uint64_t(virtual_core.x) << 36);
-        //         uint64_t dest_noc_addr = dest_noc_upper | (uint64_t)barrier_addr;
-        //         write_one_page(
-        //             barrier_value.data(), barrier_value.size() * sizeof(uint32_t), virtual_core_sender,
-        //             dest_noc_addr);
-
-        //         std::vector<uint32_t> read_barrier(barrier_value.size(), 0);
-        //         read_one_page(
-        //             read_barrier.data(), barrier_value.size() * sizeof(uint32_t), virtual_core_sender,
-        //             dest_noc_addr);
-
-        //         if (read_barrier != barrier_value) {
-        //             throw std::runtime_error(fmt::format(
-        //                 "Chip memory corruption on {} virtual core {}: barrier value mismatch: Read {} but expected
-        //                 {}", core_type_name, virtual_core.str(), fmt::format("{:#x}", fmt::join(read_barrier, ", ")),
-        //                 fmt::format("{:#x}", fmt::join(barrier_value, ", "))));
-        //         }
-        //     }
-        // };
-
-        // do_barrier({virtual_core_sender}, "ethernet", eth_barrier_addr);
-        // do_barrier(eth_cores, "ethernet", eth_barrier_addr);
-        // do_barrier(tensix_cores, "tensix", tensix_barrier_addr);
     }
 
     void send_payload_flush_non_blocking_from_address(
@@ -402,7 +393,9 @@ private:
                 src_noc_addr + num_pages * get_max_payload_data_size_bytes());
         }
     }
-} __attribute__((packed));
+}
+
+__attribute__((packed));
 
 struct LiteFabricMemoryMap {
     lite_fabric::LiteFabricConfig config;

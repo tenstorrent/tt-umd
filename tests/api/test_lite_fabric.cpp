@@ -93,6 +93,8 @@ TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
 
     host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
 
+    host_interface.barrier(eth_core_transfer);
+
     uint32_t fabric_readback = 0;
     host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, tensix_core, test_addr);
     EXPECT_EQ(fabric_readback, test_value);
@@ -107,6 +109,8 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
     uint32_t test_addr = 0x1000;
 
     host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
+
+    host_interface.barrier(eth_core_transfer);
 
     uint32_t readback = 0;
     non_fabric_chip->read_from_device(tensix_core, &readback, test_addr, sizeof(readback));
@@ -139,11 +143,13 @@ TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
         GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
                         "connected to the host.";
     }
-    uint32_t test_addr = 0;
+    uint32_t test_addr = 0x100;
 
     std::vector<uint8_t> write_data(1 << 13, 2);
 
     host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
+
+    host_interface.barrier(eth_core_transfer);
 
     std::vector<uint8_t> readback_data(1 << 13, 0);
     host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
@@ -155,11 +161,13 @@ TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
         GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
                         "connected to the host.";
     }
-    uint32_t test_addr = 0;
+    uint32_t test_addr = 0x100;
 
     std::vector<uint8_t> write_data(1 << 20, 3);
 
     host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
+
+    host_interface.barrier(eth_core_transfer);
 
     std::vector<uint8_t> readback_data(1 << 20, 0);
     non_fabric_chip->read_from_device(tensix_core, readback_data.data(), test_addr, readback_data.size());

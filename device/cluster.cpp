@@ -420,21 +420,16 @@ Cluster::Cluster(ClusterOptions options) {
     // If the cluster descriptor is not provided, create a new one.
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
-    if (temp_full_cluster_desc == nullptr) {
-        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
-            options.sdesc_path,
-            options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
-            options.io_device_type);
-        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
-    }
     chip_type_ = options.chip_type;
 
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr =
-                Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+                options.sdesc_path,
+                options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
+                options.io_device_type);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.

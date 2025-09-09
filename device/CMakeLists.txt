@@ -175,7 +175,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/lite_fabric/lite_fabric.hpp
-                api/umd/device/lite_fabric/lite_fabric_header.hpp
     )
 endif()
 

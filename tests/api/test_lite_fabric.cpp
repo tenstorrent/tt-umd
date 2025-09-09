@@ -26,8 +26,6 @@ protected:
     static CoreCoord tensix_core;
     static CoreCoord eth_core_transfer;
 
-    bool running_first_test = true;
-
     static void SetUpTestSuite() {
         std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
 

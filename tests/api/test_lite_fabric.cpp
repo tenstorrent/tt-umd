@@ -55,6 +55,11 @@ protected:
     }
 
     void SetUp() override {
+        if (should_skip_lite_fabric_tests()) {
+            GTEST_SKIP()
+                << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
+                   "connected to the host.";
+        }
         host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get()->get_tt_device());
         lite_fabric::launch_lite_fabric(fabric_chip.get(), eth_cores_up);
         std::vector<uint8_t> zero_data(1 << 20, 0);
@@ -62,6 +67,18 @@ protected:
     }
 
     void TearDown() override { lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up); }
+
+    bool should_skip_lite_fabric_tests() {
+        std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
+
+        auto chip = LocalChip::create(pci_devices_ids[0]);
+
+        if (pci_devices_ids.size() < 2 || chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+            return true;
+        }
+
+        return false;
+    }
 };
 
 std::unique_ptr<LocalChip> LiteFabricFixture::fabric_chip = nullptr;
@@ -71,23 +88,7 @@ CoreCoord LiteFabricFixture::tensix_core = CoreCoord(1, 2, CoreType::TENSIX, Coo
 // Dummy value, it will be overriden inside SetUpTestSuite.
 CoreCoord LiteFabricFixture::eth_core_transfer = CoreCoord(0, 0, CoreType::ETH, CoordSystem::TRANSLATED);
 
-bool should_skip_lite_fabric_tests() {
-    std::vector<int> pci_devices_ids = PCIDevice::enumerate_devices();
-
-    auto chip = LocalChip::create(pci_devices_ids[0]);
-
-    if (pci_devices_ids.size() < 2 || chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
-        return true;
-    }
-
-    return false;
-}
-
 TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
-    if (should_skip_lite_fabric_tests()) {
-        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
-                        "connected to the host.";
-    }
     uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 
@@ -101,10 +102,6 @@ TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
-    if (should_skip_lite_fabric_tests()) {
-        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
-                        "be connected to the host.";
-    }
     uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 
@@ -118,10 +115,6 @@ TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricReadMMIOWrite4Bytes) {
-    if (should_skip_lite_fabric_tests()) {
-        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to "
-                        "be connected to the host.";
-    }
     uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 
@@ -139,10 +132,6 @@ TEST_F(LiteFabricFixture, FabricReadMMIOWrite4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
-    if (should_skip_lite_fabric_tests()) {
-        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
-                        "connected to the host.";
-    }
     uint32_t test_addr = 0x100;
 
     std::vector<uint8_t> write_data(1 << 13, 2);
@@ -157,10 +146,6 @@ TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
 }
 
 TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
-    if (should_skip_lite_fabric_tests()) {
-        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
-                        "connected to the host.";
-    }
     uint32_t test_addr = 0x100;
 
     std::vector<uint8_t> write_data(1 << 20, 3);
@@ -175,10 +160,6 @@ TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
 }
 
 TEST_F(LiteFabricFixture, FabricARC) {
-    if (should_skip_lite_fabric_tests()) {
-        GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
-                        "connected to the host.";
-    }
     // This is an address of ARC status register, the value of it should be set by ARC fw and
     // should be 5, it was chosen for potential easier debug in the future.
     uint32_t test_addr = 0x80030408;

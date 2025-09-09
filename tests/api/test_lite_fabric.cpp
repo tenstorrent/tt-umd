@@ -38,7 +38,7 @@ protected:
                             "be connected to the host.";
         }
 
-        auto eth_cores = fabric_chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        auto eth_cores = fabric_chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
         eth_cores_up.clear();
         for (auto& eth_core : eth_cores) {
             uint32_t port_status;
@@ -57,7 +57,7 @@ protected:
     }
 
     void SetUp() override {
-        host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get());
+        host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get()->get_tt_device());
         lite_fabric::launch_lite_fabric(fabric_chip.get(), eth_cores_up);
         std::vector<uint8_t> zero_data(1 << 20, 0);
         non_fabric_chip->write_to_device(tensix_core, zero_data.data(), 0, zero_data.size());

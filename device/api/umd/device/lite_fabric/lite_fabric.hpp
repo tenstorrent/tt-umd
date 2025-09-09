@@ -273,6 +273,8 @@ private:
 
         tt_device->write_to_device(&header, virtual_core_sender, addr, sizeof(FabricLiteHeader));
 
+        // TODO: Membar shouldn't be need here because we are using TTDevice read/writes which
+        // are using strict ordering so it should commit transactions in order they were issued.
         // chip->l1_membar({virtual_core_sender});
 
         h2d.sender_host_write_index =
@@ -305,6 +307,8 @@ private:
             host_interface_on_device_addr + offsetof(HostToLiteFabricInterface, h2d),
             sizeof(HostToDevice));
 
+        // TODO: Membar shouldn't be need here because we are using TTDevice read/writes which
+        // are using strict ordering so it should commit transactions in order they were issued.
         // chip->l1_membar({virtual_core_sender});
     }
 

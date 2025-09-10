@@ -66,10 +66,9 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-You also need to configure cmake to enable tests, hence the need to run cmake configuration step again.
-To build tests:
+To build all components (some are turned off by default, like tests), you can run these commands:
 ```
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
 cmake --build build
 ```
 

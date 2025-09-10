@@ -61,6 +61,17 @@ option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" O
 option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
 option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
+
+# If BUILD_ALL is enabled, enable all individual build options
+if(TT_UMD_BUILD_ALL)
+    set(TT_UMD_BUILD_TESTS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_SIMULATION ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_PYTHON ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_TOOLS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_EXAMPLES ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    message(STATUS "TT_UMD_BUILD_ALL enabled - building all components")
+endif()
 
 # Control compile time logging
 if(NOT DEFINED TT_UMD_ENABLE_LOGGING)
@@ -99,6 +110,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 add_subdirectory(common)
+if(TT_UMD_BUILD_SIMULATION)
+    message(STATUS "Building ${PROJECT_NAME} with Simulation")
+endif()
 add_subdirectory(device)
 if(TT_UMD_BUILD_PYTHON)
     message(STATUS "Building ${PROJECT_NAME} with Python Bindings")
@@ -116,6 +130,7 @@ if(TT_UMD_BUILD_EXAMPLES)
 endif()
 
 if(TT_UMD_BUILD_TESTS)
+    message(STATUS "Building ${PROJECT_NAME} with Tests")
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)
 

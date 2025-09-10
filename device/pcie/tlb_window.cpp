@@ -145,7 +145,7 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
 
         auto leading_len = std::min(sizeof(tmp) - dest_misalignment, num_bytes);
 
-        memcpy(reinterpret_cast<char *>(&tmp) + dest_misalignment, src, leading_len);
+        std::memcpy(reinterpret_cast<char *>(&tmp) + dest_misalignment, src, leading_len);
         num_bytes -= leading_len;
         src = static_cast<const char *>(src) + leading_len;
 
@@ -168,7 +168,7 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
     if (trailing_len != 0) {
         copy_t tmp = *dp;
 
-        memcpy(&tmp, sp, trailing_len);
+        std::memcpy(&tmp, sp, trailing_len);
 
         *dp++ = tmp;
     }

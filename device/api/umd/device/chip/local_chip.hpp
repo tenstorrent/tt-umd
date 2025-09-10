@@ -76,6 +76,9 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
+    static uint64_t configure_ns;
+    static uint64_t write_ns;
+
 private:
     LocalChip(
         tt_SocDescriptor soc_descriptor,

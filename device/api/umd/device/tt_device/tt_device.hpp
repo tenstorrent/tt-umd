@@ -278,6 +278,8 @@ private:
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};
+
+    std::unique_ptr<TlbWindow> tlb_window = nullptr;
 };
 
 }  // namespace tt::umd

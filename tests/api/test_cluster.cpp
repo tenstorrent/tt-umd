@@ -938,3 +938,55 @@ TEST(TestCluster, BAR0) {
         std::cout << "chip harvesting mask " << chip_info.harvesting_masks.tensix_harvesting_mask << std::endl;
     }
 }
+
+TEST(TestCluster, Dynamic) {
+    // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
+    // each transaction
+    Cluster cluster;
+
+    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint32_t> readback_vec = {};
+
+    const chip_id_t chip_id = 0;
+
+    LocalChip::configure_ns = 0;
+    LocalChip::write_ns = 0;
+
+    uint64_t total_ns = 0;
+
+    std::uint32_t address = 0x1000;
+    // Write to each core a 100 times at different statically mapped addresses
+    for (int loop = 0; loop < 100; loop++) {
+        for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+            cluster.write_to_device(
+                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+                total_ns += duration;
+            }
+            // Barrier to ensure that all writes over ethernet were commited
+            // cluster.wait_for_non_mmio_flush();
+            // test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
+            // ASSERT_EQ(vector_to_write, readback_vec)
+            //     << "Vector read back from core " << core.str() << " does not match what was written";
+            // cluster.wait_for_non_mmio_flush();
+            // cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), chip_id, core, address);
+            // cluster.wait_for_non_mmio_flush();
+            // readback_vec = {};
+        }
+        address += 0x20;  // Increment by uint32_t size for each write
+    }
+
+    std::cout << "total duration for dynamic writes (ns): " << total_ns << std::endl;
+    std::cout << "configure ns : " << LocalChip::configure_ns << std::endl;
+    std::cout << "write ns : " << LocalChip::write_ns << std::endl;
+
+    double percentage_configure = (static_cast<double>(LocalChip::configure_ns) / total_ns) * 100.0;
+    std::cout << "percentage configure : " << percentage_configure << "%" << std::endl;
+
+    double percentage_write = (static_cast<double>(LocalChip::write_ns) / total_ns) * 100.0;
+    std::cout << "percentage write : " << percentage_write << "%" << std::endl;
+}

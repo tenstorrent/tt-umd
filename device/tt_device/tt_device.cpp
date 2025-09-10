@@ -140,6 +140,7 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
@@ -148,8 +149,12 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+    if (tlb_window == nullptr) {
+        tlb_window = std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+    } else {
+        tlb_window->configure(config);
+    }
+
     while (size > 0) {
         uint32_t tlb_size = tlb_window->get_size();
         uint32_t transfer_size = std::min(size, tlb_size);
@@ -170,7 +175,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         jtag_device_->write(jlink_id_, mem_ptr, core.x, core.y, addr, size);
         return;
     }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    // auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)mem_ptr;
     tlb_data config{};
     config.local_offset = addr;
@@ -180,8 +185,11 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+    if (tlb_window == nullptr) {
+        tlb_window = std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+    } else {
+        tlb_window->configure(config);
+    }
 
     while (size > 0) {
         uint32_t tlb_size = tlb_window->get_size();

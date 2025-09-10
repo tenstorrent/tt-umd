@@ -21,6 +21,9 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
+ uint64_t LocalChip::configure_ns = 0;
+    uint64_t LocalChip::write_ns = 0;
+
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
 // TLB size for DRAM on blackhole - 4GB
@@ -284,8 +287,15 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         config.ordering = tlb_data::Relaxed;
         config.linked = 0;
         config.static_vc = 1;
-
+        
+        {
+         auto now = std::chrono::steady_clock::now();
         tlb_window->configure(config);
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        configure_ns += ns;
+        }
+       
 
         uint8_t* buffer_addr = (uint8_t*)(uintptr_t)src;
 
@@ -294,14 +304,27 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             size_t transfer_size = std::min((size_t)size, (size_t)tlb_size);
 
             // tt_device_->dma_d2h(buffer, axi_address, transfer_size);
+            {
+                auto now = std::chrono::steady_clock::now();
             tlb_window->write_block(0, buffer_addr, transfer_size);
+            auto end = std::chrono::steady_clock::now();
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+            write_ns += ns;
+            }
 
             size -= transfer_size;
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
 
             config.local_offset = l1_dest;
+
+            {
+                auto now = std::chrono::steady_clock::now();
             tlb_window->configure(config);
+            auto end = std::chrono::steady_clock::now();
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+            configure_ns += ns;
+            }
         }
 
         // tt_device_->write_to_device(const_cast<void*>(src), translated_core, l1_dest, size);

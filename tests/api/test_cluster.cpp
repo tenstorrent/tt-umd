@@ -797,7 +797,7 @@ TEST(TestCluster, DeassertResetBriscnew2) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->deassert_tensix_risc_reset(tensix_core, RiscType::BRISC, true);
+            chip->deassert_tensix_risc_reset(tensix_core, RiscType::BRISC, false);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -855,7 +855,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->deassert_tensix_risc_reset(tensix_core, RiscType::BRISC, true);
+            chip->deassert_tensix_risc_reset(tensix_core, RiscType::BRISC, false);
             // cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             cluster->read_from_device(
@@ -952,7 +952,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
+            cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC, false);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;

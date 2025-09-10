@@ -15,8 +15,18 @@ function(CHECK_COMPILERS)
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++" CACHE STRING "CXX FLAGS for clang" FORCE)
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++" CACHE STRING "Linker flags for clang" FORCE)
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++" CACHE STRING "Shared linker flags for clang" FORCE)
+        set(CMAKE_EXE_LINKER_FLAGS
+            "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++"
+            CACHE STRING
+            "Linker flags for clang"
+            FORCE
+        )
+        set(CMAKE_SHARED_LINKER_FLAGS
+            "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++"
+            CACHE STRING
+            "Shared linker flags for clang"
+            FORCE
+        )
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "17.0.0" OR CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL "18.0.0")
             message(WARNING "Only Clang-17 is tested right now")
         endif()

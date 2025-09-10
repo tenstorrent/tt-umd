@@ -92,6 +92,13 @@ if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
+set_target_properties(
+    device
+    PROPERTIES
+        CXX_CLANG_TIDY
+            "clang-tidy-17;--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
+)
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
         device

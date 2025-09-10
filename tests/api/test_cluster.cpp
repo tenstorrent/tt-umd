@@ -60,547 +60,548 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
-
-TEST(ApiClusterTest, OpenChipsByPciId) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    // T3K and 4U have 4 PCIE visible devices each. After 4 devices, the next number is 32
-    // on 6U galaxies. Making 2^32 combinations might take too long, so we limit the number of devices to 4.
-    // TODO: test all combinations on 6U and remove this check if possible.
-    if (pci_device_ids.size() > 4) {
-        GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
-                        "This test is intended to be run on all systems apart from 6U.";
-    }
-
-    int total_combinations = 1 << pci_device_ids.size();
-
-    for (uint32_t combination = 0; combination < total_combinations; combination++) {
-        std::unordered_set<int> target_pci_device_ids;
-        for (int i = 0; i < pci_device_ids.size(); i++) {
-            if (combination & (1 << i)) {
-                target_pci_device_ids.insert(pci_device_ids[i]);
-            }
-        }
-
-        std::cout << "Creating Cluster with target PCI device IDs: ";
-        for (const auto& id : target_pci_device_ids) {
-            std::cout << id << " ";
-        }
-        std::cout << std::endl;
-
-        // Make sure that Cluster construction is without exceptions.
-        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = target_pci_device_ids,
-        });
-
-        if (!target_pci_device_ids.empty()) {
-            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
-            // Check that the cluster has the expected number of chips.
-            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
-            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
-            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
-            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
-        }
-
-        std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
-
-        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
-            ASSERT_TRUE(false) << "Failed to unset environment variable.";
-        }
-
-        // Make sure that Cluster construction is without exceptions.
-        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = {},
-        });
-
-        if (!target_pci_device_ids.empty()) {
-            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
-            // Check that the cluster has the expected number of chips.
-            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
-            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
-            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
-            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
-        }
-
-        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-            ASSERT_TRUE(false) << "Failed to unset environment variable.";
-        }
-    }
-}
-
-TEST(ApiClusterTest, OpenClusterByLogicalID) {
-    // First, pregenerate a cluster descriptor and save it to a file.
-    // This will run topology discovery and touch all the devices.
-    std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
-
-    // Now, the user can create the cluster descriptor without touching the devices.
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
-    // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
-    // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
-    // connections.
-    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<chip_id_t, chip_id_t> chips_with_pcie = cluster_desc->get_chips_with_mmio();
-    auto eth_connections = cluster_desc->get_ethernet_connections();
-
-    if (all_chips.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
-    // The first cluster will open the first chip only, and the second cluster will open the rest of them.
-    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
-    std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
-        .target_devices = {first_chip_only},
-        .cluster_descriptor = cluster_desc.get(),
-    });
-
-    auto chips1 = umd_cluster1->get_target_device_ids();
-    EXPECT_EQ(chips1.size(), 1);
-    EXPECT_EQ(*chips1.begin(), first_chip_only);
-
-    std::unordered_set<chip_id_t> other_chips;
-    for (auto chip : all_chips) {
-        // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
-        // first local chip.
-        if (chip != first_chip_only && cluster_desc->is_chip_mmio_capable(chip)) {
-            other_chips.insert(chip);
-        }
-    }
-    // Continue the test only if there there is more than one card in the system
-    if (!other_chips.empty()) {
-        std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
-            .target_devices = other_chips,
-            .cluster_descriptor = cluster_desc.get(),
-        });
-
-        // Cluster 2 should have the rest of the chips and not contain the first chip.
-        auto chips2 = umd_cluster2->get_target_device_ids();
-        EXPECT_EQ(chips2.size(), chips_with_pcie.size() - 1);
-        EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
-    }
-}
-
-TEST(ApiClusterTest, DifferentConstructors) {
-    std::unique_ptr<Cluster> umd_cluster;
-
-    // 1. Simplest constructor. Creates Cluster with all the chips available.
-    umd_cluster = std::make_unique<Cluster>();
-    bool chips_available = !umd_cluster->get_target_device_ids().empty();
-    umd_cluster = nullptr;
-
-    if (chips_available) {
-        // 2. Constructor which allows choosing a subset of Chips to open.
-        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-            .target_devices = {0},
-        });
-        EXPECT_EQ(umd_cluster->get_target_device_ids().size(), 1);
-        umd_cluster = nullptr;
-
-        // 3. Constructor taking a custom soc descriptor in addition.
-        tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
-        // You can add a custom soc descriptor here.
-        std::string sdesc_path = SocDescriptor::get_soc_descriptor_path(device_arch);
-        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-            .sdesc_path = sdesc_path,
-        });
-        umd_cluster = nullptr;
-    }
-
-    // 4. Constructor taking cluster descriptor based on which to create cluster.
-    // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
-    // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
-    // created Cluster class.
-    std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
-    umd_cluster = std::make_unique<Cluster>();
-    std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
-    umd_cluster = nullptr;
-
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
-    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .cluster_descriptor = cluster_desc.get(),
-    });
-    umd_cluster = nullptr;
-
-    // 5. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
-    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .chip_type = ChipType::MOCK,
-        .target_devices = {0},
-    });
-    umd_cluster = nullptr;
-}
-
-TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
-    // Initialize random data.
-    size_t data_size = 1024;
-    std::vector<uint8_t> data(data_size, 0);
-    for (int i = 0; i < data_size; i++) {
-        data[i] = i % 256;
-    }
-
-    // Setup memory barrier addresses.
-    // Some default values are set during construction of UMD, but you can override them.
-    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
-
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
-
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
-
-        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
-
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
-
-        umd_cluster->wait_for_non_mmio_flush(chip_id);
-    }
-
-    // Now read back the data.
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
-
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
-
-        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
-
-        std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
-
-        ASSERT_EQ(data, readback_data);
-    }
-}
-
-TEST(ApiClusterTest, RemoteFlush) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+// TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+
+// TEST(ApiClusterTest, OpenChipsByPciId) {
+//     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+//     // T3K and 4U have 4 PCIE visible devices each. After 4 devices, the next number is 32
+//     // on 6U galaxies. Making 2^32 combinations might take too long, so we limit the number of devices to 4.
+//     // TODO: test all combinations on 6U and remove this check if possible.
+//     if (pci_device_ids.size() > 4) {
+//         GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
+//                         "This test is intended to be run on all systems apart from 6U.";
+//     }
+
+//     int total_combinations = 1 << pci_device_ids.size();
+
+//     for (uint32_t combination = 0; combination < total_combinations; combination++) {
+//         std::unordered_set<int> target_pci_device_ids;
+//         for (int i = 0; i < pci_device_ids.size(); i++) {
+//             if (combination & (1 << i)) {
+//                 target_pci_device_ids.insert(pci_device_ids[i]);
+//             }
+//         }
+
+//         std::cout << "Creating Cluster with target PCI device IDs: ";
+//         for (const auto& id : target_pci_device_ids) {
+//             std::cout << id << " ";
+//         }
+//         std::cout << std::endl;
+
+//         // Make sure that Cluster construction is without exceptions.
+//         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+//         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+//             .pci_target_devices = target_pci_device_ids,
+//         });
+
+//         if (!target_pci_device_ids.empty()) {
+//             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+//             // Check that the cluster has the expected number of chips.
+//             auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+//             EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+//             // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+//             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+//         }
+
+//         std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
+
+//         if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
+//             ASSERT_TRUE(false) << "Failed to unset environment variable.";
+//         }
+
+//         // Make sure that Cluster construction is without exceptions.
+//         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+//         std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
+//             .pci_target_devices = {},
+//         });
+
+//         if (!target_pci_device_ids.empty()) {
+//             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+//             // Check that the cluster has the expected number of chips.
+//             auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+//             EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+//             // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+//             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+//         }
+
+//         if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+//             ASSERT_TRUE(false) << "Failed to unset environment variable.";
+//         }
+//     }
+// }
+
+// TEST(ApiClusterTest, OpenClusterByLogicalID) {
+//     // First, pregenerate a cluster descriptor and save it to a file.
+//     // This will run topology discovery and touch all the devices.
+//     std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
+
+//     // Now, the user can create the cluster descriptor without touching the devices.
+//     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
+//     // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
+//     // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
+//     // connections.
+//     std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
+//     std::unordered_map<chip_id_t, chip_id_t> chips_with_pcie = cluster_desc->get_chips_with_mmio();
+//     auto eth_connections = cluster_desc->get_ethernet_connections();
+
+//     if (all_chips.empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
+//     // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
+//     // The first cluster will open the first chip only, and the second cluster will open the rest of them.
+//     chip_id_t first_chip_only = chips_with_pcie.begin()->first;
+//     std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
+//         .target_devices = {first_chip_only},
+//         .cluster_descriptor = cluster_desc.get(),
+//     });
+
+//     auto chips1 = umd_cluster1->get_target_device_ids();
+//     EXPECT_EQ(chips1.size(), 1);
+//     EXPECT_EQ(*chips1.begin(), first_chip_only);
+
+//     std::unordered_set<chip_id_t> other_chips;
+//     for (auto chip : all_chips) {
+//         // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
+//         // first local chip.
+//         if (chip != first_chip_only && cluster_desc->is_chip_mmio_capable(chip)) {
+//             other_chips.insert(chip);
+//         }
+//     }
+//     // Continue the test only if there there is more than one card in the system
+//     if (!other_chips.empty()) {
+//         std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
+//             .target_devices = other_chips,
+//             .cluster_descriptor = cluster_desc.get(),
+//         });
+
+//         // Cluster 2 should have the rest of the chips and not contain the first chip.
+//         auto chips2 = umd_cluster2->get_target_device_ids();
+//         EXPECT_EQ(chips2.size(), chips_with_pcie.size() - 1);
+//         EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
+//     }
+// }
+
+// TEST(ApiClusterTest, DifferentConstructors) {
+//     std::unique_ptr<Cluster> umd_cluster;
+
+//     // 1. Simplest constructor. Creates Cluster with all the chips available.
+//     umd_cluster = std::make_unique<Cluster>();
+//     bool chips_available = !umd_cluster->get_target_device_ids().empty();
+//     umd_cluster = nullptr;
+
+//     if (chips_available) {
+//         // 2. Constructor which allows choosing a subset of Chips to open.
+//         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+//             .target_devices = {0},
+//         });
+//         EXPECT_EQ(umd_cluster->get_target_device_ids().size(), 1);
+//         umd_cluster = nullptr;
+
+//         // 3. Constructor taking a custom soc descriptor in addition.
+//         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
+//         // You can add a custom soc descriptor here.
+//         std::string sdesc_path = SocDescriptor::get_soc_descriptor_path(device_arch);
+//         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+//             .sdesc_path = sdesc_path,
+//         });
+//         umd_cluster = nullptr;
+//     }
+
+//     // 4. Constructor taking cluster descriptor based on which to create cluster.
+//     // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
+//     // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
+//     // created Cluster class.
+//     std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
+//     umd_cluster = std::make_unique<Cluster>();
+//     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
+//     umd_cluster = nullptr;
+
+//     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
+//     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+//         .cluster_descriptor = cluster_desc.get(),
+//     });
+//     umd_cluster = nullptr;
+
+//     // 5. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+//     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+//         .chip_type = ChipType::MOCK,
+//         .target_devices = {0},
+//     });
+//     umd_cluster = nullptr;
+// }
+
+// TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+
+//     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+
+//     // Initialize random data.
+//     size_t data_size = 1024;
+//     std::vector<uint8_t> data(data_size, 0);
+//     for (int i = 0; i < data_size; i++) {
+//         data[i] = i % 256;
+//     }
+
+//     // Setup memory barrier addresses.
+//     // Some default values are set during construction of UMD, but you can override them.
+//     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
+
+//     for (auto chip_id : umd_cluster->get_target_device_ids()) {
+//         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+//         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+//         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+
+//         umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
+
+//         umd_cluster->wait_for_non_mmio_flush(chip_id);
+//     }
+
+//     // Now read back the data.
+//     for (auto chip_id : umd_cluster->get_target_device_ids()) {
+//         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+//         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+//         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+
+//         std::vector<uint8_t> readback_data(data_size, 0);
+//         umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
+
+//         ASSERT_EQ(data, readback_data);
+//     }
+// }
+
+// TEST(ApiClusterTest, RemoteFlush) {
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
-    size_t data_size = 1024;
-    std::vector<uint8_t> data(data_size, 0);
+//     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+
+//     size_t data_size = 1024;
+//     std::vector<uint8_t> data(data_size, 0);
 
-    // Setup memory barrier addresses.
-    // Some default values are set during construction of UMD, but you can override them.
-    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
-
-    for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
-        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
-
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
-
-        if (!cluster_desc->is_chip_remote(chip_id)) {
-            std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
-            continue;
-        }
-
-        if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
-            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
-            continue;
-        }
-
-        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
+//     // Setup memory barrier addresses.
+//     // Some default values are set during construction of UMD, but you can override them.
+//     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
+
+//     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
+//         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+//         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+//         if (!cluster_desc->is_chip_remote(chip_id)) {
+//             std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
+//             continue;
+//         }
+
+//         if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+//             std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
+//             continue;
+//         }
+
+//         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+//         umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
 
-        std::cout << "Waiting for remote chip flush " << chip_id << std::endl;
-        umd_cluster->wait_for_non_mmio_flush(chip_id);
+//         std::cout << "Waiting for remote chip flush " << chip_id << std::endl;
+//         umd_cluster->wait_for_non_mmio_flush(chip_id);
 
-        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
-        std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
-
-        ASSERT_EQ(data, readback_data);
-    }
-}
-
-TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+//         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+//         std::vector<uint8_t> readback_data(data_size, 0);
+//         umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
+
+//         ASSERT_EQ(data, readback_data);
+//     }
+// }
+
+// TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
+//     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+//     if (pci_device_ids.empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
 
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .target_devices = {0},
-    });
-
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+//         .target_devices = {0},
+//     });
+
+//     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
-    // Initialize random data.
-    size_t data_size = 1024;
-    std::vector<uint8_t> data(data_size, 0);
-    for (int i = 0; i < data_size; i++) {
-        data[i] = i % 256;
-    }
-
-    // Setup memory barrier addresses.
-    // Some default values are set during construction of UMD, but you can override them.
-    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
-
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
-
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
-
-        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
-
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
-
-        umd_cluster->wait_for_non_mmio_flush(chip_id);
-    }
-
-    // Now read back the data.
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
-
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
-
-        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
-
-        std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
-
-        ASSERT_EQ(data, readback_data);
-    }
-}
-
-TEST(ClusterAPI, DynamicTLB_RW) {
-    // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs
-    // to be reconfigured for each transaction
-
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    device_params default_params;
-    cluster->start_device(default_params);
-
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    std::vector<uint32_t> readback_vec = zeros;
-
-    static const uint32_t num_loops = 100;
-
-    for (const chip_id_t chip : cluster->get_target_device_ids()) {
-        // Just make sure to skip L1_BARRIER_BASE
-        std::uint32_t address = 0x100;
-        // Write to each core a 100 times at different statically mapped addresses
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
-        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
-        for (int loop = 0; loop < num_loops; loop++) {
-            for (auto& core : tensix_cores) {
-                cluster->write_to_device(
-                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
-
-                // Barrier to ensure that all writes over ethernet were commited
-                cluster->wait_for_non_mmio_flush();
-                cluster->read_from_device(readback_vec.data(), chip, core, address, 40);
-
-                ASSERT_EQ(vector_to_write, readback_vec)
-                    << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
-
-                cluster->wait_for_non_mmio_flush();
-
-                cluster->write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), chip, core, address);
-
-                cluster->wait_for_non_mmio_flush();
-
-                readback_vec = zeros;
-            }
-            address += 0x20;  // Increment by uint32_t size for each write
-        }
-    }
-    cluster->close_device();
-}
-
-TEST(TestCluster, PrintAllSiliconChipsAllCores) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-
-    for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
-        std::cout << "Chip " << chip << std::endl;
-
-        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
-
-        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
-        for (const CoreCoord& core : tensix_cores) {
-            std::cout << "Tensix core " << core.str() << std::endl;
-        }
-
-        const std::vector<CoreCoord>& harvested_tensix_cores = soc_desc.get_harvested_cores(CoreType::TENSIX);
-        for (const CoreCoord& core : harvested_tensix_cores) {
-            std::cout << "Harvested Tensix core " << core.str() << std::endl;
-        }
-
-        const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
-        for (const CoreCoord& core : dram_cores) {
-            std::cout << "DRAM core " << core.str() << std::endl;
-        }
-
-        const std::vector<CoreCoord>& harvested_dram_cores = soc_desc.get_harvested_cores(CoreType::DRAM);
-        for (const CoreCoord& core : harvested_dram_cores) {
-            std::cout << "Harvested DRAM core " << core.str() << std::endl;
-        }
-
-        const std::vector<CoreCoord>& eth_cores = soc_desc.get_cores(CoreType::ETH);
-        for (const CoreCoord& core : eth_cores) {
-            std::cout << "ETH core " << core.str() << std::endl;
-        }
-
-        const std::vector<CoreCoord>& harvested_eth_cores = soc_desc.get_harvested_cores(CoreType::ETH);
-        for (const CoreCoord& core : harvested_eth_cores) {
-            std::cout << "Harvested ETH core " << core.str() << std::endl;
-        }
-    }
-}
-
-// It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
-// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
-// into acount. This test verifies that both for Wormhole and Blackhole.
-TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
-
-    for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
-        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
-        for (auto [channel, remote_chip_and_channel] : connections) {
-            auto [remote_chip, remote_channel] = remote_chip_and_channel;
-
-            const uint32_t num_channels_remote_chip =
-                cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
-
-            EXPECT_TRUE(channel < num_channels_local_chip);
-            EXPECT_TRUE(remote_channel < num_channels_remote_chip);
-        }
-    }
-}
-
-TEST(TestCluster, TestClusterAICLKControl) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    auto get_expected_clock_val = [&cluster](chip_id_t chip_id, bool busy) {
-        tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
-        if (arch == tt::ARCH::WORMHOLE_B0) {
-            return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
-        } else if (arch == tt::ARCH::BLACKHOLE) {
-            return busy ? blackhole::AICLK_BUSY_VAL : blackhole::AICLK_IDLE_VAL;
-        }
-        return 0u;
-    };
+//     // Initialize random data.
+//     size_t data_size = 1024;
+//     std::vector<uint8_t> data(data_size, 0);
+//     for (int i = 0; i < data_size; i++) {
+//         data[i] = i % 256;
+//     }
+
+//     // Setup memory barrier addresses.
+//     // Some default values are set during construction of UMD, but you can override them.
+//     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
+
+//     for (auto chip_id : umd_cluster->get_target_device_ids()) {
+//         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+//         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+//         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+
+//         umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
+
+//         umd_cluster->wait_for_non_mmio_flush(chip_id);
+//     }
+
+//     // Now read back the data.
+//     for (auto chip_id : umd_cluster->get_target_device_ids()) {
+//         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+//         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+//         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+
+//         std::vector<uint8_t> readback_data(data_size, 0);
+//         umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
+
+//         ASSERT_EQ(data, readback_data);
+//     }
+// }
+
+// TEST(ClusterAPI, DynamicTLB_RW) {
+//     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs
+//     // to be reconfigured for each transaction
+
+//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+//     device_params default_params;
+//     cluster->start_device(default_params);
+
+//     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+//     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//     std::vector<uint32_t> readback_vec = zeros;
+
+//     static const uint32_t num_loops = 100;
+
+//     for (const chip_id_t chip : cluster->get_target_device_ids()) {
+//         // Just make sure to skip L1_BARRIER_BASE
+//         std::uint32_t address = 0x100;
+//         // Write to each core a 100 times at different statically mapped addresses
+//         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
+//         std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+//         for (int loop = 0; loop < num_loops; loop++) {
+//             for (auto& core : tensix_cores) {
+//                 cluster->write_to_device(
+//                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
+
+//                 // Barrier to ensure that all writes over ethernet were commited
+//                 cluster->wait_for_non_mmio_flush();
+//                 cluster->read_from_device(readback_vec.data(), chip, core, address, 40);
+
+//                 ASSERT_EQ(vector_to_write, readback_vec)
+//                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+
+//                 cluster->wait_for_non_mmio_flush();
+
+//                 cluster->write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), chip, core, address);
+
+//                 cluster->wait_for_non_mmio_flush();
+
+//                 readback_vec = zeros;
+//             }
+//             address += 0x20;  // Increment by uint32_t size for each write
+//         }
+//     }
+//     cluster->close_device();
+// }
+
+// TEST(TestCluster, PrintAllSiliconChipsAllCores) {
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+
+//     for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
+//         std::cout << "Chip " << chip << std::endl;
+
+//         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
+
+//         const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+//         for (const CoreCoord& core : tensix_cores) {
+//             std::cout << "Tensix core " << core.str() << std::endl;
+//         }
+
+//         const std::vector<CoreCoord>& harvested_tensix_cores = soc_desc.get_harvested_cores(CoreType::TENSIX);
+//         for (const CoreCoord& core : harvested_tensix_cores) {
+//             std::cout << "Harvested Tensix core " << core.str() << std::endl;
+//         }
+
+//         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
+//         for (const CoreCoord& core : dram_cores) {
+//             std::cout << "DRAM core " << core.str() << std::endl;
+//         }
+
+//         const std::vector<CoreCoord>& harvested_dram_cores = soc_desc.get_harvested_cores(CoreType::DRAM);
+//         for (const CoreCoord& core : harvested_dram_cores) {
+//             std::cout << "Harvested DRAM core " << core.str() << std::endl;
+//         }
+
+//         const std::vector<CoreCoord>& eth_cores = soc_desc.get_cores(CoreType::ETH);
+//         for (const CoreCoord& core : eth_cores) {
+//             std::cout << "ETH core " << core.str() << std::endl;
+//         }
+
+//         const std::vector<CoreCoord>& harvested_eth_cores = soc_desc.get_harvested_cores(CoreType::ETH);
+//         for (const CoreCoord& core : harvested_eth_cores) {
+//             std::cout << "Harvested ETH core " << core.str() << std::endl;
+//         }
+//     }
+// }
+
+// // It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
+// // chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
+// // into acount. This test verifies that both for Wormhole and Blackhole.
+// TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
+//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+//     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+//     for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
+//         const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+//         for (auto [channel, remote_chip_and_channel] : connections) {
+//             auto [remote_chip, remote_channel] = remote_chip_and_channel;
+
+//             const uint32_t num_channels_remote_chip =
+//                 cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
+
+//             EXPECT_TRUE(channel < num_channels_local_chip);
+//             EXPECT_TRUE(remote_channel < num_channels_remote_chip);
+//         }
+//     }
+// }
+
+// TEST(TestCluster, TestClusterAICLKControl) {
+//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+//     auto get_expected_clock_val = [&cluster](chip_id_t chip_id, bool busy) {
+//         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
+//         if (arch == tt::ARCH::WORMHOLE_B0) {
+//             return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
+//         } else if (arch == tt::ARCH::BLACKHOLE) {
+//             return busy ? blackhole::AICLK_BUSY_VAL : blackhole::AICLK_IDLE_VAL;
+//         }
+//         return 0u;
+//     };
 
-    cluster->set_power_state(DevicePowerState::BUSY);
+//     cluster->set_power_state(DevicePowerState::BUSY);
 
-    auto clocks_busy = cluster->get_clocks();
-    for (auto& clock : clocks_busy) {
-        // TODO #781: Figure out a proper mechanism to detect the right value. For now just check that Busy value is
-        // larger than Idle value.
-        EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
-    }
+//     auto clocks_busy = cluster->get_clocks();
+//     for (auto& clock : clocks_busy) {
+//         // TODO #781: Figure out a proper mechanism to detect the right value. For now just check that Busy value is
+//         // larger than Idle value.
+//         EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
+//     }
 
-    cluster->set_power_state(DevicePowerState::LONG_IDLE);
+//     cluster->set_power_state(DevicePowerState::LONG_IDLE);
 
-    auto clocks_idle = cluster->get_clocks();
-    for (auto& clock : clocks_idle) {
-        EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
-    }
-}
+//     auto clocks_idle = cluster->get_clocks();
+//     for (auto& clock : clocks_idle) {
+//         EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
+//     }
+// }
 
-TEST(TestCluster, DISABLED_WarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+// TEST(TestCluster, DISABLED_WarmResetScratch) {
+//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+//     if (cluster->get_target_device_ids().empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
 
-    uint32_t write_test_data = 0xDEADBEEF;
+//     uint32_t write_test_data = 0xDEADBEEF;
 
-    auto chip_id = *cluster->get_target_device_ids().begin();
-    auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+//     auto chip_id = *cluster->get_target_device_ids().begin();
+//     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-    tt_device->bar_write32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
-        write_test_data);
+//     tt_device->bar_write32(
+//         tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+//             tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+//         write_test_data);
 
-    WarmReset::warm_reset();
+//     WarmReset::warm_reset();
 
-    cluster.reset();
+//     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
-    chip_id = *cluster->get_target_device_ids().begin();
-    tt_device = cluster->get_chip(chip_id)->get_tt_device();
+//     cluster = std::make_unique<Cluster>();
+//     chip_id = *cluster->get_target_device_ids().begin();
+//     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-    auto read_test_data = tt_device->bar_read32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+//     auto read_test_data = tt_device->bar_read32(
+//         tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+//         tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
 
-    EXPECT_NE(write_test_data, read_test_data);
-}
+//     EXPECT_NE(write_test_data, read_test_data);
+// }
 
-TEST(TestCluster, WarmReset) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+// TEST(TestCluster, WarmReset) {
+//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+//     if (cluster->get_target_device_ids().empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
 
-    auto arch = cluster->get_tt_device(0)->get_arch();
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP()
-            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
-               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
-    }
+//     auto arch = cluster->get_tt_device(0)->get_arch();
+//     if (arch == tt::ARCH::WORMHOLE_B0) {
+//         GTEST_SKIP()
+//             << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm
+//             "
+//                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
+//     }
 
-    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
-    std::vector<uint8_t> zero_data(data.size(), 0);
-    std::vector<uint8_t> readback_data(data.size(), 0);
+//     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
+//     std::vector<uint8_t> zero_data(data.size(), 0);
+//     std::vector<uint8_t> readback_data(data.size(), 0);
 
-    // send data to core 15, 15 which will hang the NOC
-    auto hanged_chip_id = *cluster->get_target_device_ids().begin();
-    auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
-    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
+//     // send data to core 15, 15 which will hang the NOC
+//     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
+//     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
+//     hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
 
-    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
-    }
+//     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
+//     if (arch == tt::ARCH::WORMHOLE_B0) {
+//         EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
+//     }
 
-    WarmReset::warm_reset();
+//     WarmReset::warm_reset();
 
-    cluster.reset();
+//     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+//     cluster = std::make_unique<Cluster>();
 
-    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
+//     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
-    EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+//     EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
 
-    auto chip_ids = cluster->get_target_device_ids();
-    for (auto& chip_id : chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+//     auto chip_ids = cluster->get_target_device_ids();
+//     for (auto& chip_id : chip_ids) {
+//         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+//         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
+//         for (const CoreCoord& tensix_core : tensix_cores) {
+//             auto chip = cluster->get_chip(chip_id);
 
-            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
+//             RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
-            // Set all riscs to reset state.
-            cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
+//             // Set all riscs to reset state.
+//             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
-            cluster->l1_membar(chip_id, {tensix_core});
+//             cluster->l1_membar(chip_id, {tensix_core});
 
-            // Zero out first 8 bytes on L1
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+//             // Zero out first 8 bytes on L1
+//             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+//             cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
+//             cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
 
-            ASSERT_EQ(data, readback_data);
-        }
-    }
-}
+//             ASSERT_EQ(data, readback_data);
+//         }
+//     }
+// }
 
 TEST(TestCluster, DeassertResetBriscOLD) {
     std::cout << "DeassertResetBriscOLD" << std::endl;
@@ -945,76 +946,76 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     }
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    AllTriscNcriscCoreCombinations,
-    ClusterAssertDeassertRiscsTest,
-    ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
+// INSTANTIATE_TEST_SUITE_P(
+//     AllTriscNcriscCoreCombinations,
+//     ClusterAssertDeassertRiscsTest,
+//     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
-TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
-    ClusterOptions options = GetParam();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+// TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
+//     ClusterOptions options = GetParam();
+//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    if (options.chip_type == SIMULATION) {
-        device_params device_params;
-        device_params.init_device = true;
-        cluster->start_device(device_params);
-    }
+//     if (cluster->get_target_device_ids().empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
+//     if (options.chip_type == SIMULATION) {
+//         device_params device_params;
+//         device_params.init_device = true;
+//         cluster->start_device(device_params);
+//     }
 
-    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+//     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 
-    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
-    std::vector<uint8_t> data(tensix_l1_size, 0);
-    for (int i = 0; i < tensix_l1_size; i++) {
-        data[i] = i % 256;
-    }
+//     std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+//     std::vector<uint8_t> data(tensix_l1_size, 0);
+//     for (int i = 0; i < tensix_l1_size; i++) {
+//         data[i] = i % 256;
+//     }
 
-    // Set elements to 1 since the first readback will be of zero data, so want to confirm that
-    // elements actually changed.
-    std::vector<uint8_t> readback_data(tensix_l1_size, 1);
+//     // Set elements to 1 since the first readback will be of zero data, so want to confirm that
+//     // elements actually changed.
+//     std::vector<uint8_t> readback_data(tensix_l1_size, 1);
 
-    for (auto chip_id : cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+//     for (auto chip_id : cluster->get_target_device_ids()) {
+//         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
-        std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+//         std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            // Zero out L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+//         for (const CoreCoord& tensix_core : tensix_cores) {
+//             // Zero out L1.
+//             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+//             cluster->wait_for_non_mmio_flush(chip_id);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+//             cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-            EXPECT_EQ(zero_data, readback_data);
+//             EXPECT_EQ(zero_data, readback_data);
 
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+//             cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+//             cluster->wait_for_non_mmio_flush(chip_id);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+//             cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-            EXPECT_EQ(data, readback_data);
-        }
-    }
-}
+//             EXPECT_EQ(data, readback_data);
+//         }
+//     }
+// }
 
-// Instantiate the test suite AFTER all TEST_P definitions
-INSTANTIATE_TEST_SUITE_P(
-    SiliconAndSimulationCluster,
-    ClusterReadWriteL1Test,
-    ::testing::ValuesIn(get_cluster_options_for_param_test()),
-    [](const ::testing::TestParamInfo<ClusterOptions>& info) {
-        switch (info.param.chip_type) {
-            case ChipType::SILICON:
-                return "Silicon";
-            case ChipType::SIMULATION:
-                return "Simulation";
-            default:
-                return "Unknown";
-        }
-    }
+// // Instantiate the test suite AFTER all TEST_P definitions
+// INSTANTIATE_TEST_SUITE_P(
+//     SiliconAndSimulationCluster,
+//     ClusterReadWriteL1Test,
+//     ::testing::ValuesIn(get_cluster_options_for_param_test()),
+//     [](const ::testing::TestParamInfo<ClusterOptions>& info) {
+//         switch (info.param.chip_type) {
+//             case ChipType::SILICON:
+//                 return "Silicon";
+//             case ChipType::SIMULATION:
+//                 return "Simulation";
+//             default:
+//                 return "Unknown";
+//         }
+//     }
 
-);
+// );

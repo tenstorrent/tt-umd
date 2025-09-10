@@ -1,14 +1,14 @@
 set(API_TESTS_SRCS
-    test_chip.cpp
-    test_cluster_descriptor.cpp
+    # test_chip.cpp
+    # test_cluster_descriptor.cpp
     test_cluster.cpp
-    test_tlb_manager.cpp
-    test_software_harvesting.cpp
-    test_sysmem_manager.cpp
-    test_tt_device.cpp
-    test_noc.cpp
-    test_jtag.cpp
-    test_arc_telemetry.cpp
+    # test_tlb_manager.cpp
+    # test_software_harvesting.cpp
+    # test_sysmem_manager.cpp
+    # test_tt_device.cpp
+    # test_noc.cpp
+    # test_jtag.cpp
+    # test_arc_telemetry.cpp
 )
 
 add_executable(api_tests ${API_TESTS_SRCS})

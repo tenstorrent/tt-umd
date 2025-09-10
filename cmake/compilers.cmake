@@ -15,12 +15,7 @@ function(CHECK_COMPILERS)
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-            set(CMAKE_CXX_FLAGS
-                "${CMAKE_CXX_FLAGS} -stdlib=libc++"
-                CACHE STRING
-                "CXX FLAGS for clang"
-                FORCE
-            )
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++" CACHE STRING "CXX FLAGS for clang" FORCE)
             set(CMAKE_EXE_LINKER_FLAGS
                 "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++"
                 CACHE STRING

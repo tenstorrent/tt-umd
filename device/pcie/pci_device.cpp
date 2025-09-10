@@ -769,6 +769,20 @@ uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
     return *command_byte;
 }
 
-tt::ARCH PCIDevice::get_pcie_arch() { return PCIDevice::enumerate_devices_info().begin()->second.get_arch(); }
+tt::ARCH PCIDevice::get_pcie_arch() {
+    static bool enumerated_devices = false;
+    static tt::ARCH cached_arch = tt::ARCH::Invalid;
+    if (!enumerated_devices) {
+        auto devices = PCIDevice::enumerate_devices_info();
+        if (devices.empty()) {
+            return tt::ARCH::Invalid;
+        }
+        enumerated_devices = true;
+        cached_arch = devices.begin()->second.get_arch();
+        return cached_arch;
+    }
+
+    return cached_arch;
+}
 
 }  // namespace tt::umd

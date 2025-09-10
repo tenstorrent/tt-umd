@@ -48,6 +48,7 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void *cal
     char **strings = backtrace_symbols(array, s);
     if (strings == NULL) {
         std::cout << "backtrace_symbols error." << std::endl;
+        free(array);
         return bt;
     }
     for (size_t i = skip; i < s; ++i) {

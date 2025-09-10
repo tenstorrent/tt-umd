@@ -278,6 +278,10 @@ private:
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};
+
+    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+
+    TlbWindow *get_cached_tlb_window(tlb_data config);
 };
 
 }  // namespace tt::umd

@@ -324,6 +324,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+    std::cout << "BROSKO TESSSTTTTT" << std::endl;
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -340,14 +341,12 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     auto [mapped_address, tlb_size] =
         tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_dest, tlb_data::Strict);
     tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
-    if (translate_chip_coord_to_translated(core) == tt_xy_pair{2, 2}) {
-        std::cout << "write_to_device_reg to core " << translate_chip_coord_to_translated(core).str() << " addr 0x"
-                  << std::hex << reg_dest << " value 0x" << std::hex << *((uint32_t*)src) << std::dec << std::endl;
-        std::cout << "  set_dynamic_tlb tlb_index " << tlb_index << " core: " << core.str() << " addr: 0x" << std::hex
-                  << reg_dest << std::dec << std::endl;
-        std::cout << "  write_regs mapped_address: 0x" << std::hex << mapped_address
-                  << " size: " << size / sizeof(uint32_t) << std::dec << std::endl;
-    }
+    std::cout << "write_to_device_reg to core " << translate_chip_coord_to_translated(core).str() << " addr 0x"
+              << std::hex << reg_dest << " value 0x" << std::hex << *((uint32_t*)src) << std::dec << std::endl;
+    std::cout << "  set_dynamic_tlb tlb_index " << tlb_index << " core: " << core.str() << " addr: 0x" << std::hex
+              << reg_dest << std::dec << std::endl;
+    std::cout << "  write_regs mapped_address: 0x" << std::hex << mapped_address << " size: " << size / sizeof(uint32_t)
+              << std::dec << std::endl;
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {

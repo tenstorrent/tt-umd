@@ -101,10 +101,8 @@ void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, u
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    if (core.x == 2 && core.y == 2) {
-        std::cout << "remote write_to_device_reg to core " << core.str() << " addr 0x" << std::hex << reg_dest
-                  << " value 0x" << std::hex << *((uint32_t*)src) << std::dec << std::endl;
-    }
+    std::cout << "remote write_to_device_reg to core " << core.str() << " addr 0x" << std::hex << reg_dest
+              << " value 0x" << std::hex << *((uint32_t*)src) << std::dec << std::endl;
     write_to_device(core, src, reg_dest, size);
 }
 

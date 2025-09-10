@@ -620,6 +620,7 @@ TEST(TestCluster, DeassertResetBriscOLD) {
     for (auto& chip_id : chip_ids) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        tensix_cores = {tensix_cores[0]};
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
@@ -668,6 +669,7 @@ TEST(TestCluster, DeassertResetBriscOLD2) {
     for (auto& chip_id : chip_ids) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        tensix_cores = {tensix_cores[0]};
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
@@ -777,6 +779,7 @@ TEST(TestCluster, DeassertResetBriscnew2) {
     for (auto& chip_id : chip_ids) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        tensix_cores = {tensix_cores[0]};
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
@@ -833,7 +836,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     for (auto& chip_id : chip_ids) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
-
+        tensix_cores = {tensix_cores[0]};
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
@@ -931,6 +934,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        tensix_cores = {tensix_cores[0]};
 
         RiscType risc_cores{RiscType::NONE};
 

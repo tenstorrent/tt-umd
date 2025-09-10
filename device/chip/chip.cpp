@@ -110,11 +110,9 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    if (core.x == 2 && core.y == 2) {
-        std::cout << "send_tensix_risc_reset to core " << core.str() << " with addr 0x" << std::hex
-                  << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr()
-                  << " with value 0x" << std::hex << valid_val << std::dec << std::endl;
-    }
+    std::cout << "send_tensix_risc_reset to core " << core.str() << " with addr 0x" << std::hex
+              << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " with value 0x"
+              << std::hex << valid_val << std::dec << std::endl;
     auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     // std::cout << "so how can this be different????? " << architecture_implementation->get_tensix_soft_reset_addr()
@@ -179,11 +177,9 @@ void Chip::send_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions&
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    if (core.x == 2 && core.y == 2) {
-        std::cout << "send_tensix_risc_reset to core " << core.str() << " with addr 0x" << std::hex
-                  << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr()
-                  << " with value 0x" << std::hex << valid_val << std::dec << std::endl;
-    }
+    std::cout << "send_tensix_risc_reset to core " << core.str() << " with addr 0x" << std::hex
+              << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " with value 0x"
+              << std::hex << valid_val << std::dec << std::endl;
     // auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     // write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(),
     // sizeof(uint32_t));
@@ -207,20 +203,30 @@ void Chip::assert_tensix_risc_reset(const CoreCoord core, const RiscType selecte
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
-    if (core.x == 2 && core.y == 2) {
-        std::cout << "assert_tensix_risc_reset to core " << core.str() << " addr 0x" << std::hex
-                  << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " value 0x"
-                  << soft_reset_new << std::dec << std::endl;
-        std::cout << "  current state " << soft_reset_current_state << std::endl;
-        std::cout << "  update " << soft_reset_update << std::endl;
-        std::cout << "  new " << soft_reset_new << std::endl;
-    }
+    std::cout << "assert_tensix_risc_reset to core " << core.str() << " addr 0x" << std::hex
+              << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " value 0x"
+              << soft_reset_new << std::endl;
+    std::cout << "  current state " << soft_reset_current_state << std::endl;
+    std::cout << "  update " << soft_reset_update << std::endl;
+    std::cout << "  new " << soft_reset_new << std::dec << std::endl;
     write_to_device_reg(
         core,
         &soft_reset_new,
         get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
         sizeof(uint32_t));
     tt_driver_atomics::sfence();
+
+    std::cout << " assert_tensix_risc_resetread again after the fact" << std::endl;
+    uint32_t soft_reset_current_state_again =
+        get_tt_device()->get_risc_soft_reset(translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state_again2;
+    read_from_device_reg(
+        core,
+        &soft_reset_current_state_again2,
+        get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(uint32_t));
+    std::cout << "  current state again " << soft_reset_current_state_again << std::endl;
+    std::cout << "  current state again2 " << soft_reset_current_state_again2 << std::endl;
 }
 
 void Chip::deassert_tensix_risc_reset(const CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
@@ -231,21 +237,31 @@ void Chip::deassert_tensix_risc_reset(const CoreCoord core, const RiscType selec
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
         soft_reset_new | get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start();
-    if (core.x == 2 && core.y == 2) {
-        std::cout << "deassert_tensix_risc_reset to core " << core.str() << " addr 0x" << std::hex
-                  << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " value 0x"
-                  << soft_reset_new_with_staggered_start << std::dec << std::endl;
-        std::cout << "  current state " << soft_reset_current_state << std::endl;
-        std::cout << "  update " << soft_reset_update << std::endl;
-        std::cout << "  new " << soft_reset_new << std::endl;
-        std::cout << "  new with staggered start " << soft_reset_new_with_staggered_start << std::endl;
-    }
+    std::cout << "deassert_tensix_risc_reset to core " << core.str() << " addr 0x" << std::hex
+              << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " value 0x"
+              << soft_reset_new_with_staggered_start << std::endl;
+    std::cout << "  current state " << soft_reset_current_state << std::endl;
+    std::cout << "  update " << soft_reset_update << std::endl;
+    std::cout << "  new " << soft_reset_new << std::endl;
+    std::cout << "  new with staggered start " << soft_reset_new_with_staggered_start << std::dec << std::endl;
     write_to_device_reg(
         core,
         &soft_reset_new_with_staggered_start,
         get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
         sizeof(uint32_t));
     tt_driver_atomics::sfence();
+
+    std::cout << " deassert_tensix_risc_reset again after the fact" << std::endl;
+    uint32_t soft_reset_current_state_again =
+        get_tt_device()->get_risc_soft_reset(translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state_again2;
+    read_from_device_reg(
+        core,
+        &soft_reset_current_state_again2,
+        get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(uint32_t));
+    std::cout << "  current state again " << soft_reset_current_state_again << std::endl;
+    std::cout << "  current state again2 " << soft_reset_current_state_again2 << std::endl;
 }
 
 void Chip::assert_tensix_risc_reset(const RiscType selected_riscs) {

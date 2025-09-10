@@ -56,9 +56,15 @@ jobs:
           echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV
           echo "CMAKE_CXX_COMPILER=${{ matrix.image.cpp }}" >> $GITHUB_ENV
 
+      # Build with all components to verify the build passes.
       - name: Build ${{ env.BUILD_TARGET }}
         run: |
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=ON \
+            -DTT_UMD_BUILD_EXAMPLES=ON \
+            -DTT_UMD_BUILD_TOOLS=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
           echo "Compile complete."

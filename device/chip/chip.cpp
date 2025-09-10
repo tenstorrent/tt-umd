@@ -211,6 +211,9 @@ void Chip::assert_tensix_risc_reset(const CoreCoord core, const RiscType selecte
         std::cout << "assert_tensix_risc_reset to core " << core.str() << " addr 0x" << std::hex
                   << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " value 0x"
                   << soft_reset_new << std::dec << std::endl;
+        std::cout << "  current state " << soft_reset_current_state << std::endl;
+        std::cout << "  update " << soft_reset_update << std::endl;
+        std::cout << "  new " << soft_reset_new << std::endl;
     }
     write_to_device_reg(
         core,
@@ -232,6 +235,10 @@ void Chip::deassert_tensix_risc_reset(const CoreCoord core, const RiscType selec
         std::cout << "deassert_tensix_risc_reset to core " << core.str() << " addr 0x" << std::hex
                   << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << " value 0x"
                   << soft_reset_new_with_staggered_start << std::dec << std::endl;
+        std::cout << "  current state " << soft_reset_current_state << std::endl;
+        std::cout << "  update " << soft_reset_update << std::endl;
+        std::cout << "  new " << soft_reset_new << std::endl;
+        std::cout << "  new with staggered start " << soft_reset_new_with_staggered_start << std::endl;
     }
     write_to_device_reg(
         core,

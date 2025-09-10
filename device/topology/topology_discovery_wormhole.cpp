@@ -253,6 +253,10 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pai
     return chip->get_soc_descriptor().translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
 }
 
+uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
+    return get_remote_eth_channel(chip, local_eth_core);
+}
+
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
 void TopologyDiscoveryWormhole::init_topology_discovery() {

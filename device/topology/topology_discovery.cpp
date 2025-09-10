@@ -167,9 +167,14 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
                 uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
-                ethernet_connections_to_remote_devices.push_back(
-                    {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
-
+                if (chip->get_chip_info().board_type == BoardType::P150) {
+                    ethernet_connections_to_remote_devices.push_back(
+                        {{current_chip_asic_id, channel},
+                         {remote_asic_id, get_logical_remote_eth_channel(chip, eth_core)}});
+                } else {
+                    ethernet_connections_to_remote_devices.push_back(
+                        {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
+                }
                 log_debug(LogSiliconDriver, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
@@ -276,7 +281,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
-
     cluster_desc->io_device_type = io_device_type;
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();

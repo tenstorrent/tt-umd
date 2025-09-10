@@ -55,6 +55,8 @@ protected:
 
     uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
 
+    uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
+
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
     std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) override;

@@ -843,7 +843,8 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
-            cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
+            chip->assert_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
+            // cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
             cluster->write_to_device(
                 counter_brisc_program.data(),
@@ -854,7 +855,8 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
+            chip->deassert_tensix_risc_reset(tensix_core, RiscType::BRISC, true);
+            // cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -868,7 +870,8 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            cluster->assert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
+            chip->assert_tensix_risc_reset(tensix_core, RiscType::BRISC);
+            // cluster->assert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));

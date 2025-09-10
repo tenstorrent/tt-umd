@@ -117,8 +117,8 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
     }
     auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
-    std::cout << "so how can this be different????? " << architecture_implementation->get_tensix_soft_reset_addr()
-              << std::endl;
+    // std::cout << "so how can this be different????? " << architecture_implementation->get_tensix_soft_reset_addr()
+    //           << std::endl;
     // write_to_device_reg(
     //     core,
     //     &valid_val,
@@ -192,8 +192,8 @@ void Chip::send_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions&
         &valid_val,
         get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
         sizeof(uint32_t));
-    std::cout << "so how can this be different????? "
-              << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << std::endl;
+    // std::cout << "so how can this be different????? "
+    //           << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << std::endl;
     tt_driver_atomics::sfence();
 }
 

@@ -840,15 +840,20 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
+            std::cout << "-- cluster_test write_to_device" << std::endl;
+
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
 
+            std::cout << "-- cluster_test l1_membar" << std::endl;
             cluster->l1_membar(chip_id, {tensix_core});
 
             RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
+            std::cout << "-- cluster_test assert_tensix_risc_reset" << std::endl;
             chip->assert_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
             // cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
+            std::cout << "-- cluster_test write_to_device" << std::endl;
             cluster->write_to_device(
                 counter_brisc_program.data(),
                 counter_brisc_program.size() * sizeof(uint32_t),
@@ -856,14 +861,18 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
                 tensix_core,
                 brisc_code_address);
 
+            std::cout << "-- cluster_test l1_membar" << std::endl;
             cluster->l1_membar(chip_id, {tensix_core});
 
+            std::cout << "-- cluster_test deassert_tensix_risc_reset" << std::endl;
             chip->deassert_tensix_risc_reset(tensix_core, RiscType::BRISC, false);
             // cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
+            std::cout << "-- cluster_test read_from_device" << std::endl;
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
+            std::cout << "-- cluster_test read_from_device" << std::endl;
             cluster->read_from_device(
                 &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
 
@@ -871,14 +880,18 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
             // two reads from device
             EXPECT_NE(second_readback_value, first_readback_value);
 
+            std::cout << "-- cluster_test l1_membar" << std::endl;
             cluster->l1_membar(chip_id, {tensix_core});
 
+            std::cout << "-- cluster_test assert_tensix_risc_reset" << std::endl;
             chip->assert_tensix_risc_reset(tensix_core, RiscType::BRISC);
             // cluster->assert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
+            std::cout << "-- cluster_test read_from_device" << std::endl;
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
+            std::cout << "-- cluster_test read_from_device" << std::endl;
             cluster->read_from_device(
                 &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
 

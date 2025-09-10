@@ -324,7 +324,6 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    std::cout << "BROSKO TESSSTTTTT" << std::endl;
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }

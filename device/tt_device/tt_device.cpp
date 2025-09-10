@@ -583,6 +583,9 @@ uint32_t TTDevice::get_risc_soft_reset(tt_xy_pair core) {
     uint32_t tensix_risc_state;
     read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
+    std::cout << "TTDevice::get_risc_soft_reset tensix_risc_state " << std::hex << tensix_risc_state << " core "
+              << core.str() << " addr " << architecture_impl_->get_tensix_soft_reset_addr() << std::dec << std::endl;
+
     return tensix_risc_state;
 };
 

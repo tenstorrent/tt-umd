@@ -41,6 +41,36 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     }
 }
 
+TEST(ApiTTDeviceTest, TTDeviceRegIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    std::vector<uint32_t> data_write0 = {0};
+    std::vector<uint32_t> data_write1 = {1};
+    std::vector<uint32_t> data_read(data_write0.size(), 0);
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
+
+        ChipInfo chip_info = tt_device->get_chip_info();
+
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        ASSERT_EQ(data_write0, data_read);
+        data_read = std::vector<uint32_t>(data_write0.size(), 0);
+
+        tt_device->write_to_device(data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        ASSERT_EQ(data_write1, data_read);
+        data_read = std::vector<uint32_t>(data_write0.size(), 0);
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {

@@ -218,6 +218,8 @@ static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET + 0x784C4
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
+static constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
+
 static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
@@ -396,6 +398,8 @@ public:
     }
 
     uint32_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }
+
+    uint32_t get_debug_reg_addr() const override { return blackhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
     uint32_t get_grid_size_x() const override { return blackhole::GRID_SIZE_X; }
 

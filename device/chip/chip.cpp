@@ -117,6 +117,8 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
     }
     auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    std::cout << "so how can this be different????? " << architecture_implementation->get_tensix_soft_reset_addr()
+              << std::endl;
     // write_to_device_reg(
     //     core,
     //     &valid_val,
@@ -149,6 +151,50 @@ void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions&
     TensixSoftResetOptions set_selected_riscs =
         static_cast<TensixSoftResetOptions>(tensix_risc_state) & invert_selected_options(selected_riscs);
     send_tensix_risc_reset(core, set_selected_riscs);
+}
+
+void Chip::set_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
+    uint32_t tensix_risc_state = 0x00000000;
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
+    read_from_device_reg(
+        core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    TensixSoftResetOptions set_selected_riscs = static_cast<TensixSoftResetOptions>(tensix_risc_state) | selected_riscs;
+    send_tensix_risc_reset2(core, set_selected_riscs);
+}
+
+void Chip::unset_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
+    uint32_t tensix_risc_state = 0x00000000;
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
+    read_from_device_reg(
+        core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    TensixSoftResetOptions set_selected_riscs =
+        static_cast<TensixSoftResetOptions>(tensix_risc_state) & invert_selected_options(selected_riscs);
+    send_tensix_risc_reset2(core, set_selected_riscs);
+}
+
+// TODO: Remove this API once we switch to the new one.
+void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    TT_ASSERT(
+        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        "Cannot control soft reset on a non-tensix or harvested core");
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
+    if (core.x == 2 && core.y == 2) {
+        std::cout << "send_tensix_risc_reset to core " << core.str() << " with addr 0x" << std::hex
+                  << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr()
+                  << " with value 0x" << std::hex << valid_val << std::dec << std::endl;
+    }
+    // auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
+    // write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(),
+    // sizeof(uint32_t));
+    write_to_device_reg(
+        core,
+        &valid_val,
+        get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(uint32_t));
+    std::cout << "so how can this be different????? "
+              << get_tt_device()->get_architecture_implementation()->get_tensix_soft_reset_addr() << std::endl;
+    tt_driver_atomics::sfence();
 }
 
 RiscType Chip::get_tensix_risc_reset(const CoreCoord core) {

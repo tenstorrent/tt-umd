@@ -73,6 +73,10 @@ public:
     virtual void set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
     virtual void unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
 
+    virtual void set_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
+    virtual void unset_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
+    virtual void send_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions& soft_resets);
+
     virtual RiscType get_tensix_risc_reset(const CoreCoord core);
     virtual void assert_tensix_risc_reset(const CoreCoord core, const RiscType selected_riscs);
     virtual void deassert_tensix_risc_reset(const CoreCoord core, const RiscType selected_riscs, bool staggered_start);

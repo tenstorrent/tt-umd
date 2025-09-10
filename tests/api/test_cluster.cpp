@@ -651,6 +651,54 @@ TEST(TestCluster, DeassertResetBriscOLD) {
     }
 }
 
+TEST(TestCluster, DeassertResetBriscOLD2) {
+    std::cout << "DeassertResetBriscOLD" << std::endl;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::cout << "DeassertResetBriscOLD2" << std::endl;
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    constexpr uint32_t a_variable_value = 0x87654000;
+    constexpr uint64_t a_variable_address = 0x10000;
+    constexpr uint64_t brisc_code_address = 0;
+    uint32_t readback = 0;
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            chip->set_tensix_risc_reset2(tensix_core, select_all_tensix_riscv_cores);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(
+                simple_brisc_program.data(),
+                simple_brisc_program.size() * sizeof(uint32_t),
+                chip_id,
+                tensix_core,
+                brisc_code_address);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            chip->unset_tensix_risc_reset2(tensix_core, TensixSoftResetOptions::BRISC);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+            EXPECT_EQ(a_variable_value, readback)
+                << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
+        }
+    }
+}
+
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 // TEST(TestCluster, DeassertResetBriscnew1) {
@@ -946,10 +994,10 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     }
 }
 
-// INSTANTIATE_TEST_SUITE_P(
-//     AllTriscNcriscCoreCombinations,
-//     ClusterAssertDeassertRiscsTest,
-//     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
+INSTANTIATE_TEST_SUITE_P(
+    AllTriscNcriscCoreCombinations,
+    ClusterAssertDeassertRiscsTest,
+    ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
 // TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
 //     ClusterOptions options = GetParam();

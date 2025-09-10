@@ -271,7 +271,40 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
-        tt_device_->write_to_device(const_cast<void*>(src), translated_core, l1_dest, size);
+        TlbWindow* tlb_window = tlb_manager_->get_cached_tlb_window();
+
+        tlb_data config{};
+        config.local_offset = l1_dest;
+        config.x_end = translated_core.x;
+        config.y_end = translated_core.y;
+        config.x_start = 0;
+        config.y_start = 0;
+        config.noc_sel = 0;
+        config.mcast = 0;
+        config.ordering = tlb_data::Relaxed;
+        config.linked = 0;
+        config.static_vc = 1;
+
+        tlb_window->configure(config);
+
+        uint8_t* buffer_addr = (uint8_t*)(uintptr_t)src;
+
+        while (size > 0) {
+            auto tlb_size = tlb_window->get_size();
+            size_t transfer_size = std::min((size_t)size, (size_t)tlb_size);
+
+            // tt_device_->dma_d2h(buffer, axi_address, transfer_size);
+            tlb_window->write_block(0, buffer_addr, transfer_size);
+
+            size -= transfer_size;
+            l1_dest += transfer_size;
+            buffer_addr += transfer_size;
+
+            config.local_offset = l1_dest;
+            tlb_window->configure(config);
+        }
+
+        // tt_device_->write_to_device(const_cast<void*>(src), translated_core, l1_dest, size);
     }
 }
 
@@ -298,7 +331,40 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
-        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        TlbWindow* tlb_window = tlb_manager_->get_cached_tlb_window();
+
+        tlb_data config{};
+        config.local_offset = l1_src;
+        config.x_end = translated_core.x;
+        config.y_end = translated_core.y;
+        config.x_start = 0;
+        config.y_start = 0;
+        config.noc_sel = 0;
+        config.mcast = 0;
+        config.ordering = tlb_data::Relaxed;
+        config.linked = 0;
+        config.static_vc = 1;
+
+        tlb_window->configure(config);
+
+        uint8_t* buffer_addr = (uint8_t*)(uintptr_t)dest;
+
+        while (size > 0) {
+            auto tlb_size = tlb_window->get_size();
+            size_t transfer_size = std::min((size_t)size, (size_t)tlb_size);
+
+            // tt_device_->dma_d2h(buffer, axi_address, transfer_size);
+            tlb_window->read_block(0, buffer_addr, transfer_size);
+
+            size -= transfer_size;
+            l1_src += transfer_size;
+            buffer_addr += transfer_size;
+
+            config.local_offset = l1_src;
+            tlb_window->configure(config);
+        }
+
+        // tt_device_->read_from_device(dest, translated_core, l1_src, size);
     }
 }
 

@@ -121,4 +121,15 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     throw std::runtime_error(fmt::format("Failed to allocate TLB window."));
 }
 
+TlbWindow* TLBManager::get_cached_tlb_window() {
+    if (cached_tlb_window != nullptr) {
+        return cached_tlb_window.get();
+    }
+
+    tlb_data config{};
+    cached_tlb_window = allocate_tlb_window(config, TlbMapping::WC, 1 << 21);
+
+    return cached_tlb_window.get();
+}
+
 };  // namespace tt::umd

@@ -46,8 +46,12 @@ public:
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const tt::umd::TlbMapping mapping = tt::umd::TlbMapping::WC, const size_t tlb_size = 0);
 
+    TlbWindow* get_cached_tlb_window();
+
 private:
     TTDevice* tt_device_;
+
+    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 };
 
 }  // namespace tt::umd

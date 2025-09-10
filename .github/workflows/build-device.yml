@@ -59,6 +59,11 @@ jobs:
       - name: Build ${{ env.BUILD_TARGET }}
         run: |
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=ON \
+            -DTT_UMD_BUILD_EXAMPLES=ON \
+            -DTT_UMD_BUILD_TOOLS=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
           echo "Compile complete."

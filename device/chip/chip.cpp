@@ -173,7 +173,7 @@ void Chip::unset_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions
 }
 
 // TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+void Chip::send_tensix_risc_reset2(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     TT_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot control soft reset on a non-tensix or harvested core");

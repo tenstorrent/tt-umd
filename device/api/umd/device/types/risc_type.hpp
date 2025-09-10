@@ -8,7 +8,6 @@
 
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #include <cstdint>
 #include <ostream>
@@ -121,5 +120,14 @@ inline std::ostream& operator<<(std::ostream& os, RiscType risc_type) { return o
 
 }  // namespace tt::umd
 
+namespace fmt {
 template <>
-struct fmt::formatter<tt::umd::RiscType> : fmt::ostream_formatter {};
+struct formatter<tt::umd::RiscType> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+
+    template <typename Context>
+    constexpr auto format(tt::umd::RiscType const& risc_type, Context& ctx) const {
+        return format_to(ctx.out(), "{}", tt::umd::RiscTypeToString(risc_type));
+    }
+};
+}  // namespace fmt

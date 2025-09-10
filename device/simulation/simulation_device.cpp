@@ -198,7 +198,7 @@ RiscType SimulationDevice::get_tensix_risc_reset(CoreCoord core) {
 }
 
 void SimulationDevice::assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
+    std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // Only a few scenarios are implemented at the moment.
@@ -210,8 +210,8 @@ void SimulationDevice::assert_tensix_risc_reset(CoreCoord core, const RiscType s
         print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
         host.send_to_device(wr_buffer_ptr, wr_buffer_size);
     } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        auto wr_buffer = create_flatbuffer(
-            DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+        auto wr_buffer =
+            create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
         host.send_to_device(wr_buffer.GetBufferPointer(), wr_buffer.GetSize());
     } else {
         TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
@@ -219,7 +219,7 @@ void SimulationDevice::assert_tensix_risc_reset(CoreCoord core, const RiscType s
 }
 
 void SimulationDevice::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
+    std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // Only a few scenarios are implemented at the moment.
@@ -233,9 +233,9 @@ void SimulationDevice::deassert_tensix_risc_reset(CoreCoord core, const RiscType
 
         host.send_to_device(wr_buffer_ptr, wr_buffer_size);
     } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-            auto wr_buffer = create_flatbuffer(
-                DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
-            host.send_to_device(wr_buffer.GetBufferPointer(), wr_buffer.GetSize());
+        auto wr_buffer = create_flatbuffer(
+            DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+        host.send_to_device(wr_buffer.GetBufferPointer(), wr_buffer.GetSize());
     } else {
         TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
     }

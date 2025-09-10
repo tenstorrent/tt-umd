@@ -549,6 +549,7 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
+    std::cout << "Cluster::~Cluster" << std::endl;
     log_debug(LogSiliconDriver, "Cluster::~Cluster");
 
     cluster_desc.reset();
@@ -961,6 +962,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     // If ethernet broadcast is not supported, do it one by one.
     if (!use_ethernet_broadcast) {
         for (auto& chip_id : all_chip_ids_) {
+            std::cout << "Cluster broadcasting tensix risc reset to chip codepaht use_ethernet_broadcast " << chip_id
+                      << std::endl;
             get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
         }
         return;
@@ -978,6 +981,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
         rows_to_exclude = {0, 6};
         columns_to_exclude = {0, 5};
     }
+    std::cout << "Cluster actual broadcast for tensix risc reset" << std::endl;
     broadcast_write_to_cluster(
         &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
     // Ensure that reset signal is globally visible
@@ -992,9 +996,11 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 
 void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
+    std::cout << "Cluster starting" << std::endl;
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
     for (auto& [_, chip] : chips_) {
+        std::cout << "Cluster starting a chip " << std::endl;
         chip->deassert_risc_resets();
     }
 
@@ -1055,13 +1061,16 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
 }
 
 void Cluster::start_device(const device_params& device_params) {
+    std::cout << "Cluster starting device" << std::endl;
     if (this->chip_type_ == tt::umd::ChipType::MOCK) {
         // Mock cluster doesn't need to start device
         return;
     }
+    std::cout << "Cluster starting device2" << std::endl;
 
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
+            std::cout << "Cluster starting device3" << std::endl;
             get_chip(chip_id)->start_device();
         }
 
@@ -1070,10 +1079,12 @@ void Cluster::start_device(const device_params& device_params) {
 }
 
 void Cluster::close_device() {
+    std::cout << "Cluster closing device" << std::endl;
     if (this->chip_type_ == tt::umd::ChipType::MOCK) {
         // Mock cluster doesn't need to close device
         return;
     }
+    std::cout << "Cluster closing device2" << std::endl;
 
     // Close remote device first because sending risc reset requires corresponding pcie device to be active
     for (auto remote_chip_id : remote_chip_ids_) {
@@ -1081,6 +1092,7 @@ void Cluster::close_device() {
     }
 
     for (auto chip_id : local_chip_ids_) {
+        std::cout << "Cluster closing device3" << std::endl;
         get_chip(chip_id)->close_device();
     }
 }

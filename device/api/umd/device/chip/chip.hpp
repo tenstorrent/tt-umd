@@ -70,16 +70,17 @@ public:
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
     virtual void deassert_risc_resets() = 0;
 
-    virtual RiscType get_tensix_risc_reset(CoreCoord core);
-    virtual void assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs);
-    virtual void deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    virtual RiscType get_tensix_risc_reset(const CoreCoord core);
+    virtual void assert_tensix_risc_reset(const CoreCoord core, const RiscType selected_riscs);
+    virtual void deassert_tensix_risc_reset(const CoreCoord core, const RiscType selected_riscs, bool staggered_start);
     virtual void assert_tensix_risc_reset(const RiscType selected_riscs);
     virtual void deassert_tensix_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
     virtual void set_power_state(DevicePowerState state) = 0;
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
-
+    virtual void set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
+    virtual void unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
     virtual int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,

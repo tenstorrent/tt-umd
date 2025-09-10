@@ -149,8 +149,10 @@ void LocalChip::start_device() {
 void LocalChip::close_device() {
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
+    std::cout << "I'm closing the device" << std::endl;
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
         set_power_state(DevicePowerState::LONG_IDLE);
+        std::cout << "I'm closing the device and setting power state to LONG_IDLE" << std::endl;
         assert_tensix_risc_reset(RiscType::ALL);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         sysmem_manager_->unpin_or_unmap_sysmem();
@@ -338,6 +340,14 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     auto [mapped_address, tlb_size] =
         tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_dest, tlb_data::Strict);
     tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
+    if (translate_chip_coord_to_translated(core) == tt_xy_pair{2, 2}) {
+        std::cout << "write_to_device_reg to core " << translate_chip_coord_to_translated(core).str() << " addr 0x"
+                  << std::hex << reg_dest << " value 0x" << std::hex << *((uint32_t*)src) << std::dec << std::endl;
+        std::cout << "  set_dynamic_tlb tlb_index " << tlb_index << " core: " << core.str() << " addr: 0x" << std::hex
+                  << reg_dest << std::dec << std::endl;
+        std::cout << "  write_regs mapped_address: 0x" << std::hex << mapped_address
+                  << " size: " << size / sizeof(uint32_t) << std::dec << std::endl;
+    }
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
@@ -535,6 +545,7 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
 }
 
 void LocalChip::deassert_risc_resets() {
+    std::cout << "LocalChip deassert_risc_resets " << std::endl;
     if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX |

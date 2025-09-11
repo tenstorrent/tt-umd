@@ -38,7 +38,7 @@ on:
         required: true
         description: 'The timeout for the test run in minutes'
         type: number
-        default: 15
+        default: 30
 
 
 jobs:

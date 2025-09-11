@@ -40,7 +40,7 @@ struct routing_cmd_t {
 
 RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
     local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager) {
-    lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_pci_device()->get_device_num());
+    lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_communication_device_id());
 }
 
 RemoteCommunication::~RemoteCommunication() {}
@@ -122,7 +122,7 @@ void RemoteCommunication::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
 
     const tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 

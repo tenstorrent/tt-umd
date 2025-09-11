@@ -50,7 +50,6 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/simulation/simulation_device.hpp"
-#include "umd/device/simulation/ttsim_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
@@ -196,6 +195,22 @@ void Cluster::verify_fw_bundle_version() {
             arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
     }
 
+    semver_t latest_supported_fw_version = FirmwareInfoProvider::get_latest_supported_firmware_version(
+        chips_.begin()->second->get_tt_device()->get_arch());
+
+    int compare_fw_bundle_with_latest =
+        semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
+
+    if (compare_fw_bundle_with_latest == 1) {
+        log_warning(
+            LogSiliconDriver,
+            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
+            "features may not be supported.",
+            fw_bundle_version.to_string(),
+            latest_supported_fw_version.to_string(),
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
+    }
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
@@ -268,17 +283,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
             "configuration to enable simulation device.");
-#endif
-    }
-
-    if (chip_type == ChipType::TTSIM) {
-#ifdef TT_UMD_BUILD_SIMULATION
-        log_info(LogSiliconDriver, "Creating TTSim Simulation device");
-        return std::make_unique<TTSimDevice>(simulator_directory);
-#else
-        throw std::runtime_error(
-            "TTSim device is not supported in this build. Set '-TT_UMD_BUILD_SIMULATION=ON' during cmake configuration "
-            "to enable TTSim device.");
 #endif
     }
 
@@ -368,8 +372,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::TTSIM ||
-        cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -417,21 +420,16 @@ Cluster::Cluster(ClusterOptions options) {
     // If the cluster descriptor is not provided, create a new one.
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
-    if (temp_full_cluster_desc == nullptr) {
-        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
-            options.sdesc_path,
-            options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
-            options.io_device_type);
-        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
-    }
     chip_type_ = options.chip_type;
 
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr =
-                Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+                options.sdesc_path,
+                options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
+                options.io_device_type);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -439,9 +437,6 @@ Cluster::Cluster(ClusterOptions options) {
 #ifdef TT_UMD_BUILD_SIMULATION
             if (options.chip_type == ChipType::SIMULATION) {
                 SimulationDeviceInit init(options.simulator_directory);
-                arch = init.get_soc_descriptor().arch;
-            } else if (options.chip_type == ChipType::TTSIM) {
-                TTSimDeviceInit init(options.simulator_directory);
                 arch = init.get_soc_descriptor().arch;
             }
 #endif
@@ -466,8 +461,7 @@ Cluster::Cluster(ClusterOptions options) {
         cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
     }
 
-    if (options.sdesc_path.empty() &&
-        (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::TTSIM)) {
+    if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
         if (options.simulator_directory.extension() == ".so") {
             options.sdesc_path = options.simulator_directory.parent_path() / "soc_descriptor.yaml";
         } else {

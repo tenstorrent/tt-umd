@@ -431,6 +431,20 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     return new_harvesting_mask;
 }
 
+uint32_t CoordinateManager::shuffle_l2cpu_harvesting_mask(tt::ARCH arch, uint32_t l2cpu_enabled_physical_layout) {
+    if (arch != tt::ARCH::BLACKHOLE) {
+        throw std::runtime_error("L2CPU cores currently only present in Blackhole.");
+    }
+
+    uint32_t harvesting_mask = 0;
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x1) ? 1 << 0 : 0;  // 8, 3
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x2) ? 1 << 3 : 0;  // 8, 9
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x4) ? 1 << 1 : 0;  // 8, 5
+    harvesting_mask |= (~l2cpu_enabled_physical_layout & 0x8) ? 1 << 2 : 0;  // 8, 7
+
+    return harvesting_mask;
+}
+
 const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
@@ -508,6 +522,10 @@ std::vector<CoreCoord> CoordinateManager::get_pcie_cores() const { return get_al
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_pcie_cores() const { return {}; }
 
+std::vector<CoreCoord> CoordinateManager::get_l2cpu_cores() const { return get_all_noc0_cores(CoreType::L2CPU); }
+
+std::vector<CoreCoord> CoordinateManager::get_harvested_l2cpu_cores() const { return {}; }
+
 std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
@@ -518,10 +536,11 @@ std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) co
             return get_eth_cores();
         case CoreType::PCIE:
             return get_pcie_cores();
+        case CoreType::L2CPU:
+            return get_l2cpu_cores();
         case CoreType::ARC:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
-        case CoreType::L2CPU:
             return get_all_noc0_cores(core_type);
         default:
             throw std::runtime_error("Core type is not supported for getting cores");

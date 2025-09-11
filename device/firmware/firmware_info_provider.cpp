@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
+#include "umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/firmware/wormhole_18_4_firmware_info_provider.hpp"
-#include "umd/device/firmware/wormhole_legacy_firmware_info_provider.hpp"
+#include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
+#include "umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -16,25 +17,43 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {}
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
+    static const semver_t fw_version_18_7 = semver_t(18, 7, 0);
+    static const semver_t fw_version_18_3 = semver_t(18, 3, 0);
+
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
             semver_t fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_fw_bundles_result = semver_t::compare_firmware_bundle(fw_bundle_version, semver_t(18, 4, 0));
-            if (compare_fw_bundles_result >= 0) {
-                return std::make_unique<Wormhole_18_4_FirmwareInfoProvider>(tt_device);
+            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            if (compare_18_7_bundle_result > 0) {
+                return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 
-            return std::make_unique<WormholeLegacyFirmwareInfoProvider>(tt_device);
+            int compare_18_3_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
+            if (compare_18_3_bundle_result > 0) {
+                return std::make_unique<Wormhole_18_7_FirmwareInfoProvider>(tt_device);
+            }
+
+            return std::make_unique<Wormhole_18_3_FirmwareInfoProvider>(tt_device);
         }
-        case ARCH::BLACKHOLE:
-            return std::make_unique<FirmwareInfoProvider>(tt_device);
+        case ARCH::BLACKHOLE: {
+            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+
+            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            if (compare_18_7_bundle_result > 0) {
+                return std::make_unique<FirmwareInfoProvider>(tt_device);
+            }
+
+            return std::make_unique<Blackhole_18_7_FirmwareInfoProvider>(tt_device);
+        }
         default:
             throw std::runtime_error("Unsupported architecture for firmware versioner.");
     }
 }
 
 semver_t FirmwareInfoProvider::get_firmware_version() { return firmware_version; }
+
+semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(18, 9, 0); }
 
 semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
@@ -78,6 +97,17 @@ DramTrainingStatus FirmwareInfoProvider::get_dram_training_status(uint32_t dram_
     }
 
     return DramTrainingStatus::IN_PROGRESS;
+}
+
+uint32_t FirmwareInfoProvider::get_max_clock_freq() {
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::AICLK_LIMIT_MAX);
+}
+
+uint8_t FirmwareInfoProvider::get_asic_location() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    return telemetry->is_entry_available(TelemetryTag::ASIC_LOCATION)
+               ? static_cast<uint8_t>(telemetry->read_entry(TelemetryTag::ASIC_LOCATION))
+               : 0;
 }
 
 }  // namespace tt::umd

@@ -21,12 +21,12 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
-if(TT_UMD_BUILD_STATIC_LIBS)
-    add_library(device STATIC)
-    message(STATUS "Building device library as STATIC")
-else()
+if(TT_UMD_BUILD_SHARED_LIBS)
     add_library(device SHARED)
     message(STATUS "Building device library as SHARED")
+else()
+    add_library(device STATIC)
+    message(STATUS "Building device library as STATIC")
 endif()
 add_library(${PROJECT_NAME}::device ALIAS device)
 
@@ -214,7 +214,7 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC_LIBS)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND TT_UMD_BUILD_SHARED_LIBS)
     install(
         TARGETS
             device

@@ -58,7 +58,7 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
-option(TT_UMD_BUILD_STATIC_LIBS "Build static libraries instead of shared libraries" OFF)
+option(TT_UMD_BUILD_SHARED_LIBS "Build shared libraries instead of static libraries" ${BUILD_SHARED_LIBS})
 
 # Control compile time logging
 if(NOT DEFINED TT_UMD_ENABLE_LOGGING)

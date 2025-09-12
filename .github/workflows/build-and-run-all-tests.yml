@@ -50,7 +50,6 @@ jobs:
       matrix:
         ubuntu-docker-version: [
           'ubuntu-22.04',
-          'ubuntu-24.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:

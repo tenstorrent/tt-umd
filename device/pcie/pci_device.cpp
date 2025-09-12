@@ -409,20 +409,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
             throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
         }
 
-        // system_reg_mapping_size = bar4_uc_mapping.mapping_size;
-
-        // system_reg_mapping = mmap(
-        //     NULL,
-        //     bar4_uc_mapping.mapping_size,
-        //     PROT_READ | PROT_WRITE,
-        //     MAP_SHARED,
-        //     pci_device_file_desc,
-        //     bar4_uc_mapping.mapping_base);
-
-        // if (system_reg_mapping == MAP_FAILED) {
-        //     throw std::runtime_error(fmt::format("BAR4 UC mapping failed for device {}.", pci_device_num));
-        // }
-
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
             NULL,

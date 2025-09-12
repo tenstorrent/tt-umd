@@ -7,6 +7,8 @@ enum DEVICE_COMMAND : byte {
     ALL_TENSIX_RESET_ASSERT = 3,
     START = 4,
     EXIT = 5,
+    ALL_NEO_DMS_RESET_DEASSERT = 6,
+    ALL_NEO_DMS_RESET_ASSERT = 7,
 }
 
 struct tt_vcs_core {

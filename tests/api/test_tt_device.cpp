@@ -44,8 +44,8 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 TEST(ApiTTDeviceTest, TTDeviceRegIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::vector<uint32_t> data_write0 = {0};
-    std::vector<uint32_t> data_write1 = {1};
+    std::vector<uint32_t> data_write0 = {1};
+    std::vector<uint32_t> data_write1 = {2};
     std::vector<uint32_t> data_read(data_write0.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {

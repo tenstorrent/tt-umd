@@ -302,9 +302,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
         jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size);
         return;
     }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    // TODO: figure out how not to have multiple locks here.
-    auto lock2 = lock_manager.acquire_mutex("REG_TLB", get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex("REG_TLB", get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
     while (size > 0) {
@@ -323,9 +321,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         jtag_device_->write(jlink_id_, mem_ptr, core.x, core.y, addr, size);
         return;
     }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    // TODO: figure out how not to have multiple locks here.
-    auto lock2 = lock_manager.acquire_mutex("REG_TLB", get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex("REG_TLB", get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 

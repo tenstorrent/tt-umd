@@ -20,58 +20,65 @@ namespace tt::umd {
  * @details RiscType contains both architecture agnostic and architecture specific options. It contains options
  * for each of the supported architectures. The flags have nothing to do with the specific soft reset register bits.
  */
-enum class RiscType : std::uint32_t {
+enum class RiscType : std::uint64_t {
     // Both architectures have a common set of options for simpler usages, if you're not concerned about the specific
-    // architecture.
+    // architecture. The Data Movement equivalent cores for the tensix architecture include BRISC and NCRISC.
     NONE = 0,
-    ALL = 1 << 0,
-    ALL_TRISCS = 1 << 1,
-    ALL_DMS = 1 << 2,
+    ALL = 1ULL << 0,
+    ALL_TRISCS = 1ULL << 1,
+    ALL_DATA_MOVEMENT = 1ULL << 2,
 
     // The Tensix architecture has 1 triplet of TRISC cores, and two cores BRISC and NCRISC in overlay which act as data
     // movement cores.
-    BRISC = 1 << 3,
-    TRISC0 = 1 << 4,
-    TRISC1 = 1 << 5,
-    TRISC2 = 1 << 6,
-    NCRISC = 1 << 7,
+    BRISC = 1ULL << 3,
+    TRISC0 = 1ULL << 4,
+    TRISC1 = 1ULL << 5,
+    TRISC2 = 1ULL << 6,
+    NCRISC = 1ULL << 7,
 
-    // Combined constants
+    // Combined constants.
     ALL_TENSIX_TRISCS = TRISC0 | TRISC1 | TRISC2,
     ALL_TENSIX_DMS = BRISC | NCRISC,
     ALL_TENSIX = ALL_TENSIX_TRISCS | ALL_TENSIX_DMS,
 
-    // The NEO Tensix architecture has 4 tripplets of TRISC cores, and 8 Data Movement cores.
-    NEO0_TRISC0 = 1 << 8,
-    NEO0_TRISC1 = 1 << 9,
-    NEO0_TRISC2 = 1 << 10,
-    NEO1_TRISC0 = 1 << 11,
-    NEO1_TRISC1 = 1 << 12,
-    NEO1_TRISC2 = 1 << 13,
-    NEO2_TRISC0 = 1 << 14,
-    NEO2_TRISC1 = 1 << 15,
-    NEO2_TRISC2 = 1 << 16,
-    NEO3_TRISC0 = 1 << 17,
-    NEO3_TRISC1 = 1 << 18,
-    NEO3_TRISC2 = 1 << 19,
+    // The NEO Tensix architecture has 4 tripplets of 4 TRISC cores each, and 8 Data Movement cores.
+    NEO0_TRISC0 = 1ULL << 8,
+    NEO0_TRISC1 = 1ULL << 9,
+    NEO0_TRISC2 = 1ULL << 10,
+    NEO0_TRISC3 = 1ULL << 11,
 
-    DM0 = 1 << 20,
-    DM1 = 1 << 21,
-    DM2 = 1 << 22,
-    DM3 = 1 << 23,
-    DM4 = 1 << 24,
-    DM5 = 1 << 25,
-    DM6 = 1 << 26,
-    DM7 = 1 << 27,
+    NEO1_TRISC0 = 1ULL << 12,
+    NEO1_TRISC1 = 1ULL << 13,
+    NEO1_TRISC2 = 1ULL << 14,
+    NEO1_TRISC3 = 1ULL << 15,
+
+    NEO2_TRISC0 = 1ULL << 16,
+    NEO2_TRISC1 = 1ULL << 17,
+    NEO2_TRISC2 = 1ULL << 18,
+    NEO2_TRISC3 = 1ULL << 19,
+
+    NEO3_TRISC0 = 1ULL << 20,
+    NEO3_TRISC1 = 1ULL << 21,
+    NEO3_TRISC2 = 1ULL << 22,
+    NEO3_TRISC3 = 1ULL << 23,
+
+    DM0 = 1ULL << 24,
+    DM1 = 1ULL << 25,
+    DM2 = 1ULL << 26,
+    DM3 = 1ULL << 27,
+    DM4 = 1ULL << 28,
+    DM5 = 1ULL << 29,
+    DM6 = 1ULL << 30,
+    DM7 = 1ULL << 31,
 
     // Combined constants for each NEO triplet
-    ALL_NEO0_TRISCS = NEO0_TRISC0 | NEO0_TRISC1 | NEO0_TRISC2,
-    ALL_NEO1_TRISCS = NEO1_TRISC0 | NEO1_TRISC1 | NEO1_TRISC2,
-    ALL_NEO2_TRISCS = NEO2_TRISC0 | NEO2_TRISC1 | NEO2_TRISC2,
-    ALL_NEO3_TRISCS = NEO3_TRISC0 | NEO3_TRISC1 | NEO3_TRISC2,
+    ALL_NEO0_TRISCS = NEO0_TRISC0 | NEO0_TRISC1 | NEO0_TRISC2 | NEO0_TRISC3,
+    ALL_NEO1_TRISCS = NEO1_TRISC0 | NEO1_TRISC1 | NEO1_TRISC2 | NEO1_TRISC3,
+    ALL_NEO2_TRISCS = NEO2_TRISC0 | NEO2_TRISC1 | NEO2_TRISC2 | NEO2_TRISC3,
+    ALL_NEO3_TRISCS = NEO3_TRISC0 | NEO3_TRISC1 | NEO3_TRISC2 | NEO3_TRISC3,
 
     // Combined constants for all cores of each type
-    ALL_NEO_TRISCS = NEO0_TRISC0 | NEO1_TRISC0 | NEO2_TRISC0 | NEO3_TRISC0,
+    ALL_NEO_TRISCS = ALL_NEO0_TRISCS | ALL_NEO1_TRISCS | ALL_NEO2_TRISCS | ALL_NEO3_TRISCS,
     ALL_NEO_DMS = DM0 | DM1 | DM2 | DM3 | DM4 | DM5 | DM6 | DM7,
     ALL_NEO = ALL_NEO_TRISCS | ALL_NEO_DMS,
 };

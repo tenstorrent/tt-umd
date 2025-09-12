@@ -109,24 +109,24 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), valid_val);
+    uint32_t valid_val = static_cast<uint32_t>(valid);
+    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), valid_val);
 }
 
 // TODO: Remove this API once we switch to the new one.
 void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
         send_tensix_risc_reset(core, soft_resets);
     }
 }
 
-RiscType Chip::get_tensix_risc_reset(CoreCoord core) {
-    uint32_t soft_reset_current_state = get_tt_device()->get_risc_soft_reset(translate_chip_coord_to_translated(core));
+RiscType Chip::get_risc_reset_state(CoreCoord core) {
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 
-void Chip::assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    uint32_t soft_reset_current_state = get_tt_device()->get_risc_soft_reset(translate_chip_coord_to_translated(core));
+void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
@@ -137,17 +137,18 @@ void Chip::assert_tensix_risc_reset(CoreCoord core, const RiscType selected_risc
         soft_reset_current_state,
         soft_reset_update,
         soft_reset_new);
-    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), soft_reset_new);
+    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), soft_reset_new);
 }
 
-void Chip::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    uint32_t soft_reset_current_state = get_tt_device()->get_risc_soft_reset(translate_chip_coord_to_translated(core));
+void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     // The update variable should be applied in such a way that it clears the bits that are set in the selected_riscs.
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
-        soft_reset_new | get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start();
+        soft_reset_new |
+        (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     log_debug(
         LogSiliconDriver,
         "Deasserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
@@ -155,18 +156,19 @@ void Chip::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_ri
         soft_reset_current_state,
         soft_reset_update,
         soft_reset_new_with_staggered_start);
-    get_tt_device()->set_risc_soft_reset(translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
+    get_tt_device()->set_risc_reset_state(
+        translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
 }
 
-void Chip::assert_tensix_risc_reset(const RiscType selected_riscs) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
-        assert_tensix_risc_reset(core, selected_riscs);
+void Chip::assert_risc_reset(const RiscType selected_riscs) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+        assert_risc_reset(core, selected_riscs);
     }
 }
 
-void Chip::deassert_tensix_risc_reset(const RiscType selected_riscs, bool staggered_start) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
-        deassert_tensix_risc_reset(core, selected_riscs, staggered_start);
+void Chip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+        deassert_risc_reset(core, selected_riscs, staggered_start);
     }
 }
 

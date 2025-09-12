@@ -15,8 +15,8 @@ std::string RiscTypeToString(RiscType value) {
     if ((value & RiscType::ALL_TRISCS) != RiscType::NONE) {
         output += "ALL_TRISCS | ";
     }
-    if ((value & RiscType::ALL_DMS) != RiscType::NONE) {
-        output += "ALL_DMS | ";
+    if ((value & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE) {
+        output += "ALL_DATA_MOVEMENT | ";
     }
 
     if ((value & RiscType::BRISC) != RiscType::NONE) {
@@ -45,6 +45,9 @@ std::string RiscTypeToString(RiscType value) {
     if ((value & RiscType::NEO0_TRISC2) != RiscType::NONE) {
         output += "NEO0_TRISC2 | ";
     }
+    if ((value & RiscType::NEO0_TRISC3) != RiscType::NONE) {
+        output += "NEO0_TRISC3 | ";
+    }
     if ((value & RiscType::NEO1_TRISC0) != RiscType::NONE) {
         output += "NEO1_TRISC0 | ";
     }
@@ -54,6 +57,9 @@ std::string RiscTypeToString(RiscType value) {
     if ((value & RiscType::NEO1_TRISC2) != RiscType::NONE) {
         output += "NEO1_TRISC2 | ";
     }
+    if ((value & RiscType::NEO1_TRISC3) != RiscType::NONE) {
+        output += "NEO1_TRISC3 | ";
+    }
     if ((value & RiscType::NEO2_TRISC0) != RiscType::NONE) {
         output += "NEO2_TRISC0 | ";
     }
@@ -62,6 +68,9 @@ std::string RiscTypeToString(RiscType value) {
     }
     if ((value & RiscType::NEO2_TRISC2) != RiscType::NONE) {
         output += "NEO2_TRISC2 | ";
+    }
+    if ((value & RiscType::NEO2_TRISC3) != RiscType::NONE) {
+        output += "NEO2_TRISC3 | ";
     }
     if ((value & RiscType::NEO3_TRISC0) != RiscType::NONE) {
         output += "NEO3_TRISC0 | ";

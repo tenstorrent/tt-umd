@@ -290,7 +290,7 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
 
-// Constants related to bits in the soft reset register
+// Constants related to bits in the soft reset register.
 static const uint32_t SOFT_RESET_BRISC = 1 << 11;
 static const uint32_t SOFT_RESET_TRISC0 = 1 << 12;
 static const uint32_t SOFT_RESET_TRISC1 = 1 << 13;

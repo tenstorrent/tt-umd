@@ -138,7 +138,7 @@ uint32_t wormhole_implementation::get_soft_reset_reg_value(tt::umd::RiscType ris
     if ((risc_type & RiscType::ALL_TRISCS) != RiscType::NONE) {
         risc_type &= RiscType::ALL_TENSIX_TRISCS;
     }
-    if ((risc_type & RiscType::ALL_DMS) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE) {
         risc_type &= RiscType::ALL_TENSIX_DMS;
     }
 
@@ -188,7 +188,7 @@ RiscType wormhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_r
         risc_type |= RiscType::ALL_TRISCS;
     }
     if ((risc_type & RiscType::ALL_TENSIX_DMS) != RiscType::NONE) {
-        risc_type |= RiscType::ALL_DMS;
+        risc_type |= RiscType::ALL_DATA_MOVEMENT;
     }
 
     return risc_type;

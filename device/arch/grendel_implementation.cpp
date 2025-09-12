@@ -22,7 +22,7 @@ uint32_t grendel_implementation::get_soft_reset_reg_value(tt::umd::RiscType risc
     if ((risc_type & RiscType::ALL_TRISCS) != RiscType::NONE) {
         risc_type &= RiscType::ALL_NEO_TRISCS;
     }
-    if ((risc_type & RiscType::ALL_DMS) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE) {
         risc_type &= RiscType::ALL_NEO_DMS;
     }
 

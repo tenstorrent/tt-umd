@@ -24,7 +24,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     std::set<chip_id_t> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    std::set<chip_id_t> target_devices_th2 = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
+    std::set<chip_id_t> target_devices_th2 = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
     std::unordered_set<chip_id_t> all_devices = {};
     std::set_union(
         target_devices_th1.begin(),

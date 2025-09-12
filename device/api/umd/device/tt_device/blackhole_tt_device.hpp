@@ -51,6 +51,8 @@ protected:
     BlackholeTTDevice() = default;
 
 private:
+    bool is_hardware_hung() override;
+
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);

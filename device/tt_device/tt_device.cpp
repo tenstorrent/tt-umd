@@ -98,20 +98,6 @@ std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-bool TTDevice::is_hardware_hung() {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
-    }
-
-    volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
-                                (architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-                                 architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
-                                pci_device_->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
-
-    return (scratch_data == HANG_READ_VALUE);
-}
-
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         // Jtag protocol uses different communication paths from pci therefore

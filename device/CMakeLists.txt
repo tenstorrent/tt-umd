@@ -198,30 +198,30 @@ if(TT_UMD_BUILD_SHARED_LIBS)
     set(EXTERNAL_LINK_SCOPE PRIVATE)
 else()
     set(INTERNAL_LINK_SCOPE PUBLIC)
-    set(EXTERNAL_LINK_SCOPE PRIVATE)  # External deps are embedded in static lib
+    set(EXTERNAL_LINK_SCOPE PRIVATE) # External deps are embedded in static lib
 endif()
 
 target_link_libraries(
     device
     ${INTERNAL_LINK_SCOPE}
-        umd::Common
-        umd::Firmware
+    umd::Common
+    umd::Firmware
     ${EXTERNAL_LINK_SCOPE}
-        hwloc
-        rt
-        spdlog::spdlog_header_only
-        fmt::fmt-header-only
-        tt-logger::tt-logger
-        yaml-cpp::yaml-cpp
+    hwloc
+    rt
+    spdlog::spdlog_header_only
+    fmt::fmt-header-only
+    tt-logger::tt-logger
+    yaml-cpp::yaml-cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
         device
         ${EXTERNAL_LINK_SCOPE}
-            flatbuffers::flatbuffers
-            nng
-            uv_a
+        flatbuffers::flatbuffers
+        nng
+        uv_a
     )
 endif()
 
@@ -253,10 +253,14 @@ if(TT_UMD_INSTALL)
         else()
             # For static libraries, install without export to avoid dependency issues
             install(
-                TARGETS device
-                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                COMPONENT umd-runtime
-                FILE_SET api COMPONENT umd-dev
+                TARGETS
+                    device
+                ARCHIVE
+                    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    COMPONENT umd-runtime
+                FILE_SET
+                api
+                    COMPONENT umd-dev
             )
             # Consumer projects will need to link against the static library manually
             # and find the dependencies themselves

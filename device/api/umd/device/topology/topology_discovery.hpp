@@ -77,6 +77,14 @@ protected:
 
     virtual uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
 
+    // API exposed as a temporary workaround for issue: https://tenstorrent.atlassian.net/browse/SYS-2064.
+    // This is used for querying the logical remote eth channel on Multi-Host Blackhole P150 systems, where
+    // we don't have access to the ethernet harvesting mask for the remote chip.
+    // Logic in this API can be placed in get_remote_eth_channel, and patch_eth_connections can be removed,
+    // once the issue outlined in the ticket is resolved (at which point, UMD can directly query the logical
+    // ethernet channel for the remote chip on all board types).
+    virtual uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
+
     // eth_core should be in NoC 0 coordinates..
     virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) = 0;
 

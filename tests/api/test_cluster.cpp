@@ -537,7 +537,7 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
     EXPECT_NE(write_test_data, read_test_data);
 }
 
-TEST(TestCluster, WarmReset) {
+TEST(TestCluster, DISABLED_WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

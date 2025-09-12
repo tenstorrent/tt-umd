@@ -319,7 +319,7 @@ public:
      * @param chip Chip to target.
      * @param core Core to target.
      */
-    RiscType get_soft_reset_state(const chip_id_t chip, const CoreCoord core);
+    RiscType get_risc_reset_state(const chip_id_t chip, const CoreCoord core);
 
     /**
      * Assert the soft reset signal at designated RISC cores on a single tensix core.

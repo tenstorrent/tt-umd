@@ -289,7 +289,7 @@ public:
      *
      * @param core Core to get soft reset for, in translated coordinates
      */
-    uint32_t get_risc_soft_reset(tt_xy_pair core);
+    uint32_t get_risc_reset_state(tt_xy_pair core);
 
     /**
      * Set the soft reset signal for the given riscs.
@@ -297,7 +297,7 @@ public:
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
      */
-    void set_risc_soft_reset(tt_xy_pair core, const uint32_t risc_flags);
+    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

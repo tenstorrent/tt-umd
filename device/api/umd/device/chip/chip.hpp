@@ -70,11 +70,34 @@ public:
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
     virtual void deassert_risc_resets() = 0;
 
-    virtual RiscType get_tensix_risc_reset(CoreCoord core);
-    virtual void assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs);
-    virtual void deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
-    virtual void assert_tensix_risc_reset(const RiscType selected_riscs);
-    virtual void deassert_tensix_risc_reset(const RiscType selected_riscs, bool staggered_start);
+    /**
+    Returns a set of riscs which have soft reset signal raised (these riscs are in reset state).
+    */
+    virtual RiscType get_risc_reset_state(CoreCoord core);
+
+    /**
+    Assert the soft reset signal for specified riscs on the specified core.
+    Raising this signal will put those riscs in the reset state and stop their execution.
+    */
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+
+    /**
+    Deassert the soft reset signal for specified riscs on the specified core.
+    Lowering this signal will put those riscs in the running state and start their execution.
+    */
+    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+
+    /**
+    Assert the soft reset signal for specified riscs on all cores.
+    Raising this signal will put those riscs in the reset state and stop their execution.
+    */
+    virtual void assert_risc_reset(const RiscType selected_riscs);
+
+    /**
+    Deassert the soft reset signal for specified riscs on all cores.
+    Lowering this signal will put those riscs in the running state and start their execution.
+    */
+    virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
     virtual void set_power_state(DevicePowerState state) = 0;
     virtual int get_clock() = 0;

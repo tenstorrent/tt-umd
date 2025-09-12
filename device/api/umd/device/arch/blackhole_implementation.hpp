@@ -209,7 +209,7 @@ static constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX *
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
 // Computed this value from AXI_RESET_OFFSET
-static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x177D0000;
+static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
 // MT: This is no longer valid for Blackhole. Review messages to ARC
 static constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;

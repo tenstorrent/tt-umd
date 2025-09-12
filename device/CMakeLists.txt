@@ -191,11 +191,22 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 
+# For static libraries, internal dependencies need to be PUBLIC so consumers get them
+# External dependencies can remain PRIVATE as they'll be embedded in the static lib
+if(TT_UMD_BUILD_SHARED_LIBS)
+    set(INTERNAL_LINK_SCOPE PRIVATE)
+    set(EXTERNAL_LINK_SCOPE PRIVATE)
+else()
+    set(INTERNAL_LINK_SCOPE PUBLIC)
+    set(EXTERNAL_LINK_SCOPE PRIVATE)  # External deps are embedded in static lib
+endif()
+
 target_link_libraries(
     device
-    PRIVATE
+    ${INTERNAL_LINK_SCOPE}
         umd::Common
         umd::Firmware
+    ${EXTERNAL_LINK_SCOPE}
         hwloc
         rt
         spdlog::spdlog_header_only
@@ -207,67 +218,82 @@ target_link_libraries(
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
         device
-        PRIVATE
+        ${EXTERNAL_LINK_SCOPE}
             flatbuffers::flatbuffers
             nng
             uv_a
     )
 endif()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND TT_UMD_BUILD_SHARED_LIBS)
-    install(
-        TARGETS
-            device
-        EXPORT ${PROJECT_NAME}Targets
-        ARCHIVE
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            COMPONENT umd-runtime
-        FILE_SET
-        api
-            COMPONENT umd-dev
+if(TT_UMD_INSTALL)
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+        if(TT_UMD_BUILD_SHARED_LIBS)
+            # For shared libraries, use the normal export mechanism
+            install(
+                TARGETS
+                    device
+                EXPORT ${PROJECT_NAME}Targets
+                ARCHIVE
+                    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                LIBRARY
+                    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    COMPONENT umd-runtime
+                FILE_SET
+                api
+                    COMPONENT umd-dev
+            )
+
+            install(
+                EXPORT ${PROJECT_NAME}Targets
+                FILE ${PROJECT_NAME}Targets.cmake
+                DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+                NAMESPACE ${PROJECT_NAME}::
+                COMPONENT umd-dev
+            )
+        else()
+            # For static libraries, install without export to avoid dependency issues
+            install(
+                TARGETS device
+                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                COMPONENT umd-runtime
+                FILE_SET api COMPONENT umd-dev
+            )
+            # Consumer projects will need to link against the static library manually
+            # and find the dependencies themselves
+        endif()
+    endif()
+
+    # Add a custom command to copy the library to build/lib
+    add_custom_command(
+        TARGET device
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
+        COMMAND
+            ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
+        COMMENT "Copying device library to build/lib"
     )
 
+    # No separation of public and private header files
+    # I can only assume everything is public
     install(
-        EXPORT ${PROJECT_NAME}Targets
-        FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-        NAMESPACE ${PROJECT_NAME}::
-        COMPONENT umd-dev
+        DIRECTORY
+            ${PROJECT_SOURCE_DIR}/device
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device
+        FILES_MATCHING
+        PATTERN
+        "*.h"
+        PATTERN
+        "*.hpp"
+    )
+    install(
+        DIRECTORY
+            ${PROJECT_SOURCE_DIR}/common
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
+        FILES_MATCHING
+        PATTERN
+        "*.h"
+        PATTERN
+        "*.hpp"
     )
 endif()
-
-# Add a custom command to copy the library to build/lib
-add_custom_command(
-    TARGET device
-    POST_BUILD
-    COMMAND
-        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
-    COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
-    COMMENT "Copying device library to build/lib"
-)
-
-# No separation of public and private header files
-# I can only assume everything is public
-install(
-    DIRECTORY
-        ${PROJECT_SOURCE_DIR}/device
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device
-    FILES_MATCHING
-    PATTERN
-    "*.h"
-    PATTERN
-    "*.hpp"
-)
-install(
-    DIRECTORY
-        ${PROJECT_SOURCE_DIR}/common
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
-    FILES_MATCHING
-    PATTERN
-    "*.h"
-    PATTERN
-    "*.hpp"
-)

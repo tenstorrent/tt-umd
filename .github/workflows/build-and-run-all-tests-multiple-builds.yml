@@ -50,6 +50,6 @@ jobs:
     with:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
-      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 30 }}
+      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

@@ -58,6 +58,7 @@ int MockChip::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
+    // This designates success for the ARC enable eth queue message.
     *return_3 = 1;
     return 0;
 }

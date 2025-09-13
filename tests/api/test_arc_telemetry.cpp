@@ -5,6 +5,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/types/telemetry.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(TestTelemetry, BasicTelemetry) {

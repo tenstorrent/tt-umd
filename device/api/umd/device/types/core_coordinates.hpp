@@ -12,6 +12,8 @@
 
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 
+// Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
+namespace tt {
 /*
  * CoreType is an enum class that represents all types of cores
  * present on the Tenstorrent chip.
@@ -35,7 +37,6 @@ enum class CoreType {
     COUNT,
 };
 
-namespace tt::umd {
 /*
  * CoordSystem is an enum class that represents all types of coordinate
  * systems that can be used to represent a core's location.
@@ -141,25 +142,21 @@ struct CoreCoord : public tt_xy_pair {
     }
 };
 
-}  // namespace tt::umd
+}  // namespace tt
 
 // TODO: To be removed once clients switch to namespace usage.
-using tt::umd::CoordSystem;
-
-namespace tt::umd {
-// We can't define CoreType originally in the tt::umd namespace, due to a forward declaration in tt_metal.
-using CoreType = ::CoreType;
-}  // namespace tt::umd
+using tt::CoordSystem;
+using tt::CoreType;
 
 namespace std {
 template <>
-struct hash<tt::umd::CoreCoord> {
-    size_t operator()(const tt::umd::CoreCoord& core_coord) const {
+struct hash<tt::CoreCoord> {
+    size_t operator()(const tt::CoreCoord& core_coord) const {
         size_t seed = 0;
         seed = std::hash<size_t>{}(core_coord.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         seed = std::hash<size_t>{}(core_coord.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<tt::umd::CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<tt::umd::CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<tt::CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<tt::CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };

@@ -144,7 +144,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/blackhole_arc.hpp
                 api/umd/device/types/cluster_descriptor_types.hpp
                 api/umd/device/types/cluster_types.hpp
-                api/umd/device/types/harvesting.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp

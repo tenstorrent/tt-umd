@@ -14,11 +14,12 @@
 #include <optional>
 #include <unordered_map>
 
-#include "umd/device/types/harvesting.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 
-// TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
+// Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
+namespace tt {
+
 enum BoardType : uint32_t {
     E75,
     E150,
@@ -54,18 +55,16 @@ static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
 static_assert(QUASAR == 11, "QUASAR must be 11");
 static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
 
-namespace tt::umd {
-
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
 inline void boost_hash_combine(std::size_t &seed, const int value) {
     seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-using chip_id_t = int;
-using ethernet_channel_t = int;
+using ChipId = int;
+using EthernetChannel = int;
 
-struct eth_coord_t {
+struct EthCoord {
     int cluster_id;  // This is the same for connected chips.
     int x;
     int y;
@@ -73,14 +72,14 @@ struct eth_coord_t {
     int shelf;
 
     // in C++20 this should be defined as:
-    // constexpr bool operator==(const eth_coord_t &other) const noexcept = default;
-    constexpr bool operator==(const eth_coord_t &other) const noexcept {
+    // constexpr bool operator==(const EthCoord &other) const noexcept = default;
+    constexpr bool operator==(const EthCoord &other) const noexcept {
         return (
             cluster_id == other.cluster_id and x == other.x and y == other.y and rack == other.rack and
             shelf == other.shelf);
     }
 
-    constexpr bool operator<(const eth_coord_t &other) const noexcept {
+    constexpr bool operator<(const EthCoord &other) const noexcept {
         if (cluster_id != other.cluster_id) {
             return cluster_id < other.cluster_id;
         }
@@ -252,6 +251,23 @@ struct ChipUID {
     }
 };
 
+struct HarvestingMasks {
+    size_t tensix_harvesting_mask = 0;
+    size_t dram_harvesting_mask = 0;
+    size_t eth_harvesting_mask = 0;
+    size_t pcie_harvesting_mask = 0;
+    size_t l2cpu_harvesting_mask = 0;
+
+    HarvestingMasks operator|(const HarvestingMasks &other) const {
+        return HarvestingMasks{
+            .tensix_harvesting_mask = this->tensix_harvesting_mask | other.tensix_harvesting_mask,
+            .dram_harvesting_mask = this->dram_harvesting_mask | other.dram_harvesting_mask,
+            .eth_harvesting_mask = this->eth_harvesting_mask | other.eth_harvesting_mask,
+            .pcie_harvesting_mask = this->pcie_harvesting_mask | other.pcie_harvesting_mask,
+            .l2cpu_harvesting_mask = this->l2cpu_harvesting_mask | other.l2cpu_harvesting_mask};
+    }
+};
+
 struct ChipInfo {
     bool noc_translation_enabled = false;
     HarvestingMasks harvesting_masks = {0, 0, 0, 0};
@@ -266,27 +282,29 @@ enum class DramTrainingStatus : uint8_t {
     SUCCESS = 2,
 };
 
-}  // namespace tt::umd
+// TODO: To be removed once clients switch new names.
+using chip_id_t = ChipId;
+using ethernet_channel_t = EthernetChannel;
+using eth_coord_t = EthCoord;
+
+}  // namespace tt
 
 // TODO: To be removed once clients switch to namespace usage.
-using tt::umd::chip_id_t;
-using tt::umd::eth_coord_t;
-using tt::umd::ethernet_channel_t;
-
-namespace tt::umd {
-using BoardType = ::BoardType;
-}
+using tt::BoardType;
+using tt::chip_id_t;
+using tt::eth_coord_t;
+using tt::ethernet_channel_t;
 
 namespace std {
 template <>
-struct hash<tt::umd::eth_coord_t> {
-    std::size_t operator()(tt::umd::eth_coord_t const &c) const {
+struct hash<tt::EthCoord> {
+    std::size_t operator()(tt::EthCoord const &c) const {
         std::size_t seed = 0;
-        tt::umd::boost_hash_combine(seed, c.cluster_id);
-        tt::umd::boost_hash_combine(seed, c.x);
-        tt::umd::boost_hash_combine(seed, c.y);
-        tt::umd::boost_hash_combine(seed, c.rack);
-        tt::umd::boost_hash_combine(seed, c.shelf);
+        tt::boost_hash_combine(seed, c.cluster_id);
+        tt::boost_hash_combine(seed, c.x);
+        tt::boost_hash_combine(seed, c.y);
+        tt::boost_hash_combine(seed, c.rack);
+        tt::boost_hash_combine(seed, c.shelf);
         return seed;
     }
 };
@@ -295,11 +313,11 @@ struct hash<tt::umd::eth_coord_t> {
 
 namespace fmt {
 template <>
-struct formatter<eth_coord_t> {
+struct formatter<tt::EthCoord> {
     constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
 
     template <typename Context>
-    constexpr auto format(eth_coord_t const &coord, Context &ctx) const {
+    constexpr auto format(tt::EthCoord const &coord, Context &ctx) const {
         return format_to(
             ctx.out(), "({}, {}, {}, {}, {})", coord.cluster_id, coord.x, coord.y, coord.rack, coord.shelf);
     }

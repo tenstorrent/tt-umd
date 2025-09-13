@@ -10,6 +10,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // Test soc descriptor API for Wormhole when there is no harvesting.

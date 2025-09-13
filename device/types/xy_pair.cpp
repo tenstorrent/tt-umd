@@ -8,10 +8,10 @@
 
 #include <fmt/core.h>
 
-namespace tt::umd {
+namespace tt {
 
 std::string xy_pair::str() const { return fmt::format("(x={},y={})", x, y); }
 
 std::string cxy_pair::str() const { return fmt::format("(chip={},x={},y={})", chip, x, y); }
 
-}  // namespace tt::umd
+}  // namespace tt

@@ -6,6 +6,7 @@
 #include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
 
+using namespace tt;
 using namespace tt::umd;
 
 constexpr chip_id_t chip = 0;

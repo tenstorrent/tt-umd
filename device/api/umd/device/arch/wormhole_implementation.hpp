@@ -242,6 +242,8 @@ static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
+static constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
+
 static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
@@ -386,6 +388,8 @@ public:
     uint32_t get_tlb_base_index_16m() const override { return wormhole::TLB_BASE_INDEX_16M; }
 
     uint32_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
+
+    uint32_t get_debug_reg_addr() const override { return wormhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
     uint32_t get_grid_size_x() const override { return wormhole::GRID_SIZE_X; }
 

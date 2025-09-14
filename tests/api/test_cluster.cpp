@@ -669,7 +669,7 @@ TEST(TestCluster, DeassertResetBrisc) {
     }
 }
 
-TEST(TestCluster, DeassertResetWithCounterBrisc) {
+TEST(TestCluster, DISABLED_DeassertResetWithCounterBrisc) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

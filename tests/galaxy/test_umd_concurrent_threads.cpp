@@ -213,7 +213,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-    std::unordered_set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    std::unordered_set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 31};
     for (const auto& chip : target_devices) {
         // Verify that selected chips are in the cluster
         auto it = std::find(cluster_desc->get_all_chips().begin(), cluster_desc->get_all_chips().end(), chip);

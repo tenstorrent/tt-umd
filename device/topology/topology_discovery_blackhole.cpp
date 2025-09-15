@@ -7,7 +7,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/topology/topology_discovery_blackhole.hpp"
+#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
@@ -38,6 +38,11 @@ std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        // See comment in get_local_board_id.
+        return get_remote_asic_id(chip, eth_core);
+    }
+
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
@@ -51,6 +56,15 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair 
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
+        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // from the ClusterOptions will work correctly on 6U.
+        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
+        // fetched through another function when cluster descriptor is being filled up.
+        return get_local_asic_id(chip, eth_core);
+    }
+
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
@@ -66,10 +80,21 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair e
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint64_t board_id = get_local_board_id(chip, eth_core);
 
-    uint8_t asic_location;
     TTDevice* tt_device = chip->get_tt_device();
+
+    if (is_running_on_6u) {
+        uint32_t asic_id_hi;
+        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFD4, sizeof(asic_id_hi));
+
+        uint32_t asic_id_lo;
+        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFD8, sizeof(asic_id_lo));
+
+        return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
+    }
+
+    uint64_t board_id = get_local_board_id(chip, eth_core);
+    uint8_t asic_location;
     tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
 
     return mangle_asic_id(board_id, asic_location);
@@ -79,10 +104,20 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
 
-    uint64_t board_id = get_remote_board_id(chip, eth_core);
-
-    uint8_t asic_location;
     TTDevice* tt_device = chip->get_tt_device();
+
+    if (is_running_on_6u) {
+        uint32_t asic_id_hi;
+        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFF4, sizeof(asic_id_hi));
+
+        uint32_t asic_id_lo;
+        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFF8, sizeof(asic_id_lo));
+
+        return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
+    }
+
+    uint64_t board_id = get_remote_board_id(chip, eth_core);
+    uint8_t asic_location;
     tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
 
     return mangle_asic_id(board_id, asic_location);
@@ -144,7 +179,7 @@ bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_
 }
 
 uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t asic_location) {
-    return ((board_id << 1) | (asic_location & 0x1));
+    return ((board_id << 5) | (asic_location & 0x1F));
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) {
@@ -191,6 +226,13 @@ bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy
 }
 
 void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
+    // TODO: come up with smarter of initializing remote communication for Blackhole
+    // galaxy since the topology discovery becomes very slow if we load lite fabric to all chips
+    // during device discovery.
+    if (chip->get_tt_device()->get_board_type() == BoardType::UBB_BLACKHOLE) {
+        return;
+    }
+
     auto eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
@@ -210,6 +252,37 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
     for (const auto& [remote_asic_id, eth_cores] : remote_asic_ids_to_eth_cores) {
         lite_fabric::launch_lite_fabric(chip, eth_cores);
     }
+}
+
+void TopologyDiscoveryBlackhole::init_topology_discovery() {
+    int device_id = 0;
+    switch (io_device_type) {
+        case IODeviceType::JTAG: {
+            auto device_cnt = JtagDevice::create()->get_device_cnt();
+            if (!device_cnt) {
+                return;
+            }
+            // JTAG devices (j-links) are referred to with their index within a vector
+            // that's stored inside of a JtagDevice object.
+            // That index is completely different from the actual JTAG device id.
+            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
+            break;
+        }
+        case IODeviceType::PCIe: {
+            std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+            if (pci_device_ids.empty()) {
+                return;
+            }
+            device_id = pci_device_ids[0];
+            break;
+        }
+        default:
+            TT_THROW("Unsupported IODeviceType during topology discovery.");
+    }
+
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+    tt_device->init_tt_device();
+    is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 
 }  // namespace tt::umd

@@ -9,6 +9,7 @@ target_link_libraries(
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         cxxopts::cxxopts
+        execinfo
 )
 
 add_executable(telemetry telemetry.cpp)

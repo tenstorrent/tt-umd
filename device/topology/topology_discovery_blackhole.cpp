@@ -36,6 +36,11 @@ std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        // See comment in get_local_board_id.
+        return get_remote_asic_id(chip, eth_core);
+    }
+
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
@@ -49,6 +54,15 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair 
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
+        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // from the ClusterOptions will work correctly on 6U.
+        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
+        // fetched through another function when cluster descriptor is being filled up.
+        return get_local_asic_id(chip, eth_core);
+    }
+
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
@@ -64,26 +78,31 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair e
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint64_t board_id = get_local_board_id(chip, eth_core);
 
-    uint8_t asic_location;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
 
-    return mangle_asic_id(board_id, asic_location);
+    uint32_t mac_addr_lo;
+    tt_device->read_from_device(&mac_addr_lo, translated_eth_core, 0x7CFC8 + 4, sizeof(mac_addr_lo));
+
+    uint32_t mac_addr_hi;
+    tt_device->read_from_device(&mac_addr_hi, translated_eth_core, 0x7CFC8 + 8, sizeof(mac_addr_hi));
+
+    return ((uint64_t)mac_addr_hi << 32) | mac_addr_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
 
-    uint64_t board_id = get_remote_board_id(chip, eth_core);
-
-    uint8_t asic_location;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
 
-    return mangle_asic_id(board_id, asic_location);
+    uint32_t mac_addr_lo;
+    tt_device->read_from_device(&mac_addr_lo, translated_eth_core, 0x7CFE8 + 4, sizeof(mac_addr_lo));
+
+    uint32_t mac_addr_hi;
+    tt_device->read_from_device(&mac_addr_hi, translated_eth_core, 0x7CFE8 + 8, sizeof(mac_addr_hi));
+
+    return ((uint64_t)mac_addr_hi << 32) | mac_addr_lo;
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
@@ -142,7 +161,7 @@ bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_
 }
 
 uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t asic_location) {
-    return ((board_id << 1) | (asic_location & 0x1));
+    return ((board_id << 5) | (asic_location & 0x1F));
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) {

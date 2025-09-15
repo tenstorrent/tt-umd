@@ -75,7 +75,9 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     return std::move(cluster_desc);
 }
 
-void TopologyDiscovery::init_topology_discovery() {}
+void TopologyDiscovery::init_topology_discovery() {
+    is_running_on_6u = true;
+}
 
 void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
@@ -105,7 +107,7 @@ void TopologyDiscovery::get_connected_chips() {
                 break;
             }
         }
-        uint64_t asic_id = get_asic_id(chip.get());
+        uint64_t asic_id = get_asic_id(chip.get()); 
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(LogSiliconDriver, "Discovered PCI chip with PCI ID {} and asic ID {}", device_id, asic_id);
     }
@@ -142,6 +144,8 @@ void TopologyDiscovery::discover_remote_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
+        continue;
+
         std::vector<uint32_t> intermesh_eth_links;
         if (eth_cores.size() > 0) {
             intermesh_eth_links = extract_intermesh_eth_links(chip, eth_cores.front());
@@ -166,6 +170,7 @@ void TopologyDiscovery::discover_remote_chips() {
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
+                std::cout << "connected outside of cluster " << std::endl;
                 uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
                 if (chip->get_chip_info().board_type == BoardType::P150) {
                     ethernet_connections_to_remote_devices.push_back(

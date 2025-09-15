@@ -137,6 +137,8 @@ protected:
     const std::string sdesc_path;
 
     const IODeviceType io_device_type;
+
+    bool is_running_on_6u = false;
 };
 
 }  // namespace tt::umd

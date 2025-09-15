@@ -200,6 +200,8 @@ struct HostToLiteFabricInterface {
 
         CoreCoord barrier_coord = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::TRANSLATED);
         do_barrier(barrier_coord, "tensix", tensix_barrier_addr);
+        barrier_coord = CoreCoord(1, 1, CoreType::ETH, CoordSystem::NOC0);
+        do_barrier(barrier_coord, "ethernet", eth_barrier_addr);
     }
 
 private:

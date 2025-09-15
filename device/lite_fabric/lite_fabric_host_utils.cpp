@@ -11,6 +11,10 @@
 #include "umd/device/lite_fabric/lf_dev_mem_map.hpp"
 #include "umd/device/lite_fabric/lite_fabric.hpp"
 
+static const uint8_t lite_fabric_bin[] = {
+#include "lite_fabric.embed"
+};
+
 namespace {
 uint32_t get_state_address() {
     return LITE_FABRIC_CONFIG_START + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
@@ -21,23 +25,6 @@ uint32_t get_state_address() {
 namespace tt::umd {
 
 namespace lite_fabric {
-
-std::vector<uint8_t> read_binary_file(const std::string& file_name) {
-    std::ifstream bin_file(file_name, std::ios::binary);
-    if (!bin_file) {
-        throw std::runtime_error(fmt::format("Failed to open binary file: {}", file_name));
-    }
-
-    bin_file.seekg(0, std::ios::end);
-    size_t bin_size = bin_file.tellg();
-    bin_file.seekg(0, std::ios::beg);
-
-    std::vector<uint8_t> binary_data(bin_size);
-    bin_file.read(reinterpret_cast<char*>(binary_data.data()), bin_size);
-    bin_file.close();
-
-    return binary_data;
-}
 
 uint32_t get_eth_channel_mask(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     uint32_t mask = 0;
@@ -90,8 +77,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
     config.routing_enabled = true;
 
-    std::vector<uint8_t> binary_data = read_binary_file("device/libs/lite_fabric.bin");
-    size_t bin_size = binary_data.size();
+    size_t bin_size = sizeof(lite_fabric_bin) / sizeof(lite_fabric_bin[0]);
 
     // Set up configuration
     config.binary_addr = k_FirmwareStart;
@@ -106,7 +92,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
 
         chip->write_to_device(tunnel_1x, (void*)&config, config_addr, sizeof(lite_fabric::LiteFabricConfig));
 
-        chip->write_to_device(tunnel_1x, binary_data.data(), k_FirmwareStart, bin_size);
+        chip->write_to_device(tunnel_1x, lite_fabric_bin, k_FirmwareStart, bin_size);
     }
 
     std::unordered_set<CoreCoord> eth_cores_set(eth_cores.begin(), eth_cores.end());

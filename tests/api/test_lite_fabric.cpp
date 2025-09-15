@@ -102,7 +102,6 @@ CoreCoord LiteFabricFixture::tensix_core = CoreCoord(1, 2, CoreType::TENSIX, Coo
 CoreCoord LiteFabricFixture::eth_core_transfer = CoreCoord(0, 0, CoreType::ETH, CoordSystem::TRANSLATED);
 
 TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
-    std::cout << "i am running fabric read write 4 bytes test" << std::endl;
     uint32_t test_value = 0xca11abcd;
     uint32_t test_addr = 0x1000;
 

@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 set(POSITION_INDEPENDENT_CODE ON)
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -21,8 +23,29 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
+# --- Embed lite_fabric.bin as a C header ---
+set(LITE_FABRIC_BIN ${CMAKE_CURRENT_SOURCE_DIR}/libs/lite_fabric.bin)
+set(LITE_FABRIC_EMBED ${CMAKE_CURRENT_BINARY_DIR}/lite_fabric.embed)
+
+add_custom_command(
+    OUTPUT
+        ${LITE_FABRIC_EMBED}
+    COMMAND
+        ${CMAKE_COMMAND} -E echo "Generating ${LITE_FABRIC_EMBED} from ${LITE_FABRIC_BIN}"
+    COMMAND
+        cat ${LITE_FABRIC_BIN} | xxd -i > ${LITE_FABRIC_EMBED}
+    DEPENDS
+        ${LITE_FABRIC_BIN}
+    COMMENT "Embedding lite_fabric.bin as C array"
+    VERBATIM
+)
+
+add_custom_target(generate_lite_fabric_embed ALL DEPENDS ${LITE_FABRIC_EMBED})
+
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
+
+add_dependencies(device generate_lite_fabric_embed)
 
 target_sources(
     device
@@ -80,6 +103,7 @@ target_sources(
         jtag/jtag_device.cpp
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp
+        ${LITE_FABRIC_EMBED} # include generated embed file
 )
 
 if(TT_UMD_BUILD_SIMULATION)

@@ -118,8 +118,6 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
         set_reset_state(chip, tunnel_1x, false);
     }
 
-    chip->l1_membar(eth_cores_set);
-
     for (auto tunnel_1x : eth_cores) {
         wait_for_state(chip, tunnel_1x, get_state_address(), InitState::READY);
         log_info(LogSiliconDriver, "Lite Fabric ready on core ({}, {})", tunnel_1x.x, tunnel_1x.y);

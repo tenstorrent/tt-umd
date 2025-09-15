@@ -14,6 +14,9 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/ethernet_communication.hpp"
+#include "umd/device/tt_device/jtag_communication.hpp"
+#include "umd/device/tt_device/pcie_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -32,7 +35,8 @@ TTDevice::TTDevice(
     pci_device_(pci_device),
     communication_device_type_(IODeviceType::PCIe),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    device_communication(std::make_unique<PCIeCommunication>(lock_manager, pci_device_.get(), *architecture_impl_)) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
 }
 
@@ -44,9 +48,17 @@ TTDevice::TTDevice(
     jlink_id_(jlink_id),
     communication_device_type_(IODeviceType::JTAG),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    device_communication(std::make_unique<JtagCommunication>(jtag_device.get(), jlink_id)) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
 }
+
+// TTDevice::TTDevice(TTDevice* local_device, eth_coord_t target_chip, SysmemManager* sysmem_manager) :
+//     arch(local_device->get_arch()),
+//     is_remote_tt_device(true),
+//     device_communication(std::make_unique<EthernetCommunication>(std::make_unique<RemoteCommunication>(local_device,
+//     sysmem_manager), target_chip)) {
+// }
 
 void TTDevice::init_tt_device() {
     pre_init_hook();
@@ -282,42 +294,11 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size);
-        return;
-    }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
-    while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
-        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-        read_block(mapped_address, transfer_size, buffer_addr);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-    }
+    device_communication->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(jlink_id_, mem_ptr, core.x, core.y, addr, size);
-        return;
-    }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
-
-    while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
-        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-        write_block(mapped_address, transfer_size, buffer_addr);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-    }
+    device_communication->write_to_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_tlb_reg(
@@ -509,7 +490,7 @@ TTDevice::~TTDevice() {
     lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), communication_device_type_);
 }
 
-void TTDevice::wait_for_non_mmio_flush() {}
+void TTDevice::wait_for_non_mmio_flush() { device_communication->wait_for_non_mmio_flush(); }
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 

@@ -12,7 +12,7 @@
 
 namespace tt::umd {
 
-class EthernetCommunication : TTDeviceCommunication {
+class EthernetCommunication : public TTDeviceCommunication {
 public:
     EthernetCommunication(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
         remote_communication(std::move(remote_communication)), target_chip(target_chip){};

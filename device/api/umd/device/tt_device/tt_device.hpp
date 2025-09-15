@@ -13,6 +13,7 @@
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -33,13 +34,9 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
-
 class ArcMessenger;
 class ArcTelemetryReader;
+class SysmemManager;
 class RemoteCommunication;
 
 class TTDevice {
@@ -285,6 +282,7 @@ protected:
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
+    // TTDevice(TTDevice* local_device, eth_coord_t target_chip, SysmemManager* sysmem_manager = nullptr);
 
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

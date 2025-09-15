@@ -8,16 +8,12 @@
 #include "device_communication.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
-
-class PCIeCommunication : TTDeviceCommunication {
+class PCIeCommunication : public TTDeviceCommunication {
 public:
     PCIeCommunication(
         LockManager& lock_manager, PCIDevice* pci_device, architecture_implementation& architecture_implementation) :

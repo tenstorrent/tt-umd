@@ -10,7 +10,7 @@
 
 namespace tt::umd {
 
-class JtagCommunication : TTDeviceCommunication {
+class JtagCommunication : public TTDeviceCommunication {
 public:
     JtagCommunication(JtagDevice* jtag_device, uint8_t jlink_id) : jtag_device(jtag_device), jlink_id(jlink_id){};
 

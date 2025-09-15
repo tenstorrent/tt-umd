@@ -220,7 +220,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     Cluster device;
-
+    std::unordered_set<chip_id_t> target_devices = cluster_desc->get_all_chips();
     tt::umd::test::utils::set_barrier_params(device);
 
     device_params default_params;

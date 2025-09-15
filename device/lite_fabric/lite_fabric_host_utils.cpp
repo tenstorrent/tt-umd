@@ -42,8 +42,7 @@ std::vector<uint8_t> read_binary_file(const std::string& file_name) {
 uint32_t get_eth_channel_mask(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     uint32_t mask = 0;
     for (const auto& eth_core : eth_cores) {
-        CoreCoord logical_core = chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::LOGICAL);
-        mask |= 0x1 << logical_core.y;
+        mask |= 0x1 << chip->get_soc_descriptor().get_eth_channel_for_core(eth_core);
     }
     return mask;
 }

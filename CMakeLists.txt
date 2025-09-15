@@ -21,9 +21,13 @@ else()
     FIND_AND_SET_CLANG17()
 endif()
 
+# Read version from VERSION file
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION)
+string(STRIP "${TT_UMD_VERSION}" TT_UMD_VERSION)
+
 project(
     umd
-    VERSION 0.1.0
+    VERSION ${TT_UMD_VERSION}
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES
@@ -54,6 +58,20 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
+option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
+option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
+option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
+
+# If BUILD_ALL is enabled, enable all individual build options
+if(TT_UMD_BUILD_ALL)
+    set(TT_UMD_BUILD_TESTS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_SIMULATION ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_PYTHON ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_TOOLS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_EXAMPLES ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    message(STATUS "TT_UMD_BUILD_ALL enabled - building all components")
+endif()
 
 # Control compile time logging
 if(NOT DEFINED TT_UMD_ENABLE_LOGGING)
@@ -92,22 +110,27 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 add_subdirectory(common)
+if(TT_UMD_BUILD_SIMULATION)
+    message(STATUS "Building ${PROJECT_NAME} with Simulation")
+endif()
 add_subdirectory(device)
-option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 if(TT_UMD_BUILD_PYTHON)
     message(STATUS "Building ${PROJECT_NAME} with Python Bindings")
     add_subdirectory(nanobind)
 endif()
 add_subdirectory(src)
-add_subdirectory(tools)
+if(TT_UMD_BUILD_TOOLS)
+    message(STATUS "Building ${PROJECT_NAME} with Tools")
+    add_subdirectory(tools)
+endif()
 
-option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
 if(TT_UMD_BUILD_EXAMPLES)
     message(STATUS "Building ${PROJECT_NAME} with Examples")
     add_subdirectory(examples)
 endif()
 
 if(TT_UMD_BUILD_TESTS)
+    message(STATUS "Building ${PROJECT_NAME} with Tests")
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)
 

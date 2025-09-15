@@ -252,11 +252,13 @@ public:
 
     virtual uint32_t get_clock() = 0;
 
-    virtual uint32_t get_max_clock_freq() = 0;
+    uint32_t get_max_clock_freq();
 
     virtual uint32_t get_min_clock_freq() = 0;
 
     uint64_t get_board_id();
+
+    uint8_t get_asic_location();
 
     BoardType get_board_type();
 
@@ -294,8 +296,6 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    bool is_hardware_hung();
-
     template <typename T>
     T *get_register_address(uint32_t register_offset);
 
@@ -316,6 +316,8 @@ protected:
     bool is_remote_tt_device = false;
 
 private:
+    virtual bool is_hardware_hung() = 0;
+
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};

@@ -116,22 +116,29 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
                                                          ? (~telemetry->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
                                                          : 0;
 
-    uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
-
-    uint32_t pcie0_usage = pcie_usage & 0x3;
-    uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
-
-    const uint32_t pcie_usage_endpoint = 1;
     chip_info.harvesting_masks.pcie_harvesting_mask = 0;
-    if (pcie0_usage != pcie_usage_endpoint) {
-        chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+    if (telemetry->is_entry_available(TelemetryTag::PCIE_USAGE)) {
+        uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
+
+        uint32_t pcie0_usage = pcie_usage & 0x3;
+        uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
+
+        const uint32_t pcie_usage_endpoint = 1;
+        chip_info.harvesting_masks.pcie_harvesting_mask = 0;
+        if (pcie0_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+        }
+
+        if (pcie1_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+        }
     }
 
-    if (pcie1_usage != pcie_usage_endpoint) {
-        chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+    chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
+    if (telemetry->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
+        chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
+            tt::ARCH::BLACKHOLE, telemetry->read_entry(TelemetryTag::ENABLED_L2CPU));
     }
-
-    chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
 
     return chip_info;
 }
@@ -167,10 +174,6 @@ uint32_t BlackholeTTDevice::get_clock() {
 
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
-
-// TODO: figure out if Blackhole has the information on maximum possible
-// clock frequency. For now, we are using the maximum possible value.
-uint32_t BlackholeTTDevice::get_max_clock_freq() { return blackhole::AICLK_BUSY_VAL; }
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
@@ -227,5 +230,9 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
+
+bool BlackholeTTDevice::is_hardware_hung() {
+    throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+}
 
 }  // namespace tt::umd

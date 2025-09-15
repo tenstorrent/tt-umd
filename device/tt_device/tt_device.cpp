@@ -16,7 +16,7 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -97,20 +97,6 @@ architecture_implementation *TTDevice::get_architecture_implementation() { retur
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
-
-bool TTDevice::is_hardware_hung() {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
-    }
-
-    volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
-                                (architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-                                 architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
-                                pci_device_->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
-
-    return (scratch_data == HANG_READ_VALUE);
-}
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
     if (communication_device_type_ == IODeviceType::JTAG) {
@@ -302,7 +288,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
     while (size > 0) {
         auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
@@ -321,7 +307,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
     while (size > 0) {
         auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
@@ -571,12 +557,19 @@ std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 
+uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
+
 ChipInfo TTDevice::get_chip_info() {
     ChipInfo chip_info;
+
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
     chip_info.chip_uid.board_id = get_board_id();
     chip_info.board_type = get_board_type();
+    chip_info.asic_location = get_asic_location();
+
     return chip_info;
 }
+
+uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
 }  // namespace tt::umd

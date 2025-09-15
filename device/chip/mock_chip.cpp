@@ -58,6 +58,8 @@ int MockChip::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
+    // This designates success for the ARC enable eth queue message.
+    *return_3 = 1;
     return 0;
 }
 
@@ -68,6 +70,10 @@ void MockChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
 void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+
+void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {}
+
+void MockChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {}
 
 void MockChip::deassert_risc_resets() {}
 

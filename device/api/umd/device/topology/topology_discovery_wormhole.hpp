@@ -12,7 +12,9 @@ namespace tt::umd {
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
     TopologyDiscoveryWormhole(
-        std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
+        std::unordered_set<chip_id_t> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType device_type = IODeviceType::PCIe);
 
 protected:
     struct EthAddresses {
@@ -52,6 +54,8 @@ protected:
     uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) override;
 
     uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
+
+    uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 

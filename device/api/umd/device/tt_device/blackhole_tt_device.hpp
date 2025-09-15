@@ -23,8 +23,6 @@ public:
 
     uint32_t get_clock() override;
 
-    uint32_t get_max_clock_freq() override;
-
     uint32_t get_min_clock_freq() override;
 
     bool get_noc_translation_enabled() override;
@@ -53,6 +51,8 @@ protected:
     BlackholeTTDevice() = default;
 
 private:
+    bool is_hardware_hung() override;
+
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);

@@ -119,6 +119,22 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pa
     return get_remote_eth_id(chip, local_eth_core);
 }
 
+uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
+    if (chip->get_chip_info().board_type != BoardType::P150) {
+        throw std::runtime_error(
+            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
+    }
+    auto translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    uint8_t remote_logical_eth_id;
+    chip->get_tt_device()->read_from_device(
+        &remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
+    // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
+    // the first 4 ethernet channels (these channels are using SerDes for PCIe)
+    // These channels are visible to UMD, and are thus accounted for in this API.
+    return remote_logical_eth_id + 4;
+}
+
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
 
 bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {

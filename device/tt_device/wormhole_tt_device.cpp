@@ -11,7 +11,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/types/communication.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -118,11 +118,6 @@ uint32_t WormholeTTDevice::get_clock() {
         throw std::runtime_error(fmt::format("Failed to get AICLK value with exit code {}", exit_code));
     }
     return arc_msg_return_values[0];
-}
-
-uint32_t WormholeTTDevice::get_max_clock_freq() {
-    // TODO: figure out if this exists in new telemetry.
-    return tt::umd::wormhole::AICLK_BUSY_VAL;
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
@@ -595,6 +590,20 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
             return true;
         }
     }
+}
+
+bool WormholeTTDevice::is_hardware_hung() {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
+
+    volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
+                                (architecture_impl_->get_arc_axi_apb_peripheral_offset() +
+                                 architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
+                                pci_device_->bar0_uc_offset;
+    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
+
+    return (scratch_data == HANG_READ_VALUE);
 }
 
 }  // namespace tt::umd

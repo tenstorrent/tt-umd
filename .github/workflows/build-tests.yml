@@ -1,5 +1,4 @@
 # Builds umd_tests.
-# Build is performed on the specified architecture and on all supported OS versions.
 name: Build Target
 
 on:
@@ -27,7 +26,7 @@ on:
         type: choice
         options:
           - ubuntu-22.04
-          - ubuntu-20.04
+          - ubuntu-24.04
       timeout:
         required: true
         description: 'The timeout for the build job in minutes'
@@ -77,14 +76,16 @@ jobs:
         with:
           submodules: recursive
 
+      # Only perform build with necessary components to run tests.
       - name: Build ${{ env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_TESTS=ON \
-            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_SIMULATION=OFF \
             -DTT_UMD_BUILD_PYTHON=ON \
-            -DTT_UMD_BUILD_EXAMPLES=ON \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["scikit-build-core", "nanobind"]
+requires = ["scikit-build-core", "nanobind", "setuptools"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "tt-umd"
-version = "1.0.0"
+dynamic = ["version"]
 authors = [
     { name = "Tenstorrent", email = "foundationsw-umd@tenstorrent.com" }
 ]
@@ -44,6 +44,13 @@ wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
 install.components = ["python"]
 
 [tool.scikit-build.cmake.define]
+TT_UMD_BUILD_TOOLS = "OFF"
+TT_UMD_BUILD_EXAMPLES = "OFF"
 TT_UMD_BUILD_TESTS = "OFF"
 TT_UMD_BUILD_SIMULATION = "OFF" 
 TT_UMD_BUILD_PYTHON = "ON"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "VERSION"
+regex = "(?P<value>.*)"

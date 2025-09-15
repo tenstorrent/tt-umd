@@ -66,10 +66,9 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-You also need to configure cmake to enable tests, hence the need to run cmake configuration step again.
-To build tests:
+To build all components (some are turned off by default, like tests), you can run these commands:
 ```
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
 cmake --build build
 ```
 
@@ -191,6 +190,14 @@ You can also manually auto format the whole repo using mentioned pre-commit:
 ```bash
    pre-commit run --all-files
 ```
+
+## Bumping the UMD version
+
+There is an automated workflow for creating releases. It is triggered by merging a PR to main which changes the VERSION file.
+
+You can change the VERSION as part of another PR or as an isolated PR. Please also update the CHANGELOG with the exact version you are changeing to.
+
+Once the PR is merged, a draft Release will be created with the generated changelog and artifacts. Please review it and publish it using the tag which exactly matches the version of the release.
 
 # Grayskull End of Life
 

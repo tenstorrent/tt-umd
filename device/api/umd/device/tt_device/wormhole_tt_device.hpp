@@ -21,8 +21,6 @@ public:
 
     uint32_t get_clock() override;
 
-    uint32_t get_max_clock_freq() override;
-
     uint32_t get_min_clock_freq() override;
 
     bool get_noc_translation_enabled() override;
@@ -59,6 +57,8 @@ private:
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
     void post_init_hook() override;
+
+    bool is_hardware_hung() override;
 
     struct EthAddresses {
         uint32_t masked_version;

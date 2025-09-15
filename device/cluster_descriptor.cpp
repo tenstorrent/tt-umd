@@ -461,7 +461,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
-    const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
+    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     BoardType board_type;
@@ -846,6 +846,10 @@ void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
                 harvesting.pcie_harvesting_mask = harvesting_info["pcie_harvesting_mask"].as<std::uint32_t>();
             }
 
+            if (harvesting_info["l2cpu_harvesting_mask"].IsDefined()) {
+                harvesting.l2cpu_harvesting_mask = harvesting_info["l2cpu_harvesting_mask"].as<std::uint32_t>();
+            }
+
             harvesting_masks_map.insert({chip, harvesting});
         }
     }
@@ -1063,6 +1067,7 @@ std::string ClusterDescriptor::serialize() const {
         out << YAML::Key << "dram_harvesting_mask" << YAML::Value << harvesting.dram_harvesting_mask;
         out << YAML::Key << "eth_harvesting_mask" << YAML::Value << harvesting.eth_harvesting_mask;
         out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << harvesting.pcie_harvesting_mask;
+        out << YAML::Key << "l2cpu_harvesting_mask" << YAML::Value << harvesting.l2cpu_harvesting_mask;
         out << YAML::EndMap;
     }
     out << YAML::EndMap;
@@ -1138,7 +1143,7 @@ std::set<uint32_t> ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id) {
 HarvestingMasks ClusterDescriptor::get_harvesting_masks(chip_id_t chip_id) const {
     auto it = harvesting_masks_map.find(chip_id);
     if (it == harvesting_masks_map.end()) {
-        return HarvestingMasks{0, 0, 0, 0};
+        return HarvestingMasks{0, 0, 0, 0, 0};
     }
     return it->second;
 }
@@ -1197,5 +1202,7 @@ uint8_t ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
     }
     return it->second;
 }
+
+IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
 
 }  // namespace tt::umd

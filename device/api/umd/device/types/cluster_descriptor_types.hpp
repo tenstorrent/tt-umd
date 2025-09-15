@@ -294,6 +294,11 @@ using tt::BoardType;
 using tt::chip_id_t;
 using tt::eth_coord_t;
 using tt::ethernet_channel_t;
+using tt::get_number_of_chips_from_board_type;
+
+namespace tt::umd {
+using BoardType = tt::BoardType;
+}
 
 namespace std {
 template <>

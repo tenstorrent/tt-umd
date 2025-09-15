@@ -52,6 +52,9 @@ target_sources(
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
         tt_device/remote_blackhole_tt_device.cpp
+        tt_device/pcie_communication.cpp
+        tt_device/ethernet_communication.cpp
+        tt_device/jtag_communication.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
         firmware/wormhole_18_7_firmware_info_provider.cpp
@@ -128,6 +131,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_blackhole_tt_device.hpp
+                api/umd/device/tt_device/device_communication.hpp
+                api/umd/device/tt_device/pcie_communication.hpp
+                api/umd/device/tt_device/ethernet_communication.hpp
+                api/umd/device/tt_device/jtag_communication.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp
                 api/umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp

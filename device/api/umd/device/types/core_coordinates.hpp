@@ -151,7 +151,8 @@ using tt::CoreType;
 
 namespace tt::umd {
 using CoreType = tt::CoreType;
-}
+using CoreCoord = tt::CoreCoord;
+}  // namespace tt::umd
 
 namespace std {
 template <>

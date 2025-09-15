@@ -298,7 +298,8 @@ using tt::get_number_of_chips_from_board_type;
 
 namespace tt::umd {
 using BoardType = tt::BoardType;
-}
+using get_number_of_chips_from_board_type = tt::get_number_of_chips_from_board_type;
+}  // namespace tt::umd
 
 namespace std {
 template <>

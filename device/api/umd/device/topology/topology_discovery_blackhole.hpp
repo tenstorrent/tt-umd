@@ -57,6 +57,8 @@ protected:
         eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     void patch_eth_connections() override;
+
+    void init_topology_discovery() override;
 };
 
 }  // namespace tt::umd

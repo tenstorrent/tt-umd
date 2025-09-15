@@ -94,8 +94,8 @@ TEST_F(SimulationDeviceFixture, SimpleApiTest) {
     device->read_from_device(core, rdata1.data(), 0x100, rdata1.size() * sizeof(uint32_t));
     ASSERT_EQ(wdata1, rdata1);
 
-    device->assert_tensix_risc_reset(core, RiscType::ALL_TENSIX);
-    device->assert_tensix_risc_reset(core, RiscType::ALL_NEO_DMS);
-    device->deassert_tensix_risc_reset(core, RiscType::BRISC, true);
-    device->deassert_tensix_risc_reset(core, RiscType::ALL_NEO_DMS, true);
+    device->assert_risc_reset(core, RiscType::ALL_TENSIX);
+    device->assert_risc_reset(core, RiscType::ALL_NEO_DMS);
+    device->deassert_risc_reset(core, RiscType::BRISC, true);
+    device->deassert_risc_reset(core, RiscType::ALL_NEO_DMS, true);
 }

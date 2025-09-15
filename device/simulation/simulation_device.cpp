@@ -40,6 +40,10 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     return builder;
 }
 
+inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
+    return create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
+}
+
 inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #ifdef DEBUG
     std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
@@ -62,17 +66,11 @@ inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-void SimulationDevice::send_command_to_device(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core, uint64_t addr, uint64_t size) {
-    auto wr_buffer = create_flatbuffer(rw, vec, core, addr, size);
-    uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
-    size_t wr_buffer_size = wr_buffer.GetSize();
+inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+    uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
+    size_t wr_buffer_size = flat_buffer.GetSize();
     print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
-}
-
-void SimulationDevice::send_command_to_device(DEVICE_COMMAND rw, tt_xy_pair core) {
-    send_command_to_device(rw, std::vector<uint32_t>(1, 0), core, 0);
 }
 
 SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
@@ -172,14 +170,14 @@ void SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftR
         if (libttsim_handle) {
             pfn_libttsim_tensix_reset_assert(core.x, core.y);
         } else {
-            send_command_to_device(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, core);
+            send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, core));
         }
     } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         if (libttsim_handle) {
             pfn_libttsim_tensix_reset_deassert(core.x, core.y);
         } else {
-            send_command_to_device(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, core);
+            send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, core));
         }
     } else {
         TT_THROW("Invalid soft reset option.");
@@ -194,21 +192,23 @@ void SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft
     send_tensix_risc_reset({0, 0}, soft_resets);
 }
 
-void SimulationDevice::assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void SimulationDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // Only a few scenarios are implemented at the moment.
     if (selected_riscs == RiscType::ALL_TENSIX) {
-        send_command_to_device(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core);
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core));
     } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        send_command_to_device(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core);
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
     } else {
         TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
     }
 }
 
-void SimulationDevice::deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void SimulationDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -216,9 +216,11 @@ void SimulationDevice::deassert_tensix_risc_reset(CoreCoord core, const RiscType
     if (selected_riscs == RiscType::BRISC) {
         // This branch is currently executed the same for all architectures.
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        send_command_to_device(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core);
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
     } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        send_command_to_device(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core);
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
     } else {
         TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
     }
@@ -230,7 +232,7 @@ void SimulationDevice::close_device() {
     if (libttsim_handle) {
         pfn_libttsim_exit();
     } else {
-        send_command_to_device(DEVICE_COMMAND_EXIT, {0, 0});
+        send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
     }
 }
 
@@ -248,7 +250,7 @@ void SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t
         pfn_libttsim_clock(10);
     } else {
         std::vector<std::uint32_t> data((uint32_t*)src, (uint32_t*)src + size / sizeof(uint32_t));
-        send_command_to_device(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest);
+        send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest));
     }
 }
 
@@ -262,7 +264,8 @@ void SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_
         void* rd_resp;
 
         // Send read request
-        send_command_to_device(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size);
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size));
 
         // Get read response
         size_t rd_rsp_sz = host.recv_from_device(&rd_resp);

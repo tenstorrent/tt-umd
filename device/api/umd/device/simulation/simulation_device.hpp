@@ -87,8 +87,8 @@ public:
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
-    void assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
     void set_power_state(DevicePowerState state) override;
     int get_clock() override;
@@ -105,10 +105,6 @@ public:
 
 private:
     void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
-
-    void send_command_to_device(
-        DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core, uint64_t addr, uint64_t size = 0);
-    void send_command_to_device(DEVICE_COMMAND rw, tt_xy_pair core);
 
     // State variables
     driver_noc_params noc_params;

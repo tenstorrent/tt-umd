@@ -90,19 +90,19 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
     config.routing_enabled = true;
 
+    std::vector<uint8_t> binary_data = read_binary_file("device/libs/lite_fabric.bin");
+    size_t bin_size = binary_data.size();
+
+    // Set up configuration
+    config.binary_addr = k_FirmwareStart;
+    config.binary_size = (bin_size + 15) & ~0xF;
+
     // Need an abstraction layer for Lite Fabric
     auto config_addr = LITE_FABRIC_CONFIG_START;
 
     for (const auto& tunnel_1x : eth_cores) {
         set_reset_state(chip, tunnel_1x, true);
         set_pc(chip, tunnel_1x, k_PcResetAddress, k_FirmwareStart);
-
-        std::vector<uint8_t> binary_data = read_binary_file("device/libs/lite_fabric.bin");
-        size_t bin_size = binary_data.size();
-
-        // Set up configuration
-        config.binary_addr = k_FirmwareStart;
-        config.binary_size = (bin_size + 15) & ~0xF;
 
         chip->write_to_device(tunnel_1x, (void*)&config, config_addr, sizeof(lite_fabric::LiteFabricConfig));
 

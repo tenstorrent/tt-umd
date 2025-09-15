@@ -14,7 +14,7 @@ using namespace tt::umd;
 
 class LiteFabricFixture : public ::testing::Test {
 protected:
-    // lite_fabric_chip a chip on which lite fabric is going to be launched.
+    // lite_fabric_chip is a chip on which lite fabric is going to be launched.
     // It is going to be used to issue fabric reads/writes to non fabric chip,
     // which should only have PCIe access to verify fabric reads and writes.
     static std::unique_ptr<LocalChip> fabric_chip;

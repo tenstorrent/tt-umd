@@ -18,7 +18,7 @@ namespace tt::umd {
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 void PCIeCommunication::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, pci_device.get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, pci_device->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = architecture_implementation.get_reg_tlb();
 
@@ -37,11 +37,11 @@ void PCIeCommunication::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_
 
 void PCIeCommunication::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
     void *dest = nullptr;
-    if (pci_device.bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
+    if (pci_device->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
-        dest = reinterpret_cast<uint8_t *>(pci_device.bar4_wc) + byte_addr;
+        dest = reinterpret_cast<uint8_t *>(pci_device->bar4_wc) + byte_addr;
     } else {
-        dest = pci_device.get_register_address<uint8_t>(byte_addr);
+        dest = pci_device->get_register_address<uint8_t>(byte_addr);
     }
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
@@ -54,11 +54,11 @@ void PCIeCommunication::write_block(uint64_t byte_addr, uint64_t num_bytes, cons
 
 void PCIeCommunication::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr) {
     void *src = nullptr;
-    if (pci_device.bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
+    if (pci_device->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
-        src = reinterpret_cast<uint8_t *>(pci_device.bar4_wc) + byte_addr;
+        src = reinterpret_cast<uint8_t *>(pci_device->bar4_wc) + byte_addr;
     } else {
-        src = pci_device.get_register_address<uint8_t>(byte_addr);
+        src = pci_device->get_register_address<uint8_t>(byte_addr);
     }
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
@@ -81,14 +81,14 @@ void PCIeCommunication::write_regs(volatile uint32_t *dest, const uint32_t *src,
 }
 
 void PCIeCommunication::write_regs(uint32_t byte_addr, uint32_t word_len, const void *data) {
-    volatile uint32_t *dest = pci_device.get_register_address<uint32_t>(byte_addr);
+    volatile uint32_t *dest = pci_device->get_register_address<uint32_t>(byte_addr);
     const uint32_t *src = reinterpret_cast<const uint32_t *>(data);
 
     write_regs(dest, src, word_len);
 }
 
 void PCIeCommunication::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
-    const volatile uint32_t *src = pci_device.get_register_address<uint32_t>(byte_addr);
+    const volatile uint32_t *src = pci_device->get_register_address<uint32_t>(byte_addr);
     uint32_t *dest = reinterpret_cast<uint32_t *>(data);
 
     while (word_len-- != 0) {
@@ -103,8 +103,8 @@ void PCIeCommunication::write_tlb_reg(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
 
-    volatile uint64_t *dest_qw = pci_device.get_register_address<uint64_t>(byte_addr);
-    volatile uint32_t *dest_extra_dw = pci_device.get_register_address<uint32_t>(byte_addr + 8);
+    volatile uint64_t *dest_qw = pci_device->get_register_address<uint64_t>(byte_addr);
+    volatile uint32_t *dest_extra_dw = pci_device->get_register_address<uint32_t>(byte_addr + 8);
 #if defined(__ARM_ARCH) || defined(__riscv)
     // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
     // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory
@@ -291,17 +291,17 @@ void PCIeCommunication::memcpy_from_device(void *dest, const void *src, std::siz
 void PCIeCommunication::detect_hang_read(std::uint32_t data_read) {
     if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
         std::uint32_t scratch_data =
-            *pci_device.get_register_address<std::uint32_t>(architecture_implementation.get_read_checking_offset());
+            *pci_device->get_register_address<std::uint32_t>(architecture_implementation.get_read_checking_offset());
 
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
 }
 
 bool PCIeCommunication::is_hardware_hung() {
-    volatile const void *addr = reinterpret_cast<const char *>(pci_device.bar0_uc) +
+    volatile const void *addr = reinterpret_cast<const char *>(pci_device->bar0_uc) +
                                 (architecture_implementation.get_arc_axi_apb_peripheral_offset() +
                                  architecture_implementation.get_arc_reset_scratch_offset() + 6 * 4) -
-                                pci_device.bar0_uc_offset;
+                                pci_device->bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
 
     return (scratch_data == HANG_READ_VALUE);

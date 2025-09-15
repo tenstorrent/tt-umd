@@ -20,22 +20,23 @@ struct dynamic_tlb {
 class PCIeCommunication : TTDeviceCommunication {
 public:
     PCIeCommunication(
-        LockManager& lock_manager, PCIDevice& pci_device, architecture_implementation& architecture_implementation) :
+        LockManager& lock_manager, PCIDevice* pci_device, architecture_implementation& architecture_implementation) :
         lock_manager(lock_manager), pci_device(pci_device), architecture_implementation(architecture_implementation) {}
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t* buffer_addr) override;
-    void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buffer_addr) override;
-
-    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) override;
-    void write_regs(uint32_t byte_addr, uint32_t word_len, const void* data) override;
-    void read_regs(uint32_t byte_addr, uint32_t word_len, void* data) override;
-
     void wait_for_non_mmio_flush() override{};
 
     bool is_remote() override { return false; };
+
+    // PCIe specific methods.
+    void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t* buffer_addr);
+    void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buffer_addr);
+
+    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
+    void write_regs(uint32_t byte_addr, uint32_t word_len, const void* data);
+    void read_regs(uint32_t byte_addr, uint32_t word_len, void* data);
 
     dynamic_tlb set_dynamic_tlb(
         unsigned int tlb_index,
@@ -55,9 +56,11 @@ public:
 
     void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
 
+    PCIDevice* get_pci_device() { return pci_device; }
+
 private:
     LockManager& lock_manager;
-    PCIDevice& pci_device;
+    PCIDevice* pci_device;
     architecture_implementation& architecture_implementation;
 
     // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).

@@ -17,6 +17,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/device_communication.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -53,12 +54,6 @@ public:
     static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
-
-    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
-    TTDevice(
-        std::shared_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice();
 
@@ -285,6 +280,12 @@ public:
     IODeviceType get_communication_device_type() const;
 
 protected:
+    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
     uint8_t jlink_id_;
@@ -316,6 +317,8 @@ protected:
     bool is_remote_tt_device = false;
 
 private:
+    std::unique_ptr<TTDeviceCommunication> device_communication;
+
     virtual bool is_hardware_hung() = 0;
 
     virtual void pre_init_hook(){};

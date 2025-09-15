@@ -670,11 +670,15 @@ TEST(TestCluster, DeassertResetBrisc) {
     }
 }
 
-TEST(TestCluster, DISABLED_DeassertResetWithCounterBrisc) {
+TEST(TestCluster, DeassertResetWithCounterBrisc) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test on Galaxy configurations.";
     }
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.

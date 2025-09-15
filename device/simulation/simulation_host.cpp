@@ -51,7 +51,7 @@ SimulationHost::SimulationHost() {
 
     // Generate socket address with hostname and random port
     char hostname[256];
-    if (gethostname(hostname, sizeof(hostname)) != 0) {
+    if (std::getenv("TT_SIMULATOR_LOCALHOST") || gethostname(hostname, sizeof(hostname)) != 0) {
         strcpy(hostname, "localhost");
     }
 

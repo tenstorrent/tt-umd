@@ -10,12 +10,15 @@ namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
-    WormholeTTDevice(
-        std::make_unique<wormhole_implementation>() /*remote_communication->get_local_device()->get_pci_device()*/),
+    WormholeTTDevice(std::make_unique<wormhole_implementation>()),
     target_chip_(target_chip),
     remote_communication_(std::move(remote_communication)) {
+    // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+    // which in turn uses a local TTDevice for communication,
+    // the device type of the underlying communication device is the device type of the local TTDevice.
+    communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
     is_remote_tt_device = true;
-    // init_tt_device();
+    init_tt_device();
 }
 
 void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -48,10 +51,20 @@ bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
 }
 
+/*
+ * Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+ * which in turn uses a local TTDevice for communication,
+ * the device ID of the underlying communication device is the device ID of the local TTDevice.
+ */
 int RemoteWormholeTTDevice::get_communication_device_id() const {
     return remote_communication_->get_local_device()->get_communication_device_id();
 }
 
+/*
+ * Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+ * which in turn uses a local TTDevice for communication,
+ * the device type of the underlying communication device is the device type of the local TTDevice.
+ */
 IODeviceType RemoteWormholeTTDevice::get_communication_device_type() const {
     return remote_communication_->get_local_device()->get_communication_device_type();
 }

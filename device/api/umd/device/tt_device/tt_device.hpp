@@ -311,8 +311,6 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    virtual bool is_hardware_hung();
-
     template <typename T>
     T *get_register_address(uint32_t register_offset);
 
@@ -334,6 +332,8 @@ protected:
     bool is_remote_tt_device = false;
 
 private:
+    virtual bool is_hardware_hung() = 0;
+
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};

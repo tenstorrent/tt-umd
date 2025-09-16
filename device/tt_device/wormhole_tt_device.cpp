@@ -42,6 +42,10 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
     wait_arc_core_start(1000);
 }
 
+/*
+ * Create a device without an underlying communication device.
+ * Used for remote devices that depend on remote_communication.
+ */
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     TTDevice(std::move(architecture_impl)) {
     arc_core = umd_use_noc1 ? tt_xy_pair(

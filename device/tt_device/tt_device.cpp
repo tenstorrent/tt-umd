@@ -50,10 +50,8 @@ TTDevice::TTDevice(
 
 TTDevice::TTDevice() {}
 
-TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) {
-    architecture_impl_ = std::move(architecture_impl);
-    arch = architecture_impl_->get_architecture();
-}
+TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
+    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
 void TTDevice::init_tt_device() {
     pre_init_hook();

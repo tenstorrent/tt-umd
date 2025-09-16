@@ -33,7 +33,20 @@ void PCIeCommunication::write_to_device(const void *mem_ptr, tt_xy_pair core, ui
     }
 }
 
-void PCIeCommunication::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {}
+void PCIeCommunication::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    const uint32_t tlb_index = architecture_implementation.get_reg_tlb();
+    while (size > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        read_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
 
 void PCIeCommunication::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
     void *dest = nullptr;

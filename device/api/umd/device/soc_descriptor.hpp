@@ -77,6 +77,11 @@ public:
 
     SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
 
+    // Helpers for extracting info from soc descriptor file.
+    static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path &simulator_path);
+    static tt::ARCH get_arch_from_soc_descriptor_path(const std::string &soc_descriptor_path);
+    static tt_xy_pair get_grid_size_from_soc_descriptor_path(const std::string &soc_descriptor_path);
+
     // CoreCoord conversions.
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
     std::unordered_set<CoreCoord> translate_coords_to(

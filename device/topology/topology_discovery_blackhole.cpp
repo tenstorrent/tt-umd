@@ -12,6 +12,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -25,8 +26,9 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
     TopologyDiscovery(pci_target_devices, sdesc_path) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
-    eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
-    return nullptr;
+    std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+    // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
+    return RemoteChip::create(dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, sdesc_path);
 }
 
 std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
@@ -186,6 +188,28 @@ std::vector<uint32_t> TopologyDiscoveryBlackhole::extract_intermesh_eth_links(Ch
 bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
     // This function is not important for Blackhole.
     return false;
+}
+
+void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
+    auto eth_cores =
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+
+    std::unordered_map<uint64_t, std::vector<CoreCoord>> remote_asic_ids_to_eth_cores;
+
+    for (const auto& eth_core : eth_cores) {
+        uint32_t port_status = read_port_status(chip, eth_core);
+
+        if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+            continue;
+        }
+
+        uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
+        remote_asic_ids_to_eth_cores[remote_asic_id].push_back(eth_core);
+    }
+
+    for (const auto& [remote_asic_id, eth_cores] : remote_asic_ids_to_eth_cores) {
+        lite_fabric::launch_lite_fabric(chip, eth_cores);
+    }
 }
 
 }  // namespace tt::umd

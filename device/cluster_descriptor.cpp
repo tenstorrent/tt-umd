@@ -856,6 +856,10 @@ void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
 }
 
 void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
+    // This is in case that we are not using ETH coordinates and have remote chip.
+    if (this->all_chips.empty() || chip_locations.empty()) {
+        return;
+    }
     for (const auto &chip : this->all_chips) {
         // This will also fill up the closest_mmio_chip_cache
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);

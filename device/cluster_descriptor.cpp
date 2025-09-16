@@ -473,7 +473,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::UNKNOWN;
-            harvesting_masks.pcie_harvesting_mask = 0x0;
+            harvesting_masks.eth_harvesting_mask = 0x120;
             break;
         default:
             board_type = BoardType::UNKNOWN;

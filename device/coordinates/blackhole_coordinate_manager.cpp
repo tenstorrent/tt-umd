@@ -363,8 +363,7 @@ void BlackholeCoordinateManager::fill_dram_noc0_translated_mapping() {
 
                 CoreCoord translated_dram_core =
                     CoreCoord(noc0_dram_core.x, noc0_dram_core.y, CoreType::DRAM, CoordSystem::TRANSLATED);
-                to_noc0_map[translated_dram_core] = noc0_dram_core;
-                from_noc0_map[{{noc0_dram_core.x, noc0_dram_core.y}, CoordSystem::TRANSLATED}] = translated_dram_core;
+                add_core_translation(translated_dram_core, noc0_dram_core);
             }
         }
         return;

@@ -87,7 +87,7 @@ void RemoteChip::close_device() {
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
         if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
             set_power_state(DevicePowerState::LONG_IDLE);
-            send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+            assert_risc_reset(RiscType::ALL);
         }
     }
 }

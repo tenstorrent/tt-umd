@@ -436,12 +436,14 @@ Cluster::Cluster(ClusterOptions options) {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
             auto arch = tt::ARCH::WORMHOLE_B0;
-#ifdef TT_UMD_BUILD_SIMULATION
             if (options.chip_type == ChipType::SIMULATION) {
-                SimulationDeviceInit init(options.simulator_directory);
-                arch = init.get_soc_descriptor().arch;
+                if (options.sdesc_path.empty()) {
+                    options.sdesc_path =
+                        SocDescriptor::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                }
+                arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
             }
-#endif
+
             // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
             // simulation.
             bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
@@ -465,14 +467,6 @@ Cluster::Cluster(ClusterOptions options) {
         // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
         // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
         cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
-    }
-
-    if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
-        if (is_ttsim_simulation) {
-            options.sdesc_path = options.simulator_directory.parent_path() / "soc_descriptor.yaml";
-        } else {
-            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
-        }
     }
 
     // Construct all the required chips from the cluster descriptor.

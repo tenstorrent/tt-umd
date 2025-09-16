@@ -353,6 +353,22 @@ std::vector<tt_xy_pair> SocDescriptor::convert_to_tt_xy_pair(const std::vector<s
     return core_pairs;
 }
 
+std::string SocDescriptor::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path &simulator_path) {
+    return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "soc_descriptor.yaml")
+                                                 : (simulator_path / "soc_descriptor.yaml");
+}
+
+tt::ARCH SocDescriptor::get_arch_from_soc_descriptor_path(const std::string &soc_descriptor_path) {
+    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_path);
+    return tt::arch_from_str(device_descriptor_yaml["arch_name"].as<std::string>());
+}
+
+tt_xy_pair SocDescriptor::get_grid_size_from_soc_descriptor_path(const std::string &soc_descriptor_path) {
+    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_path);
+    return tt_xy_pair(
+        device_descriptor_yaml["grid"]["x_size"].as<int>(), device_descriptor_yaml["grid"]["y_size"].as<int>());
+}
+
 std::vector<std::vector<tt_xy_pair>> SocDescriptor::convert_dram_cores_from_yaml(
     YAML::Node &device_descriptor_yaml, const std::string &dram_core) {
     std::vector<std::vector<tt_xy_pair>> dram_cores;

@@ -31,6 +31,7 @@ TTDevice::TTDevice(
     std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
     pci_device_(pci_device),
     communication_device_type_(IODeviceType::PCIe),
+    communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
@@ -43,6 +44,7 @@ TTDevice::TTDevice(
     jtag_device_(jtag_device),
     jlink_id_(jlink_id),
     communication_device_type_(IODeviceType::JTAG),
+    communication_device_id_(jtag_device_->get_device_id(jlink_id_)),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
@@ -525,10 +527,7 @@ void TTDevice::wait_for_non_mmio_flush() {}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
-int TTDevice::get_communication_device_id() const {
-    return communication_device_type_ == IODeviceType::PCIe ? pci_device_->get_device_num()
-                                                            : jtag_device_->get_device_id(jlink_id_);
-}
+int TTDevice::get_communication_device_id() const { return communication_device_id_; }
 
 IODeviceType TTDevice::get_communication_device_type() const { return communication_device_type_; }
 

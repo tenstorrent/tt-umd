@@ -26,10 +26,6 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
-    int get_communication_device_id() const override;
-
-    IODeviceType get_communication_device_type() const override;
-
     void detect_hang_read(std::uint32_t data_read) override;
 
 protected:

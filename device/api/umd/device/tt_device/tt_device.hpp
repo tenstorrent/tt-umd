@@ -280,9 +280,9 @@ public:
 
     uint64_t get_refclk_counter();
 
-    virtual int get_communication_device_id() const;
+    int get_communication_device_id() const;
 
-    virtual IODeviceType get_communication_device_type() const;
+    IODeviceType get_communication_device_type() const;
 
     /**
      * Get the soft reset signal for the given riscs.
@@ -304,6 +304,7 @@ protected:
     std::shared_ptr<JtagDevice> jtag_device_;
     uint8_t jlink_id_;
     IODeviceType communication_device_type_;
+    int communication_device_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;

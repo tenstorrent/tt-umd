@@ -17,6 +17,7 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     // which in turn uses a local TTDevice for communication,
     // the device type of the underlying communication device is the device type of the local TTDevice.
     communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
+    communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();
     is_remote_tt_device = true;
     init_tt_device();
 }
@@ -52,23 +53,9 @@ bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
 }
 
 /*
- * Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
- * which in turn uses a local TTDevice for communication,
- * the device ID of the underlying communication device is the device ID of the local TTDevice.
+ * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+ * so hang detection is done via the local TTDevice used by RemoteCommunication.
  */
-int RemoteWormholeTTDevice::get_communication_device_id() const {
-    return remote_communication_->get_local_device()->get_communication_device_id();
-}
-
-/*
- * Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
- * which in turn uses a local TTDevice for communication,
- * the device type of the underlying communication device is the device type of the local TTDevice.
- */
-IODeviceType RemoteWormholeTTDevice::get_communication_device_type() const {
-    return remote_communication_->get_local_device()->get_communication_device_type();
-}
-
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
     TTDevice *local_device = remote_communication_->get_local_device();
     if (local_device->get_communication_device_type() == IODeviceType::JTAG) {
@@ -85,6 +72,10 @@ void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
     }
 }
 
+/*
+ * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+ * so hang detection is done via the local TTDevice used by RemoteCommunication.
+ */
 bool RemoteWormholeTTDevice::is_hardware_hung() {
     TTDevice *local_device = remote_communication_->get_local_device();
 

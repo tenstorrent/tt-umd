@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0] - 2025-09-15
+
+### Changed
+
+A couple of smaller fixes and improvements, including L2CPU harvesting, fixes for new FW. Better TTSim support. Further JTAG support.
+Introduced new soft reset API.
+Introduced lite fabric initial version.
+
 ## [0.1.1] - 2025-08-25
 
 ### Changed

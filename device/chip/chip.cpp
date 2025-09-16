@@ -61,11 +61,18 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
         // TODO issue 1208: figure out why translated ETH don't work on UBB
         if (chip_info_.board_type == BoardType::UBB) {
             timeout_left -= tt_device->wait_eth_core_training(
-                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0),
+                soc_descriptor_.translate_coord_to(
+                    eth_core,
+                    (umd_use_noc1 && tt_device->get_communication_device_type() != IODeviceType::JTAG)
+                        ? CoordSystem::NOC1
+                        : CoordSystem::NOC0),
                 timeout_left);
         } else {
-            timeout_left -=
-                tt_device->wait_eth_core_training(translate_chip_coord_to_translated(eth_core), timeout_left);
+            timeout_left -= tt_device->wait_eth_core_training(
+                tt_device->get_communication_device_type() == IODeviceType::JTAG
+                    ? soc_descriptor_.translate_coord_to(eth_core, CoordSystem::NOC0)
+                    : translate_chip_coord_to_translated(eth_core),
+                timeout_left);
         }
     }
 }

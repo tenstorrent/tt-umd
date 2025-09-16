@@ -67,7 +67,7 @@ public:
 
     tt::ARCH get_arch();
 
-    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
+    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
@@ -280,9 +280,9 @@ public:
 
     uint64_t get_refclk_counter();
 
-    int get_communication_device_id() const;
+    virtual int get_communication_device_id() const;
 
-    IODeviceType get_communication_device_type() const;
+    virtual IODeviceType get_communication_device_type() const;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
@@ -296,7 +296,7 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    bool is_hardware_hung();
+    virtual bool is_hardware_hung();
 
     template <typename T>
     T *get_register_address(uint32_t register_offset);
@@ -312,6 +312,7 @@ protected:
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
     TTDevice();
+    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 
     ChipInfo chip_info;
 

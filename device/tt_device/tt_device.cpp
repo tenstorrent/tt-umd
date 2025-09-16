@@ -48,6 +48,13 @@ TTDevice::TTDevice(
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
 }
 
+TTDevice::TTDevice() {}
+
+TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) {
+    architecture_impl_ = std::move(architecture_impl);
+    arch = architecture_impl_->get_architecture();
+}
+
 void TTDevice::init_tt_device() {
     pre_init_hook();
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
@@ -56,8 +63,6 @@ void TTDevice::init_tt_device() {
     wait_arc_core_start();
     post_init_hook();
 }
-
-TTDevice::TTDevice() {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
     // TODO make abstract IO handler inside TTDevice.
@@ -520,6 +525,15 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firm
 semver_t TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
 TTDevice::~TTDevice() {
+    // Remote TTDevices actually use TTDevice from remote_communication object.
+    // Even though they extend TTDevices, they don't actually act as TTDevices but
+    // as wrappers around remote communication which contain TTDevices.
+    // Therefore, they don't need to clear mutexes since they don't use them directly.
+    // Moreover, if they would try to clear mutexes, it would cause errors since Remote TTDevice
+    // didn't initialize its own PCIDevice which is needed to identify the right mutex.
+    if (is_remote_tt_device) {
+        return;
+    }
     lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), communication_device_type_);
 }
 

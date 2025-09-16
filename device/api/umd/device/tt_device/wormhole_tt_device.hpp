@@ -50,6 +50,9 @@ public:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
+protected:
+    WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
 

@@ -67,6 +67,8 @@ protected:
 
     TTDevice* tt_device;
     LockManager lock_manager;
+    int communication_device_id;
+    IODeviceType communication_device_type;
 };
 
 }  // namespace tt::umd

@@ -75,7 +75,9 @@ uint32_t WormholeArcMessenger::send_message(
         }
 
         tt_device->read_from_arc(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
-
+        if (tt_device->is_remote()) {
+            int i = 3;
+        }
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
                 tt_device->read_from_arc(&return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));

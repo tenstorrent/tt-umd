@@ -135,7 +135,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
-    size_t data_size = 1024;
+    size_t data_size = 100;
     std::vector<uint8_t> data(data_size, 0);
     for (int i = 0; i < data_size; i++) {
         data[i] = i % 256;

@@ -3,17 +3,19 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 
+#include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 
 namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
-    WormholeTTDevice(remote_communication->get_local_device()->get_pci_device()),
+    WormholeTTDevice(
+        std::make_unique<wormhole_implementation>() /*remote_communication->get_local_device()->get_pci_device()*/),
     target_chip_(target_chip),
     remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
-    init_tt_device();
+    // init_tt_device();
 }
 
 void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -44,6 +46,46 @@ void RemoteWormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr
 
 bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
+}
+
+int RemoteWormholeTTDevice::get_communication_device_id() const {
+    return remote_communication_->get_local_device()->get_communication_device_id();
+}
+
+IODeviceType RemoteWormholeTTDevice::get_communication_device_type() const {
+    return remote_communication_->get_local_device()->get_communication_device_type();
+}
+
+void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
+    TTDevice *local_device = remote_communication_->get_local_device();
+    if (local_device->get_communication_device_type() == IODeviceType::JTAG) {
+        // Jtag protocol uses different communication paths from pci therefore
+        // there's no need to check hang which is in this case pci-specific.
+        return;
+    }
+    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
+        std::uint32_t scratch_data =
+            *(local_device->get_pci_device())
+                 ->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
+
+        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+    }
+}
+
+bool RemoteWormholeTTDevice::is_hardware_hung() {
+    TTDevice *local_device = remote_communication_->get_local_device();
+
+    if (local_device->get_communication_device_type() == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
+
+    volatile const void *addr = reinterpret_cast<const char *>(local_device->get_pci_device()->bar0_uc) +
+                                (architecture_impl_->get_arc_axi_apb_peripheral_offset() +
+                                 architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
+                                local_device->get_pci_device()->bar0_uc_offset;
+    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
+
+    return (scratch_data == HANG_READ_VALUE);
 }
 
 }  // namespace tt::umd

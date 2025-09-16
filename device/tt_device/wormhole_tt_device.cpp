@@ -42,6 +42,14 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
     wait_arc_core_start(1000);
 }
 
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
+    TTDevice(std::move(architecture_impl)) {
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
+}
+
 bool WormholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.

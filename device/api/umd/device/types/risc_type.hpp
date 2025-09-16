@@ -36,6 +36,10 @@ enum class RiscType : std::uint64_t {
     TRISC2 = 1ULL << 6,
     NCRISC = 1ULL << 7,
 
+    // Consider having separate entries for ETH and Tensix, so we don't overlap like this.
+    ERISC0 = 1ULL << 3,
+    ERISC1 = 1ULL << 4,
+
     // Combined constants.
     ALL_TENSIX_TRISCS = TRISC0 | TRISC1 | TRISC2,
     ALL_TENSIX_DMS = BRISC | NCRISC,

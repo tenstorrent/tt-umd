@@ -80,13 +80,22 @@ SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulato
                                                    : (simulator_directory / "soc_descriptor.yaml"),
         ChipInfo{.noc_translation_enabled = (simulator_directory.extension() == ".so")}) {}
 
+SimulationDevice::SimulationDevice(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
+    Chip(soc_descriptor) {
+    initialize(simulator_directory, soc_descriptor);
+}
+
 SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
+    initialize(init.get_simulator_path(), init.get_soc_descriptor());
+}
+
+void SimulationDevice::initialize(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
-    arch_name = init.get_arch_name();
+    soc_descriptor_per_chip.emplace(0, soc_descriptor);
+    arch_name = soc_descriptor.arch;
     target_devices_in_cluster = {0};
 
-    std::filesystem::path simulator_path = init.get_simulator_path();
+    std::filesystem::path simulator_path = simulator_directory;
     if (!std::filesystem::exists(simulator_path)) {
         TT_THROW("Simulator binary not found at: ", simulator_path);
     }

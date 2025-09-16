@@ -278,7 +278,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogSiliconDriver, "Creating Simulation device");
         // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
-        return std::make_unique<SimulationDevice>(simulator_directory);
+        return std::make_unique<SimulationDevice>(simulator_directory, soc_desc);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "

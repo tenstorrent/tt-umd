@@ -125,13 +125,13 @@ uint32_t blackhole_implementation::get_soft_reset_reg_value(tt::umd::RiscType ri
 
     // Fill up Tensix related bits based on architecture agnostic bits.
     if ((risc_type & RiscType::ALL) != RiscType::NONE) {
-        risc_type &= RiscType::ALL_TENSIX;
+        risc_type |= RiscType::ALL_TENSIX;
     }
     if ((risc_type & RiscType::ALL_TRISCS) != RiscType::NONE) {
-        risc_type &= RiscType::ALL_TENSIX_TRISCS;
+        risc_type |= RiscType::ALL_TENSIX_TRISCS;
     }
     if ((risc_type & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE) {
-        risc_type &= RiscType::ALL_TENSIX_DMS;
+        risc_type |= RiscType::ALL_TENSIX_DMS;
     }
 
     uint32_t soft_reset_reg_value = 0;

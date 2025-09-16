@@ -203,7 +203,7 @@ void LocalChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
         set_power_state(DevicePowerState::LONG_IDLE);
-        send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+        assert_risc_reset(RiscType::ALL);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();

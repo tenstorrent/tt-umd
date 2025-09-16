@@ -311,6 +311,42 @@ public:
         const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
+    //---------- New API for starting/stopping the device, with variants for Tensix and Neo.
+
+    /**
+     * Get the soft reset state for the given chip and core.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     */
+    RiscType get_risc_reset_state(const chip_id_t chip, const CoreCoord core);
+
+    /**
+     * Assert the soft reset signal at designated RISC cores on a single tensix core.
+     * The risc_type parameter can be used architecturaly agnostic with limited granularity.
+     * For more granular control, please use the architecture specific values.
+     * Consult the documentation for RiscType enum to understand the possible values.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param risc_type Specifies which RISCV cores on Tensix to assert.
+     */
+    void assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type);
+
+    /**
+     * Deassert the soft reset signal at designated RISC cores on a single tensix core.
+     * The risc_type parameter can be used architecturaly agnostic with limited granularity.
+     * For more granular control, please use the architecture specific values.
+     * Consult the documentation for RiscType enum to understand the possible values.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param risc_type Specifies which RISCV cores on Tensix to deassert.
+     * @param staggered_start Specifies whether the stagger signal should be active.
+     */
+    void deassert_risc_reset(
+        const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start = true);
+
     //---------- IO functions for Tensix cores, including DRAM.
 
     /**

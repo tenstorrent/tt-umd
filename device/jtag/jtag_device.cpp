@@ -17,8 +17,7 @@ constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
-/* static */ std::filesystem::path JtagDevice::jtag_library_path =
-    std::filesystem::path("./tt-umd/build/lib/lib_tt_jtag.so");
+/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/lib_tt_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {

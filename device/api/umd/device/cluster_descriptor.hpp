@@ -64,7 +64,7 @@ public:
      * @param arch Architecture of the mock cluster.
      */
     static std::unique_ptr<ClusterDescriptor> create_mock_cluster(
-        const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch);
+        const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled);
 
     /**
      * Creates a constrained cluster descriptor that only contains the chips specified in target_chip_ids.

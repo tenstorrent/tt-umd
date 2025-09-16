@@ -421,6 +421,9 @@ Cluster::Cluster(ClusterOptions options) {
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
 
+    bool is_ttsim_simulation =
+        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
@@ -439,7 +442,11 @@ Cluster::Cluster(ClusterOptions options) {
                 arch = init.get_soc_descriptor().arch;
             }
 #endif
-            temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster(options.target_devices, arch);
+            // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
+            // simulation.
+            bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+            temp_full_cluster_desc_ptr =
+                ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
         }
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
@@ -461,7 +468,7 @@ Cluster::Cluster(ClusterOptions options) {
     }
 
     if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
-        if (options.simulator_directory.extension() == ".so") {
+        if (is_ttsim_simulation) {
             options.sdesc_path = options.simulator_directory.parent_path() / "soc_descriptor.yaml";
         } else {
             options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";

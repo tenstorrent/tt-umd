@@ -422,7 +422,7 @@ Cluster::Cluster(ClusterOptions options) {
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
 
     bool is_ttsim_simulation =
-        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() != ".so");
+        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
 
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {

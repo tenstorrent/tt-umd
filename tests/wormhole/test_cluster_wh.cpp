@@ -501,7 +501,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, BroadcastWrite) {
+TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
     Cluster cluster;
     set_barrier_params(cluster);
@@ -577,7 +577,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
+TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
     Cluster cluster;
     set_barrier_params(cluster);

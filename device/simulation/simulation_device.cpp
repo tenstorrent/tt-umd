@@ -94,6 +94,8 @@ SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init
         DLSYM_FUNCTION(libttsim_tensix_reset_assert)
         DLSYM_FUNCTION(libttsim_clock)
     } else {
+        host.init();
+
         // Start simulator process
         uv_loop_t* loop = uv_default_loop();
         std::string simulator_path_string = simulator_path / "run.sh";

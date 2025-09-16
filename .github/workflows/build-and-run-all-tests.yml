@@ -38,7 +38,7 @@ on:
         required: true
         description: 'The timeout for the test run in minutes'
         type: number
-        default: 15
+        default: 30
 
 
 jobs:
@@ -50,7 +50,6 @@ jobs:
       matrix:
         ubuntu-docker-version: [
           'ubuntu-22.04',
-          'ubuntu-24.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:

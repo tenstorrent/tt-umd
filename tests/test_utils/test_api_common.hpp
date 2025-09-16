@@ -16,7 +16,7 @@
 
 using namespace tt::umd;
 
-using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, TensixSoftResetOptions>;
+using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, RiscType>;
 using RiscSetUnderTest = std::vector<RiscCoreProgramConfig>;
 
 class ClusterAssertDeassertRiscsTest : public ::testing::TestWithParam<RiscSetUnderTest> {
@@ -54,10 +54,10 @@ public:
             make_counter_program(ncrisc_counter_address | register_instruction)};
 
         std::vector<RiscCoreProgramConfig> triscs_and_ncrisc{
-            {trisc0_code_address, trisc0_counter_address, trisc0_program, TensixSoftResetOptions::TRISC0},
-            {trisc1_code_address, trisc1_counter_address, trisc1_program, TensixSoftResetOptions::TRISC1},
-            {trisc2_code_address, trisc2_counter_address, trisc2_program, TensixSoftResetOptions::TRISC2},
-            {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, TensixSoftResetOptions::NCRISC}};
+            {trisc0_code_address, trisc0_counter_address, trisc0_program, RiscType::TRISC0},
+            {trisc1_code_address, trisc1_counter_address, trisc1_program, RiscType::TRISC1},
+            {trisc2_code_address, trisc2_counter_address, trisc2_program, RiscType::TRISC2},
+            {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, RiscType::NCRISC}};
 
         const auto all_trisc_and_ncrisc_combinations = generate_all_non_empty_risc_core_combinations(triscs_and_ncrisc);
 
@@ -82,5 +82,19 @@ private:
         return risc_core_combinations;
     }
 };
+
+// Helper function to detect if the cluster is a 4U Galaxy configuration.
+inline bool is_4u_galaxy_configuration(Cluster* cluster) {
+    return cluster != nullptr && cluster->get_target_remote_device_ids().size() > 0 &&
+           cluster->get_cluster_description()->get_board_type(*cluster->get_target_remote_device_ids().begin()) ==
+               BoardType::GALAXY;
+}
+
+// Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
+inline bool is_galaxy_configuration(Cluster* cluster) {
+    bool is_6u_galaxy_configuration = cluster->get_target_device_ids().size() > 0 &&
+                                      cluster->get_cluster_description()->get_board_type(0) == BoardType::UBB;
+    return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
+}
 
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};

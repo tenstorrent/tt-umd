@@ -67,8 +67,7 @@ int main(int argc, char* argv[]) {
                   << std::endl;
 
         ChipInfo chip_info = device->get_chip_info();
-        SocDescriptor soc_desc(
-            device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+        SocDescriptor soc_desc(device->get_arch(), chip_info);
 
         const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
         if (tensix_cores.empty()) {

@@ -259,7 +259,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    if (remote_chip_ids_.empty()) {
+    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON) {
         use_ethernet_broadcast = false;
     }
 }
@@ -420,7 +420,6 @@ Cluster::Cluster(ClusterOptions options) {
     // If the cluster descriptor is not provided, create a new one.
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
-    chip_type_ = options.chip_type;
 
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
@@ -526,20 +525,25 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot deassert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot assert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+}
+
+RiscType Cluster::get_risc_reset_state(const chip_id_t chip, const CoreCoord core) {
+    return get_chip(chip)->get_risc_reset_state(core);
+}
+
+void Cluster::assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type) {
+    get_chip(chip)->assert_risc_reset(core, risc_type);
+}
+
+void Cluster::deassert_risc_reset(
+    const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
+    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
@@ -1069,11 +1073,6 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
 }
 
 void Cluster::start_device(const device_params& device_params) {
-    if (this->chip_type_ == tt::umd::ChipType::MOCK) {
-        // Mock cluster doesn't need to start device
-        return;
-    }
-
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -1084,11 +1083,6 @@ void Cluster::start_device(const device_params& device_params) {
 }
 
 void Cluster::close_device() {
-    if (this->chip_type_ == tt::umd::ChipType::MOCK) {
-        // Mock cluster doesn't need to close device
-        return;
-    }
-
     // Close remote device first because sending risc reset requires corresponding pcie device to be active
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();

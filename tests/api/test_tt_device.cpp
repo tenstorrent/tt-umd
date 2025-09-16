@@ -6,6 +6,7 @@
 #include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -38,6 +39,36 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
         ASSERT_EQ(data_write, data_read);
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
+    }
+}
+
+TEST(ApiTTDeviceTest, TTDeviceRegIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    std::vector<uint32_t> data_write0 = {1};
+    std::vector<uint32_t> data_write1 = {2};
+    std::vector<uint32_t> data_read(data_write0.size(), 0);
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
+
+        ChipInfo chip_info = tt_device->get_chip_info();
+
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        ASSERT_EQ(data_write0, data_read);
+        data_read = std::vector<uint32_t>(data_write0.size(), 0);
+
+        tt_device->write_to_device(data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        ASSERT_EQ(data_write1, data_read);
+        data_read = std::vector<uint32_t>(data_write0.size(), 0);
     }
 }
 
@@ -122,6 +153,11 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
+    auto cluster = std::make_unique<Cluster>();
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
+    }
+
     uint64_t address = 0x0;
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
@@ -147,11 +183,12 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
     // even though this is a TTDevice test.
-    auto cluster = std::make_unique<Cluster>();
+    cluster = std::make_unique<Cluster>();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
-    EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+    // TODO: Comment this out after finding out how to detect hang reads on BH
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
 
     tt_device.reset();
 

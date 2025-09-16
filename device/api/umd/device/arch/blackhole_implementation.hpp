@@ -209,7 +209,7 @@ static constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX *
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
 // Computed this value from AXI_RESET_OFFSET
-static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x177D0000;
+static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
 // MT: This is no longer valid for Blackhole. Review messages to ARC
 static constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
@@ -217,6 +217,8 @@ static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET + 0x783C4;
 static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET + 0x784C4;
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
+
+static constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
@@ -287,6 +289,14 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
+
+// Constants related to bits in the soft reset register.
+static const uint32_t SOFT_RESET_BRISC = 1 << 11;
+static const uint32_t SOFT_RESET_TRISC0 = 1 << 12;
+static const uint32_t SOFT_RESET_TRISC1 = 1 << 13;
+static const uint32_t SOFT_RESET_TRISC2 = 1 << 14;
+static const uint32_t SOFT_RESET_NCRISC = 1 << 18;
+static const uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
@@ -396,6 +406,14 @@ public:
     }
 
     uint32_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }
+
+    uint32_t get_debug_reg_addr() const override { return blackhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
+
+    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+
+    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+
+    uint32_t get_soft_reset_staggered_start() const override { return blackhole::SOFT_RESET_STAGGERED_START; }
 
     uint32_t get_grid_size_x() const override { return blackhole::GRID_SIZE_X; }
 

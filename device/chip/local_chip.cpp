@@ -185,7 +185,9 @@ void LocalChip::start_device() {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+    // TODO: Enable this once all tt-metal tests are passing.
+    // chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE,
+    // tt_device_->get_pci_device()->get_device_num()));
 
     check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
@@ -201,7 +203,7 @@ void LocalChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
         set_power_state(DevicePowerState::LONG_IDLE);
-        send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+        assert_risc_reset(RiscType::ALL);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();

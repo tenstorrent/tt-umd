@@ -15,7 +15,8 @@ apt-get update && apt-get install -y \
     wget \
     yamllint \
     python3-dev \
-    python3-pip
+    python3-pip \
+    xxd
 
 # Install Python dependencies
 python3 -m pip install --no-cache-dir pytest

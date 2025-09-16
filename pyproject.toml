@@ -44,6 +44,8 @@ wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
 install.components = ["python"]
 
 [tool.scikit-build.cmake.define]
+TT_UMD_BUILD_TOOLS = "OFF"
+TT_UMD_BUILD_EXAMPLES = "OFF"
 TT_UMD_BUILD_TESTS = "OFF"
 TT_UMD_BUILD_SIMULATION = "OFF" 
 TT_UMD_BUILD_PYTHON = "ON"

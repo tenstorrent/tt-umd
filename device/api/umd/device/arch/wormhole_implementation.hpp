@@ -242,6 +242,8 @@ static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
+static constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
+
 static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
@@ -296,6 +298,14 @@ static const size_t tensix_translated_coordinate_start_y = 18;
 
 static const size_t eth_translated_coordinate_start_x = 18;
 static const size_t eth_translated_coordinate_start_y = 16;
+
+// Constants related to bits in the soft reset register
+static const uint32_t SOFT_RESET_BRISC = 1 << 11;
+static const uint32_t SOFT_RESET_TRISC0 = 1 << 12;
+static const uint32_t SOFT_RESET_TRISC1 = 1 << 13;
+static const uint32_t SOFT_RESET_TRISC2 = 1 << 14;
+static const uint32_t SOFT_RESET_NCRISC = 1 << 18;
+static const uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
 }  // namespace wormhole
 
@@ -386,6 +396,14 @@ public:
     uint32_t get_tlb_base_index_16m() const override { return wormhole::TLB_BASE_INDEX_16M; }
 
     uint32_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
+
+    uint32_t get_debug_reg_addr() const override { return wormhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
+
+    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+
+    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+
+    uint32_t get_soft_reset_staggered_start() const override { return wormhole::SOFT_RESET_STAGGERED_START; }
 
     uint32_t get_grid_size_x() const override { return wormhole::GRID_SIZE_X; }
 

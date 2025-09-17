@@ -67,11 +67,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopRightCore) {
 
     CoreCoord translated_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
 
-    if (coordinate_manager->is_noc_translation_enabled()) {
-        EXPECT_EQ(translated_coords, CoreCoord(15, 2, CoreType::TENSIX, CoordSystem::TRANSLATED));
-    } else {
-        EXPECT_EQ(translated_coords, noc0_cords);
-    }
+    EXPECT_EQ(translated_coords, CoreCoord(15, 2, CoreType::TENSIX, CoordSystem::TRANSLATED));
 }
 
 // Test basic translation to virtual and noc0 coordinates.
@@ -93,11 +89,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeBottomLeftCore) {
 
     CoreCoord translated_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
 
-    if (coordinate_manager->is_noc_translation_enabled()) {
-        EXPECT_EQ(translated_coords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::TRANSLATED));
-    } else {
-        EXPECT_EQ(translated_coords, noc0_cords);
-    }
+    EXPECT_EQ(translated_coords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::TRANSLATED));
 }
 
 // Test logical to noc0 coordinate translation.

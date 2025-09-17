@@ -91,14 +91,9 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToNOC0) {
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
         const CoreCoord eth_noc0 = soc_desc.translate_coord_to(eth_logical, CoordSystem::NOC0);
-        // ============== CHANGE TO TRANSLATED ========================//
-        // const CoreCoord eth_virtual = soc_desc.translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
 
         EXPECT_EQ(eth_noc0.x, wormhole_eth_cores[index].x);
         EXPECT_EQ(eth_noc0.y, wormhole_eth_cores[index].y);
-
-        // EXPECT_EQ(eth_virtual.x, wormhole_eth_cores[index].x);
-        // EXPECT_EQ(eth_virtual.y, wormhole_eth_cores[index].y);
 
         EXPECT_EQ(eth_cores[index].x, wormhole_eth_cores[index].x);
         EXPECT_EQ(eth_cores[index].y, wormhole_eth_cores[index].y);

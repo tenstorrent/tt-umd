@@ -45,7 +45,6 @@ namespace tt::umd {
 enum class CoordSystem : std::uint8_t {
     LOGICAL,
     NOC0,
-    VIRTUAL,
     TRANSLATED,
     NOC1,
 };

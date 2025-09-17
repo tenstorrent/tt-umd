@@ -527,7 +527,7 @@ PCIDevice::~PCIDevice() {
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
-        munmap(dma_buffer.buffer, dma_buffer.size);
+        munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
     }
 }
 
@@ -750,32 +750,16 @@ void PCIDevice::allocate_pcie_dma_buffer() {
         // DMA buffer is only supported on Wormhole B0.
         return;
     }
-    // DMA buffer setup.  This is different than the hugepage-based buffers that
-    // are mapped to be accessible via the chip NOC.  This buffer is used by the
-    // PCIe DMA engine for transferring data between device and host.  A few
-    // things to note:
-    // 1. This is Wormhole-only.
-    // 2. Although the DMA engine could target the hugepages, the partitioning
-    // scheme for the hugepages is mostly up to the application.  Requiring the
-    // application to relinquish part of the hugepage memory and then coordinate
-    // with us about it sounds like a terrible idea.
-    // 3. Lack of current IOMMU support for Wormhole means that the buffer needs
-    // to be small enough that Linux will have a reasonable chance of being able
-    // to actually allocate it.
-    // 4. Longer-term, we could move to an IOMMU-based scheme where:
-    //    - Application allocates a buffer
-    //    - Driver pins it and maps it for DMA
-    //    - Application uses the buffer as an arena for DMA-able structures
-    //    - Driver initiates DMAs based on its knowledge of the buffer
-    // 5. + 0x1000 is for the completion page.  Since this entire implementation
-    // is a temporary hack until it's implemented in the driver, we'll need to
-    // poll a completion page to know when the DMA is done instead of receiving
-    // an interrupt.
-
+    
+    // DMA buffer allocation.
     // Allocation tries to allocate larger DMA buffers first. Starting size depends on whether IOMMU is enabled or not.
     // If IOMMU is enabled, we will try to allocate 16MB buffer first.
     // If IOMMU is not enabled, we will try to allocate 2MB buffer first.
     // If that fails, we will try smaller sizes until we can't allocate even single page.
+    // + 0x1000 is for the completion page.  Since this entire implementation
+    // is a temporary hack until it's implemented in the driver, we'll need to
+    // poll a completion page to know when the DMA is done instead of receiving
+    // an interrupt.
     uint32_t dma_buf_size;
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint32_t one_mb = 1 << 20;
@@ -794,13 +778,6 @@ void PCIDevice::allocate_pcie_dma_buffer() {
         dma_buf.in.buf_index = 0;
 
         if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-            // There is a chance this will fail because we're not requiring
-            // IOMMU.  Linux might not have a contiguous chunk of memory to give
-            // us.  I'm not really sure what to do here.  PCIe DMA support is a
-            // new feature in UMD and the application might not care about it,
-            // so throwing our way out of here is wrong.  For now, we will log
-            // here and throw when PCIe DMA is attempted.  Maybe a higher layer
-            // in UMD can fall back to MMIO if that happens.
             log_debug(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
         } else {
             // OK - we have a buffer.  Map it.

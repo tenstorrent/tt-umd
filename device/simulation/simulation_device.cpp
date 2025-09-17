@@ -84,13 +84,22 @@ SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulato
         SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_directory),
         ChipInfo{.noc_translation_enabled = (simulator_directory.extension() == ".so")}) {}
 
+SimulationDevice::SimulationDevice(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
+    Chip(soc_descriptor) {
+    initialize(simulator_directory, soc_descriptor);
+}
+
 SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
+    initialize(init.get_simulator_path(), init.get_soc_descriptor());
+}
+
+void SimulationDevice::initialize(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
-    arch_name = init.get_arch_name();
+    soc_descriptor_per_chip.emplace(0, soc_descriptor);
+    arch_name = soc_descriptor.arch;
     target_devices_in_cluster = {0};
 
-    std::filesystem::path simulator_path = init.get_simulator_path();
+    std::filesystem::path simulator_path = simulator_directory;
     if (!std::filesystem::exists(simulator_path)) {
         TT_THROW("Simulator binary not found at: ", simulator_path);
     }
@@ -109,6 +118,8 @@ SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init
         DLSYM_FUNCTION(libttsim_tensix_reset_assert)
         DLSYM_FUNCTION(libttsim_clock)
     } else {
+        host.init();
+
         // Start simulator process
         uv_loop_t* loop = uv_default_loop();
         std::string simulator_path_string = simulator_path / "run.sh";

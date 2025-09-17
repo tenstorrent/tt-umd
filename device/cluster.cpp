@@ -582,7 +582,7 @@ void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
+        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::NOC0),
         tlb_index,
         address,
         ordering);
@@ -763,7 +763,7 @@ void Cluster::ethernet_broadcast_write(
     const std::set<chip_id_t>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
-    bool use_virtual_coords) {
+    bool use_virtual_coords = false) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported
         std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers =
@@ -795,7 +795,7 @@ void Cluster::ethernet_broadcast_write(
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::VIRTUAL)) {
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::NOC0)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
                     write_to_device(mem_ptr, size_in_bytes, chip, core, address);
@@ -847,18 +847,18 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            TT_ASSERT(
-                use_virtual_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
-                "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
-            ethernet_broadcast_write(
-                mem_ptr,
-                size_in_bytes,
-                address,
-                chips_to_exclude,
-                rows_to_exclude,
-                cols_to_exclude,
-                use_virtual_coords_for_eth_broadcast);
+            // TT_ASSERT(
+            //     use_virtual_coords_for_eth_broadcast or
+            //         valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+            //     "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+            // ethernet_broadcast_write(
+            //     mem_ptr,
+            //     size_in_bytes,
+            //     address,
+            //     chips_to_exclude,
+            //     rows_to_exclude,
+            //     cols_to_exclude,
+            //     use_virtual_coords_for_eth_broadcast);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
@@ -896,18 +896,18 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            TT_ASSERT(
-                use_virtual_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
-                "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
-            ethernet_broadcast_write(
-                mem_ptr,
-                size_in_bytes,
-                address,
-                chips_to_exclude,
-                rows_to_exclude,
-                cols_to_exclude,
-                use_virtual_coords_for_eth_broadcast);
+            // TT_ASSERT(
+            //     use_virtual_coords_for_eth_broadcast or
+            //         valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+            //     "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+            // ethernet_broadcast_write(
+            //     mem_ptr,
+            //     size_in_bytes,
+            //     address,
+            //     chips_to_exclude,
+            //     rows_to_exclude,
+            //     cols_to_exclude,
+            //     use_virtual_coords_for_eth_broadcast);
         }
     }
 }

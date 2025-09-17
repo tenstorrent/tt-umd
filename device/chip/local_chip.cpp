@@ -155,17 +155,17 @@ void LocalChip::initialize_default_chip_mutexes() {
 
 void LocalChip::initialize_membars() {
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::NOC0),
         MemBarFlag::RESET,
         l1_address_params.tensix_l1_barrier_base);
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::NOC0),
         MemBarFlag::RESET,
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::NOC0));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -657,10 +657,9 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert barrier on all cores with L1
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
-            l1_address_params.tensix_l1_barrier_base);
+            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::NOC0), l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL), l1_address_params.eth_l1_barrier_base);
+            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::NOC0), l1_address_params.eth_l1_barrier_base);
     }
 }
 
@@ -677,7 +676,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         // Insert Barrier on all DRAM Cores
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-            dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::NOC0));
         }
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     }
@@ -686,7 +685,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
+        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::NOC0));
     }
     dram_membar(dram_cores_to_sync);
 }

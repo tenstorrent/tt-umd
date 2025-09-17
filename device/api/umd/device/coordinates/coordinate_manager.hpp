@@ -192,6 +192,16 @@ public:
      */
     uint32_t get_num_harvested_eth_channels() const;
 
+    /**
+     * @brief Checks if NoC (Network-on-Chip) address translation is enabled.
+     *
+     * This function returns a boolean value indicating whether the NoC translation
+     * feature is currently active.
+     *
+     * @return true if NoC translation is enabled, false otherwise.
+     */
+    bool is_noc_translation_enabled() const;
+
 private:
     const std::vector<tt_xy_pair>& get_noc0_pairs(const CoreType core_type) const;
     std::vector<CoreCoord> get_all_noc0_cores(const CoreType core_type) const;

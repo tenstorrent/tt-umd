@@ -87,8 +87,6 @@ static inline std::string to_str(const CoordSystem coord_system) {
             return "LOGICAL";
         case CoordSystem::NOC0:
             return "NOC0";
-        case CoordSystem::VIRTUAL:
-            return "VIRTUAL";
         case CoordSystem::TRANSLATED:
             return "TRANSLATED";
         case CoordSystem::NOC1:

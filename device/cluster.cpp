@@ -582,7 +582,7 @@ void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::NOC0),
+        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
         tlb_index,
         address,
         ordering);
@@ -795,7 +795,7 @@ void Cluster::ethernet_broadcast_write(
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::NOC0)) {
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
                     write_to_device(mem_ptr, size_in_bytes, chip, core, address);

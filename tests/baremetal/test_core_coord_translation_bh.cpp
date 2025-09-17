@@ -193,7 +193,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
 // Test that virtual and translated coordinates are same for all logical coordinates.
 // This is expected for Blackhole way of harvesting when noc translation is enabled.
 // If noc translation is disabled then translated coordinates are same as noc0 coordinates.
-// ============== CHANGE TO TRANSLATED ========================//
 // TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
 //     const size_t max_num_harvested_x = 14;
 

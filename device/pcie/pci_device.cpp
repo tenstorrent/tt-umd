@@ -750,7 +750,7 @@ void PCIDevice::allocate_pcie_dma_buffer() {
         // DMA buffer is only supported on Wormhole B0.
         return;
     }
-    
+
     // DMA buffer allocation.
     // Allocation tries to allocate larger DMA buffers first. Starting size depends on whether IOMMU is enabled or not.
     // If IOMMU is enabled, we will try to allocate 16MB buffer first.

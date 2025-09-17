@@ -6,7 +6,7 @@
 
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -83,7 +83,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
             .perform_harvesting = false,
-            .sdesc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
+            .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
         set_barrier_params(cluster);
 
@@ -101,7 +101,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
         .perform_harvesting = false,
         .simulated_harvesting_masks = {60, 0, 0},
         .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
-        .sdesc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
+        .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
     });
     for (const auto& chip : cluster.get_target_device_ids()) {
         ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 1)

@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "fmt/xchar.h"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 
 // TODO: change to tt_cluster
 #include "umd/device/arch/architecture_implementation.hpp"

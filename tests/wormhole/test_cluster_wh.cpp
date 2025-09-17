@@ -24,41 +24,77 @@ static void set_barrier_params(Cluster& cluster) {
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-std::int32_t get_static_tlb_index(tt_xy_pair target) {
-    bool is_eth_location =
-        std::find(std::cbegin(tt::umd::wormhole::ETH_LOCATIONS), std::cend(tt::umd::wormhole::ETH_LOCATIONS), target) !=
-        std::cend(tt::umd::wormhole::ETH_LOCATIONS);
-    bool is_tensix_location =
-        std::find(
-            std::cbegin(tt::umd::wormhole::T6_X_LOCATIONS), std::cend(tt::umd::wormhole::T6_X_LOCATIONS), target.x) !=
-            std::cend(tt::umd::wormhole::T6_X_LOCATIONS) &&
-        std::find(
-            std::cbegin(tt::umd::wormhole::T6_Y_LOCATIONS), std::cend(tt::umd::wormhole::T6_Y_LOCATIONS), target.y) !=
-            std::cend(tt::umd::wormhole::T6_Y_LOCATIONS);
+std::int32_t get_static_tlb_index(tt_xy_pair target, bool noc_translation_enabled) {
+    bool is_eth_location = false;
+    bool is_tensix_location = false;
+    if (noc_translation_enabled) {
+        is_eth_location = std::find(
+                              std::cbegin(tt::umd::wormhole::ETH_CORES_TRANSLATION_ON),
+                              std::cend(tt::umd::wormhole::ETH_CORES_TRANSLATION_ON),
+                              target) != std::cend(tt::umd::wormhole::ETH_CORES_TRANSLATION_ON);
+        is_tensix_location = std::find(
+                                 std::cbegin(tt::umd::wormhole::T6_X_TRANSLATED_LOCATIONS),
+                                 std::cend(tt::umd::wormhole::T6_X_TRANSLATED_LOCATIONS),
+                                 target.x) != std::cend(tt::umd::wormhole::T6_X_TRANSLATED_LOCATIONS) &&
+                             std::find(
+                                 std::cbegin(tt::umd::wormhole::T6_Y_TRANSLATED_LOCATIONS),
+                                 std::cend(tt::umd::wormhole::T6_Y_TRANSLATED_LOCATIONS),
+                                 target.y) != std::cend(tt::umd::wormhole::T6_Y_TRANSLATED_LOCATIONS);
+    } else {
+        is_eth_location =
+            std::find(
+                std::cbegin(tt::umd::wormhole::ETH_LOCATIONS), std::cend(tt::umd::wormhole::ETH_LOCATIONS), target) !=
+            std::cend(tt::umd::wormhole::ETH_LOCATIONS);
+        is_tensix_location = std::find(
+                                 std::cbegin(tt::umd::wormhole::T6_X_LOCATIONS),
+                                 std::cend(tt::umd::wormhole::T6_X_LOCATIONS),
+                                 target.x) != std::cend(tt::umd::wormhole::T6_X_LOCATIONS) &&
+                             std::find(
+                                 std::cbegin(tt::umd::wormhole::T6_Y_LOCATIONS),
+                                 std::cend(tt::umd::wormhole::T6_Y_LOCATIONS),
+                                 target.y) != std::cend(tt::umd::wormhole::T6_Y_LOCATIONS);
+    }
     if (is_eth_location) {
-        if (target.y == 6) {
-            target.y = 1;
-        }
+        if (noc_translation_enabled) {
+            if (target.y == 16) {
+                target.y = 0;
+            }
+            if (target.y == 17) {
+                target.y = 1;
+            }
 
-        if (target.x >= 5) {
+            target.x -= 18;
+        } else {
+            if (target.y == 6) {
+                target.y = 1;
+            }
+
+            if (target.x >= 5) {
+                target.x -= 1;
+            }
             target.x -= 1;
         }
-        target.x -= 1;
 
         int flat_index = target.y * 8 + target.x;
         int tlb_index = flat_index;
         return tlb_index;
 
     } else if (is_tensix_location) {
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
+        if (noc_translation_enabled) {
+            target.y -= 18;
 
-        if (target.y >= 6) {
+            target.x -= 18;
+        } else {
+            if (target.x >= 5) {
+                target.x -= 1;
+            }
+            target.x -= 1;
+
+            if (target.y >= 6) {
+                target.y -= 1;
+            }
             target.y -= 1;
         }
-        target.y -= 1;
 
         int flat_index = target.y * 8 + target.x;
 
@@ -110,7 +146,9 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 }
 
 TEST(SiliconDriverWH, HarvestingRuntime) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
+    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
+        return get_static_tlb_index(target, noc_translation_enabled);
+    };
 
     Cluster cluster(ClusterOptions{
         .simulated_harvesting_masks = {60, 0, 0},
@@ -127,7 +165,8 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
             cluster.configure_tlb(
                 chip_id,
                 core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::TRANSLATED)),
+                get_static_tlb_index_callback(
+                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
                 l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
@@ -189,7 +228,9 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
+    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
+        return get_static_tlb_index(target, noc_translation_enabled);
+    };
 
     Cluster cluster;
     set_barrier_params(cluster);
@@ -203,7 +244,8 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
             cluster.configure_tlb(
                 chip_id,
                 core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::TRANSLATED)),
+                get_static_tlb_index_callback(
+                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
                 l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
@@ -241,7 +283,9 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 }
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
+    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
+        return get_static_tlb_index(target, noc_translation_enabled);
+    };
 
     Cluster cluster;
     set_barrier_params(cluster);
@@ -255,7 +299,8 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
             cluster.configure_tlb(
                 chip_id,
                 core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::TRANSLATED)),
+                get_static_tlb_index_callback(
+                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
                 l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
@@ -388,7 +433,9 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
+    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
+        return get_static_tlb_index(target, noc_translation_enabled);
+    };
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
 
     Cluster cluster;
@@ -403,7 +450,8 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
             cluster.configure_tlb(
                 chip_id,
                 core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::TRANSLATED)),
+                get_static_tlb_index_callback(
+                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
                 base_addr);
         }
     }
@@ -645,7 +693,7 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
             }
             for (int chan = 0; chan < cluster.get_soc_descriptor(chip_id).get_num_dram_channels(); chan++) {
                 const CoreCoord core =
-                    cluster.get_soc_descriptor(chip_id).get_dram_core_for_channel(chan, 0, CoordSystem::NOC0);
+                    cluster.get_soc_descriptor(chip_id).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)

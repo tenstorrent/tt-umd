@@ -161,6 +161,23 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {3, 6},
      {6, 6},
      {4, 6}}};
+static const std::vector<tt_xy_pair> ETH_CORES_TRANSLATION_ON = {
+    {{25, 16},
+     {18, 16},
+     {24, 16},
+     {19, 16},
+     {23, 16},
+     {20, 16},
+     {22, 16},
+     {21, 16},
+     {25, 17},
+     {18, 17},
+     {24, 17},
+     {19, 17},
+     {23, 17},
+     {20, 17},
+     {22, 17},
+     {21, 17}}};
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
@@ -179,6 +196,8 @@ static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {};
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
+static const std::vector<uint32_t> T6_X_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25};
+static const std::vector<uint32_t> T6_Y_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {1, 3, 5, 7, 9, 8, 6, 4, 2, 0};
 

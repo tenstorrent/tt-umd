@@ -206,6 +206,8 @@ struct tt_version {
     std::string str() const { return fmt::format("{}.{}.{}", major, minor, patch); }
 };
 
+#define TT_VERSION(major, minor, patch) ((major << 16) + (minor << 12) + patch)
+
 constexpr inline bool operator==(const tt_version& a, const tt_version& b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }

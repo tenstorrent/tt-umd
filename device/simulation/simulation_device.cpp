@@ -73,11 +73,15 @@ inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::F
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
+std::string SimulationDevice::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {
+    return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "soc_descriptor.yaml")
+                                                 : (simulator_path / "soc_descriptor.yaml");
+}
+
 SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
     simulator_directory(simulator_directory),
     soc_descriptor(
-        (simulator_directory.extension() == ".so") ? (simulator_directory.parent_path() / "soc_descriptor.yaml")
-                                                   : (simulator_directory / "soc_descriptor.yaml"),
+        SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_directory),
         ChipInfo{.noc_translation_enabled = (simulator_directory.extension() == ".so")}) {}
 
 SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {

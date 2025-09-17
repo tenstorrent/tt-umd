@@ -42,6 +42,8 @@ private:
 
 class SimulationDevice : public Chip {
 public:
+    static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
+
     SimulationDevice(const std::filesystem::path& simulator_directory) :
         SimulationDevice(SimulationDeviceInit(simulator_directory)) {}
 

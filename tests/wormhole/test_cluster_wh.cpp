@@ -626,9 +626,9 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
                 // Rows are excluded according to virtual coordinates, so we have to translate to that system before
                 // accessing .y coordinate.
-                const CoreCoord virtual_core =
+                const CoreCoord translated_core =
                     cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(virtual_core.y) != rows_to_exclude.end()) {
+                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
                     continue;
                 }
                 test_utils::read_data_from_device(

@@ -183,37 +183,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
     }
 }
 
-// Test that virtual and translated coordinates are same for all logical coordinates.
-// This is expected for Blackhole way of harvesting when noc translation is enabled.
-// If noc translation is disabled then translated coordinates are same as noc0 coordinates.
-// TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
-//     const size_t max_num_harvested_x = 14;
-
-//     for (bool noc_translation_enabled : {true, false}) {
-//         for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
-//              tensix_harvesting_mask++) {
-//             std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
-//                 tt::ARCH::BLACKHOLE, noc_translation_enabled, {tensix_harvesting_mask});
-
-//             size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
-
-//             for (size_t x = 0; x < blackhole::TENSIX_GRID_SIZE.x - num_harvested_x; x++) {
-//                 for (size_t y = 0; y < blackhole::TENSIX_GRID_SIZE.y; y++) {
-//                     CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-//                     CoreCoord translated_coords =
-//                         coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
-//                     CoreCoord virtual_coords = coordinate_manager->translate_coord_to(
-//                         logical_coords, noc_translation_enabled ? CoordSystem::VIRTUAL : CoordSystem::NOC0);
-
-//                     // Expect that translated coordinates are same as virtual coordinates.
-//                     EXPECT_EQ(translated_coords.x, virtual_coords.x);
-//                     EXPECT_EQ(translated_coords.y, virtual_coords.y);
-//                 }
-//             }
-//         }
-//     }
-// }
-
 // Test mapping of the coordinates for harvested DRAM bank.
 TEST(CoordinateManager, CoordinateManagerBlackholeTensixTranslatedMappingHarvested) {
     const size_t tensix_harvesting_mask = (1 << 0) | (1 << 1);

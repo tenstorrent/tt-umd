@@ -763,7 +763,7 @@ void Cluster::ethernet_broadcast_write(
     const std::set<chip_id_t>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
-    bool use_virtual_coords = false) {
+    bool use_translated_coords) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported
         std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers =
@@ -782,7 +782,7 @@ void Cluster::ethernet_broadcast_write(
         // Write broadcast block to device.
         for (auto& mmio_group : broadcast_headers) {
             for (auto& header : mmio_group.second) {
-                header.at(4) = use_virtual_coords * 0x8000;  // Reset row/col exclusion masks
+                header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
                 get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
@@ -847,18 +847,18 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            // TT_ASSERT(
-            //     use_virtual_coords_for_eth_broadcast or
-            //         valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
-            //     "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
-            // ethernet_broadcast_write(
-            //     mem_ptr,
-            //     size_in_bytes,
-            //     address,
-            //     chips_to_exclude,
-            //     rows_to_exclude,
-            //     cols_to_exclude,
-            //     use_virtual_coords_for_eth_broadcast);
+            TT_ASSERT(
+                use_translated_coords_for_eth_broadcast or
+                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+            ethernet_broadcast_write(
+                mem_ptr,
+                size_in_bytes,
+                address,
+                chips_to_exclude,
+                rows_to_exclude,
+                cols_to_exclude,
+                use_translated_coords_for_eth_broadcast);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
@@ -896,18 +896,18 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            // TT_ASSERT(
-            //     use_virtual_coords_for_eth_broadcast or
-            //         valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
-            //     "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
-            // ethernet_broadcast_write(
-            //     mem_ptr,
-            //     size_in_bytes,
-            //     address,
-            //     chips_to_exclude,
-            //     rows_to_exclude,
-            //     cols_to_exclude,
-            //     use_virtual_coords_for_eth_broadcast);
+            TT_ASSERT(
+                use_translated_coords_for_eth_broadcast or
+                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+            ethernet_broadcast_write(
+                mem_ptr,
+                size_in_bytes,
+                address,
+                chips_to_exclude,
+                rows_to_exclude,
+                cols_to_exclude,
+                use_translated_coords_for_eth_broadcast);
         }
     }
 }
@@ -1067,7 +1067,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
     // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
     // Temporarily enable this feature for 6.7.241 as well for testing.
-    use_virtual_coords_for_eth_broadcast &=
+    use_translated_coords_for_eth_broadcast &=
         (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) &&
         get_soc_descriptor(device_id).noc_translation_enabled;
 }

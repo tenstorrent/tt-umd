@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 
@@ -467,48 +468,43 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
 }
 
 // Test ETH harvesting and coordinate translation for Blackhole.
-// ============== CHANGE TO TRANSLATED ========================//
-// TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
-//     const size_t num_harvested_cores = 2;
-//     const std::vector<tt_xy_pair> eth_cores = blackhole::ETH_CORES_NOC0;
-//     const size_t num_eth_channels = blackhole::NUM_ETH_CHANNELS;
-//     for (size_t eth_harvesting_mask = 0; eth_harvesting_mask < (1 << num_eth_channels); eth_harvesting_mask++) {
-//         // We should have exactly 2 harvested ETH cores.
-//         if (CoordinateManager::get_num_harvested(eth_harvesting_mask) != num_harvested_cores) {
-//             continue;
-//         }
+TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
+    const size_t num_harvested_cores = 2;
+    const std::vector<tt_xy_pair> eth_cores = blackhole::ETH_CORES_NOC0;
+    const size_t num_eth_channels = blackhole::NUM_ETH_CHANNELS;
+    for (size_t eth_harvesting_mask = 0; eth_harvesting_mask < (1 << num_eth_channels); eth_harvesting_mask++) {
+        // We should have exactly 2 harvested ETH cores.
+        if (CoordinateManager::get_num_harvested(eth_harvesting_mask) != num_harvested_cores) {
+            continue;
+        }
 
-//         const HarvestingMasks harvesting_masks = {.eth_harvesting_mask = eth_harvesting_mask};
+        const HarvestingMasks harvesting_masks = {.eth_harvesting_mask = eth_harvesting_mask};
 
-//         std::shared_ptr<CoordinateManager> coordinate_manager =
-//             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks);
+        std::shared_ptr<CoordinateManager> coordinate_manager =
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks);
 
-//         for (size_t eth_channel = 0; eth_channel < num_eth_channels - num_harvested_cores; eth_channel++) {
-//             const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-//             const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
-//             const CoreCoord eth_translated =
-//                 coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
+        for (size_t eth_channel = 0; eth_channel < num_eth_channels - num_harvested_cores; eth_channel++) {
+            const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+            const CoreCoord eth_translated =
+                coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-//             EXPECT_EQ(eth_virtual.x, eth_cores[eth_channel].x);
-//             EXPECT_EQ(eth_virtual.y, eth_cores[eth_channel].y);
+            EXPECT_EQ(eth_translated.x, blackhole::eth_translated_coordinate_start_x + eth_channel);
+            EXPECT_EQ(eth_translated.y, blackhole::eth_translated_coordinate_start_y);
+        }
 
-//             EXPECT_EQ(eth_translated.x, blackhole::eth_translated_coordinate_start_x + eth_channel);
-//             EXPECT_EQ(eth_translated.y, blackhole::eth_translated_coordinate_start_y);
-//         }
-
-//         // Verify that translated coordinates for harvested cores are same as noc0 coordinates.
-//         for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
-//             if (eth_harvesting_mask & (1 << eth_channel)) {
-//                 const CoreCoord noc0_core =
-//                     CoreCoord(eth_cores[eth_channel].x, eth_cores[eth_channel].y, CoreType::ETH, CoordSystem::NOC0);
-//                 const CoreCoord translated_core =
-//                     coordinate_manager->translate_coord_to(noc0_core, CoordSystem::TRANSLATED);
-//                 EXPECT_EQ(translated_core.x, noc0_core.x);
-//                 EXPECT_EQ(translated_core.y, noc0_core.y);
-//             }
-//         }
-//     }
-// }
+        // Verify that translated coordinates for harvested cores are same as noc0 coordinates.
+        for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+            if (eth_harvesting_mask & (1 << eth_channel)) {
+                const CoreCoord noc0_core =
+                    CoreCoord(eth_cores[eth_channel].x, eth_cores[eth_channel].y, CoreType::ETH, CoordSystem::NOC0);
+                const CoreCoord translated_core =
+                    coordinate_manager->translate_coord_to(noc0_core, CoordSystem::TRANSLATED);
+                EXPECT_EQ(translated_core.x, noc0_core.x);
+                EXPECT_EQ(translated_core.y, noc0_core.y);
+            }
+        }
+    }
+}
 
 // Test that we properly get harvesting mask that is based on the noc0 layout of the chip.
 TEST(CoordinateManager, CoordinateManagerBlackholeNOC0LayoutTensixHarvestingMask) {
@@ -541,10 +537,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTranslationWithoutCoreType) {
 
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({0, 0}, CoordSystem::NOC0, CoordSystem::NOC0).core_type, CoreType::DRAM);
-    // ============== CHANGE TO TRANSLATED ========================//
-    // EXPECT_EQ(
-    //     coordinate_manager->translate_coord_to({0, 0}, CoordSystem::VIRTUAL, CoordSystem::NOC0).core_type,
-    //     CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({17, 12}, CoordSystem::TRANSLATED, CoordSystem::NOC0).core_type,
+        CoreType::DRAM);
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({2, 2}, CoordSystem::NOC0, CoordSystem::NOC0).core_type,
         CoreType::TENSIX);
@@ -695,21 +690,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUHarvesting) {
     EXPECT_EQ(translated_l2cpu_2.y, l2cpu_2.y);
     EXPECT_EQ(translated_l2cpu_3.x, l2cpu_3.x);
     EXPECT_EQ(translated_l2cpu_3.y, l2cpu_3.y);
-
-    // Virtual coordinates should have harvested cores moved below unharvested cores.
-    // ============== CHANGE TO TRANSLATED ========================//
-    // const CoreCoord virtual_l2cpu_0 = coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::VIRTUAL);
-    // const CoreCoord virtual_l2cpu_1 = coordinate_manager->translate_coord_to(l2cpu_1, CoordSystem::VIRTUAL);
-    // const CoreCoord virtual_l2cpu_2 = coordinate_manager->translate_coord_to(l2cpu_2, CoordSystem::VIRTUAL);
-    // const CoreCoord virtual_l2cpu_3 = coordinate_manager->translate_coord_to(l2cpu_3, CoordSystem::VIRTUAL);
-    // EXPECT_EQ(virtual_l2cpu_0.x, l2cpu_2.x);
-    // EXPECT_EQ(virtual_l2cpu_0.y, l2cpu_2.y);
-    // EXPECT_EQ(virtual_l2cpu_1.x, l2cpu_3.x);
-    // EXPECT_EQ(virtual_l2cpu_1.y, l2cpu_3.y);
-    // EXPECT_EQ(virtual_l2cpu_2.x, l2cpu_0.x);
-    // EXPECT_EQ(virtual_l2cpu_2.y, l2cpu_0.y);
-    // EXPECT_EQ(virtual_l2cpu_3.x, l2cpu_1.x);
-    // EXPECT_EQ(virtual_l2cpu_3.y, l2cpu_1.y);
 
     // Logical cores should be invalid for harvested cores.
     EXPECT_THROW(coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::LOGICAL), std::runtime_error);

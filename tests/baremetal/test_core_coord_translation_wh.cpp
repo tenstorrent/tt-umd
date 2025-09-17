@@ -6,32 +6,53 @@
 #include "gtest/gtest.h"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 #include <iostream>
 
 // Tests that all noc0 coordinates are same as all virtual coordinates
 // when there is no harvesting.
-// ============== CHANGE TO TRANSLATED ========================//
-// TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
-//     std::shared_ptr<CoordinateManager> coordinate_manager =
-//         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
+TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
-//     // We expect full grid size since there is no harvesting.
-//     tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
-//     for (size_t x = 0; x < tensix_grid_size.x; x++) {
-//         for (size_t y = 0; y < tensix_grid_size.y; y++) {
-//             const CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-//             const CoreCoord virtual_coords =
-//                 coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-//             const CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
+    static constexpr size_t tensix_second_dram_col_x = 5;
+    static constexpr size_t tensix_second_eth_row_y = 6;
 
-//             // Virtual and noc0 coordinates should be the same.
-//             EXPECT_EQ(noc0_coords.x, virtual_coords.x);
-//             EXPECT_EQ(noc0_coords.y, virtual_coords.y);
-//         }
-//     }
-// }
+    // We expect full grid size since there is no harvesting.
+    tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
+
+    for (size_t x = 0; x < tensix_grid_size.x; x++) {
+        for (size_t y = 0; y < tensix_grid_size.y; y++) {
+            const CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            const CoreCoord translated_coords =
+                coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+            const CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
+
+            // When noc translation is disabled, translated and noc0 coordinates should be identical.
+            // For non-harvested mappings, translated and noc0 coordinates differ by fixed offsets.
+            // These offsets account for the presence of the second ETH row (which is abstracted to be adjacent to the
+            // first ETH row) and the second DRAM column (for which the translation has no effect, so it remains the
+            // same as in noc0). This approach ensures that, when translation is enabled, there are no gaps between
+            // adjacent TENSIX coordinates in the translated space. For example, in NOC0, two adjacent TENSIX cores at
+            // (4, 1) and (6, 1) are mapped to (21, 18) and (22, 18) in the translated space. This occurs because the
+            // DRAM column at position (5, y) remains unchanged regardless of whether translation is enabled, resulting
+            // in a contiguous mapping in the translated coordinate space. Refactored to remove magic numbers and use
+            // wormhole constants for translation offsets. The translation offsets are determined by the presence of the
+            // second ETH row (y == 6) and the second DRAM column (x == 5) in the NOC0 layout.
+            const int translated_x_offset = (noc0_coords.x < tensix_second_dram_col_x)
+                                                ? wormhole::tensix_translated_coordinate_start_x - 1
+                                                : wormhole::tensix_translated_coordinate_start_x - 2;
+            const int translated_y_offset = (noc0_coords.y < tensix_second_eth_row_y)
+                                                ? wormhole::tensix_translated_coordinate_start_y - 1
+                                                : wormhole::tensix_translated_coordinate_start_y - 2;
+
+            EXPECT_EQ(noc0_coords.x + translated_x_offset, translated_coords.x);
+            EXPECT_EQ(noc0_coords.y + translated_y_offset, translated_coords.y);
+        }
+    }
+}
 
 // Test basic translation to virtual and noc0 coordinates.
 // We expect that the top left core will have virtual and noc0 coordinates (1, 1) and (1, 2) for
@@ -45,10 +66,9 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    // Always expect same virtual coordinate for (0, 0) logical coordinate.
-    // ============== CHANGE TO TRANSLATED ========================//
-    // CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-    // EXPECT_EQ(virtual_cords, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
+    // Always expect same translated coordinate for (0, 0) logical coordinate if noc_translation_enabled is true.
+    CoreCoord translated_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+    EXPECT_EQ(translated_cords, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED));
 
     // This depends on harvesting mask. So expected noc0 coord is specific to this test and Wormhole arch.
     CoreCoord noc0_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
@@ -70,16 +90,15 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
     EXPECT_EQ(tensix_grid_size.y, 9);
     CoreCoord logical_coords = CoreCoord(tensix_grid_size.x - 1, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    // ============== CHANGE TO TRANSLATED ========================//
-    // CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-    // EXPECT_EQ(virtual_cords, CoreCoord(9, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
+    CoreCoord translated_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+    EXPECT_EQ(translated_cords, CoreCoord(25, 18, CoreType::TENSIX, CoordSystem::TRANSLATED));
 
     CoreCoord noc0_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
     EXPECT_EQ(noc0_cords, CoreCoord(9, 2, CoreType::TENSIX, CoordSystem::NOC0));
 }
 
-// Test basic translation to virtual and noc0 coordinates.
-// We expect that the top right core will have virtual and noc0 coordinates (1, 10) and (1, 11) for
+// Test basic translation to translated and noc0 coordinates.
+// We expect that the top right core will have virtual and noc0 coordinates (18, 26) and (1, 11) for
 // the logical coordinates (0, 8) if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
     // This harvesting mask if targeting first row in NOC layout.
@@ -93,9 +112,8 @@ TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
     EXPECT_EQ(tensix_grid_size.y, 9);
     CoreCoord logical_coords = CoreCoord(0, tensix_grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    // ============== CHANGE TO TRANSLATED ========================//
-    // CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-    // EXPECT_EQ(virtual_cords, CoreCoord(1, 10, CoreType::TENSIX, CoordSystem::VIRTUAL));
+    CoreCoord translated_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+    EXPECT_EQ(translated_cords, CoreCoord(18, 26, CoreType::TENSIX, CoordSystem::TRANSLATED));
 
     CoreCoord noc0_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
     EXPECT_EQ(noc0_cords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::NOC0));
@@ -166,66 +184,49 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 
         CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
         CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
-        // ============== CHANGE TO TRANSLATED ========================//
-        // CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
 
         CoreCoord translated_from_logical =
             coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
         CoreCoord translated_from_noc0 = coordinate_manager->translate_coord_to(noc0_coords, CoordSystem::TRANSLATED);
-        // CoreCoord translated_from_virtual =
-        //     coordinate_manager->translate_coord_to(virtual_coords, CoordSystem::TRANSLATED);
 
         EXPECT_EQ(translated_from_logical, expected_translated_coords);
         EXPECT_EQ(translated_from_noc0, expected_translated_coords);
-        // EXPECT_EQ(translated_from_virtual, expected_translated_coords);
     }
 }
 
 // Test that harvested noc0 coordinates map to the last row of the virtual coordinates.
-// ============== CHANGE TO TRANSLATED ========================//
-// TEST(CoordinateManager, CoordinateManagerWormholeNOC0TranslatedHarvestedMapping) {
-//     // Harvest first and second NOC layout row.
-//     const size_t harvesting_mask = (1 << 0) | (1 << 1);
-//     const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
-//     std::shared_ptr<CoordinateManager> coordinate_manager =
-//         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
+TEST(CoordinateManager, CoordinateManagerWormholeNOC0TranslatedHarvestedMapping) {
+    // Harvest first and second NOC layout row.
+    const size_t harvesting_mask = (1 << 0) | (1 << 1);
+    const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
 
-//     const std::vector<tt_xy_pair> tensix_cores = wormhole::TENSIX_CORES_NOC0;
-//     const tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
+    const std::vector<tt_xy_pair> tensix_cores = wormhole::TENSIX_CORES_NOC0;
+    const tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
 
-//     size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
+    const size_t translated_x_start = wormhole::tensix_translated_coordinate_start_x;
+    const size_t translated_y_start = wormhole::tensix_translated_coordinate_start_y;
 
-//     const size_t translated_x_start = wormhole::tensix_translated_coordinate_start_x;
-//     const size_t translated_y_start = wormhole::tensix_translated_coordinate_start_y;
+    size_t logical_x = 0;
+    size_t logical_y = tensix_grid_size.y - num_harvested;
 
-//     size_t logical_x = 0;
-//     size_t logical_y = tensix_grid_size.y - num_harvested;
+    for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
+        const CoreCoord noc0_core =
+            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::NOC0);
+        const CoreCoord translated_core = coordinate_manager->translate_coord_to(noc0_core, CoordSystem::TRANSLATED);
 
-//     for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
-//         const CoreCoord noc0_core =
-//             CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::NOC0);
-//         const CoreCoord translated_core = coordinate_manager->translate_coord_to(noc0_core, CoordSystem::TRANSLATED);
+        EXPECT_EQ(translated_core.x, translated_x_start + logical_x);
+        EXPECT_EQ(translated_core.y, translated_y_start + logical_y);
 
-//         const CoreCoord virtual_core = CoreCoord(
-//             tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-//         const CoreCoord translated_core_from_virtual =
-//             coordinate_manager->translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+        logical_x++;
 
-//         EXPECT_EQ(translated_core, translated_core_from_virtual);
-
-//         EXPECT_EQ(translated_core.x, translated_x_start + logical_x);
-//         EXPECT_EQ(translated_core.y, translated_y_start + logical_y);
-
-//         logical_x++;
-
-//         if (logical_x == tensix_grid_size.x) {
-//             logical_x = 0;
-//             logical_y++;
-//         }
-
-//         virtual_index++;
-//     }
-// }
+        if (logical_x == tensix_grid_size.x) {
+            logical_x = 0;
+            logical_y++;
+        }
+    }
+}
 
 // Test translation of DRAM core coordinates. There is no DRAM harvesting on Wormhole,
 // so logical coordinates should cover all noc0 coordinates.
@@ -267,7 +268,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
     }
 }
 
-// Test that virtual, noc0 and translated coordinates are the same for all logical coordinates.
+// Test that noc0 and translated coordinates are the same for all logical coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
@@ -286,7 +287,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
     }
 }
 
-// Test that virtual, noc0 and translated coordinates are the same for all logical PCIE coordinates.
+// Test that noc0 and translated coordinates are the same for all logical PCIE coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);

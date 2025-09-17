@@ -755,6 +755,4 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
     map_noc0_to_noc1_cores(l2cpu_cores, CoreType::L2CPU);
 }
 
-bool CoordinateManager::is_noc_translation_enabled() const { return noc_translation_enabled; }
-
 }  // namespace tt::umd

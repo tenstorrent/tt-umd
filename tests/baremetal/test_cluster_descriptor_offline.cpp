@@ -26,6 +26,7 @@ int count_connections(const std::unordered_map<
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
     for (std::string cluster_desc_yaml : {
              "blackhole_P100.yaml",
+             "blackhole_P150.yaml",
              "galaxy.yaml",
              "wormhole_2xN300_unconnected.yaml",
              "wormhole_4xN300_mesh.yaml",

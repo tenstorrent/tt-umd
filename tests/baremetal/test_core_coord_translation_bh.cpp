@@ -405,6 +405,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeARCTranslation) {
             const CoreCoord arc_noc0 = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::NOC0);
             const CoreCoord arc_translated =
                 coordinate_manager->translate_coord_to(arc_logical, CoordSystem::TRANSLATED);
+
+            EXPECT_EQ(arc_noc0.x, arc_translated.x);
+            EXPECT_EQ(arc_noc0.y, arc_translated.y);
         }
     }
 }

@@ -65,7 +65,7 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
             // responsible for further communication and they are not bound to NOC0 like JTAG.
             // Therefore we have to check if we are using JTAG and if tt_device is local.
             // That's the only case when we must use NOC0 coordinates.
-            actual_eth_core = soc_descriptor_.translate_coord_to(eth_core, CoordSystem::NOC0);
+            actual_eth_core = soc_descriptor_.translate_coord_to(eth_core, CoordSystem::TRANSLATED);
         } else if (chip_info_.board_type == BoardType::UBB) {
             // TODO issue 1208: figure out why translated ETH don't work on UBB
             actual_eth_core =

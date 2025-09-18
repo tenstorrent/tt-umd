@@ -42,6 +42,11 @@ private:
 
 class SimulationDevice : public Chip {
 public:
+    static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
+
+    SimulationDevice(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+
+    // TODO: Following constructors are deprecated and should be removed.
     SimulationDevice(const std::filesystem::path& simulator_directory) :
         SimulationDevice(SimulationDeviceInit(simulator_directory)) {}
 
@@ -104,6 +109,8 @@ public:
         uint32_t* return_4 = nullptr) override;
 
 private:
+    // TODO: To be removed once clients switch to new constructor.
+    void initialize(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
     void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
 
     // State variables

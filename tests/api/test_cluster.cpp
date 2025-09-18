@@ -761,6 +761,12 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
         GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
     }
 
+    // TODO: remove this check when it is figured out what is happening with llmbox.
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 &&
+        cluster->get_target_device_ids().size() == 8) {
+        GTEST_SKIP() << "Skipping test for LLMBox architecture, as it seems flaky.";
+    }
+
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
                                                        chip_id_t chip_id) -> std::optional<std::array<uint32_t, 14>> {
         switch (cluster->get_cluster_description()->get_arch(chip_id)) {

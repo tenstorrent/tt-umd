@@ -51,7 +51,11 @@ public:
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
 protected:
-    WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+    /*
+     * Create a device without an underlying communication device.
+     * Used for remote devices that depend on remote_communication.
+     */
+    WormholeTTDevice();
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);

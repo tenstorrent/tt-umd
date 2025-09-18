@@ -26,9 +26,16 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
+    /*
+     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+     * so hang detection is done via the local TTDevice used by RemoteCommunication.
+     */
     void detect_hang_read(std::uint32_t data_read) override;
 
-protected:
+    /*
+     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+     * so hang detection is done via the local TTDevice used by RemoteCommunication.
+     */
     bool is_hardware_hung() override;
 
 private:

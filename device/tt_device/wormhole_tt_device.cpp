@@ -46,8 +46,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
  * Create a device without an underlying communication device.
  * Used for remote devices that depend on remote_communication.
  */
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    TTDevice(std::move(architecture_impl)) {
+WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
     arc_core = umd_use_noc1 ? tt_xy_pair(
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])

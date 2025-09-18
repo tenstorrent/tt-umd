@@ -110,8 +110,8 @@ void TopologyDiscovery::get_connected_chips() {
         log_debug(
             LogSiliconDriver,
             "Discovered {} chip with {} ID {} and asic ID {}",
-            DeviceTypeToString(io_device_type),
-            DeviceTypeToString(io_device_type),
+            DeviceTypeToString.at(io_device_type),
+            DeviceTypeToString.at(io_device_type),
             device_id,
             asic_id);
     }

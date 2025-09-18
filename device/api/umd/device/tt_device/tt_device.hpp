@@ -68,6 +68,7 @@ public:
     tt::ARCH get_arch();
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
+    virtual bool is_hardware_hung() = 0;
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
@@ -333,8 +334,6 @@ protected:
     bool is_remote_tt_device = false;
 
 private:
-    virtual bool is_hardware_hung() = 0;
-
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};

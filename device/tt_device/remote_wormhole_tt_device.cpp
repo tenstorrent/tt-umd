@@ -10,9 +10,7 @@ namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
-    WormholeTTDevice(std::make_unique<wormhole_implementation>()),
-    target_chip_(target_chip),
-    remote_communication_(std::move(remote_communication)) {
+    WormholeTTDevice(), target_chip_(target_chip), remote_communication_(std::move(remote_communication)) {
     // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
     // which in turn uses a local TTDevice for communication,
     // the device type of the underlying communication device is the device type of the local TTDevice.
@@ -52,44 +50,12 @@ bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
 }
 
-/*
- * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
- * so hang detection is done via the local TTDevice used by RemoteCommunication.
- */
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
-    TTDevice *local_device = remote_communication_->get_local_device();
-    if (local_device->get_communication_device_type() == IODeviceType::JTAG) {
-        // Jtag protocol uses different communication paths from pci therefore
-        // there's no need to check hang which is in this case pci-specific.
-        return;
-    }
-    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        std::uint32_t scratch_data =
-            *(local_device->get_pci_device())
-                 ->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
-
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
-    }
+    remote_communication_->get_local_device()->detect_hang_read(data_read);
 }
 
-/*
- * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
- * so hang detection is done via the local TTDevice used by RemoteCommunication.
- */
 bool RemoteWormholeTTDevice::is_hardware_hung() {
-    TTDevice *local_device = remote_communication_->get_local_device();
-
-    if (local_device->get_communication_device_type() == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
-    }
-
-    volatile const void *addr = reinterpret_cast<const char *>(local_device->get_pci_device()->bar0_uc) +
-                                (architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-                                 architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
-                                local_device->get_pci_device()->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
-
-    return (scratch_data == HANG_READ_VALUE);
+    return remote_communication_->get_local_device()->is_hardware_hung();
 }
 
 }  // namespace tt::umd

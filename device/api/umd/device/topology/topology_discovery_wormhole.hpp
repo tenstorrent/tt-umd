@@ -64,7 +64,7 @@ protected:
     bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(
-        eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     bool is_using_eth_coords() override;
 

@@ -43,8 +43,6 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
-    tt_xy_pair get_arc_core() const;
-
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
@@ -82,7 +80,6 @@ private:
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.
     std::mutex dma_mutex_;
-    tt_xy_pair arc_core;
 
     EthAddresses eth_addresses;
 };

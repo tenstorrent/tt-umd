@@ -461,7 +461,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
-    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch) {
+    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
     std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     BoardType board_type;
@@ -473,7 +473,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::UNKNOWN;
-            harvesting_masks.pcie_harvesting_mask = 0x0;
+            // Example value from silicon machine.
+            harvesting_masks.eth_harvesting_mask = 0x120;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -491,8 +492,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
-        /* NOC translation is not supported for Simulation chips */
-        desc->noc_translation_enabled.insert({logical_id, true});
+        desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();
@@ -857,7 +857,15 @@ void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
 
 void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     for (const auto &chip : this->all_chips) {
-        // This will also fill up the closest_mmio_chip_cache
+        if (this->is_chip_mmio_capable(chip)) {
+            this->chips_grouped_by_closest_mmio[chip].insert(chip);
+            continue;
+        }
+        // TODO: This is to handle the case when we are not using ETH coordinates and have remote chip.
+        // Obviously, we have to figure out how to handle these cases in general in the future.
+        if (this->chip_locations.empty()) {
+            continue;
+        }
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
         this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
     }

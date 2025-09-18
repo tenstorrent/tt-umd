@@ -19,7 +19,7 @@
 #include "fmt/xchar.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -512,6 +512,10 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
+    }
+
     uint32_t write_test_data = 0xDEADBEEF;
 
     auto chip_id = *cluster->get_target_device_ids().begin();
@@ -542,6 +546,10 @@ TEST(TestCluster, WarmReset) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
 
     auto arch = cluster->get_tt_device(0)->get_arch();
@@ -584,12 +592,10 @@ TEST(TestCluster, WarmReset) {
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
-            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
             // Set all riscs to reset state.
-            chip->set_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
+            cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -632,14 +638,16 @@ TEST(TestCluster, DeassertResetBrisc) {
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
-            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
-            chip->set_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
+            cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
             // Zero out L1.
             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->write_to_device(
                 simple_brisc_program.data(),
@@ -650,7 +658,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
+            cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -667,6 +675,10 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test on Galaxy configurations.";
     }
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
@@ -695,9 +707,9 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
-            chip->set_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
+            cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
             cluster->write_to_device(
                 counter_brisc_program.data(),
@@ -708,7 +720,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
+            cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -722,7 +734,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->set_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
+            cluster->assert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -747,6 +759,12 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
+    }
+
+    // TODO: remove this check when it is figured out what is happening with llmbox.
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 &&
+        cluster->get_target_device_ids().size() == 8) {
+        GTEST_SKIP() << "Skipping test for LLMBox architecture, as it seems flaky.";
     }
 
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
@@ -783,16 +801,18 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-        TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NONE};
+        RiscType risc_cores{RiscType::NONE};
 
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
 
-            chip->set_tensix_risc_reset(tensix_core, TENSIX_ASSERT_SOFT_RESET);
+            cluster->assert_risc_reset(chip_id, tensix_core, RiscType::ALL_TENSIX);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
+
+            cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),
@@ -803,7 +823,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
+            cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
@@ -815,7 +835,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(tensix_core, risc_cores);
+            cluster->deassert_risc_reset(chip_id, tensix_core, risc_cores);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
@@ -831,7 +851,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->set_tensix_risc_reset(tensix_core, risc_cores);
+            cluster->assert_risc_reset(chip_id, tensix_core, risc_cores);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;

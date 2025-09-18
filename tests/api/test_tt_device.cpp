@@ -6,6 +6,7 @@
 #include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -152,6 +153,11 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
+    auto cluster = std::make_unique<Cluster>();
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
+    }
+
     uint64_t address = 0x0;
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
@@ -177,11 +183,11 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
     // even though this is a TTDevice test.
-    auto cluster = std::make_unique<Cluster>();
+    cluster = std::make_unique<Cluster>();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
-    // TODO: Comment this out after finding out how to detect hang reads on BH
+    // TODO: Comment this out after finding out how to detect hang reads on BH.
     // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
 
     tt_device.reset();
@@ -214,17 +220,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     }
 
     for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
-        eth_coord_t remote_eth_coord = chip_locations.at(remote_chip_id);
-
-        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(remote_chip_id);
-        LocalChip* closest_local_chip = cluster->get_local_chip(gateway_id);
-        std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(
-            closest_local_chip->get_tt_device(), closest_local_chip->get_sysmem_manager());
-        remote_communication->set_remote_transfer_ethernet_cores(
-            closest_local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
-        auto remote_tt_device = TTDevice::create(std::move(remote_communication), remote_eth_coord);
-        remote_tt_device->init_tt_device();
+        TTDevice* remote_tt_device = cluster->get_chip(remote_chip_id)->get_tt_device();
 
         std::vector<CoreCoord> tensix_cores =
             cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstdint>
 
 #include "umd/device/tt_xy_pair.h"
@@ -169,3 +171,15 @@ struct hash<tt::umd::CoreCoord> {
     }
 };
 }  // namespace std
+
+namespace fmt {
+template <>
+struct formatter<tt::umd::CoreCoord> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+
+    template <typename Context>
+    constexpr auto format(tt::umd::CoreCoord const& core_coord, Context& ctx) const {
+        return format_to(ctx.out(), "{}", core_coord.str());
+    }
+};
+}  // namespace fmt

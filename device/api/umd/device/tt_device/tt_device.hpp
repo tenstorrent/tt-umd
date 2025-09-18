@@ -248,6 +248,8 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
+    tt_xy_pair get_arc_core() const;
+
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     virtual uint32_t get_clock() = 0;
@@ -284,6 +286,21 @@ public:
 
     IODeviceType get_communication_device_type() const;
 
+    /**
+     * Get the soft reset signal for the given riscs.
+     *
+     * @param core Core to get soft reset for, in translated coordinates
+     */
+    uint32_t get_risc_reset_state(tt_xy_pair core);
+
+    /**
+     * Set the soft reset signal for the given riscs.
+     *
+     * @param core Core to set soft reset for, in translated coordinates
+     * @param risc_flags bitmask of riscs to set soft reset for
+     */
+    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -314,6 +331,8 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
+
+    tt_xy_pair arc_core;
 
 private:
     virtual bool is_hardware_hung() = 0;

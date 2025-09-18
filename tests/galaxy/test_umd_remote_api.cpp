@@ -9,7 +9,7 @@
 #include "gtest/gtest.h"
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -24,7 +24,6 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     device_params default_params;
     device.start_device(default_params);
-    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -124,7 +123,6 @@ void run_data_mover_test(
 
     device_params default_params;
     device.start_device(default_params);
-    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -229,7 +227,6 @@ void run_data_broadcast_test(
 
     device_params default_params;
     device.start_device(default_params);
-    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> vector_to_write(vector_size);

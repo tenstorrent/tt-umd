@@ -13,3 +13,4 @@ core
 __pycache__
 tt_umd.egg-info
 .venv
+ucli.key

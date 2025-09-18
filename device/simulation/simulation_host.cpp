@@ -44,14 +44,16 @@ SimulationHost::SimulationHost() {
     // Initialize socket and listener
     host_socket = std::make_unique<nng_socket>();
     host_listener = std::make_unique<nng_listener>();
+}
 
+void SimulationHost::init() {
     // Check if NNG_SOCKET_LOCAL_PORT is set
     const char *local_socket_port_str = std::getenv("NNG_SOCKET_LOCAL_PORT");
     std::string nng_socket_addr_str;
 
     // Generate socket address with hostname and random port
     char hostname[256];
-    if (gethostname(hostname, sizeof(hostname)) != 0) {
+    if (std::getenv("TT_SIMULATOR_LOCALHOST") || gethostname(hostname, sizeof(hostname)) != 0) {
         strcpy(hostname, "localhost");
     }
 

@@ -151,7 +151,6 @@ struct CoreCoord : public tt_xy_pair {
 // TODO: To be removed once clients switch to namespace usage.
 using tt::CoordSystem;
 using tt::CoreType;
-using tt::umd::CoreCoord;
 
 namespace tt::umd {
 using CoreType = tt::CoreType;

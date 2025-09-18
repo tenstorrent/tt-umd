@@ -299,6 +299,7 @@ using tt::get_number_of_chips_from_board_type;
 namespace tt::umd {
 using BoardType = tt::BoardType;
 using tt::get_number_of_chips_from_board_type;
+using HarvestingMasks = tt::HarvestingMasks;
 }  // namespace tt::umd
 
 namespace std {

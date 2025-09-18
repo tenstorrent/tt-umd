@@ -97,6 +97,9 @@ static inline std::string to_str(const CoordSystem coord_system) {
     }
 }
 
+// TODO: There is a conflicting declaration in tt_metal for CoreCoord. We need to remove that one before we can move
+// this CoreCoord to tt namespace.
+namespace umd {
 struct CoreCoord : public tt_xy_pair {
     CoreCoord() {}
 
@@ -141,23 +144,23 @@ struct CoreCoord : public tt_xy_pair {
                to_str(coord_system) + ")";
     }
 };
+}  // namespace umd
 
 }  // namespace tt
 
 // TODO: To be removed once clients switch to namespace usage.
 using tt::CoordSystem;
-using tt::CoreCoord;
 using tt::CoreType;
+using tt::umd::CoreCoord;
 
 namespace tt::umd {
 using CoreType = tt::CoreType;
-using CoreCoord = tt::CoreCoord;
 }  // namespace tt::umd
 
 namespace std {
 template <>
-struct hash<tt::CoreCoord> {
-    size_t operator()(const tt::CoreCoord& core_coord) const {
+struct hash<tt::umd::CoreCoord> {
+    size_t operator()(const tt::umd::CoreCoord& core_coord) const {
         size_t seed = 0;
         seed = std::hash<size_t>{}(core_coord.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         seed = std::hash<size_t>{}(core_coord.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);

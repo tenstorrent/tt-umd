@@ -153,7 +153,6 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
 
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
     for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
-        // Load the cluster descriptor from YAML file
         std::unique_ptr<ClusterDescriptor> cluster_desc;
         ASSERT_NO_THROW(cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file))
             << "Failed to load cluster descriptor from: " << descriptor_file;
@@ -172,7 +171,7 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
 
         ASSERT_NE(mock_cluster_all, nullptr) << "Mock cluster is null for: " << descriptor_file;
 
-        // Writes and reads have no effect but we can check that the mock cluster is created successfully
+        // Writes and reads have no effect but we can check that the mock cluster is created successfully.
         std::vector<uint8_t> data(1024, 0);
         for (auto chip_id : mock_cluster_all->get_target_device_ids()) {
             CoreCoord any_tensix_core = mock_cluster_all->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];

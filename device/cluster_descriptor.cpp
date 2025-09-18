@@ -855,12 +855,16 @@ void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
 }
 
 void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
-    // This is in case that we are not using ETH coordinates and have remote chip.
-    if (this->all_chips.empty() || chip_locations.empty()) {
-        return;
-    }
     for (const auto &chip : this->all_chips) {
-        // This will also fill up the closest_mmio_chip_cache
+        if (this->is_chip_mmio_capable(chip)) {
+            this->chips_grouped_by_closest_mmio[chip].insert(chip);
+            continue;
+        }
+        // TODO: This is to handle the case when we are not using ETH coordinates and have remote chip.
+        // Obviously, we have to figure out how to handle these cases in general in the future.
+        if (this->chip_locations.empty()) {
+            continue;
+        }
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
         this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
     }

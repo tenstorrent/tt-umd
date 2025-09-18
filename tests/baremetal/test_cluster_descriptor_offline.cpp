@@ -161,6 +161,9 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
         ASSERT_NE(cluster_desc, nullptr) << "Cluster descriptor is null for: " << descriptor_file;
         ASSERT_FALSE(cluster_desc->get_all_chips().empty()) << "Cluster descriptor has no chips: " << descriptor_file;
 
+        // This should return at least mmio chips in their own groups.
+        EXPECT_GT(cluster_desc->get_chips_grouped_by_closest_mmio().size(), 0);
+
         std::unique_ptr<Cluster> mock_cluster_all;
         ASSERT_NO_THROW(
             mock_cluster_all = std::make_unique<Cluster>(

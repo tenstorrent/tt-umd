@@ -106,6 +106,7 @@ void TopologyDiscovery::get_connected_chips() {
             }
         }
         uint64_t asic_id = get_asic_id(chip.get());
+        initialize_remote_communication(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(
             LogSiliconDriver,
@@ -191,16 +192,19 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
-                eth_coord_t eth_coord = get_remote_eth_coord(chip, eth_core).value();
+                std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
+                // TODO: we should probably initialize remote communication for remote chips as well.
+                // This is not needed currently for any Blackhole topology, but we should work on enabling this in
+                // general. The change required is to not initialize the communication on already initialized ETH cores.
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_chips.insert(remote_asic_id);
                 remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, gateway_chip_id);
                 if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, get_remote_eth_coord(chip, eth_core).value());
+                    eth_coords.emplace(remote_asic_id, eth_coord.value());
                 }
             } else {
                 ethernet_connections.push_back(
@@ -325,5 +329,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
+
+void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
 
 }  // namespace tt::umd

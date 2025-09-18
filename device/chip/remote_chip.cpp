@@ -11,6 +11,7 @@
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
+#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
@@ -23,8 +24,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     std::string sdesc_path) {
-    auto remote_communication =
-        std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels,
@@ -48,8 +49,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
-    auto remote_communication =
-        std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels,
@@ -74,9 +75,14 @@ RemoteChip::RemoteChip(
     //   2. Restructuring the inheritance hierarchy to eliminate this dependency
     //   3. Using composition instead of inheritance for remote communication
     // ToDo: Figure out a proper way to make an abstraction to redesign this
-    remote_communication_ = dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+    if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        remote_communication_ =
+            dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+    } else {
+        remote_communication_ =
+            dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+    }
     tt_device_ = std::move(remote_tt_device);
-    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
     wait_chip_to_be_ready();
 }
 

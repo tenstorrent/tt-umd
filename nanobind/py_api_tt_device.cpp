@@ -27,7 +27,7 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     chip_id_t local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     eth_coord_t target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     tt_SocDescriptor local_soc_descriptor = tt_SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
-    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
     return TTDevice::create(std::move(remote_communication), target_chip);

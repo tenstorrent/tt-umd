@@ -48,7 +48,9 @@ std::unique_ptr<LocalChip> LocalChip::create(
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
-        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
+        // Note that the eth_coord is not important here since this is only used for eth broadcasting.
+        remote_communication =
+            RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
     }
 
     return std::unique_ptr<LocalChip>(new LocalChip(
@@ -77,7 +79,9 @@ std::unique_ptr<LocalChip> LocalChip::create(
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
-        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
+        // Note that the eth_coord is not important here since this is only used for eth broadcasting.
+        remote_communication =
+            RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
     }
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
@@ -503,7 +507,7 @@ void LocalChip::ethernet_broadcast_write(
     }
 
     // target_chip and target_core are ignored when broadcast is enabled.
-    remote_communication_->write_to_non_mmio({0, 0, 0, 0}, {0, 0}, src, core_dest, size, true, broadcast_header);
+    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, broadcast_header);
 }
 
 void LocalChip::wait_for_non_mmio_flush() {

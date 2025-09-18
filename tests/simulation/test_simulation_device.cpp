@@ -82,3 +82,20 @@ TEST_F(SimulationDeviceFixture, LoopbackTwoTensix) {
     ASSERT_EQ(wdata1, rdata1);
     ASSERT_EQ(wdata2, rdata2);
 }
+
+TEST_F(SimulationDeviceFixture, SimpleApiTest) {
+    std::vector<uint32_t> wdata1 = {1, 2, 3, 4, 5};
+    std::vector<uint32_t> rdata1(wdata1.size());
+
+    auto core = device->get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+
+    auto &soc_desc = device->get_soc_descriptor();
+    device->write_to_device(core, wdata1.data(), 0x100, wdata1.size() * sizeof(uint32_t));
+    device->read_from_device(core, rdata1.data(), 0x100, rdata1.size() * sizeof(uint32_t));
+    ASSERT_EQ(wdata1, rdata1);
+
+    device->assert_risc_reset(core, RiscType::ALL_TENSIX);
+    device->assert_risc_reset(core, RiscType::ALL_NEO_DMS);
+    device->deassert_risc_reset(core, RiscType::BRISC, true);
+    device->deassert_risc_reset(core, RiscType::ALL_NEO_DMS, true);
+}

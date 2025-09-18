@@ -790,7 +790,6 @@ void Cluster::ethernet_broadcast_write(
         }
     } else {
         // Broadcast not supported. Implement this at the software level as a for loop
-        std::vector<tt_cxy_pair> cores_to_write = {};
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;

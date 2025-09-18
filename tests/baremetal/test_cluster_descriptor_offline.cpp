@@ -7,7 +7,7 @@
 #include <fstream>
 
 #include "disjoint_set.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
@@ -24,22 +24,9 @@ int count_connections(const std::unordered_map<
 }
 
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
-    for (std::string cluster_desc_yaml : {
-             "blackhole_P100.yaml",
-             "blackhole_P150.yaml",
-             "galaxy.yaml",
-             "wormhole_2xN300_unconnected.yaml",
-             "wormhole_4xN300_mesh.yaml",
-             "wormhole_N150.yaml",
-             "wormhole_N300.yaml",
-             "wormhole_N300_routing_info.yaml",
-             "wormhole_N300_board_info.yaml",
-             "wormhole_N150_unique_ids.yaml",
-             "wormhole_N300_with_remote_connections.yaml",
-         }) {
+    for (std::string cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
-        std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(
-            test_utils::GetAbsPath("tests/cluster_descriptor_examples/" + cluster_desc_yaml));
+        std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_yaml);
 
         std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
         std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
@@ -50,7 +37,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
         // Check that cluster_id is always the same for the same cluster.
         // Cluster id takes the value of the smallest chip_id in the cluster.
         for (auto const& [chip, coord] : eth_chip_coords) {
-            if (cluster_desc_yaml != "wormhole_2xN300_unconnected.yaml") {
+            if (cluster_desc_yaml != test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml")) {
                 EXPECT_EQ(coord.cluster_id, 0);
             } else {
                 EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 1);
@@ -60,8 +47,8 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(
-        test_utils::GetAbsPath("tests/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
     DisjointSet<chip_id_t> chip_clusters;
@@ -89,8 +76,8 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(
-        test_utils::GetAbsPath("tests/cluster_descriptor_examples/wormhole_4xN300_mesh.yaml"));
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_4xN300_mesh.yaml"));
 
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
@@ -162,4 +149,34 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(0).size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
+}
+
+TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
+    for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
+        std::unique_ptr<ClusterDescriptor> cluster_desc;
+        ASSERT_NO_THROW(cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file))
+            << "Failed to load cluster descriptor from: " << descriptor_file;
+
+        ASSERT_NE(cluster_desc, nullptr) << "Cluster descriptor is null for: " << descriptor_file;
+        ASSERT_FALSE(cluster_desc->get_all_chips().empty()) << "Cluster descriptor has no chips: " << descriptor_file;
+
+        // This should return at least mmio chips in their own groups.
+        EXPECT_GT(cluster_desc->get_chips_grouped_by_closest_mmio().size(), 0);
+
+        std::unique_ptr<Cluster> mock_cluster_all;
+        ASSERT_NO_THROW(
+            mock_cluster_all = std::make_unique<Cluster>(
+                ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()}))
+            << "Failed to create mock cluster with all chips for: " << descriptor_file;
+
+        ASSERT_NE(mock_cluster_all, nullptr) << "Mock cluster is null for: " << descriptor_file;
+
+        // Writes and reads have no effect but we can check that the mock cluster is created successfully.
+        std::vector<uint8_t> data(1024, 0);
+        for (auto chip_id : mock_cluster_all->get_target_device_ids()) {
+            CoreCoord any_tensix_core = mock_cluster_all->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+            mock_cluster_all->write_to_device(data.data(), data.size(), chip_id, any_tensix_core, 0);
+            mock_cluster_all->read_from_device(data.data(), chip_id, any_tensix_core, 0, data.size());
+        }
+    }
 }

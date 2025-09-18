@@ -177,7 +177,6 @@ void CoordinateManager::translate_tensix_coords() {
     size_t grid_size_y = tensix_grid_size.y;
 
     size_t logical_y = 0;
-    size_t harvested_index = (grid_size_y - num_harvested_y) * grid_size_x;
     for (size_t y = 0; y < grid_size_y; y++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
             for (size_t x = 0; x < grid_size_x; x++) {
@@ -194,10 +193,10 @@ void CoordinateManager::translate_tensix_coords() {
         }
     }
 
-    if (!noc_translation_enabled) {
-        fill_tensix_default_noc0_translated_mapping();
-    } else {
+    if (noc_translation_enabled) {
         fill_tensix_noc0_translated_mapping();
+    } else {
+        fill_tensix_default_noc0_translated_mapping();
     }
 }
 

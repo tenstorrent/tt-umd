@@ -883,7 +883,6 @@ const std::unordered_map<chip_id_t, uint64_t> &ClusterDescriptor::get_chip_uniqu
     return chip_unique_ids;
 }
 
-// Look into this later
 chip_id_t ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
     TT_ASSERT(
         !this->chip_locations.empty(),

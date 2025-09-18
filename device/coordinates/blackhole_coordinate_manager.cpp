@@ -142,7 +142,6 @@ void BlackholeCoordinateManager::translate_dram_coords() {
         }
     }
 
-    size_t harvested_index = (dram_grid_size.x - num_harvested_banks) * dram_grid_size.y;
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         if (harvesting_masks.dram_harvesting_mask & (1 << x)) {
             for (size_t y = 0; y < dram_grid_size.y; y++) {

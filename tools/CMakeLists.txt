@@ -63,3 +63,5 @@ add_custom_target(
         harvesting
         system_health
 )
+
+add_subdirectory(debug_mode)

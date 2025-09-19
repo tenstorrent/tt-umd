@@ -7,6 +7,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 constexpr size_t example_eth_harvesting_mask = (1 << 8) | (1 << 5);

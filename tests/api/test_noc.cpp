@@ -9,6 +9,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(TestNoc, TestNoc0NodeId) {

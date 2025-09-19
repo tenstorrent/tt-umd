@@ -13,6 +13,8 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+
+using namespace tt;
 using namespace tt::umd;
 
 class ApiJtagDeviceTest : public ::testing::Test {

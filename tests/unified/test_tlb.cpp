@@ -9,6 +9,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/tlb.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 bool is_kmd_version_good() {

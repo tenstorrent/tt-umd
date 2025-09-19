@@ -10,6 +10,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 constexpr size_t example_eth_harvesting_mask = (1 << 8) | (1 << 5);

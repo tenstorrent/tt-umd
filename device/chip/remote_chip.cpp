@@ -14,6 +14,7 @@
 #include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
@@ -38,7 +39,6 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     } else {
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
-
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }
@@ -52,7 +52,10 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-            remote_transfer_eth_channels, CoordSystem::TRANSLATED));
+            remote_transfer_eth_channels,
+            local_chip->get_tt_device()->get_communication_device_type() == IODeviceType::JTAG
+                ? CoordSystem::NOC0
+                : CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
     remote_tt_device->init_tt_device();
 

@@ -18,9 +18,6 @@
 
 namespace tt::umd {
 
-// Backward compatibility alias
-using SimulationDevice = RtlSimulationChip;
-
 class SimulationDeviceFixture : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {

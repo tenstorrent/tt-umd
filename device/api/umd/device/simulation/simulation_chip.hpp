@@ -56,6 +56,7 @@ public:
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
+    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
     void set_power_state(DevicePowerState state) override;
@@ -79,13 +80,14 @@ public:
     virtual void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
     virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
 
-    virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override = 0;
+    virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
     virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override = 0;
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
     SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
 
+    // Simulator directory
     // Common state variables
     driver_noc_params noc_params;
     std::set<chip_id_t> target_devices_in_cluster = {};

@@ -9,10 +9,13 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/simulation/rtl_simulation_chip.hpp"
+#include "umd/device/simulation/tt_simulation_chip.hpp"
 
 namespace tt::umd {
 
-SimulationChip::create(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
+std::unique_ptr<SimulationChip> SimulationChip::create(
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimulationChip>(simulator_directory, soc_descriptor);
     } else {
@@ -27,7 +30,6 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 
 SimulationChip::SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
     Chip(soc_descriptor), simulator_directory_(simulator_directory) {
-    log_info(tt::LogEmulationDriver, "Instantiating simulation device");
     soc_descriptor_per_chip.emplace(0, soc_descriptor);
     arch_name = soc_descriptor.arch;
     target_devices_in_cluster = {0};
@@ -38,6 +40,10 @@ SimulationChip::SimulationChip(const std::filesystem::path& simulator_directory,
 }
 
 // Base class implementations (common simple methods)
+void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
+}
+
 void SimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     send_tensix_risc_reset({0, 0}, soft_resets);
 }

@@ -211,15 +211,22 @@ void SimulationDevice::assert_risc_reset(CoreCoord core, const RiscType selected
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    // Only a few scenarios are implemented at the moment.
-    if (selected_riscs == RiscType::ALL_TENSIX) {
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core));
-    } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
+    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
+    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
     } else {
-        TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
+        // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
+        // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
+        // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
+        // always call this command as if reset for all was requested, unless NEO_DMS_RESET was specifically selected.
+        if (libttsim_handle) {
+            pfn_libttsim_tensix_reset_assert(translate_core.x, translate_core.y);
+        } else {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core));
+        }
     }
 }
 
@@ -227,17 +234,14 @@ void SimulationDevice::deassert_risc_reset(CoreCoord core, const RiscType select
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    // Only a few scenarios are implemented at the moment.
-    if (selected_riscs == RiscType::BRISC) {
-        // This branch is currently executed the same for all architectures.
-        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
-    } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
+    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
+    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
     } else {
-        TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        // See the comment in assert_risc_reset for more details.
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
     }
 }
 

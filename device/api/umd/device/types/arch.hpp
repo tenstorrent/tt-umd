@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <ostream>
 
@@ -57,3 +60,15 @@ static inline std::string arch_to_str(const tt::ARCH arch) {
 static inline std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch) { return out << arch_to_str(arch); }
 
 }  // namespace tt
+
+namespace fmt {
+template <>
+struct formatter<tt::ARCH> {
+    constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <typename Context>
+    constexpr auto format(tt::ARCH const &arch, Context &ctx) const {
+        return format_to(ctx.out(), "{}", tt::arch_to_str(arch));
+    }
+};
+}  // namespace fmt

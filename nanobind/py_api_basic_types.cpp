@@ -31,7 +31,7 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("rack", &eth_coord_t::rack)
         .def_rw("shelf", &eth_coord_t::shelf);
 
-    nb::class_<tt::umd::xy_pair>(m, "tt_xy_pair")
+    nb::class_<tt::xy_pair>(m, "tt_xy_pair")
         .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))
         .def_ro("x", &tt_xy_pair::x)
         .def_ro("y", &tt_xy_pair::y)

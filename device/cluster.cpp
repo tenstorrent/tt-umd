@@ -549,11 +549,6 @@ void Cluster::deassert_risc_reset(
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
-    int device_id) {
-    return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
-}
-
 Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
@@ -580,19 +575,19 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
-        tlb_index,
+        tlb_size,
         address,
         ordering);
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {

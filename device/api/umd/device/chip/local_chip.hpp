@@ -57,8 +57,6 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
-    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
-
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
 
@@ -107,6 +105,15 @@ private:
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
+    TlbWindow* get_cached_wc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_uc_tlb_window(tlb_data config);
+
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
+
+    std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
+    std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
+
+    std::mutex wc_tlb_lock;
+    std::mutex uc_tlb_lock;
 };
 }  // namespace tt::umd

@@ -73,8 +73,6 @@ public:
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
     virtual uint32_t get_grid_size_x() const = 0;
     virtual uint32_t get_grid_size_y() const = 0;
-    virtual uint32_t get_tlb_cfg_reg_size_bytes() const = 0;
-    virtual uint32_t get_small_read_write_tlb() const = 0;
     // Replace with std::span once we enable C++20
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;

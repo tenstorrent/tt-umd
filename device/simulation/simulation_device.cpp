@@ -204,7 +204,9 @@ void SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftRe
 }
 
 void SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset({0, 0}, soft_resets);
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+        send_tensix_risc_reset(core, soft_resets);
+    }
 }
 
 void SimulationDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {

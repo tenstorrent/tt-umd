@@ -17,14 +17,6 @@
 
 namespace tt::umd {
 
-typedef void (*libttsim_init_t)();
-typedef void (*libttsim_exit_t)();
-typedef void (*libttsim_tile_rd_bytes_t)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size);
-typedef void (*libttsim_tile_wr_bytes_t)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size);
-typedef void (*libttsim_tensix_reset_deassert_t)(uint32_t x, uint32_t y);
-typedef void (*libttsim_tensix_reset_assert_t)(uint32_t x, uint32_t y);
-typedef void (*libttsim_clock_t)(uint32_t n_clocks);
-
 class SimulationDeviceInit {
 public:
     SimulationDeviceInit(const std::filesystem::path& simulator_directory);
@@ -127,13 +119,13 @@ private:
     std::mutex device_lock;
 
     void* libttsim_handle = nullptr;
-    libttsim_init_t pfn_libttsim_init = nullptr;
-    libttsim_exit_t pfn_libttsim_exit = nullptr;
-    libttsim_tile_rd_bytes_t pfn_libttsim_tile_rd_bytes = nullptr;
-    libttsim_tile_wr_bytes_t pfn_libttsim_tile_wr_bytes = nullptr;
-    libttsim_tensix_reset_deassert_t pfn_libttsim_tensix_reset_deassert = nullptr;
-    libttsim_tensix_reset_assert_t pfn_libttsim_tensix_reset_assert = nullptr;
-    libttsim_clock_t pfn_libttsim_clock = nullptr;
+    void (*pfn_libttsim_init)() = nullptr;
+    void (*pfn_libttsim_exit)() = nullptr;
+    void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_tensix_reset_deassert)(uint32_t x, uint32_t y) = nullptr;
+    void (*pfn_libttsim_tensix_reset_assert)(uint32_t x, uint32_t y) = nullptr;
+    void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
 };
 
 }  // namespace tt::umd

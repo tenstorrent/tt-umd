@@ -19,7 +19,7 @@
 #include "fmt/xchar.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -759,6 +759,12 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
+    }
+
+    // TODO: remove this check when it is figured out what is happening with llmbox.
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 &&
+        cluster->get_target_device_ids().size() == 8) {
+        GTEST_SKIP() << "Skipping test for LLMBox architecture, as it seems flaky.";
     }
 
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,

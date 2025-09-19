@@ -13,9 +13,13 @@
 #include <stdexcept>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/simulation/simulation_device.hpp"
+#include "umd/device/simulation/rtl_simulation_chip.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
+
+// Backward compatibility alias
+using SimulationDevice = RtlSimulationChip;
 
 class SimulationDeviceFixture : public ::testing::Test {
 protected:
@@ -28,7 +32,7 @@ protected:
         }
         auto soc_descriptor_path = SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
-        device = std::make_unique<SimulationDevice>(simulator_path, soc_descriptor);
+        device = SimulationChip::create(simulator_path, soc_descriptor);
         device->start_device();
     }
 

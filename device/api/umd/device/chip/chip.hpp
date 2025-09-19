@@ -45,6 +45,8 @@ public:
     virtual SysmemManager* get_sysmem_manager() = 0;
     virtual TLBManager* get_tlb_manager() = 0;
 
+    virtual void verify_initialization(){};
+
     virtual int get_num_host_channels() = 0;
     virtual int get_host_channel_size(std::uint32_t channel) = 0;
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;

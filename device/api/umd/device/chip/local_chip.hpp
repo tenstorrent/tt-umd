@@ -7,9 +7,11 @@
 #pragma once
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip/chip_connection.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 
 namespace tt::umd {
@@ -40,6 +42,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    void verify_initialization() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -77,19 +81,9 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
-    LocalChip(
-        tt_SocDescriptor soc_descriptor,
-        std::unique_ptr<TTDevice> tt_device,
-        std::unique_ptr<TLBManager> tlb_manager,
-        std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels);
 
-    std::unique_ptr<TLBManager> tlb_manager_;
-    std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
-    // Used only for ethernet broadcast to all remote chips.
-    std::unique_ptr<RemoteCommunication> remote_communication_;
 
     // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
     // RobustMutex is unlocked.
@@ -108,5 +102,6 @@ private:
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
+    std::unique_ptr<ChipConnection> chip_connection_ = nullptr;
 };
 }  // namespace tt::umd

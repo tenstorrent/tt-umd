@@ -29,6 +29,7 @@ target_sources(
     PRIVATE
         arch/architecture_implementation.cpp
         chip/chip.cpp
+        chip/pcie_connection.cpp
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
@@ -108,6 +109,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
+                api/umd/device/chip/chip_connection.hpp
+                api/umd/device/chip/pcie_connection.hpp
                 api/umd/device/chip/local_chip.hpp
                 api/umd/device/chip/mock_chip.hpp
                 api/umd/device/chip/remote_chip.hpp

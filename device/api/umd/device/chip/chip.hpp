@@ -57,8 +57,6 @@ public:
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
 
-    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() = 0;
-
     virtual void wait_for_non_mmio_flush() = 0;
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;

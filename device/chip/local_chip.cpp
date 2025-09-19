@@ -454,15 +454,6 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     }
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
-    const auto callable = [](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        // TODO(pjanevski): uncomment this
-        // tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
-    };
-
-    return callable;
-}
-
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");

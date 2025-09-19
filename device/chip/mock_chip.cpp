@@ -44,12 +44,6 @@ void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core,
 
 void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> MockChip::get_fast_pcie_static_tlb_write_callable() {
-    return [](uint32_t, uint32_t, const uint8_t*) {
-        // No-op for mock chip
-    };
-}
-
 int MockChip::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,

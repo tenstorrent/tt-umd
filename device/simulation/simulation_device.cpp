@@ -312,11 +312,6 @@ void SimulationDevice::dma_read_from_device(void* dst, size_t size, CoreCoord co
     read_from_device(core, dst, addr, size);
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> SimulationDevice::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error(
-        "SimulationDevice::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
-}
-
 void SimulationDevice::wait_for_non_mmio_flush() {}
 
 void SimulationDevice::l1_membar(const std::unordered_set<CoreCoord>& cores) {}

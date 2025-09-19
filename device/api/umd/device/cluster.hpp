@@ -451,11 +451,6 @@ public:
         std::set<uint32_t>& columns_to_exclude);
 
     /**
-     * This API allows you to write directly to device memory that is addressable by a static TLB.
-     */
-    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
-
-    /**
      * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that
      * - the target has a static TLB mapping configured.

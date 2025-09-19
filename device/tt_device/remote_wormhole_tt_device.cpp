@@ -17,7 +17,6 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
     communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();
     is_remote_tt_device = true;
-    init_tt_device();
 }
 
 void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {

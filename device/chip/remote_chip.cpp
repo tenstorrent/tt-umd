@@ -31,6 +31,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -56,6 +57,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
                 ? CoordSystem::NOC0
                 : CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));

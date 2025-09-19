@@ -240,8 +240,12 @@ void SimulationDevice::deassert_risc_reset(CoreCoord core, const RiscType select
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
     } else {
         // See the comment in assert_risc_reset for more details.
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
+        if (libttsim_handle) {
+            pfn_libttsim_tensix_reset_deassert(translate_core.x, translate_core.y);
+        } else {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
+        }
     }
 }
 

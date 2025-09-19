@@ -156,6 +156,7 @@ using tt::CoreType;
 
 namespace tt::umd {
 using CoreType = tt::CoreType;
+using CoordSystem = tt::CoordSystem;
 }  // namespace tt::umd
 
 namespace std {

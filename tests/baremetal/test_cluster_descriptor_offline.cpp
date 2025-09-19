@@ -8,9 +8,11 @@
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tt-logger/tt-logger.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 int count_connections(const std::unordered_map<
@@ -153,6 +155,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
 
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
     for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
+        log_info(LogSiliconDriver, "Testing mock cluster creation from: {}", descriptor_file);
         std::unique_ptr<ClusterDescriptor> cluster_desc;
         ASSERT_NO_THROW(cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file))
             << "Failed to load cluster descriptor from: " << descriptor_file;

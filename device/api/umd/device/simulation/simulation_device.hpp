@@ -17,32 +17,11 @@
 
 namespace tt::umd {
 
-class SimulationDeviceInit {
-public:
-    SimulationDeviceInit(const std::filesystem::path& simulator_directory);
-
-    tt::ARCH get_arch_name() const { return soc_descriptor.arch; }
-
-    const SocDescriptor& get_soc_descriptor() const { return soc_descriptor; }
-
-    std::filesystem::path get_simulator_path() const { return simulator_directory; }
-
-private:
-    std::filesystem::path simulator_directory;
-    SocDescriptor soc_descriptor;
-};
-
 class SimulationDevice : public Chip {
 public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     SimulationDevice(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
-
-    // TODO: Following constructors are deprecated and should be removed.
-    SimulationDevice(const std::filesystem::path& simulator_directory) :
-        SimulationDevice(SimulationDeviceInit(simulator_directory)) {}
-
-    SimulationDevice(const SimulationDeviceInit& init);
     ~SimulationDevice();
 
     SimulationHost host;
@@ -101,8 +80,6 @@ public:
         uint32_t* return_4 = nullptr) override;
 
 private:
-    // TODO: To be removed once clients switch to new constructor.
-    void initialize(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
     void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
 
     // State variables
@@ -129,7 +106,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::SimulationDeviceInit;
-using tt_SimulationDeviceInit = tt::umd::SimulationDeviceInit;

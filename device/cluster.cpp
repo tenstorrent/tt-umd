@@ -1060,8 +1060,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     for (std::uint32_t& fw_version : fw_versions) {
         tt_version fw(fw_version);
         TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        TT_ASSERT(sw.major <= fw.major, "SW/FW major version number out of sync");
-        TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
+        TT_ASSERT(fw >= sw, "SW version is newer than FW version");
     }
 
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.

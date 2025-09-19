@@ -32,11 +32,7 @@ int main(int argc, char* argv[]) {
 
     auto print_core_all_systems = [&](const SocDescriptor& soc_desc, const CoreCoord& core) {
         for (CoordSystem coord_system :
-             {CoordSystem::NOC0,
-              CoordSystem::TRANSLATED,
-              CoordSystem::VIRTUAL,
-              CoordSystem::LOGICAL,
-              CoordSystem::NOC1}) {
+             {CoordSystem::NOC0, CoordSystem::TRANSLATED, CoordSystem::LOGICAL, CoordSystem::NOC1}) {
             try {
                 print_core_formatted(soc_desc.translate_coord_to(core, coord_system));
             } catch (const std::runtime_error& _) {

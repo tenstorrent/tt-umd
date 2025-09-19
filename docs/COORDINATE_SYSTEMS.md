@@ -79,18 +79,6 @@ Using harvesting example, the effect on noc0 coordinates for two harvested confi
 
 Note that noc0 coordinates stay the same, coordinates are not changed, some coordinates simply become unavailable. The user of UMD needs to be careful when using noc0 coordinate system.
 
-## Virtual coordinates
-
-Virtual coordinates are a subset of the full chip noc0 coordinates shown above. When there is no harvesting virtual coordinates are equal to noc0 coordinates.
-
-### Harvesting effect on virtual coordinates
-
-Using harvesting example, the effect on virtual coordinates for two harvested configuration is on the image below.
-
-![Tensix virtual coordinates harvested](images/tensix_virtual_coordinates_harvested.png)
-
-When using virtual coordinates, it is same as that the N harvested rows/columns have been moved to the last N rows/columns (same for DRAM banks and ETH channels).
-
 ## Translated Coordinates
 
 **Motivation: Allow binaries to be compatible across different devices, as long as their number of harvested tensix/dram/eth cores are same.**
@@ -156,12 +144,12 @@ Note that range on X axis stays the same (no harvested columns), but the range o
 ### Wormhole
 
 When no harvesting has taken place (chip has full grid size):
-* NOC0 Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
-* NOC0 Coordinates == Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
+* NOC0 Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* NOC0 Coordinates != Translated Coordinates for Tensix and Ethernet
 
 When harvesting is performed on a chip:
-* NOC0 Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
-* NOC0 Coordinates != Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
+* NOC0 Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* NOC0 Coordinates != Translated Coordinates for Tensix and Ethernet
 
 ### Blackhole
 
@@ -184,7 +172,6 @@ enum class CoreType {
 enum class CoordSystem : std::uint8_t {
     LOGICAL,
     NOC0,
-    VIRTUAL,
     TRANSLATED,
 };
 
@@ -216,13 +203,8 @@ UMD offers certain guarantees when using different coordinate systems.
    - This coordinate system preserves exact NOC0 proximity information between cores. The data will flow the fastest between consecutive nodes.
    - IO with noc0 coordinates is not always safe to use. UMD is not blocking the client to use noc0 coordinates if it knows what to do, but by using noc0 coordinates UMD might hit harvested core which might not work.
 
-- Virtual coordinates:
-   - Requires more knowledge about chip layout than the logical coordinates, but programming is consistent on all chips (however they are harvested).
-   - This coordinate system somewhat preserves NOC0 proximity information, but this might not be exact due to harvesting.
-   - IO with virtual coordinates is always safe to use. It is guaranteed to hit unharvested cores.
-
 - Translated coordinates:
-   - Same in all aspects as virtual coordinates.
+   - This coordinate system somewhat preserves NOC0 proximity information, but this might not be exact due to harvesting.
    - These ones are actually used to interface with the chip (specifically the NOC). These ones are also used by kernels running on nodes
 
 - Logical coordinates:

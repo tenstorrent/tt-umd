@@ -53,8 +53,11 @@ void BlackholeCoordinateManager::assert_coordinate_manager_constructor() {
 
     const size_t num_harvested_eth_cores = get_num_harvested(harvesting_masks.eth_harvesting_mask);
     // If we're running on full grid, exactly 2 or all ETH cores should be harvested.
-    if (eth_cores.size() == 14 && num_harvested_eth_cores != 2 && num_harvested_eth_cores != 14) {
-        throw std::runtime_error("Exactly 2 or 14 ETH cores should be harvested on full Blackhole");
+    if (eth_cores.size() == blackhole::NUM_ETH_CHANNELS && num_harvested_eth_cores != 2 &&
+        num_harvested_eth_cores != blackhole::NUM_ETH_CHANNELS) {
+        throw std::runtime_error(
+            "Exactly 2 or " + std::to_string(blackhole::NUM_ETH_CHANNELS) +
+            " ETH cores should be harvested on full Blackhole");
     }
 }
 

@@ -26,7 +26,7 @@ protected:
             throw std::runtime_error(
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
-        auto soc_descriptor_path = SocDescriptor::get_soc_descriptor_path_from_simulator_path(simulator_path);
+        auto soc_descriptor_path = SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
         device = std::make_unique<SimulationDevice>(simulator_path, soc_descriptor);
         device->start_device();

@@ -603,6 +603,10 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             uint64_t chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
             int channel_1 = endpoints.at(1)["chan"].as<int>();
             ethernet_connections_to_remote_devices[chip_0][channel_0] = {chip_1, channel_1};
+
+            // Mark the local channel as active and remove from idle, to accurately represent used Ethernet channels in mock clusters (matching real hardware discovery)
+            active_eth_channels[chip_0].insert(channel_0);
+            idle_eth_channels[chip_0].erase(channel_0);
         }
     }
 }

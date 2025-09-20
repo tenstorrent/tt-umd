@@ -416,6 +416,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, target_chip_ids);
     desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, target_chip_ids);
 
+    desc->chip_to_bus_id = filter_chip_collection(full_cluster_desc->chip_to_bus_id, target_chip_ids);
+
     desc->galaxy_shelves_exit_chip_coords_per_y_dim = full_cluster_desc->galaxy_shelves_exit_chip_coords_per_y_dim;
     desc->galaxy_racks_exit_chip_coords_per_x_dim = full_cluster_desc->galaxy_racks_exit_chip_coords_per_x_dim;
 
@@ -1091,6 +1093,13 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
     for (const int &chip : all_chips_map) {
         out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
+    }
+    out << YAML::EndMap;
+
+    out << YAML::Key << "chip_to_bus_id" << YAML::Value << YAML::BeginMap;
+    std::map<chip_id_t, uint16_t> sorted_chip_to_bus_id(chip_to_bus_id.begin(), chip_to_bus_id.end());
+    for (const auto &[chip, bus_id] : sorted_chip_to_bus_id) {
+        out << YAML::Key << chip << YAML::Value << bus_id;
     }
     out << YAML::EndMap;
 

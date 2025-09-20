@@ -825,9 +825,14 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     }
 
     if (yaml["chip_to_bus_id"]) {
-        for (const auto &chip_bus_id : yaml["chip_to_bus_id"].as<std::map<int, uint16_t>>()) {
+        for (const auto &chip_bus_id : yaml["chip_to_bus_id"].as<std::map<int, std::string>>()) {
             auto &chip = chip_bus_id.first;
-            auto &bus_id = chip_bus_id.second;
+            std::string bus_str = chip_bus_id.second;
+            // Remove '0x' prefix if present
+            if (bus_str.substr(0, 2) == "0x") {
+                bus_str = bus_str.substr(2);
+            }
+            uint16_t bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
             chip_to_bus_id.insert({chip, bus_id});
         }
     }
@@ -1099,7 +1104,8 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::Key << "chip_to_bus_id" << YAML::Value << YAML::BeginMap;
     std::map<chip_id_t, uint16_t> sorted_chip_to_bus_id(chip_to_bus_id.begin(), chip_to_bus_id.end());
     for (const auto &[chip, bus_id] : sorted_chip_to_bus_id) {
-        out << YAML::Key << chip << YAML::Value << bus_id;
+        std::string hex_bus_id = fmt::format("0x{:04x}", bus_id);
+        out << YAML::Key << chip << YAML::Value << hex_bus_id;
     }
     out << YAML::EndMap;
 

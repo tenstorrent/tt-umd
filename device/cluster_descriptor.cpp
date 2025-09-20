@@ -821,6 +821,14 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             chip_unique_ids.insert({chip, unique_id});
         }
     }
+
+    if (yaml["chip_to_bus_id"]) {
+        for (const auto &chip_bus_id : yaml["chip_to_bus_id"].as<std::map<int, uint16_t>>()) {
+            auto &chip = chip_bus_id.first;
+            auto &bus_id = chip_bus_id.second;
+            chip_to_bus_id.insert({chip, bus_id});
+        }
+    }
 }
 
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
@@ -1212,5 +1220,13 @@ uint8_t ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
 }
 
 IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
+
+uint16_t ClusterDescriptor::get_bus_id(chip_id_t chip_id) const {
+    auto it = chip_to_bus_id.find(chip_id);
+    if (it == chip_to_bus_id.end()) {
+        return 0;  // Default to 0 if not found
+    }
+    return it->second;
+}
 
 }  // namespace tt::umd

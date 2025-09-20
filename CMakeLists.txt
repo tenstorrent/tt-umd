@@ -40,6 +40,23 @@ project(
 
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
+# Add a configurable option to enable/disable clang-tidy
+option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" OFF)
+
+# Find clang-tidy executable if the option is enabled
+if(ENABLE_CLANG_TIDY)
+    find_program(
+        CLANG_TIDY_EXE
+        NAMES
+            clang-tidy
+            clang-tidy-17
+    )
+
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build")
+    endif()
+endif()
+
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 CHECK_COMPILERS()
 include(check_libcpp)

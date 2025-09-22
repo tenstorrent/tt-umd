@@ -246,7 +246,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
 
-        cluster_desc->chip_to_bus_id.insert({current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_info().pci_bus});
+        cluster_desc->chip_to_bus_id.insert(
+            {current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_info().pci_bus});
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {

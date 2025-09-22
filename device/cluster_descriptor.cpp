@@ -836,7 +836,8 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
 
             // Enforce '0x' prefix.
             if (bus_str.substr(0, 2) != "0x") {
-                std::string msg = "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
+                std::string msg =
+                    "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
                 throw std::runtime_error(msg);
             }
             bus_str = bus_str.substr(2);

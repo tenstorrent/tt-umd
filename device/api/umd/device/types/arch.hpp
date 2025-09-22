@@ -11,8 +11,7 @@
 
 #include "umd/device/utils/common.hpp"
 
-// Arch is common to everything related in TT, and not just UMD. It might move to some common folder someday.
-// So we decided to put it in tt namespace instead of tt::umd.
+// Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {
 
 /**

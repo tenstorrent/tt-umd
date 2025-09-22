@@ -7,8 +7,8 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 
+using namespace tt;
 using namespace tt::umd;
-#include <iostream>
 
 // Tests that all noc0 coordinates are same as all virtual coordinates
 // when there is no harvesting.

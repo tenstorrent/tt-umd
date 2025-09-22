@@ -11,6 +11,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 struct UbbId {

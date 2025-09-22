@@ -108,7 +108,13 @@ void TopologyDiscovery::get_connected_chips() {
         uint64_t asic_id = get_asic_id(chip.get());
         initialize_remote_communication(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
-        log_debug(LogSiliconDriver, "Discovered PCI chip with PCI ID {} and asic ID {}", device_id, asic_id);
+        log_debug(
+            LogSiliconDriver,
+            "Discovered {} chip with {} ID {} and asic ID {}",
+            DeviceTypeToString.at(io_device_type),
+            DeviceTypeToString.at(io_device_type),
+            device_id,
+            asic_id);
     }
 }
 

@@ -119,7 +119,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
 
     const tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
@@ -366,7 +366,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
 
     tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 

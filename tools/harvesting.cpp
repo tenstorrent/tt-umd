@@ -8,6 +8,7 @@
 
 #include "umd/device/cluster.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 int main(int argc, char* argv[]) {

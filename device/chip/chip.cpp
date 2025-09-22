@@ -58,15 +58,16 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        // TODO issue 1208: figure out why translated ETH don't work on UBB
+        tt_xy_pair actual_eth_core = eth_core;
         if (chip_info_.board_type == BoardType::UBB) {
-            timeout_left -= tt_device->wait_eth_core_training(
-                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0),
-                timeout_left);
+            // TODO issue 1208: figure out why translated ETH don't work on UBB
+            actual_eth_core =
+                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         } else {
-            timeout_left -=
-                tt_device->wait_eth_core_training(translate_chip_coord_to_translated(eth_core), timeout_left);
+            actual_eth_core = translate_chip_coord_to_translated(eth_core);
         }
+
+        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
 }
 

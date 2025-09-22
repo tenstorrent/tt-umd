@@ -18,6 +18,7 @@
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 
+using namespace tt;
 using namespace tt::umd;
 
 struct tt_multichip_core_addr {

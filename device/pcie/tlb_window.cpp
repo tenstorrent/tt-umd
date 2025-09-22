@@ -66,16 +66,9 @@ TlbHandle &TlbWindow::handle_ref() const { return *tlb_handle; }
 
 size_t TlbWindow::get_size() const { return tlb_handle->get_size() - offset_from_aligned_addr; }
 
-// For simplicity and correctness, only allow 32-bit aligned accesses.
-// There exist platform and device specific considerations for unaligned
-// accesses which are not addressed here.
 void TlbWindow::validate(uint64_t offset, size_t size) const {
     if ((offset + size) > get_size()) {
         throw std::out_of_range("Out of bounds access");
-    }
-
-    if (offset & (sizeof(uint32_t) - 1)) {
-        throw std::runtime_error("Bad alignment");
     }
 }
 

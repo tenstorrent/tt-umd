@@ -245,7 +245,6 @@ public:
 
     uint16_t get_bus_id(chip_id_t chip_id) const;
 
-    // New member for chip to bus ID mapping
     const std::unordered_map<chip_id_t, uint16_t> &get_chip_to_bus_id() const;
 
 private:
@@ -313,7 +312,7 @@ private:
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 
-    // New member for chip to bus ID mapping
+    // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
     std::unordered_map<chip_id_t, uint16_t> chip_to_bus_id = {};
 };
 

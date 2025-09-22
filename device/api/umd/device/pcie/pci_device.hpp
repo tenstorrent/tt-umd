@@ -289,6 +289,10 @@ public:
 
 private:
     void allocate_pcie_dma_buffer();
+
+    bool try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size);
+
+    bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
 };
 
 }  // namespace tt::umd

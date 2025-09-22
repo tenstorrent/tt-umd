@@ -745,6 +745,69 @@ uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
     return *command_byte;
 }
 
+bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
+    const size_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+
+    void *dma_buf_mapping =
+        mmap(nullptr, dma_buf_alloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    try {
+        uint64_t iova = map_for_dma(dma_buf_mapping, dma_buf_alloc_size);
+
+        dma_buffer.buffer = (uint8_t *)dma_buf_mapping;
+        dma_buffer.completion = (uint8_t *)dma_buf_mapping + dma_buf_size;
+        dma_buffer.buffer_pa = iova;
+        dma_buffer.completion_pa = iova + dma_buf_size;
+        dma_buffer.size = dma_buf_size;
+
+        return true;
+
+    } catch (...) {
+        munmap(dma_buf_mapping, dma_buf_alloc_size);
+        return false;
+    }
+
+    return true;
+}
+
+bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
+    tenstorrent_allocate_dma_buf dma_buf{};
+
+    const uint64_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+
+    dma_buf.in.requested_size = dma_buf_alloc_size;
+    dma_buf.in.buf_index = 0;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+        log_debug(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+    } else {
+        // OK - we have a buffer.  Map it.
+        void *buffer = mmap(
+            nullptr,
+            dma_buf_alloc_size,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            pci_device_file_desc,
+            dma_buf.out.mapping_offset);
+
+        if (buffer == MAP_FAILED) {
+            // Similar rationale to above, although this is worse because we
+            // can't deallocate it.  That only happens when we close the fd.
+            log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
+            return false;
+        } else {
+            dma_buffer.buffer = (uint8_t *)buffer;
+            dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
+            dma_buffer.buffer_pa = dma_buf.out.physical_address;
+            dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
+            dma_buffer.size = dma_buf_size;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void PCIDevice::allocate_pcie_dma_buffer() {
     if (arch != tt::ARCH::WORMHOLE_B0) {
         // DMA buffer is only supported on Wormhole B0.
@@ -769,38 +832,18 @@ void PCIDevice::allocate_pcie_dma_buffer() {
     }
 
     while (dma_buf_size >= page_size) {
-        tenstorrent_allocate_dma_buf dma_buf{};
+        bool dma_buf_allocation_success = false;
 
-        const uint64_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
-
-        dma_buf.in.requested_size = dma_buf_alloc_size;
-        dma_buf.in.buf_index = 0;
-
-        if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-            log_debug(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+        if (is_iommu_enabled()) {
+            dma_buf_allocation_success = try_allocate_pcie_dma_buffer_iommu(dma_buf_size);
         } else {
-            // OK - we have a buffer.  Map it.
-            void *buffer = mmap(
-                nullptr,
-                dma_buf_alloc_size,
-                PROT_READ | PROT_WRITE,
-                MAP_SHARED,
-                pci_device_file_desc,
-                dma_buf.out.mapping_offset);
-
-            if (buffer == MAP_FAILED) {
-                // Similar rationale to above, although this is worse because we
-                // can't deallocate it.  That only happens when we close the fd.
-                log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
-            } else {
-                dma_buffer.buffer = (uint8_t *)buffer;
-                dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
-                dma_buffer.buffer_pa = dma_buf.out.physical_address;
-                dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
-                dma_buffer.size = dma_buf_size;
-                break;
-            }
+            dma_buf_allocation_success = try_allocate_pcie_dma_buffer_no_iommu(dma_buf_size);
         }
+
+        if (dma_buf_allocation_success) {
+            break;
+        }
+
         dma_buf_size >>= 1;
     }
 }

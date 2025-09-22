@@ -4,6 +4,7 @@
 
 #include <memory>
 
+#include "assert.hpp"
 #include "gtest/gtest.h"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/cluster.hpp"
@@ -50,7 +51,7 @@ protected:
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
             auto soc_descriptor =
                 tt_SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
-            device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
+            device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             device_data_.push_back(std::move(device_data));
         }
 
@@ -119,6 +120,58 @@ TEST_F(ApiJtagDeviceTest, JtagIOLessThanWordSizeUnalignedAddress) {
     std::vector<uint8_t> data_write = {10, 20, 30};
     for (const auto& device : device_data_) {
         check_io(device, address, data_write);
+    }
+}
+
+/*
+ * Write to a core using PCIe and read back using JTAG.
+ * Use translated coordinates to check if JTAG targets the correct core.
+ */
+TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "PCI device enumeration failed. Cannot run JTAG Translated Coords Test.";
+    }
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    uint64_t address = 0x0;
+    bool read_occured = false;
+
+    // Test shouldn't last long since there's a limited number of PCIe devices on the system.
+    for (const auto& pci_device_id : pci_device_ids) {
+        auto pci_tt_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
+        if (!pci_tt_device) {
+            TT_THROW("Failed to create PCI TT device.");
+        }
+        pci_tt_device->init_tt_device();
+
+        ChipInfo chip_info = pci_tt_device->get_chip_info();
+
+        tt_xy_pair tensix_core =
+            SocDescriptor(pci_tt_device->get_arch(), chip_info).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        // clear the memory first with zeros.
+        pci_tt_device->write_to_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+        pci_tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+        for (const auto& device : device_data_) {
+            ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
+            // Since we can have multiple chips with their own jlink,
+            // we have to find the one which direct connection to PCIe link.
+            if (jtag_chip_info.chip_uid.board_id == chip_info.chip_uid.board_id &&
+                jtag_chip_info.asic_location == chip_info.asic_location) {
+                device.tt_device_->read_from_device(
+                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                ASSERT_EQ(data_write, data_read);
+                read_occured = true;
+                break;
+            }
+        }
+        std::fill(data_read.begin(), data_read.end(), 0);
+    }
+    if (!read_occured) {
+        GTEST_SKIP() << "No matching PCIe device found for JTAG device.";
     }
 }
 

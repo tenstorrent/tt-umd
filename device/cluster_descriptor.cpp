@@ -695,7 +695,7 @@ void ClusterDescriptor::fill_galaxy_connections() {
                 y_dim,
                 shelf_exit_chip_coords.source_chip_coord);
             for (const auto &destination_chip_coord : shelf_exit_chip_coords.destination_chip_coords) {
-                log_debug(LogSiliconDriver, "\tdestination_chip_coord: {}", destination_chip_coord);
+                log_debug(LogSiliconDriver, "\tdestination_chip_coord:{}", destination_chip_coord);
             }
         }
     }
@@ -833,10 +833,14 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         for (const auto &chip_bus_id : yaml["chip_to_bus_id"].as<std::map<int, std::string>>()) {
             auto &chip = chip_bus_id.first;
             std::string bus_str = chip_bus_id.second;
-            // Remove '0x' prefix if present
-            if (bus_str.substr(0, 2) == "0x") {
-                bus_str = bus_str.substr(2);
+
+            // Enforce '0x' prefix.
+            if (bus_str.substr(0, 2) != "0x") {
+                std::string msg = "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
+                throw std::runtime_error(msg);
             }
+            bus_str = bus_str.substr(2);
+
             uint16_t bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
             chip_to_bus_id.insert({chip, bus_id});
         }
@@ -1244,7 +1248,7 @@ IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_ty
 uint16_t ClusterDescriptor::get_bus_id(chip_id_t chip_id) const {
     auto it = chip_to_bus_id.find(chip_id);
     if (it == chip_to_bus_id.end()) {
-        return 0;  // Default to 0 if not found
+        return 0;
     }
     return it->second;
 }

@@ -17,7 +17,7 @@ constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
-/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/lib_tt_jtag.so");
+/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/libtt_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {
@@ -203,13 +203,14 @@ void JtagDevice::write32_axi(uint8_t chip_id, uint32_t address, uint32_t data) {
     jtag->write_axi(address, data);
 }
 
-void JtagDevice::write32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint32_t data) {
+void JtagDevice::write32(
+    uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint32_t data, uint8_t noc_id) {
     select_device(chip_id);
-    jtag->write_noc_xy(noc_x, noc_y, address, data);
+    jtag->write_noc_xy(noc_x, noc_y, address, data, noc_id);
 }
 
 void JtagDevice::write(
-    uint8_t chip_id, const void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size) {
+    uint8_t chip_id, const void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size, uint8_t noc_id) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
 
     const uint32_t chunk_size = sizeof(uint32_t);
@@ -221,7 +222,7 @@ void JtagDevice::write(
         if (transfer_size == sizeof(uint32_t)) {
             uint32_t data;
             std::memcpy(&data, buffer_addr, transfer_size);
-            write32(chip_id, noc_x, noc_y, addr, data);
+            write32(chip_id, noc_x, noc_y, addr, data, noc_id);
 
             size -= transfer_size;
             addr += transfer_size;
@@ -229,7 +230,7 @@ void JtagDevice::write(
             continue;
         }
 
-        auto read_result = read32(chip_id, noc_x, noc_y, addr);
+        auto read_result = read32(chip_id, noc_x, noc_y, addr, noc_id);
         if (!read_result) {
             TT_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
         }
@@ -238,7 +239,7 @@ void JtagDevice::write(
 
         std::memcpy(data_bytes, buffer_addr, transfer_size);
 
-        write32(chip_id, noc_x, noc_y, addr, *read_result);
+        write32(chip_id, noc_x, noc_y, addr, *read_result, noc_id);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -251,12 +252,14 @@ std::optional<uint32_t> JtagDevice::read32_axi(uint8_t chip_id, uint32_t address
     return jtag->read_axi(address);
 }
 
-std::optional<uint32_t> JtagDevice::read32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address) {
+std::optional<uint32_t> JtagDevice::read32(
+    uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint8_t noc_id) {
     select_device(chip_id);
-    return jtag->read_noc_xy(noc_x, noc_y, address);
+    return jtag->read_noc_xy(noc_x, noc_y, address, noc_id);
 }
 
-void JtagDevice::read(uint8_t chip_id, void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size) {
+void JtagDevice::read(
+    uint8_t chip_id, void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size, uint8_t noc_id) {
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
 
     const uint32_t chunk_size = sizeof(uint32_t);
@@ -265,7 +268,7 @@ void JtagDevice::read(uint8_t chip_id, void* mem_ptr, uint8_t noc_x, uint8_t noc
         uint32_t transfer_size = std::min(size, chunk_size);
 
         // JTAG protocol doesn't require address alignment to word size (4 bytes).
-        auto result = read32(chip_id, noc_x, noc_y, addr);
+        auto result = read32(chip_id, noc_x, noc_y, addr, noc_id);
         if (!result) {
             TT_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
         }

@@ -370,6 +370,8 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
 
+    // std::lock_guard<std::mutex> lock(wc_tlb_lock);
+
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
@@ -383,7 +385,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC);
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
@@ -415,6 +417,8 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
 
+    //    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+
     uint8_t* buffer = static_cast<uint8_t*>(dst);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
@@ -428,7 +432,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC);
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()

@@ -288,10 +288,26 @@ public:
     }
 
 private:
+    /**
+     * Function will allocate PCIe DMA buffer that UMD uses for PCIe DMA transfers. To make the process of allocation
+     * robust, allocation tries to allocate larger DMA buffers first and then shrinks the size until it reaches the
+     * minimum size of single page. The idea behind this is that in of IOMMU being turned on, bigger buffers could be
+     * allocated. In theory, bigger buffers should mean less DMA transfers and less overhead when performing PCIe DMA
+     * operations.
+     */
     void allocate_pcie_dma_buffer();
 
+    /**
+     * Tries to allocate a PCIe DMA buffer of the specified size when IOMMU is enabled on the system.
+     * Uses PIN_PAGES IOCTL since ALLOCATE_DMA_BUF IOCTL has the upper limit on memory KMD can allocate for DMA
+     * transactions.
+     */
     bool try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size);
 
+    /**
+     * Tries to allocate a PCIe DMA buffer of the specified size when IOMMU is not enabled on the system.
+     * Uses ALLOCATE_DMA_BUF IOCTL which allocates physically contiguous memory for DMA transactions.
+     */
     bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
 };
 

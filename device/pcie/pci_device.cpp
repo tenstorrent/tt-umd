@@ -761,13 +761,10 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
         dma_buffer.size = dma_buf_size;
 
         return true;
-
     } catch (...) {
         munmap(dma_buf_mapping, dma_buf_alloc_size);
         return false;
     }
-
-    return true;
 }
 
 bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {

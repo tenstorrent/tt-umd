@@ -820,7 +820,7 @@ void PCIDevice::allocate_pcie_dma_buffer() {
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
     uint32_t dma_buf_size;
-    static const auto page_size = sysconf(_SC_PAGESIZE);
+    static const uint32_t page_size = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
     const uint32_t one_mb = 1 << 20;
     if (is_iommu_enabled()) {
         dma_buf_size = 16 * one_mb;

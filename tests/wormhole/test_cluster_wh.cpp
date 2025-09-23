@@ -936,3 +936,41 @@ TEST(SiliconDriverWH, DMA2) {
         }
     }
 }
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size patterns
+ * to 0x0 in several DRAM cores, then reading them back and verifying.
+ */
+TEST(SiliconDriverWH, DMA3) {
+    const chip_id_t chip = 0;
+    Cluster cluster;
+
+    CoreCoord tensix_core = CoreCoord(21, 17, CoreType::ETH, CoordSystem::TRANSLATED);
+
+    // chip: 0 core: (25,25) addr: 22016 size: 1004
+    // chip: 0 core: (21,17) addr: 254304 size: 768
+
+    // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
+    // and TLB reassignment.
+    size_t buf_size = 768;
+
+    std::vector<uint8_t> zeros(buf_size, 1);
+    cluster.write_to_device(zeros.data(), zeros.size(), chip, tensix_core, 254304);
+    std::vector<uint8_t> readback_zeros(buf_size, 0xFF);
+    cluster.read_from_device(readback_zeros.data(), chip, tensix_core, 254304, readback_zeros.size());
+    EXPECT_EQ(zeros, readback_zeros) << "Mismatch zeros or core " << tensix_core.str() << " addr=0x0"
+                                     << " size=" << std::dec << readback_zeros.size();
+
+    std::vector<uint8_t> pattern(buf_size, 0);
+    // for (int i = 0;i < buf_size; ++i) {
+    //     pattern[i] = i % 256;
+    // }
+
+    cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, tensix_core, 254304);
+
+    std::vector<uint8_t> readback(buf_size, 1);
+    cluster.read_from_device(readback.data(), chip, tensix_core, 254304, readback.size());
+
+    EXPECT_EQ(pattern, readback) << "Mismatch for core " << tensix_core.str() << " addr=0x0"
+                                 << " size=" << std::dec << readback.size();
+}

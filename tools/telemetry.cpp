@@ -24,8 +24,8 @@
 
 using namespace tt::umd;
 
-std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware, tt::ARCH arch) {
-    if (firmware == nullptr) {
+std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware_info_provider, tt::ARCH arch) {
+    if (firmware_info_provider == nullptr) {
         return fmt::format("Could not get information for device ID {}.", pci_device);
     }
 
@@ -34,10 +34,10 @@ std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware
     uint32_t tdp;
     double asic_temperature;
 
-    aiclk = firmware->get_aiclk().value_or(0);
-    vcore = firmware->get_vcore().value_or(0);
-    tdp = firmware->get_tdp().value_or(0);
-    asic_temperature = firmware->get_asic_temperature().value_or(0);
+    aiclk = firmware_info_provider->get_aiclk().value_or(0);
+    vcore = firmware_info_provider->get_vcore().value_or(0);
+    tdp = firmware_info_provider->get_tdp().value_or(0);
+    asic_temperature = firmware_info_provider->get_asic_temperature().value_or(0);
 
     return fmt::format(
         "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}", pci_device, aiclk, vcore, tdp, asic_temperature);

@@ -762,6 +762,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
 
         return true;
     } catch (...) {
+        log_debug(LogSiliconDriver, "Failed to allocate PCIe DMA buffer of size {} with IOMMU enabled.", dma_buf_size);
         munmap(dma_buf_mapping, dma_buf_alloc_size);
         return false;
     }
@@ -793,6 +794,11 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
             log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
             return false;
         } else {
+            log_debug(
+                LogSiliconDriver,
+                "Allocated PCIe DMA buffer of size {} for PCI device {}.",
+                dma_buf_alloc_size,
+                pci_device_num);
             dma_buffer.buffer = (uint8_t *)buffer;
             dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
             dma_buffer.buffer_pa = dma_buf.out.physical_address;

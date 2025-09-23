@@ -212,6 +212,9 @@ void SimulationDevice::assert_risc_reset(CoreCoord core, const RiscType selected
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
+    // Note that the simulator currently only supports soft reset control for all DMs on Quasar, you can't
+    // control them individually. This is just a current API limitation, it is possible to add the support
+    // for finer grained control in the future if needed.
     if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
@@ -234,7 +237,7 @@ void SimulationDevice::deassert_risc_reset(CoreCoord core, const RiscType select
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
+    // See the comment in assert_risc_reset for more details.
     if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));

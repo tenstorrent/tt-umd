@@ -226,13 +226,6 @@ bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy
 }
 
 void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
-    // TODO: come up with smarter of initializing remote communication for Blackhole
-    // galaxy since the topology discovery becomes very slow if we load lite fabric to all chips
-    // during device discovery.
-    if (chip->get_tt_device()->get_board_type() == BoardType::UBB_BLACKHOLE) {
-        return;
-    }
-
     auto eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
@@ -249,6 +242,7 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
         remote_asic_ids_to_eth_cores[remote_asic_id].push_back(eth_core);
     }
 
+    // TODO: be careful to not launch lite fabric on ETH cores that already have it running.
     for (const auto& [remote_asic_id, eth_cores] : remote_asic_ids_to_eth_cores) {
         lite_fabric::launch_lite_fabric(chip, eth_cores);
     }

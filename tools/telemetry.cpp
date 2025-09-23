@@ -37,7 +37,7 @@ std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware
     aiclk = firmware_info_provider->get_aiclk().value_or(0);
     vcore = firmware_info_provider->get_vcore().value_or(0);
     tdp = firmware_info_provider->get_tdp().value_or(0);
-    asic_temperature = firmware_info_provider->get_asic_temperature().value_or(0);
+    asic_temperature = firmware_info_provider->get_asic_temperature();
 
     return fmt::format(
         "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}", pci_device, aiclk, vcore, tdp, asic_temperature);

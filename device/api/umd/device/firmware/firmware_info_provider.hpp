@@ -113,6 +113,15 @@ protected:
     TTDevice* tt_device = nullptr;
 
     semver_t firmware_version = semver_t(0, 0, 0);
+
+    bool aiclk_available;
+    bool axiclk_available;
+    bool arcclk_available;
+    bool fan_speed_available;
+    bool tdp_available;
+    bool tdc_available;
+    bool vcore_available;
+    bool board_temperature_available;
 };
 
 }  // namespace tt::umd

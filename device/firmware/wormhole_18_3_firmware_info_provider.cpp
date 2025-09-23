@@ -25,7 +25,7 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() {
 
 std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::ASIC_TEMPERATURE)) {
+    if (telemetry == nullptr || !telemetry->is_entry_available(TelemetryTag::ASIC_TEMPERATURE)) {
         return std::nullopt;
     }
     // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits

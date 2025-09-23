@@ -1,3 +1,14 @@
+# Check if this is being built as a standalone project with TT_UMD_BUILD_FROM_INSTALL
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    # This is a root project build from install artifacts
+    cmake_minimum_required(VERSION 3.16)
+    project(tt_umd_nanobind)
+
+    message(STATUS "Building nanobind as standalone project from UMD install artifacts")
+
+    include(${PROJECT_SOURCE_DIR}/../cmake/example_client.cmake)
+endif()
+
 # https://cmake.org/cmake/help/latest/module/FindPython.html
 # https://github.com/wjakob/nanobind/blob/master/docs/building.rst
 # Use Development.Module to support manylinux
@@ -31,12 +42,7 @@ set_target_properties(
 )
 
 # Link the Python interface target to libdevice and nanobind
-target_link_libraries(
-    nanobind_tt_umd
-    PRIVATE
-        umd::device
-        fmt::fmt-header-only
-)
+target_link_libraries(nanobind_tt_umd PRIVATE umd::device)
 
 # Install the Python module
 install(

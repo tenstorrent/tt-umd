@@ -262,7 +262,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON) {
+    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON || arch_name == tt::ARCH::BLACKHOLE) {
         use_ethernet_broadcast = false;
     }
 }
@@ -305,15 +305,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         return chip;
     } else {
-        if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
-            throw std::runtime_error("Remote chips are supported only for wormhole.");
-        }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
         const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
             local_chip,
-            cluster_desc->get_chip_locations().at(chip_id),
+            cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
             soc_desc);
     }

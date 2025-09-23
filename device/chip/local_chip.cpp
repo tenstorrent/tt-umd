@@ -688,25 +688,6 @@ void LocalChip::deassert_risc_resets() {
     }
 }
 
-void LocalChip::set_power_state(DevicePowerState state) {
-    int exit_code = 0;
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t msg = get_power_state_arc_msg(state);
-        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        if (state == DevicePowerState::BUSY) {
-            exit_code =
-                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
-        } else {
-            exit_code =
-                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
-        }
-    }
-    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
-
-    wait_for_aiclk_value(tt_device_.get(), state);
-}
-
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }

@@ -3,11 +3,7 @@ add_executable(tt_device_example tt_device_example.cpp)
 target_link_libraries(
     tt_device_example
     PRIVATE
-        umd::Common
         umd::device
-        umd::Firmware
-        fmt::fmt-header-only
-        spdlog::spdlog_header_only
         tt-logger::tt-logger
 )
 

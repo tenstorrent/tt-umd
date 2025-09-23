@@ -15,11 +15,14 @@ on:
     branches: ["main"]
 
 env:
+  TT_UMD_DIR: ${{ github.workspace }}/tt-umd
+  CLIENTS_BUILD_DIR: ${{ github.workspace }}/build_clients
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
+  INSTALL_OUTPUT_DIR: ./install
 
 jobs:
   build:
@@ -46,6 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Clone under tt-umd directory
+          path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
       - name: Set GCC compiler
@@ -58,7 +63,49 @@ jobs:
       # Build with all components to verify the build passes.
       - name: Build All
         run: |
+          cd ${{ env.TT_UMD_DIR }}
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_ALL=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
+
+      - name: Install device library
+        run: |
+          cd ${{ env.TT_UMD_DIR }}
+          echo "Installing device library..."
+          cmake --install ${{ env.BUILD_OUTPUT_DIR }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
+          echo "Install complete."
+
+      - name: Prepare and isolate install artifacts
+        run: |
+          echo "Preparing and isolating install artifacts..."
+          mkdir ${{ env.CLIENTS_BUILD_DIR }}
+          cd ${{ env.CLIENTS_BUILD_DIR }}
+          echo "Copying install artifacts..."
+          cp -r ${{ env.INSTALL_OUTPUT_DIR }} ./umd_install
+          echo "Copying cmake example config file..."
+          cp ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake ./cmake/example_client.cmake
+          cp ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake ./cmake/CPM.cmake
+          echo "Copying components to build..."
+          cp -r ${{ env.TT_UMD_DIR }}/examples ./examples
+          cp -r ${{ env.TT_UMD_DIR }}/nanobind ./nanobind
+          cp -r ${{ env.TT_UMD_DIR }}/tools ./tools
+          echo "Preparation complete."
+
+      - name: Build examples as standalone
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR }}/examples
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake --build build
+
+      - name: Build nanobind as standalone
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR }}/nanobind
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake --build build
+
+      - name: Build tools as standalone
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR }}/tools
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake --build build

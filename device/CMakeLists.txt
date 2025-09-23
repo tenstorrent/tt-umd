@@ -214,6 +214,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
+                api/umd/device/types/telemetry.hpp
+                api/umd/device/arc/arc_telemetry_reader.hpp
+                api/umd/device/arc/arc_messenger.hpp
+                api/umd/device/types/communication_protocol.hpp
+                api/umd/device/pcie/tlb_handle.hpp
+                api/umd/device/types/wormhole_telemetry.hpp
+                api/umd/device/topology/topology_discovery.hpp
+                api/umd/device/tt_device/remote_communication.hpp
                 # To be removed
                 api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/hugepage.h

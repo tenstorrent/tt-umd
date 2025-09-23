@@ -175,6 +175,27 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
     }
 }
 
+TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
+    std::vector<uint32_t> data_write = {11, 22, 33, 44, 55, 66, 77, 88, 99, 111};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    uint64_t address = 0x0;
+
+    for (const auto& device : device_data_) {
+        tt_SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
+        tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
+        tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
+
+        device.tt_device_->write_to_device(
+            data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));
+        TTDevice::use_noc1(true);
+        device.tt_device_->read_from_device(
+            data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t));
+        TTDevice::use_noc1(false);
+        ASSERT_EQ(data_write, data_read);
+        std::fill(data_read.begin(), data_read.end(), 0);
+    }
+}
+
 TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
         GTEST_SKIP() << "JTAG library does not exist at " << JtagDevice::jtag_library_path.string();

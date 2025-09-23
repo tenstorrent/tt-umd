@@ -287,15 +287,14 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, l1_dest, size);
-        return;
-    }
-
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->write_to_device(src, translated_core, l1_dest, size);
+        return;
+    }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
@@ -335,15 +334,14 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         l1_src,
         size);
 
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, l1_src, size);
-        return;
-    }
-
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        return;
+    }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {

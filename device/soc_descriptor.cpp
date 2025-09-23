@@ -638,6 +638,7 @@ std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
 }
 
 void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
+    const tt_xy_pair empty = {0, 0};
     for (const auto &core_type :
          {CoreType::TENSIX,
           CoreType::DRAM,
@@ -649,12 +650,11 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
           CoreType::L2CPU}) {
         cores_map.insert({core_type, coordinate_manager->get_cores(core_type)});
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
-        const tt_xy_pair empty = {0, 0};
-        // Initializing as empty
 
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
             core_type == CoreType::L2CPU) {
-            // Ethernet and Router cores aren't arranged in a grid.         
+            // Ethernet and Router cores aren't arranged in a grid.
+            // Initializing as empty         
             grid_size_map.insert({core_type, empty});
             harvested_grid_size_map.insert({core_type, empty});
             continue;

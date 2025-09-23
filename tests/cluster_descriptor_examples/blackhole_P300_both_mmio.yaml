@@ -47,3 +47,6 @@ boards:
     - chips:
         - 1
         - 0
+asic_locations:
+  0: 0
+  1: 1

@@ -15,8 +15,8 @@ on:
     branches: ["main"]
 
 env:
-  TT_UMD_DIR: ${{ github.workspace }}/tt-umd
-  CLIENTS_BUILD_DIR: ${{ github.workspace }}/build_clients
+  TT_UMD_DIR: $GITHUB_WORKSPACE/tt-umd
+  CLIENTS_BUILD_DIR: $GITHUB_WORKSPACE/build_clients
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -65,8 +65,8 @@ jobs:
         run: |
           pwd
           ls -la
-          cd /__w/tt-umd/tt-umd/tt-umd
-          ls -la
+          # cd /__w/tt-umd/tt-umd/tt-umd
+          # ls -la
           cd ${{ env.TT_UMD_DIR }}
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_ALL=ON

@@ -385,6 +385,15 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
 
+    if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        log_warning(
+            LogSiliconDriver,
+            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) write.",
+            get_tt_device()->get_communication_device_id());
+        write_to_device(core, src, addr, size);
+        return;
+    }
+
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
@@ -415,6 +424,15 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
         TT_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
+    if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        log_warning(
+            LogSiliconDriver,
+            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) read.",
+            get_tt_device()->get_communication_device_id());
+        read_from_device(core, dst, addr, size);
+        return;
     }
 
     static const std::string tlb_name = "LARGE_READ_TLB";

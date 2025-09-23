@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: |
+          name: >
             clang-tidy-compile-commands-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
             -${{ inputs.build-type || 'Release' }}
           path: ${{ env.BUILD_OUTPUT_DIR }}/compile_commands.json
@@ -110,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: |
+          name: >
             clang-tidy-config-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
             -${{ inputs.build-type || 'Release' }}
           path: |

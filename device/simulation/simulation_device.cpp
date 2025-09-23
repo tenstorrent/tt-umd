@@ -78,22 +78,8 @@ std::string SimulationDevice::get_soc_descriptor_path_from_simulator_path(const 
                                                  : (simulator_path / "soc_descriptor.yaml");
 }
 
-SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
-    simulator_directory(simulator_directory),
-    soc_descriptor(
-        SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_directory),
-        ChipInfo{.noc_translation_enabled = (simulator_directory.extension() == ".so")}) {}
-
 SimulationDevice::SimulationDevice(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
     Chip(soc_descriptor) {
-    initialize(simulator_directory, soc_descriptor);
-}
-
-SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
-    initialize(init.get_simulator_path(), init.get_soc_descriptor());
-}
-
-void SimulationDevice::initialize(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
     soc_descriptor_per_chip.emplace(0, soc_descriptor);
     arch_name = soc_descriptor.arch;

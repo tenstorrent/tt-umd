@@ -63,6 +63,10 @@ jobs:
       # Build with all components to verify the build passes.
       - name: Build All
         run: |
+          pwd
+          ls -la
+          cd /__w/tt-umd/tt-umd/tt-umd
+          ls -la
           cd ${{ env.TT_UMD_DIR }}
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_ALL=ON

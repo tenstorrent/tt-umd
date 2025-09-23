@@ -59,6 +59,8 @@ protected:
     void patch_eth_connections() override;
 
     void initialize_remote_communication(Chip* chip) override;
+
+    void init_topology_discovery() override;
 };
 
 }  // namespace tt::umd

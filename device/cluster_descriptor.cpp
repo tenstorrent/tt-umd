@@ -846,6 +846,14 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             chip_to_bus_id.insert({chip, bus_id});
         }
     }
+
+    if (yaml["asic_locations"]) {
+        for (const auto &chip_asic_locations : yaml["asic_locations"].as<std::map<int, uint64_t>>()) {
+            auto &chip = chip_asic_locations.first;
+            auto &asic_location = chip_asic_locations.second;
+            asic_locations.insert({chip, asic_location});
+        }
+    }
 }
 
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
@@ -1137,6 +1145,14 @@ std::string ClusterDescriptor::serialize() const {
         out << YAML::EndSeq;
     }
     out << YAML::EndSeq;
+
+    out << YAML::Key << "asic_locations" << YAML::Value << YAML::BeginMap;
+    std::map<chip_id_t, uint8_t> asic_locations_map =
+        std::map<chip_id_t, uint8_t>(asic_locations.begin(), asic_locations.end());
+    for (const auto &[chip_id, asic_location] : asic_locations_map) {
+        out << YAML::Key << chip_id << YAML::Value << static_cast<int>(asic_location);
+    }
+    out << YAML::EndMap;
 
     out << YAML::EndMap;
 

@@ -40,7 +40,7 @@ protected:
     void translate_pcie_coords() override;
     void translate_l2cpu_coords() override;
 
-    void fill_tensix_noc0_translated_mapping() override{};
+    void fill_tensix_noc0_translated_mapping() override;
     void fill_dram_noc0_translated_mapping() override;
     void fill_eth_noc0_translated_mapping() override;
     void fill_pcie_noc0_translated_mapping() override;

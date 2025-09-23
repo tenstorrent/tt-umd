@@ -84,36 +84,45 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
 
                 CoreCoord logical_coord = CoreCoord(logical_x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, tensix_core);
-
-                if (noc_translation_enabled) {
-                    const tt_xy_pair& translated_core = tensix_cores[logical_x + y * grid_size_x];
-                    CoreCoord translated_coord =
-                        CoreCoord(translated_core.x, translated_core.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-                    add_core_translation(translated_coord, tensix_core);
-                }
             }
             logical_x++;
         }
     }
 
-    std::sort(die_harvested_tensix_columns.begin(), die_harvested_tensix_columns.end());
-    size_t x_index = grid_size_x - 1;
-    for (const auto& [die_x_coordinate, x_index_harvested] : die_harvested_tensix_columns) {
-        for (size_t y = 0; y < grid_size_y; y++) {
-            const tt_xy_pair& noc0_core = tensix_cores[x_index_harvested + y * grid_size_x];
+    if (noc_translation_enabled) {
+        fill_tensix_noc0_translated_mapping();
+    } else {
+        fill_tensix_default_noc0_translated_mapping();
+    }
+}
 
-            if (noc_translation_enabled) {
-                const tt_xy_pair& translated_core = tensix_cores[x_index + y * grid_size_x];
-                CoreCoord translated_coord =
-                    CoreCoord(translated_core.x, translated_core.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-                add_core_translation(translated_coord, noc0_core);
+void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
+    size_t grid_size_x = tensix_grid_size.x;
+    size_t grid_size_y = tensix_grid_size.y;
+    size_t logical_x = 0;
+    std::vector<size_t> harvested_cols;
+    for (size_t x = 0; x < grid_size_x; x++) {
+        if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
+            harvested_cols.push_back(x);
+        } else {
+            for (size_t y = 0; y < grid_size_y; y++) {
+                const tt_xy_pair& src = tensix_cores[x + y * grid_size_x];
+                const tt_xy_pair& dst = tensix_cores[logical_x + y * grid_size_x];
+                CoreCoord translated(dst.x, dst.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+                add_core_translation(translated, src);
             }
+            logical_x++;
+        }
+    }
+    size_t x_index = grid_size_x - 1;
+    for (size_t x_harvested : harvested_cols) {
+        for (size_t y = 0; y < grid_size_y; y++) {
+            const tt_xy_pair& src = tensix_cores[x_harvested + y * grid_size_x];
+            const tt_xy_pair& dst = tensix_cores[x_index + y * grid_size_x];
+            CoreCoord translated(dst.x, dst.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+            add_core_translation(translated, src);
         }
         x_index--;
-    }
-
-    if (!noc_translation_enabled) {
-        fill_tensix_default_noc0_translated_mapping();
     }
 }
 

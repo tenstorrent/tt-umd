@@ -42,7 +42,12 @@ set_target_properties(
 )
 
 # Link the Python interface target to libdevice and nanobind
-target_link_libraries(nanobind_tt_umd PRIVATE umd::device)
+target_link_libraries(
+    nanobind_tt_umd
+    PRIVATE
+        umd::device
+        fmt::fmt-header-only
+)
 
 # Install the Python module
 install(

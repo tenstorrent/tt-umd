@@ -140,6 +140,5 @@ TEST(TestNoc, TestNoc1NodeId) {
             check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
         }
     }
-
     TTDevice::use_noc1(false);
 }

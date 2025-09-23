@@ -1,0 +1,7 @@
+---
+Checks: >
+    -*,
+    cppcoreguidelines-pro-type-cstyle-cast
+
+WarningsAsErrors: '*'
+FormatStyle: 'file'

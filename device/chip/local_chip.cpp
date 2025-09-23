@@ -114,6 +114,7 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
+    cached_pcie_dma_tlb_window.reset();
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     remote_communication_.reset();
@@ -370,7 +371,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
 
-    // std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    std::lock_guard<std::mutex> lock(pcie_dma_lock);
 
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
@@ -385,8 +386,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    std::unique_ptr<TlbWindow> tlb_window =
-        get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
+    TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
@@ -418,7 +418,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
 
-    //    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    std::lock_guard<std::mutex> lock(pcie_dma_lock);
 
     uint8_t* buffer = static_cast<uint8_t*>(dst);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
@@ -433,8 +433,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    std::unique_ptr<TlbWindow> tlb_window =
-        get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
+    TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
@@ -764,4 +763,16 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
     cached_uc_tlb_window->configure(config);
     return cached_uc_tlb_window.get();
 }
+
+TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
+    if (cached_pcie_dma_tlb_window == nullptr) {
+        cached_pcie_dma_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        return cached_pcie_dma_tlb_window.get();
+    }
+
+    cached_pcie_dma_tlb_window->configure(config);
+    return cached_pcie_dma_tlb_window.get();
+}
+
 }  // namespace tt::umd

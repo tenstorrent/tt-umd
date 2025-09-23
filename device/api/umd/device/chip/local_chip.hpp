@@ -107,13 +107,16 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window(tlb_data config);
     TlbWindow* get_cached_uc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
+    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex wc_tlb_lock;
     std::mutex uc_tlb_lock;
+    std::mutex pcie_dma_lock;
 };
 }  // namespace tt::umd

@@ -941,3 +941,26 @@ INSTANTIATE_TEST_SUITE_P(
     }
 
 );
+
+TEST(TestCluster, DMA1) {
+    const chip_id_t chip = 0;
+    Cluster cluster;
+
+    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    const auto tensix_core = soc_descriptor.get_cores(CoreType::TENSIX)[0];
+
+    size_t buf_size = 32;
+
+    std::vector<uint8_t> pattern(buf_size, 0);
+    for (size_t i = 0; i < buf_size; ++i) {
+        pattern[i] = static_cast<uint8_t>(i & 0xff);
+    }
+
+    cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, tensix_core, 0x0);
+
+    std::vector<uint8_t> readback(buf_size, 0x0);
+    cluster.read_from_device(readback.data(), chip, tensix_core, 0x0, readback.size());
+
+    EXPECT_EQ(pattern, readback) << "Mismatch for core " << tensix_core.str() << " addr=0x0"
+                                 << " size=" << std::dec << readback.size();
+}

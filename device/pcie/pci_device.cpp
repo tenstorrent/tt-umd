@@ -524,42 +524,41 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // is a temporary hack until it's implemented in the driver, we'll need to
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        tenstorrent_allocate_dma_buf dma_buf{};
+    const uint32_t buf_size = (1 << 21);  // 1 MiB
+    tenstorrent_allocate_dma_buf dma_buf{};
 
-        dma_buf.in.requested_size = DMABUF_TOTAL_SIZE;
-        dma_buf.in.buf_index = 0;
+    dma_buf.in.requested_size = DMABUF_TOTAL_SIZE;
+    dma_buf.in.buf_index = 0;
 
-        if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-            // There is a chance this will fail because we're not requiring
-            // IOMMU.  Linux might not have a contiguous chunk of memory to give
-            // us.  I'm not really sure what to do here.  PCIe DMA support is a
-            // new feature in UMD and the application might not care about it,
-            // so throwing our way out of here is wrong.  For now, we will log
-            // here and throw when PCIe DMA is attempted.  Maybe a higher layer
-            // in UMD can fall back to MMIO if that happens.
-            log_error(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+        // There is a chance this will fail because we're not requiring
+        // IOMMU.  Linux might not have a contiguous chunk of memory to give
+        // us.  I'm not really sure what to do here.  PCIe DMA support is a
+        // new feature in UMD and the application might not care about it,
+        // so throwing our way out of here is wrong.  For now, we will log
+        // here and throw when PCIe DMA is attempted.  Maybe a higher layer
+        // in UMD can fall back to MMIO if that happens.
+        log_error(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+    } else {
+        // OK - we have a buffer.  Map it.
+        void *buffer = mmap(
+            nullptr,
+            DMABUF_TOTAL_SIZE,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            pci_device_file_desc,
+            dma_buf.out.mapping_offset);
+
+        if (buffer == MAP_FAILED) {
+            // Similar rationale to above, although this is worse because we
+            // can't deallocate it.  That only happens when we close the fd.
+            log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
         } else {
-            // OK - we have a buffer.  Map it.
-            void *buffer = mmap(
-                nullptr,
-                DMABUF_TOTAL_SIZE,
-                PROT_READ | PROT_WRITE,
-                MAP_SHARED,
-                pci_device_file_desc,
-                dma_buf.out.mapping_offset);
-
-            if (buffer == MAP_FAILED) {
-                // Similar rationale to above, although this is worse because we
-                // can't deallocate it.  That only happens when we close the fd.
-                log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
-            } else {
-                dma_buffer.buffer = (uint8_t *)buffer;
-                dma_buffer.completion = (uint8_t *)buffer + DMABUF_SIZE;
-                dma_buffer.buffer_pa = dma_buf.out.physical_address;
-                dma_buffer.completion_pa = dma_buf.out.physical_address + DMABUF_SIZE;
-                dma_buffer.size = DMABUF_SIZE;
-            }
+            dma_buffer.buffer = (uint8_t *)buffer;
+            dma_buffer.completion = (uint8_t *)buffer + DMABUF_SIZE;
+            dma_buffer.buffer_pa = dma_buf.out.physical_address;
+            dma_buffer.completion_pa = dma_buf.out.physical_address + DMABUF_SIZE;
+            dma_buffer.size = DMABUF_SIZE;
         }
     }
 }

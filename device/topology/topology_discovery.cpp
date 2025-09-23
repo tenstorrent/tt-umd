@@ -105,6 +105,8 @@ void TopologyDiscovery::get_connected_chips() {
                 break;
             }
         }
+
+        initialize_remote_communication(chip.get());
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(
@@ -190,11 +192,6 @@ void TopologyDiscovery::discover_remote_chips() {
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
-                // We need to initialize remote communication on local chip just if we have discovered some new remote
-                // chip. One of these cases is P300 board with one chip visible on PCIe. This way we won't initialize
-                // lite fabric on two connected P150 chips, since they both have access over PCIe
-                initialize_remote_communication(chip);
-
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
                 std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(

@@ -226,6 +226,13 @@ bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy
 }
 
 void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
+    // We don't want to initialize lite fabric on non-P300 boards. For all configurations we have at the moment,
+    // we would need to init lite fabric just on LocalChips of P300 boards.
+    // TODO: Think about future configurations where we might want to init lite fabric on other boards as well.
+    if (chip->get_tt_device()->get_board_type() != BoardType::P300) {
+        return;
+    }
+
     auto eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 

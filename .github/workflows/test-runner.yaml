@@ -1,152 +1,118 @@
-name: Check runner
+# Run clang-tidy Static Analysis
+name: Run clang-tidy Static Analysis
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
       timeout:
         required: true
-        description: 'The timeout for the job in minutes'
         type: number
-        default: 10
+      build-type:
+        required: true
+        type: string
+        default: Release
+      log-params:
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        description: 'The version of Ubuntu to build on'
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
+        default: ubuntu-22.04
+      timeout:
+        required: true
+        description: 'The timeout for the clang-tidy analysis in minutes'
+        type: number
+        default: 30
+      build-type:
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
+  pull_request:
+  push:
+    branches: ["main"]
+
+env:
+  BUILD_OUTPUT_DIR: ./build
 
 jobs:
-  check-runners-host:
+  clang-tidy:
+    name: |
+      clang-tidy Analysis (${{ inputs.build-type || 'Release' }}, ${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }})
     # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable]
-
-    name: Check runner
-    runs-on: ${{ matrix.machine }}
-
-    steps:
-      - name: Fix ownership
-        run: |
-          sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
-
-      - uses: actions/checkout@v4
-
-      - name: Print machine info
-        run: |
-          # Print machine name
-          echo "Machine Name: $(hostname)"
-
-          # Print OS information
-          echo "Operating System: $(lsb_release -d | cut -f2-)"
-          echo "Kernel Version: $(uname -r)"
-          echo "Architecture: $(uname -m)"
-
-          # Print current user
-          echo "Current User: $(whoami)"
-
-          # Print number of CPU cores
-          echo "Number of CPU Cores: $(nproc)"
-
-          # Print CPU information
-          echo "CPU Information:"
-          lscpu
-
-          # Print Memory information
-          echo "Memory Information:"
-          free -h
-
-          # Print Disk usage
-          echo "Disk Usage:"
-          df -h
-
-          # Print usage of landing folder
-          echo "Show file usage"
-          du -h --max-depth=1 | sort -rh
-
-  check-runners-docker:
-    # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable]
-        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
-
-    name: Check runner docker
-    needs: check-runners-host
-    runs-on: ${{ matrix.machine }}
-
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
-      volumes:
-        - /dev/hugepages:/dev/hugepages
-        - /dev/hugepages-1G:/dev/hugepages-1G
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}:latest
 
     steps:
-      - name: Set working directory env variable
-        id: strings
-        shell: bash
+      - name: Print all params
         run: |
-          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
-
-      - name: Git add safe dir for working directory
-        run: |
-          # Mark the main repository as safe
-          git config --global --add safe.directory ${{ env.WORK_DIR }} || true
-          # Iterate over all submodules and mark them as safe
-          git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
+          ${{ inputs.log-params }}
+          echo clang-tidy - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
+          echo clang-tidy - timeout: ${{ inputs.timeout || '15' }}
+          echo clang-tidy - build-type: ${{ inputs.build-type || 'Release' }}
 
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Print machine info
+      - name: Install clang-tidy
         run: |
-          # Print machine name
-          echo "Machine Name: $(hostname)"
+          echo "Installing clang-tidy..."
+          apt-get update
+          apt-get install -y clang-tidy-17
+          clang-tidy-17 --version
 
-          # Print OS information
-          echo "Operating System: $(lsb_release -d | cut -f2-)"
-          echo "Kernel Version: $(uname -r)"
-          echo "Architecture: $(uname -m)"
+      - name: Configure CMake with clang-tidy
+        run: |
+          echo "Configuring CMake with clang-tidy enabled..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=ON \
+            -DTT_UMD_BUILD_EXAMPLES=ON \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DENABLE_CLANG_TIDY=ON \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
 
-          # Print current user
-          echo "Current User: $(whoami)"
+      - name: Run clang-tidy analysis
+        run: |
+          echo "Running clang-tidy static analysis..."
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target umd_tests
+          echo "Clang-tidy analysis completed successfully."
 
-          # Print number of CPU cores
-          echo "Number of CPU Cores: $(nproc)"
+      - name: Upload compile commands
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: >
+            clang-tidy-compile-commands-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
+            -${{ inputs.build-type || 'Release' }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}/compile_commands.json
 
-          # Print CPU information
-          echo "CPU Information:"
-          lscpu
-
-          # Print Memory information
-          echo "Memory Information:"
-          free -h
-
-          # Print Disk usage
-          echo "Disk Usage:"
-          df -h
-
-          # Print usage of landing folder
-          echo "Show file usage"
-          du -h --max-depth=1 | sort -rh
+      - name: Upload clang-tidy config
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: >
+            clang-tidy-config-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
+            -${{ inputs.build-type || 'Release' }}
+          path: |
+            .clang-tidy-build
+            .clang-tidy

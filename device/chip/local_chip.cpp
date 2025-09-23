@@ -385,7 +385,8 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
+    std::unique_ptr<TlbWindow> tlb_window =
+        get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
@@ -432,7 +433,8 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
+    std::unique_ptr<TlbWindow> tlb_window =
+        get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC, 16 * 1024 * 1024);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
+#include <cstdint>
+
 #include "umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
@@ -78,14 +80,6 @@ uint32_t FirmwareInfoProvider::get_eth_fw_version() {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ETH_FW_VERSION);
 }
 
-double FirmwareInfoProvider::get_asic_temperature() {
-    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
-    // have integer part and lower 16 bits have fractional part.
-    // It needs to be divided by 65536 to get temperature in Celsius.
-    return static_cast<double>(tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE)) /
-           65536.0f;
-}
-
 DramTrainingStatus FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) {
     uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
     if (telemetry_data & (1 << (2 * dram_channel))) {
@@ -108,6 +102,87 @@ uint8_t FirmwareInfoProvider::get_asic_location() {
     return telemetry->is_entry_available(TelemetryTag::ASIC_LOCATION)
                ? static_cast<uint8_t>(telemetry->read_entry(TelemetryTag::ASIC_LOCATION))
                : 0;
+}
+
+std::optional<double> FirmwareInfoProvider::get_asic_temperature() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::ASIC_TEMPERATURE)) {
+        return std::nullopt;
+    }
+    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
+    // have integer part and lower 16 bits have fractional part.
+    // It needs to be divided by 65536 to get temperature in Celsius.
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::ASIC_TEMPERATURE)) / 65536.0f;
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::AICLK)) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::AICLK);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_axiclk() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::AXICLK)) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::AXICLK);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::ARCCLK)) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::ARCCLK);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::FAN_SPEED)) {
+        return std::nullopt;
+    }
+    const uint32_t fan_speed = telemetry->read_entry(TelemetryTag::FAN_SPEED);
+    // All ones mean fans not present on board, or not under control of firmware.
+    if (fan_speed == 0xFFFFFFFF) {
+        return std::nullopt;
+    }
+    return fan_speed;
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::TDP)) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::TDP);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_tdc() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::TDC)) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::TDC);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_vcore() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::VCORE)) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::VCORE);
+}
+
+std::optional<double> FirmwareInfoProvider::get_board_temperature() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::BOARD_TEMPERATURE)) {
+        return std::nullopt;
+    }
+    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature()
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 
 }  // namespace tt::umd

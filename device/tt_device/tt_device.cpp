@@ -577,7 +577,7 @@ std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
     return dram_training_status;
 }
 
-double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
+double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature().value_or(0.); }
 
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
 

@@ -23,13 +23,15 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION);
 }
 
-double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() {
+std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (telemetry == nullptr || telemetry->is_entry_available(TelemetryTag::ASIC_TEMPERATURE)) {
+        return std::nullopt;
+    }
     // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
     // have integer part and lower 16 bits have fractional part.
     // It needs to be divided by 65536 to get temperature in Celsius.
-    return static_cast<double>(
-               (tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF)) /
-           8.0;
+    return static_cast<double>((telemetry->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF)) / 8.0;
 }
 
 DramTrainingStatus Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) {

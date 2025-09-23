@@ -7,6 +7,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -48,7 +49,59 @@ public:
 
     virtual uint32_t get_eth_fw_version();
 
-    virtual double get_asic_temperature();
+    /*
+     * Get ASIC temperature in Celsius.
+     * @returns ASIC temperature [Celsius]
+     */
+    virtual std::optional<double> get_asic_temperature();
+
+    /*
+     * Get AICLK in MHz.
+     * @returns AICLK [MHz]
+     */
+    virtual std::optional<uint32_t> get_aiclk();
+
+    /*
+     * Get AXICLK in MHz.
+     * @returns AXICLK [MHz]
+     */
+    virtual std::optional<uint32_t> get_axiclk();
+
+    /*
+     * Get ARCCLK in MHz.
+     * @returns ARCCLK [MHz]
+     */
+    virtual std::optional<uint32_t> get_arcclk();
+
+    /*
+     * Get fan speed in rpm, if fans are present and controllable by firmware.
+     * @returns Fan speed [rpm]
+     */
+    virtual std::optional<uint32_t> get_fan_speed();
+
+    /*
+     * Get TDP in watts.
+     * @returns TDP [W]
+     */
+    virtual std::optional<uint32_t> get_tdp();
+
+    /*
+     * Get TDC in amps.
+     * @returns TDC [amps]
+     */
+    virtual std::optional<uint32_t> get_tdc();
+
+    /*
+     * Get VCORE in mV.
+     * @returns VCORE [mV]
+     */
+    virtual std::optional<uint32_t> get_vcore();
+
+    /*
+     * Get board temperature in Celsius.
+     * @returns Board temperature [Celsius]
+     */
+    virtual std::optional<double> get_board_temperature();
 
     virtual DramTrainingStatus get_dram_training_status(uint32_t dram_channel);
 

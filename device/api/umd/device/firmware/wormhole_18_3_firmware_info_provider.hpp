@@ -25,7 +25,7 @@ public:
 
     uint32_t get_eth_fw_version() override;
 
-    double get_asic_temperature() override;
+    std::optional<double> get_asic_temperature() override;
 
     DramTrainingStatus get_dram_training_status(uint32_t dram_channel) override;
 

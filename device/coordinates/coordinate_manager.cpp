@@ -178,11 +178,7 @@ void CoordinateManager::translate_tensix_coords() {
 
     size_t logical_y = 0;
     for (size_t y = 0; y < grid_size_y; y++) {
-        if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
-            for (size_t x = 0; x < grid_size_x; x++) {
-                const tt_xy_pair& noc0_core = tensix_cores[y * grid_size_x + x];
-            }
-        } else {
+        if (!(harvesting_masks.tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
                 const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
 

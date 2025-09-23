@@ -25,7 +25,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
                 coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
             CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
 
-            // Trasnlated and noc0 coordinates should be the same.
+            // Translated and noc0 coordinates should be the same.
             EXPECT_EQ(noc0_coords.x, translated_coords.x);
             EXPECT_EQ(noc0_coords.y, translated_coords.y);
         }

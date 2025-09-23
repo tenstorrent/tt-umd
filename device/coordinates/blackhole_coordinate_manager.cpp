@@ -134,22 +134,6 @@ void BlackholeCoordinateManager::translate_dram_coords() {
         }
     }
 
-    for (size_t x = 0; x < dram_grid_size.x - num_harvested_banks; x++) {
-        for (size_t y = 0; y < dram_grid_size.y; y++) {
-            const tt_xy_pair& dram_core = dram_cores[x * dram_grid_size.y + y];
-            CoreCoord dram_logical = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
-            const tt_xy_pair noc0_pair = to_noc0_map[dram_logical];
-        }
-    }
-
-    for (size_t x = 0; x < dram_grid_size.x; x++) {
-        if (harvesting_masks.dram_harvesting_mask & (1 << x)) {
-            for (size_t y = 0; y < dram_grid_size.y; y++) {
-                const tt_xy_pair& dram_core = dram_cores[x * dram_grid_size.y + y];
-            }
-        }
-    }
-
     if (noc_translation_enabled) {
         fill_dram_noc0_translated_mapping();
     } else {
@@ -163,9 +147,7 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     size_t harvested_eth_channel_start = eth_cores.size() - num_harvested_channels;
     size_t unharvested_logical_eth_channel = 0;
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-        if (harvesting_masks.eth_harvesting_mask & (1 << eth_channel)) {
-            const tt_xy_pair& noc0_core = eth_cores[eth_channel];
-        } else {
+        if (!(harvesting_masks.eth_harvesting_mask & (1 << eth_channel))) {
             const tt_xy_pair& tensix_core = eth_cores[eth_channel];
 
             CoreCoord logical_coord =
@@ -186,11 +168,7 @@ void BlackholeCoordinateManager::translate_eth_coords() {
 void BlackholeCoordinateManager::translate_pcie_coords() {
     size_t logical_x = 0;
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
-        if (harvesting_masks.pcie_harvesting_mask & (1 << x)) {
-            for (size_t y = 0; y < pcie_grid_size.y; y++) {
-                const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
-            }
-        } else {
+        if (!(harvesting_masks.pcie_harvesting_mask & (1 << x))) {
             for (size_t y = 0; y < pcie_grid_size.y; y++) {
                 const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
 

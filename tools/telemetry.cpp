@@ -29,18 +29,29 @@ std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware
         return fmt::format("Could not get information for device ID {}.", pci_device);
     }
 
-    uint32_t aiclk;
-    uint32_t vcore;
-    uint32_t tdp;
-    double asic_temperature;
-
-    aiclk = firmware_info_provider->get_aiclk().value_or(0);
-    vcore = firmware_info_provider->get_vcore().value_or(0);
-    tdp = firmware_info_provider->get_tdp().value_or(0);
-    asic_temperature = firmware_info_provider->get_asic_temperature();
+    double asic_temperature = firmware_info_provider->get_asic_temperature();
+    double board_temperature = firmware_info_provider->get_board_temperature().value_or(0);
+    uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
+    uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);
+    uint32_t arcclk = firmware_info_provider->get_arcclk().value_or(0);
+    uint32_t fs = firmware_info_provider->get_fan_speed().value_or(0);
+    uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
+    uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
+    uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
 
     return fmt::format(
-        "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}", pci_device, aiclk, vcore, tdp, asic_temperature);
+        "Device ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
+        "Fan {} rpm, TDP {} W, TDC {} W, VCORE {} mV",
+        pci_device,
+        asic_temperature,
+        board_temperature,
+        aiclk,
+        axiclk,
+        arcclk,
+        fs,
+        tdp,
+        tdc,
+        vcore);
 }
 
 int main(int argc, char* argv[]) {

@@ -9,10 +9,10 @@
 using namespace tt::umd;
 
 constexpr chip_id_t chip = 0;
-constexpr uint32_t one_mb = 1 << 20;
+constexpr size_t one_kb = 1 << 10;
+constexpr size_t one_mb = 1 << 20;
 constexpr size_t one_gb = 1ULL << 30;
 constexpr uint32_t NUM_ITERATIONS = 10;
-constexpr uint32_t one_kb = 1 << 10;
 constexpr uint32_t tlb_1m_index = 0;
 constexpr uint32_t tlb_16m_index = 166;
 
@@ -64,7 +64,7 @@ TEST(MicrobenchmarkTLB, TLBDynamicDram) {
  * Measure BW of IO to Tensix core using dynamically configured TLB.
  */
 TEST(MicrobenchmarkTLB, TLBDynamicTensix) {
-    const std::vector<uint32_t> sizes = {
+    const std::vector<size_t> sizes = {
         1,
         2,
         4,
@@ -87,7 +87,7 @@ TEST(MicrobenchmarkTLB, TLBDynamicTensix) {
 
     std::vector<std::vector<std::string>> rows;
 
-    for (uint32_t buf_size : sizes) {
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, tensix_core);
         row.push_back(test::utils::convert_double_to_string(buf_size));
@@ -107,7 +107,7 @@ TEST(MicrobenchmarkTLB, TLBStaticTensix) {
 
     cluster->configure_tlb(0, tensix_core, tlb_1m_index, 0x0, tlb_data::Relaxed);
 
-    const std::vector<uint32_t> sizes = {
+    const std::vector<size_t> sizes = {
         1,
         2,
         4,
@@ -127,7 +127,7 @@ TEST(MicrobenchmarkTLB, TLBStaticTensix) {
 
     std::vector<std::vector<std::string>> rows;
 
-    for (uint32_t buf_size : sizes) {
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, tensix_core);
         row.push_back(test::utils::convert_double_to_string(buf_size));
@@ -174,7 +174,7 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
 
     std::vector<std::vector<std::string>> rows;
 
-    for (uint32_t buf_size : sizes) {
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, dram_core);
         row.push_back(test::utils::convert_double_to_string(buf_size));
@@ -189,7 +189,7 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
  * Measure BW of IO to Ethernet core using dynamically configured TLB.
  */
 TEST(MicrobenchmarkTLB, TLBDynamicEth) {
-    const std::vector<uint32_t> sizes = {
+    const std::vector<size_t> sizes = {
         1,
         2,
         4,
@@ -212,7 +212,7 @@ TEST(MicrobenchmarkTLB, TLBDynamicEth) {
 
     std::vector<std::vector<std::string>> rows;
     constexpr uint32_t address = 128 * one_kb;
-    for (uint32_t buf_size : sizes) {
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] =
             test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, eth_core, address);
@@ -234,7 +234,7 @@ TEST(MicrobenchmarkTLB, TLBStaticEth) {
     constexpr uint32_t address = 128 * one_kb;
     cluster->configure_tlb(chip, eth_core, tlb_1m_index, address, tlb_data::Relaxed);
 
-    const std::vector<uint32_t> sizes = {
+    const std::vector<size_t> sizes = {
         1,
         2,
         4,
@@ -254,7 +254,7 @@ TEST(MicrobenchmarkTLB, TLBStaticEth) {
 
     std::vector<std::vector<std::string>> rows;
 
-    for (uint32_t buf_size : sizes) {
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] =
             test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, eth_core, address);

@@ -99,30 +99,48 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
 }
 
 void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
+    if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.x) {
+        harvesting_masks.tensix_harvesting_mask = 0;
+    }
+    size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
+
     size_t logical_x = 0;
-    std::vector<size_t> harvested_cols;
+    std::vector<std::pair<size_t, size_t>> die_harvested_tensix_columns;
     for (size_t x = 0; x < grid_size_x; x++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
-            harvested_cols.push_back(x);
+            const tt_xy_pair& noc0_core = tensix_cores[x];
+            const size_t die_x_index = std::find(
+                                           blackhole::HARVESTING_NOC_LOCATIONS.begin(),
+                                           blackhole::HARVESTING_NOC_LOCATIONS.end(),
+                                           noc0_core.x) -
+                                       blackhole::HARVESTING_NOC_LOCATIONS.begin();
+            die_harvested_tensix_columns.push_back(std::make_pair(die_x_index, x));
         } else {
             for (size_t y = 0; y < grid_size_y; y++) {
-                const tt_xy_pair& src = tensix_cores[x + y * grid_size_x];
-                const tt_xy_pair& dst = tensix_cores[logical_x + y * grid_size_x];
-                CoreCoord translated(dst.x, dst.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-                add_core_translation(translated, src);
+                const tt_xy_pair& tensix_core = tensix_cores[x + y * grid_size_x];
+                const tt_xy_pair& translated_core = tensix_cores[logical_x + y * grid_size_x];
+
+                CoreCoord translated_coord =
+                    CoreCoord(translated_core.x, translated_core.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+                add_core_translation(translated_coord, tensix_core);
             }
             logical_x++;
         }
     }
+
+    std::sort(die_harvested_tensix_columns.begin(), die_harvested_tensix_columns.end());
     size_t x_index = grid_size_x - 1;
-    for (size_t x_harvested : harvested_cols) {
+    for (const auto& [die_x_coordinate, x_index_harvested] : die_harvested_tensix_columns) {
         for (size_t y = 0; y < grid_size_y; y++) {
-            const tt_xy_pair& src = tensix_cores[x_harvested + y * grid_size_x];
-            const tt_xy_pair& dst = tensix_cores[x_index + y * grid_size_x];
-            CoreCoord translated(dst.x, dst.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-            add_core_translation(translated, src);
+            const tt_xy_pair& noc0_core = tensix_cores[x_index_harvested + y * grid_size_x];
+            const tt_xy_pair& translated_core = tensix_cores[x_index + y * grid_size_x];
+
+            CoreCoord translated_coord =
+                CoreCoord(translated_core.x, translated_core.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+            add_core_translation(translated_coord, noc0_core);
         }
         x_index--;
     }

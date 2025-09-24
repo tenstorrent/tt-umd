@@ -70,6 +70,9 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
 }
 
 Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
+
+    configure_tlb(core, 1 << 20, 0, tlb_data::Strict);
+
     if (!is_tlb_mapped(core)) {
         throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
     }

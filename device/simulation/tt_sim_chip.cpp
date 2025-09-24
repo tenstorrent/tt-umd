@@ -82,6 +82,12 @@ void TTSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const 
     }
 }
 
+void TTSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+        send_tensix_risc_reset(core, soft_resets);
+    }
+}
+
 void TTSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);

@@ -35,6 +35,7 @@ TTSimulationChip::TTSimulationChip(const std::filesystem::path& simulator_direct
     }
     DLSYM_FUNCTION(libttsim_init)
     DLSYM_FUNCTION(libttsim_exit)
+    DLSYM_FUNCTION(libttsim_pci_config_rd32)
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_tensix_reset_deassert)
@@ -47,6 +48,13 @@ TTSimulationChip::~TTSimulationChip() { dlclose(libttsim_handle); }
 void TTSimulationChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
     pfn_libttsim_init();
+
+    // Read the PCI ID (first 32 bits of PCI config space)
+    uint32_t pci_id = pfn_libttsim_pci_config_rd32(0, 0);
+    uint32_t vendor_id = pci_id & 0xFFFF;
+    libttsim_pci_device_id = pci_id >> 16;
+    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
+    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 }
 
 void TTSimulationChip::close_device() {

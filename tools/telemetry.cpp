@@ -41,7 +41,7 @@ std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware
 
     return fmt::format(
         "Device ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
-        "Fan {} rpm, TDP {} W, TDC {} W, VCORE {} mV",
+        "Fan {} rpm, TDP {} W, TDC {} A, VCORE {} mV",
         pci_device,
         asic_temperature,
         board_temperature,

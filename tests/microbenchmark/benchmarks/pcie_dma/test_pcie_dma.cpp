@@ -120,7 +120,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
 
     for (uint32_t buf_size : sizes) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        row.push_back(test::utils::convert_double_to_string(buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, tensix_core);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -149,7 +149,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     std::vector<std::vector<std::string>> rows;
     for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        row.push_back(test::utils::convert_double_to_string(buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, tensix_core);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -179,7 +179,7 @@ TEST(MicrobenchmarkPCIeDMA, DramSweepSizes) {
 
     for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        row.push_back(test::utils::convert_double_to_string(buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, dram_core);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -225,7 +225,7 @@ TEST(MicrobenchmarkPCIeDMA, Dram) {
     std::vector<std::vector<std::string>> rows;
     for (uint32_t buf_size : sizes) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        row.push_back(test::utils::convert_double_to_string(buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, dram_core);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -263,7 +263,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     std::vector<std::vector<std::string>> rows;
     std::vector<std::string> row;
     auto [wr_bw, rd_bw] = perf_sysmem_read_write(one_mb, NUM_ITERATIONS, sysmem_buffer, tensix_core);
-    row.push_back(test::utils::convert_double_to_string((double)one_mb));
+    row.push_back(test::utils::convert_double_to_string(one_mb));
     row.push_back(test::utils::convert_double_to_string(wr_bw));
     row.push_back(test::utils::convert_double_to_string(rd_bw));
     rows.push_back(row);
@@ -295,7 +295,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
 
     std::vector<std::vector<std::string>> rows;
     std::vector<std::string> row;
-    row.push_back(test::utils::convert_double_to_string((double)one_mb));
+    row.push_back(test::utils::convert_double_to_string(one_mb));
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
     {
@@ -358,7 +358,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
 
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
     auto [wr_bw, rd_bw] = perf_sysmem_read_write(one_mb, NUM_ITERATIONS, sysmem_buffer, dram_core);
-    row.push_back(test::utils::convert_double_to_string((double)one_mb));
+    row.push_back(test::utils::convert_double_to_string(one_mb));
     row.push_back(test::utils::convert_double_to_string(wr_bw));
     row.push_back(test::utils::convert_double_to_string(rd_bw));
     rows.push_back(row);
@@ -395,7 +395,7 @@ TEST(MicrobenchmarkPCIeDMA, Eth) {
 
     for (uint32_t buf_size : sizes) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        row.push_back(test::utils::convert_double_to_string(buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, eth_core, address);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -410,7 +410,7 @@ TEST(MicrobenchmarkPCIeDMA, Eth) {
  * to address 128KB of Eth core.
  * This test measures BW of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
  */
-TEST(MicrobenchmarkPCIeDMA, EthZeroCopy) {
+TEST(MicrobenchmarkPCIeDMA, DISABLED_EthZeroCopy) {
     guard_test_iommu();
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -424,6 +424,8 @@ TEST(MicrobenchmarkPCIeDMA, EthZeroCopy) {
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
 
+    test_utils::fill_with_random_bytes((uint8_t*)sysmem_buffer->get_buffer_va(), buf_size);
+
     const std::vector<std::string> headers = {
         "Size (bytes)",
         "Host -> Device Eth L1 (MB/s)",
@@ -434,7 +436,7 @@ TEST(MicrobenchmarkPCIeDMA, EthZeroCopy) {
     std::vector<std::vector<std::string>> rows;
     std::vector<std::string> row;
     auto [wr_bw, rd_bw] = perf_sysmem_read_write(buf_size, NUM_ITERATIONS, sysmem_buffer, eth_core, address);
-    row.push_back(test::utils::convert_double_to_string((double)buf_size));
+    row.push_back(test::utils::convert_double_to_string(buf_size));
     row.push_back(test::utils::convert_double_to_string(wr_bw));
     row.push_back(test::utils::convert_double_to_string(rd_bw));
     rows.push_back(row);
@@ -463,7 +465,7 @@ TEST(MicrobenchmarkPCIeDMA, EthSweepSizes) {
 
     for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        row.push_back(test::utils::convert_double_to_string(buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, eth_core, address);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));

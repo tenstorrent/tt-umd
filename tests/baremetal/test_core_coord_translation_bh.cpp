@@ -16,8 +16,8 @@ constexpr size_t example_eth_harvesting_mask = (1 << 8) | (1 << 5);
 // Tests that all noc0 coordinates are same as all translated coordinates
 // when there is no harvesting.
 TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
-    std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
+    std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
+        tt::ARCH::BLACKHOLE, true, {.eth_harvesting_mask = example_eth_harvesting_mask});
 
     // We expect full grid size since there is no harvesting.
     tt_xy_pair tensix_grid_size = blackhole::TENSIX_GRID_SIZE;

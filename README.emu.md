@@ -26,7 +26,7 @@ location later.
 `export TENSIX_EMULATION_ROOT=/proj_soc/mlausin/emu_buda/ws_buda_1/tensix_emulation_targets`
 
 Contents of `TENSIX_EMULATION_ROOT`:
-```bash 
+```bash
 targets/tensix_2x2_1dram_BH/zcui.work - Zebu model of 2x2 grid with 2 tensix and 1 dram endpoint
 zebu/include - contains header files for zebu wrapper library
 zebu/lib - contains zebu wrapper library
@@ -40,7 +40,7 @@ https://yyz-tensix-gitlab.local.tenstorrent.com/tensix-hw/tensix_emulation
 ## Machines:
 Current setup is using machines in austin for compiling hw/sw and
 running emulation:
-```bash 
+```bash
 aus-rv-l-7 # used for compiling hw/sw
 aus-rv-zebu-03 # used for running emulation
 ```
@@ -52,14 +52,14 @@ To compile and run UMD with emulation device, you need to use a
 container. This container is located in
 `umd/emulation_rocky8.def`
 To build the container, run:
-```bash 
+```bash
 apptainer build emulation_rocky8.sif emulation_rocky8.def
 ```
 To run the container:
 ```bash
-# to compile sw on aus-rv-l-7, start container with: 
+# to compile sw on aus-rv-l-7, start container with:
 apptainer shell -s /usr/bin/bash -B /tools_soc/,/tools_vendor/,/site/lsf/,/site/zebu/,/proj_soc/ emulation_rocky8.sif
-# to run emu on aus-rv-zebu-03, start container with: 
+# to run emu on aus-rv-zebu-03, start container with:
 apptainer shell -s /usr/bin/bash -B /tools_soc/,/tools_vendor/,/site/lsf/,/site/zebu/,/proj_soc/,/zebu/ emulation_rocky8.sif
 ```
 
@@ -126,7 +126,7 @@ make EMULATION_DEVICE_EN=1 wave-view-emu # open waveforms in verdi(inside vnc se
 
 ## RTL device diagram
 This shows curent RTL device setup for emulation. It is a 2x2 grid with
-2 tensix, 1 AXI and 1 dram endpoin and these are connected using NOC. Dram endpoint has 2 AXI ports, 
+2 tensix, 1 AXI and 1 dram endpoin and these are connected using NOC. Dram endpoint has 2 AXI ports,
 one is connected to NOC0 other to NOC1, and these connect to AXI crossbar to merge trafic before
 connecting to memory model.
 
@@ -192,4 +192,5 @@ source ${TENSIX_EMULATION_ROOT}/zebu/scripts/env.bash
 cd build/rundir_zebu
 ZEBU_PHYSICAL_LOCATION=U0.M0=U0.M3 ./build/test/loader/tests/test_pybuda_ram --emulation --arch wormhole_b0 --netlist /proj_soc/mlausin/emu_buda/ws_buda_1/BudaBackEnd/loader/tests/net_basic/ram.yaml --device-desc ../../device/emulation_1x1_arch.yaml --num-pushes 128 |& tee emu.log
 ```
+Test change for GitLab CI verification
 

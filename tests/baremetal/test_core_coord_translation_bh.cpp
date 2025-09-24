@@ -299,7 +299,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalNOC0Mapping) {
 }
 
 // Test DRAM translated mapping.
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalTranslatedMapping) {
     const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
@@ -349,7 +349,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
 }
 
 // Test that we cannot create a coordinate manager with more than one DRAM bank harvested.
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarvested) {
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMMoreThanOneDRAMBankHarvested) {
     const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;

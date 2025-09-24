@@ -9,47 +9,25 @@
 #include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt::umd;
-#include <iostream>
 
-// Tests that all noc0 coordinates are same as all virtual coordinates
-// when there is no harvesting.
+// Tests that, when NOC translation is enabled and there is no harvesting,
+// translated and logical coordinates differ by fixed offsets.
 TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
-    static constexpr size_t tensix_second_dram_col_x = 5;
-    static constexpr size_t tensix_second_eth_row_y = 6;
-
     // We expect full grid size since there is no harvesting.
     tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
-
+    constexpr size_t translated_x_start = wormhole::tensix_translated_coordinate_start_x;
+    constexpr size_t translated_y_start = wormhole::tensix_translated_coordinate_start_y;
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
         for (size_t y = 0; y < tensix_grid_size.y; y++) {
             const CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
             const CoreCoord translated_coords =
                 coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
-            const CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
 
-            // When noc translation is disabled, translated and noc0 coordinates should be identical.
-            // For non-harvested mappings, translated and noc0 coordinates differ by fixed offsets.
-            // These offsets account for the presence of the second ETH row (which is abstracted to be adjacent to the
-            // first ETH row) and the second DRAM column (for which the translation has no effect, so it remains the
-            // same as in noc0). This approach ensures that, when translation is enabled, there are no gaps between
-            // adjacent TENSIX coordinates in the translated space. For example, in NOC0, two adjacent TENSIX cores at
-            // (4, 1) and (6, 1) are mapped to (21, 18) and (22, 18) in the translated space. This occurs because the
-            // DRAM column at position (5, y) remains unchanged regardless of whether translation is enabled, resulting
-            // in a contiguous mapping in the translated coordinate space. Refactored to remove magic numbers and use
-            // wormhole constants for translation offsets. The translation offsets are determined by the presence of the
-            // second ETH row (y == 6) and the second DRAM column (x == 5) in the NOC0 layout.
-            const int translated_x_offset = (noc0_coords.x < tensix_second_dram_col_x)
-                                                ? wormhole::tensix_translated_coordinate_start_x - 1
-                                                : wormhole::tensix_translated_coordinate_start_x - 2;
-            const int translated_y_offset = (noc0_coords.y < tensix_second_eth_row_y)
-                                                ? wormhole::tensix_translated_coordinate_start_y - 1
-                                                : wormhole::tensix_translated_coordinate_start_y - 2;
-
-            EXPECT_EQ(noc0_coords.x + translated_x_offset, translated_coords.x);
-            EXPECT_EQ(noc0_coords.y + translated_y_offset, translated_coords.y);
+            EXPECT_EQ(logical_coords.x + translated_x_start, translated_coords.x);
+            EXPECT_EQ(logical_coords.y + translated_y_start, translated_coords.y);
         }
     }
 }

@@ -184,6 +184,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 # To be removed
+                api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/hugepage.h
                 api/umd/device/tt_core_coordinates.h
                 api/umd/device/tt_cluster_descriptor.h

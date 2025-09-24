@@ -86,6 +86,7 @@ jobs:
           echo "Copying install artifacts..."
           cp -r ${{ env.TT_UMD_DIR_SHELL }}/${{ env.INSTALL_OUTPUT_DIR }} ./umd_install
           echo "Copying cmake example config file..."
+          mkdir -p ${{ env.TT_UMD_DIR_SHELL }}/cmake
           cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/example_client.cmake ./cmake/example_client.cmake
           cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/CPM.cmake ./cmake/CPM.cmake
           echo "Copying components to build..."

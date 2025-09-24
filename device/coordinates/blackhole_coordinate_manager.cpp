@@ -70,17 +70,8 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     size_t grid_size_y = tensix_grid_size.y;
 
     size_t logical_x = 0;
-    std::vector<std::pair<size_t, size_t>> die_harvested_tensix_columns;
     for (size_t x = 0; x < grid_size_x; x++) {
-        if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
-            const tt_xy_pair& noc0_core = tensix_cores[x];
-            const size_t die_x_index = std::find(
-                                           blackhole::HARVESTING_NOC_LOCATIONS.begin(),
-                                           blackhole::HARVESTING_NOC_LOCATIONS.end(),
-                                           noc0_core.x) -
-                                       blackhole::HARVESTING_NOC_LOCATIONS.begin();
-            die_harvested_tensix_columns.push_back(std::make_pair(die_x_index, x));
-        } else {
+        if (!(harvesting_masks.tensix_harvesting_mask & (1 << x))) {
             for (size_t y = 0; y < grid_size_y; y++) {
                 const tt_xy_pair& tensix_core = tensix_cores[x + y * grid_size_x];
 

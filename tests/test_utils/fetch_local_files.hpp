@@ -45,6 +45,9 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "6u_cluster_desc.yaml",
              "blackhole_P100.yaml",
              "blackhole_P150.yaml",
+             "blackhole_P300_first_mmio.yaml",
+             "blackhole_P300_second_mmio.yaml",
+             "blackhole_P300_both_mmio.yaml",
              "t3k_cluster_desc.yaml",
              "tg_cluster_desc.yaml",
              "wormhole_2xN300_unconnected.yaml",
@@ -54,6 +57,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300_routing_info.yaml",
              "wormhole_N300_board_info.yaml",
              "wormhole_N300_with_remote_connections.yaml",
+             "wormhole_N300_with_bus_id.yaml",
              "wormhole_N300.yaml",
          }) {
         cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));

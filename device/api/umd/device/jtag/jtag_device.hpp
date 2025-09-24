@@ -47,12 +47,20 @@ public:
         uint32_t dbg_signal_sel_start,
         uint32_t dbg_signal_sel_end);
     void write32_axi(uint8_t chip_id, uint32_t address, uint32_t data);
-    void write32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint32_t data);
-    void write(uint8_t chip_id, const void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size);
+    void write32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint32_t data, uint8_t noc_id = 0);
+    void write(
+        uint8_t chip_id,
+        const void* mem_ptr,
+        uint8_t noc_x,
+        uint8_t noc_y,
+        uint64_t addr,
+        uint32_t size,
+        uint8_t noc_id = 0);
 
     std::optional<uint32_t> read32_axi(uint8_t chip_id, uint32_t address);
-    std::optional<uint32_t> read32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address);
-    void read(uint8_t chip_id, void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size);
+    std::optional<uint32_t> read32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint8_t noc_id = 0);
+    void read(
+        uint8_t chip_id, void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size, uint8_t noc_id = 0);
 
     std::optional<std::vector<uint32_t>> enumerate_jlink();
     void close_jlink(uint8_t chip_id);

@@ -113,7 +113,9 @@ if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         device
         PRIVATE
-            simulation/simulation_device.cpp
+            simulation/simulation_chip.cpp
+            simulation/tt_sim_chip.cpp
+            simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
     )
@@ -164,7 +166,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/risc_type.hpp
-                api/umd/device/simulation/simulation_device.hpp
+                api/umd/device/simulation/simulation_chip.hpp
+                api/umd/device/simulation/tt_simulation_chip.hpp
+                api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/tt_xy_pair.h
@@ -173,7 +177,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/blackhole_arc.hpp
                 api/umd/device/types/cluster_descriptor_types.hpp
                 api/umd/device/types/cluster_types.hpp
-                api/umd/device/types/harvesting.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp
@@ -181,9 +184,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 # To be removed
+                api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/hugepage.h
                 api/umd/device/tt_core_coordinates.h
-                api/umd/device/tt_simulation_device.h
                 api/umd/device/tt_cluster_descriptor.h
                 api/umd/device/tt_soc_descriptor.h
                 api/umd/device/wormhole_implementation.h
@@ -196,6 +199,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/cluster_descriptor_types.h
                 api/umd/device/cluster.h
                 api/umd/device/types/harvesting.h
+                api/umd/device/types/harvesting.hpp
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/types/cluster_types.h
                 api/umd/device/jtag/jtag_device.h

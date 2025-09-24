@@ -10,7 +10,8 @@
 // TODO: To be removed once this is fixed in tt_metal
 #include <deque>
 
-namespace tt::umd {
+// Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
+namespace tt {
 
 struct xy_pair {
     constexpr xy_pair() : x{}, y{} {}
@@ -55,16 +56,16 @@ constexpr inline bool operator<(const cxy_pair &left, const cxy_pair &right) {
         (left.chip == right.chip && left.x == right.x && left.y < right.y));
 }
 
-}  // namespace tt::umd
+}  // namespace tt
 
 // These are convenience typedefs for the xy_pair and cxy_pair types.
-using tt_xy_pair = tt::umd::xy_pair;
-using tt_cxy_pair = tt::umd::cxy_pair;
+using tt_xy_pair = tt::xy_pair;
+using tt_cxy_pair = tt::cxy_pair;
 
 namespace std {
 template <>
-struct hash<tt::umd::xy_pair> {
-    std::size_t operator()(tt::umd::xy_pair const &o) const {
+struct hash<tt::xy_pair> {
+    std::size_t operator()(tt::xy_pair const &o) const {
         std::size_t seed = 0;
         seed = std::hash<std::size_t>()(o.x) ^ std::hash<std::size_t>()(o.y) << 1;
         return seed;
@@ -74,8 +75,8 @@ struct hash<tt::umd::xy_pair> {
 
 namespace std {
 template <>
-struct hash<tt::umd::cxy_pair> {
-    std::size_t operator()(tt::umd::cxy_pair const &o) const {
+struct hash<tt::cxy_pair> {
+    std::size_t operator()(tt::cxy_pair const &o) const {
         std::size_t seed = 0;
         seed = std::hash<std::size_t>()(o.chip) ^ (std::hash<std::size_t>()(o.x) << 1) ^
                (std::hash<std::size_t>()(o.y) << 2);

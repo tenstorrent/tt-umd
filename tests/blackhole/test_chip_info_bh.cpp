@@ -4,6 +4,7 @@
 #include "gtest/gtest.h"
 #include "umd/device/tt_device/tt_device.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(BlackholeChipInfo, BasicChipInfo) {

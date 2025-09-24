@@ -105,8 +105,9 @@ void TopologyDiscovery::get_connected_chips() {
                 break;
             }
         }
-        uint64_t asic_id = get_asic_id(chip.get());
+
         initialize_remote_communication(chip.get());
+        uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(
             LogSiliconDriver,
@@ -196,9 +197,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
-                // TODO: we should probably initialize remote communication for remote chips as well.
-                // This is not needed currently for any Blackhole topology, but we should work on enabling this in
-                // general. The change required is to not initialize the communication on already initialized ETH cores.
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_chips.insert(remote_asic_id);
@@ -251,6 +249,11 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
+
+        if (chip->get_tt_device()->get_pci_device()) {
+            cluster_desc->chip_to_bus_id.insert(
+                {current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_info().pci_bus});
+        }
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {

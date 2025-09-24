@@ -14,6 +14,8 @@
 
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 
+// Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
+namespace tt {
 /*
  * CoreType is an enum class that represents all types of cores
  * present on the Tenstorrent chip.
@@ -37,7 +39,6 @@ enum class CoreType {
     COUNT,
 };
 
-namespace tt::umd {
 /*
  * CoordSystem is an enum class that represents all types of coordinate
  * systems that can be used to represent a core's location.
@@ -98,6 +99,9 @@ static inline std::string to_str(const CoordSystem coord_system) {
     }
 }
 
+// TODO: There is a conflicting declaration in tt_metal for CoreCoord. We need to remove that one before we can move
+// this CoreCoord to tt namespace.
+namespace umd {
 struct CoreCoord : public tt_xy_pair {
     CoreCoord() {}
 
@@ -142,15 +146,17 @@ struct CoreCoord : public tt_xy_pair {
                to_str(coord_system) + ")";
     }
 };
+}  // namespace umd
 
-}  // namespace tt::umd
+}  // namespace tt
 
 // TODO: To be removed once clients switch to namespace usage.
-using tt::umd::CoordSystem;
+using tt::CoordSystem;
+using tt::CoreType;
 
 namespace tt::umd {
-// We can't define CoreType originally in the tt::umd namespace, due to a forward declaration in tt_metal.
-using CoreType = ::CoreType;
+using CoreType = tt::CoreType;
+using CoordSystem = tt::CoordSystem;
 }  // namespace tt::umd
 
 namespace std {
@@ -160,8 +166,8 @@ struct hash<tt::umd::CoreCoord> {
         size_t seed = 0;
         seed = std::hash<size_t>{}(core_coord.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         seed = std::hash<size_t>{}(core_coord.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<tt::umd::CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<tt::umd::CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<tt::CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<tt::CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };

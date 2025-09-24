@@ -6,6 +6,7 @@
 #include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
 
+using namespace tt;
 using namespace tt::umd;
 
 constexpr uint32_t one_mb = 1 << 20;

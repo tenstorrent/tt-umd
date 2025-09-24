@@ -37,9 +37,9 @@ public:
     void dbus_sigdump(
         const char* client_name, uint32_t dbg_client_id, uint32_t dbg_signal_sel_start, uint32_t dbg_signal_sel_end);
     void write_axi(uint32_t reg_addr, uint32_t data);
-    void write_noc_xy(uint32_t node_x_id, uint32_t node_y_id, uint64_t noc_addr, uint32_t noc_data);
+    void write_noc_xy(uint32_t node_x_id, uint32_t node_y_id, uint64_t noc_addr, uint32_t noc_data, uint8_t noc_id);
     uint32_t read_axi(uint32_t reg_addr);
-    uint32_t read_noc_xy(uint32_t node_x_id, uint32_t node_y_id, uint64_t noc_addr);
+    uint32_t read_noc_xy(uint32_t node_x_id, uint32_t node_y_id, uint64_t noc_addr, uint8_t noc_id);
     std::vector<uint32_t> enumerate_jlink();
     void close_jlink();
     uint32_t read_id_raw();

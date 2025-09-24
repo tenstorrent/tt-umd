@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -39,7 +39,7 @@ SimulationChip::SimulationChip(const std::filesystem::path& simulator_directory,
     }
 }
 
-// Base class implementations (common simple methods)
+// Base class implementations (common simple methods).
 void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
 }

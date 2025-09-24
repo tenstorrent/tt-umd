@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-// TTSIM implementation using dynamic library (.so files)
+// TTSIM implementation using dynamic library (.so files).
 class TTSimulationChip : public SimulationChip {
 public:
     TTSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);

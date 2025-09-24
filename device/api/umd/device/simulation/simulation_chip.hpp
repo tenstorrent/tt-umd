@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,7 +17,7 @@
 
 namespace tt::umd {
 
-// Base class for all simulation devices
+// Base class for all simulation devices.
 class SimulationChip : public Chip {
 public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
@@ -27,7 +27,7 @@ public:
 
     virtual ~SimulationChip() = default;
 
-    // Common interface methods - most have simple implementations
+    // Common interface methods - most have simple implementations.
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
@@ -72,7 +72,7 @@ public:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) override;
 
-    // Pure virtual methods that derived classes must implement
+    // Pure virtual methods that derived classes must implement.
     virtual void start_device() override = 0;
     virtual void close_device() override = 0;
 
@@ -87,8 +87,8 @@ public:
 protected:
     SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
 
-    // Simulator directory
-    // Common state variables
+    // Simulator directory.
+    // Common state variables.
     driver_noc_params noc_params;
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,7 +14,7 @@
 
 namespace tt::umd {
 
-// RTL simulation implementation using subprocess and flatbuffer communication
+// RTL simulation implementation using subprocess and flatbuffer communication.
 class RtlSimulationChip : public SimulationChip {
 public:
     RtlSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);

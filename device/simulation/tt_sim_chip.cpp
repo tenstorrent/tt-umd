@@ -1,10 +1,8 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#include "umd/device/simulation/tt_simulation_chip.hpp"
 
 #include <dlfcn.h>
 
@@ -12,6 +10,7 @@
 
 #include "assert.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/simulation/tt_simulation_chip.hpp"
 
 #define DLSYM_FUNCTION(func_name)                                                    \
     pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
@@ -29,7 +28,7 @@ TTSimulationChip::TTSimulationChip(const std::filesystem::path& simulator_direct
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
 
-    // dlopen the simulator library and dlsym the entry points
+    // dlopen the simulator library and dlsym the entry points.
     libttsim_handle = dlopen(simulator_directory.string().c_str(), RTLD_LAZY);
     if (!libttsim_handle) {
         TT_THROW("Failed to dlopen simulator library: ", dlerror());

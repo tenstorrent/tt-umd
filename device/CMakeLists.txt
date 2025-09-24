@@ -114,7 +114,7 @@ if(TT_UMD_BUILD_SIMULATION)
         device
         PRIVATE
             simulation/simulation_chip.cpp
-            simulation/tt_simulation_chip.cpp
+            simulation/tt_sim_chip.cpp
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}

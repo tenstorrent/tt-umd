@@ -76,8 +76,6 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 
-namespace tt::umd {
-
 struct routing_cmd_t {
     uint64_t sys_addr;
     uint32_t data;

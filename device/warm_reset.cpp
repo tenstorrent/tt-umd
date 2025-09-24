@@ -24,14 +24,14 @@ namespace tt::umd {
 void WarmReset::warm_reset(bool reset_m3) {
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
-    log_info(tt::LogSiliconDriver, "Starting reset for {} architecture.", arch_to_str(arch));
+    log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
     switch (arch) {
         case ARCH::WORMHOLE_B0:
             warm_reset_wormhole(reset_m3);
             return;
         case ARCH::BLACKHOLE:
             if (reset_m3) {
-                log_warning(tt::LogSiliconDriver, "Reset M3 flag doesn't influence Blackhole reset.");
+                log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
             }
             warm_reset_blackhole();
             return;
@@ -82,13 +82,13 @@ void WarmReset::warm_reset_blackhole() {
     if (!all_reset_bits_set) {
         for (auto& [chip, reset_bit] : reset_bits) {
             if (!reset_bit) {
-                log_warning(tt::LogSiliconDriver, "Config space reset not completed for chip_id : {}", chip);
+                log_warning(tt::LogUMD, "Config space reset not completed for chip_id : {}", chip);
             }
         }
     }
 
     if (all_reset_bits_set) {
-        log_info(tt::LogSiliconDriver, "Reset succesfully completed.");
+        log_info(tt::LogUMD, "Reset succesfully completed.");
     }
     PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
 }
@@ -109,7 +109,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
         if (!tt_device->wait_arc_post_reset(300'000)) {
-            log_warning(tt::LogSiliconDriver, "Reset failed for pci id {} - ARC core init failed", i);
+            log_warning(tt::LogUMD, "Reset failed for pci id {} - ARC core init failed", i);
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));
@@ -155,7 +155,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
         if (refclk_values_old[i] < refclk_current[i]) {
             reset_ok = false;
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "Reset for PCI: {} didn't go through! Refclk didn't reset. Value before: {}, value after: {}",
                 i,
                 refclk_values_old[i],
@@ -164,7 +164,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     }
 
     if (reset_ok) {
-        log_info(tt::LogSiliconDriver, "Reset successfully completed.");
+        log_info(tt::LogUMD, "Reset successfully completed.");
     }
 }
 

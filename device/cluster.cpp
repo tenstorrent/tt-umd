@@ -49,7 +49,7 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/simulation/simulation_device.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
@@ -280,7 +280,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogSiliconDriver, "Creating Simulation device");
-        return std::make_unique<SimulationDevice>(simulator_directory, soc_desc);
+        return SimulationChip::create(simulator_directory, soc_desc);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "

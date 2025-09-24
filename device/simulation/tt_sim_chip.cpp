@@ -38,8 +38,6 @@ TTSimulationChip::TTSimulationChip(const std::filesystem::path& simulator_direct
     DLSYM_FUNCTION(libttsim_pci_config_rd32)
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
-    DLSYM_FUNCTION(libttsim_tensix_reset_deassert)
-    DLSYM_FUNCTION(libttsim_tensix_reset_assert)
     DLSYM_FUNCTION(libttsim_clock)
 }
 
@@ -78,14 +76,11 @@ void TTSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_
 
 void TTSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::mutex> lock(device_lock);
-    if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-        pfn_libttsim_tensix_reset_assert(translated_core.x, translated_core.y);
-    } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        pfn_libttsim_tensix_reset_deassert(translated_core.x, translated_core.y);
+    uint32_t reset_value = uint32_t(soft_resets);
+    if ((libttsim_pci_device_id == 0x401E) || (libttsim_pci_device_id == 0xB140)) {  // WH/BH
+        pfn_libttsim_tile_wr_bytes(translated_core.x, translated_core.y, 0xFFB121B0, &reset_value, sizeof(reset_value));
     } else {
-        TT_THROW("Invalid soft reset option.");
+        TT_THROW("Missing implementation of reset for this chip.");
     }
 }
 
@@ -102,7 +97,8 @@ void TTSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected
     if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         throw std::runtime_error("TTSIM doesn't support Quasar NEO Data Movement core reset.");
     } else {
-        pfn_libttsim_tensix_reset_assert(translate_core.x, translate_core.y);
+        TT_THROW("Implement this path using appropriate calls to libttsim_tile_wr_bytes.");
+        // pfn_libttsim_tensix_reset_assert(translate_core.x, translate_core.y);
     }
 }
 
@@ -113,7 +109,8 @@ void TTSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType select
     if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         throw std::runtime_error("TTSIM doesn't support Quasar NEO Data Movement core reset.");
     } else {
-        pfn_libttsim_tensix_reset_deassert(translate_core.x, translate_core.y);
+        TT_THROW("Implement this path using appropriate calls to libttsim_tile_wr_bytes.");
+        // pfn_libttsim_tensix_reset_deassert(translate_core.x, translate_core.y);
     }
 }
 

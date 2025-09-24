@@ -59,7 +59,6 @@ void TTSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, l1_dest, src, size);
-    pfn_libttsim_clock(10);
 }
 
 void TTSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {

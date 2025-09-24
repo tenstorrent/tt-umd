@@ -17,6 +17,26 @@
 using namespace tt::umd;
 
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+static const std::vector<tt_xy_pair> ETH_CORES_TRANSLATION_ON = {
+    {{25, 16},
+     {18, 16},
+     {24, 16},
+     {19, 16},
+     {23, 16},
+     {20, 16},
+     {22, 16},
+     {21, 16},
+     {25, 17},
+     {18, 17},
+     {24, 17},
+     {19, 17},
+     {23, 17},
+     {20, 17},
+     {22, 17},
+     {21, 17}}};
+
+static const std::vector<uint32_t> T6_X_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25};
+static const std::vector<uint32_t> T6_Y_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
@@ -28,18 +48,14 @@ std::int32_t get_static_tlb_index(tt_xy_pair target, bool noc_translation_enable
     bool is_eth_location = false;
     bool is_tensix_location = false;
     if (noc_translation_enabled) {
-        is_eth_location = std::find(
-                              std::cbegin(tt::umd::wormhole::ETH_CORES_TRANSLATION_ON),
-                              std::cend(tt::umd::wormhole::ETH_CORES_TRANSLATION_ON),
-                              target) != std::cend(tt::umd::wormhole::ETH_CORES_TRANSLATION_ON);
-        is_tensix_location = std::find(
-                                 std::cbegin(tt::umd::wormhole::T6_X_TRANSLATED_LOCATIONS),
-                                 std::cend(tt::umd::wormhole::T6_X_TRANSLATED_LOCATIONS),
-                                 target.x) != std::cend(tt::umd::wormhole::T6_X_TRANSLATED_LOCATIONS) &&
-                             std::find(
-                                 std::cbegin(tt::umd::wormhole::T6_Y_TRANSLATED_LOCATIONS),
-                                 std::cend(tt::umd::wormhole::T6_Y_TRANSLATED_LOCATIONS),
-                                 target.y) != std::cend(tt::umd::wormhole::T6_Y_TRANSLATED_LOCATIONS);
+        is_eth_location =
+            std::find(std::cbegin(ETH_CORES_TRANSLATION_ON), std::cend(ETH_CORES_TRANSLATION_ON), target) !=
+            std::cend(ETH_CORES_TRANSLATION_ON);
+        is_tensix_location =
+            std::find(std::cbegin(T6_X_TRANSLATED_LOCATIONS), std::cend(T6_X_TRANSLATED_LOCATIONS), target.x) !=
+                std::cend(T6_X_TRANSLATED_LOCATIONS) &&
+            std::find(std::cbegin(T6_Y_TRANSLATED_LOCATIONS), std::cend(T6_Y_TRANSLATED_LOCATIONS), target.y) !=
+                std::cend(T6_Y_TRANSLATED_LOCATIONS);
     } else {
         is_eth_location =
             std::find(

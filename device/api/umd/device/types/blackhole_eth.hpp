@@ -60,7 +60,8 @@ struct chip_info_t {
     uint32_t board_id_lo;   // 2
     uint32_t mac_addr_org;  // 3
     uint32_t mac_addr_id;   // 4
-    uint32_t spare[2];      // 5-6
+    uint32_t asic_id_hi;    // 5
+    uint32_t asic_id_lo;    // 6
     uint32_t ack;           // 7
 
     ChipUID get_chip_uid() const {

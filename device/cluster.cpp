@@ -211,6 +211,9 @@ void Cluster::verify_fw_bundle_version() {
             arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
     }
 
+    // TODO: Add a check for running proper FW version on Blackhole galaxy when the feature for unique ID on ETH core is
+    // properly released.
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {

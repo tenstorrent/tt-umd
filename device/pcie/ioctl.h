@@ -31,6 +31,7 @@
 #define TENSTORRENT_IOCTL_ALLOCATE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 11)
 #define TENSTORRENT_IOCTL_FREE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 12)
 #define TENSTORRENT_IOCTL_CONFIGURE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 13)
+#define TENSTORRENT_IOCTL_SET_NOC_CLEANUP		_IO(TENSTORRENT_IOCTL_MAGIC, 14)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED		0
@@ -87,19 +88,24 @@ struct tenstorrent_query_mappings {
 	struct tenstorrent_query_mappings_out out;
 };
 
+// tenstorrent_allocate_dma_buf_in.flags
+#define TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA 2
+
 struct tenstorrent_allocate_dma_buf_in {
 	__u32 requested_size;
 	__u8  buf_index;	// [0,TENSTORRENT_MAX_DMA_BUFS)
-	__u8  reserved0[3];
+	__u8  flags;
+	__u8  reserved0[2];
 	__u64 reserved1[2];
 };
 
 struct tenstorrent_allocate_dma_buf_out {
-	__u64 physical_address;
+	__u64 physical_address;	// or IOVA
 	__u64 mapping_offset;
 	__u32 size;
 	__u32 reserved0;
-	__u64 reserved1[2];
+	__u64 noc_address;	// valid if TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA is set
+	__u64 reserved1;
 };
 
 struct tenstorrent_allocate_dma_buf {
@@ -124,7 +130,11 @@ struct tenstorrent_get_driver_info_in {
 
 struct tenstorrent_get_driver_info_out {
 	__u32 output_size_bytes;
-	__u32 driver_version;
+	__u32 driver_version;		// IOCTL API version
+	__u8 driver_version_major;
+	__u8 driver_version_minor;
+	__u8 driver_version_patch;
+	__u8 reserved0;
 };
 
 struct tenstorrent_get_driver_info {
@@ -132,10 +142,16 @@ struct tenstorrent_get_driver_info {
 	struct tenstorrent_get_driver_info_out out;
 };
 
-// tenstorrent_reset_device_in.flags
+// legacy tenstorrent_reset_device_in.flags
 #define TENSTORRENT_RESET_DEVICE_RESTORE_STATE 0
 #define TENSTORRENT_RESET_DEVICE_RESET_PCIE_LINK 1
 #define TENSTORRENT_RESET_DEVICE_CONFIG_WRITE 2
+
+// tenstorrent_reset_device_in.flags
+#define TENSTORRENT_RESET_DEVICE_USER_RESET 3
+#define TENSTORRENT_RESET_DEVICE_ASIC_RESET 4
+#define TENSTORRENT_RESET_DEVICE_ASIC_DMC_RESET 5
+#define TENSTORRENT_RESET_DEVICE_POST_RESET 6
 
 struct tenstorrent_reset_device_in {
 	__u32 output_size_bytes;
@@ -168,12 +184,6 @@ struct tenstorrent_pin_pages_out {
 	__u64 physical_address;	// or IOVA
 };
 
-struct tenstorrent_pin_pages {
-	struct tenstorrent_pin_pages_in in;
-	struct tenstorrent_pin_pages_out out;
-};
-
-
 struct tenstorrent_pin_pages_out_extended {
 	__u64 physical_address;	// or IOVA
 	__u64 noc_address;
@@ -192,6 +202,11 @@ struct tenstorrent_unpin_pages_out {
 struct tenstorrent_unpin_pages {
 	struct tenstorrent_unpin_pages_in in;
 	struct tenstorrent_unpin_pages_out out;
+};
+
+struct tenstorrent_pin_pages {
+	struct tenstorrent_pin_pages_in in;
+	struct tenstorrent_pin_pages_out out;
 };
 
 // tenstorrent_lock_ctl_in.flags
@@ -290,6 +305,38 @@ struct tenstorrent_configure_tlb {
 	struct tenstorrent_configure_tlb_in in;
 	struct tenstorrent_configure_tlb_out out;
 };
+
+/**
+ * TENSTORRENT_IOCTL_SET_NOC_CLEANUP - Register a cleanup action
+ *
+ * Registers an automatic NOC write operation that the driver will perform on
+ * the device when the file descriptor is closed. This provides a reliable
+ * cleanup mechanism for device-side software in case the host-side userspace
+ * application terminates abnormally (e.g. segfault, OOM killer).
+ *
+ * A previously registered action can be cleared by setting @enabled to 0.
+ *
+ * @argsz: Must be sizeof(struct tenstorrent_set_noc_cleanup).
+ * @flags: Reserved for future use, must be 0.
+ * @enabled: Set to 1 to register the action, or 0 to clear it.
+ * @x: X coordinate of the NOC tile to write to.
+ * @y: Y coordinate of the NOC tile to write to.
+ * @noc: NOC ID to write to; must be 0 or 1.
+ * @addr: NOC address to write to; must be 4-byte aligned.
+ * @data: Data to write to the NOC tile; upper 32 bits are ignored.
+ */
+struct tenstorrent_set_noc_cleanup {
+	__u32 argsz;
+	__u32 flags;
+	__u8 enabled;
+	__u8 x;
+	__u8 y;
+	__u8 noc;
+	__u32 reserved0;
+	__u64 addr;
+	__u64 data;
+};
+
 
 #endif
 // clang-format on

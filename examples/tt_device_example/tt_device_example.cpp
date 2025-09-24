@@ -12,6 +12,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 int main(int argc, char* argv[]) {

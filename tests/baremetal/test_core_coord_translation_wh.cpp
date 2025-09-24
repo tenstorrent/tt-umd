@@ -8,6 +8,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // Tests that, when NOC translation is enabled and there is no harvesting,

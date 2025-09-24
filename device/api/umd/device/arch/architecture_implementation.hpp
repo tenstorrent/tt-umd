@@ -14,17 +14,13 @@
 
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-
-struct device_l1_address_params;
-struct driver_host_address_params;
-struct driver_eth_interface_params;
-struct driver_noc_params;
 
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 

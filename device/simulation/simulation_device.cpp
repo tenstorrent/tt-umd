@@ -73,20 +73,19 @@ inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::F
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
-SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
-    simulator_directory(simulator_directory),
-    soc_descriptor(
-        (simulator_directory.extension() == ".so") ? (simulator_directory.parent_path() / "soc_descriptor.yaml")
-                                                   : (simulator_directory / "soc_descriptor.yaml"),
-        ChipInfo{.noc_translation_enabled = (simulator_directory.extension() == ".so")}) {}
+std::string SimulationDevice::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {
+    return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "soc_descriptor.yaml")
+                                                 : (simulator_path / "soc_descriptor.yaml");
+}
 
-SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
+SimulationDevice::SimulationDevice(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
+    Chip(soc_descriptor) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
-    arch_name = init.get_arch_name();
+    soc_descriptor_per_chip.emplace(0, soc_descriptor);
+    arch_name = soc_descriptor.arch;
     target_devices_in_cluster = {0};
 
-    std::filesystem::path simulator_path = init.get_simulator_path();
+    std::filesystem::path simulator_path = simulator_directory;
     if (!std::filesystem::exists(simulator_path)) {
         TT_THROW("Simulator binary not found at: ", simulator_path);
     }
@@ -105,6 +104,8 @@ SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init
         DLSYM_FUNCTION(libttsim_tensix_reset_assert)
         DLSYM_FUNCTION(libttsim_clock)
     } else {
+        host.init();
+
         // Start simulator process
         uv_loop_t* loop = uv_default_loop();
         std::string simulator_path_string = simulator_path / "run.sh";
@@ -196,15 +197,25 @@ void SimulationDevice::assert_risc_reset(CoreCoord core, const RiscType selected
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    // Only a few scenarios are implemented at the moment.
-    if (selected_riscs == RiscType::ALL_TENSIX) {
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core));
-    } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
+    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
+    // Note that the simulator currently only supports soft reset control for all DMs on Quasar, you can't
+    // control them individually. This is just a current API limitation, it is possible to add the support
+    // for finer grained control in the future if needed.
+    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
     } else {
-        TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
+        // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
+        // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
+        // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
+        // always call this command as if reset for all was requested, unless NEO_DMS_RESET was specifically selected.
+        if (libttsim_handle) {
+            pfn_libttsim_tensix_reset_assert(translate_core.x, translate_core.y);
+        } else {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core));
+        }
     }
 }
 
@@ -212,17 +223,18 @@ void SimulationDevice::deassert_risc_reset(CoreCoord core, const RiscType select
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    // Only a few scenarios are implemented at the moment.
-    if (selected_riscs == RiscType::BRISC) {
-        // This branch is currently executed the same for all architectures.
-        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
-    } else if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
+    // See the comment in assert_risc_reset for more details.
+    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
     } else {
-        TT_THROW("Invalid RiscType {} for simulation arch {}.", selected_riscs, arch_name);
+        // See the comment in assert_risc_reset for more details.
+        if (libttsim_handle) {
+            pfn_libttsim_tensix_reset_deassert(translate_core.x, translate_core.y);
+        } else {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));
+        }
     }
 }
 

@@ -76,8 +76,6 @@ protected:
 
     EthAddresses eth_addresses;
 
-    bool is_running_on_6u = false;
-
     static const uint32_t ETH_UNKNOWN = 0;
     static const uint32_t ETH_UNCONNECTED = 1;
 };

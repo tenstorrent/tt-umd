@@ -20,8 +20,6 @@
 namespace tt::cpuset {
 //! Utility functions for various backend paramsf
 
-using tt::umd::chip_id_t;
-
 // CPU ID allocator for pinning threads to cpu_ids
 // It's a singleton that should be retrieved via get()
 struct cpuset_allocator {

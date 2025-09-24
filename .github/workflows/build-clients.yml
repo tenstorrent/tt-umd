@@ -177,8 +177,7 @@ jobs:
           export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
-# TODO: Enable this once it starts passing.
-#     - name: Run tt-sim blackhole tests
-#       run: |
-#         export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
-#         TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+      - name: Run tt-sim blackhole tests
+        run: |
+          export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv

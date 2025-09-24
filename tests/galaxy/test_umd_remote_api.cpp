@@ -9,7 +9,7 @@
 #include "gtest/gtest.h"
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"

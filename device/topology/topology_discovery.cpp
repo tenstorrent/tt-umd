@@ -108,7 +108,13 @@ void TopologyDiscovery::get_connected_chips() {
         uint64_t asic_id = get_asic_id(chip.get());
         initialize_remote_communication(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
-        log_debug(LogSiliconDriver, "Discovered PCI chip with PCI ID {} and asic ID {}", device_id, asic_id);
+        log_debug(
+            LogSiliconDriver,
+            "Discovered {} chip with {} ID {} and asic ID {}",
+            DeviceTypeToString.at(io_device_type),
+            DeviceTypeToString.at(io_device_type),
+            device_id,
+            asic_id);
     }
 }
 
@@ -245,6 +251,11 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
+
+        if (chip->get_tt_device()->get_pci_device()) {
+            cluster_desc->chip_to_bus_id.insert(
+                {current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_info().pci_bus});
+        }
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {

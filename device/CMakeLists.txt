@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(POSITION_INDEPENDENT_CODE ON)
+include(CheckFunctionExists)
 
 if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs)

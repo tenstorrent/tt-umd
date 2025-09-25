@@ -26,10 +26,18 @@ SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buff
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+
+    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        TT_THROW(
+            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+            tt_device_->get_pci_device()->get_device_num());
+    }
+
     validate(offset);
+
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
     const uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
@@ -55,10 +63,18 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+
+    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        TT_THROW(
+            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+            tt_device_->get_pci_device()->get_device_num());
+    }
+
     validate(offset);
+
     static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();

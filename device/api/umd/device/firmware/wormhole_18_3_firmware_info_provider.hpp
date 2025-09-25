@@ -32,6 +32,22 @@ public:
     uint32_t get_max_clock_freq() override;
 
     uint8_t get_asic_location() override;
+
+    std::optional<uint32_t> get_aiclk() override;
+
+    std::optional<uint32_t> get_axiclk() override;
+
+    std::optional<uint32_t> get_arcclk() override;
+
+    std::optional<uint32_t> get_fan_speed() override;
+
+    std::optional<uint32_t> get_tdp() override;
+
+    std::optional<uint32_t> get_tdc() override;
+
+    std::optional<uint32_t> get_vcore() override;
+
+    std::optional<double> get_board_temperature() override;
 };
 
 }  // namespace tt::umd

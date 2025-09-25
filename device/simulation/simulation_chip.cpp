@@ -44,10 +44,6 @@ void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftRese
     send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
 }
 
-void SimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset({0, 0}, soft_resets);
-}
-
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }

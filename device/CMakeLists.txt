@@ -232,6 +232,19 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
+check_function_exists(
+    backtrace
+    HAVE_BACKTRACE
+)
+
+if(NOT HAVE_BACKTRACE)
+    find_library(EXECINFO_LIB execinfo)
+    if(EXECINFO_LIB)
+        target_link_libraries(device PUBLIC ${EXECINFO_LIB})
+    endif()
+endif()
+
+
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
         device

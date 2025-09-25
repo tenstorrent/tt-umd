@@ -119,14 +119,14 @@ jobs:
         id: get-ttsim-ref
         run: |
           # Extract the ref value from tt-metal's ttsim.yaml
-          # Look for the "Checkout ttsim" step and extract the ref value
+          # Look for the ttsim-ref input default value
           if [ -f "tt-metal/.github/workflows/ttsim.yaml" ]; then
-            TTSIM_REF=$(grep -A 10 "name: Checkout ttsim" tt-metal/.github/workflows/ttsim.yaml \
-                      | grep "ref:" | head -1 \
-                      | sed 's/.*ref: *\(.*\)/\1/' \
+            TTSIM_REF=$(grep -A 5 "ttsim-ref:" tt-metal/.github/workflows/ttsim.yaml \
+                      | grep "default:" \
+                      | sed 's/.*default: *"\?\([^"]*\)"\?.*/\1/' \
                       | tr -d ' ')
             if [ -z "$TTSIM_REF" ]; then
-              echo "Warning: Could not extract ttsim ref, using main branch"
+              echo "Warning: Could not extract ttsim ref from input default, using main branch"
               TTSIM_REF="main"
             fi
           else
@@ -177,8 +177,7 @@ jobs:
           export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
-# TODO: Enable this once it starts passing.
-#     - name: Run tt-sim blackhole tests
-#       run: |
-#         export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
-#         TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+      - name: Run tt-sim blackhole tests
+        run: |
+          export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv

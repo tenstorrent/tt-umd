@@ -12,13 +12,14 @@
 #include <vector>
 
 #include "fmt/xchar.h"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 
 // TODO: change to tt_cluster
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.

@@ -9,6 +9,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(TestNoc, TestNoc0NodeId) {
@@ -139,6 +140,5 @@ TEST(TestNoc, TestNoc1NodeId) {
             check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
         }
     }
-
     TTDevice::use_noc1(false);
 }

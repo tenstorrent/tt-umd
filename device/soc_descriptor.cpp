@@ -353,6 +353,17 @@ std::vector<tt_xy_pair> SocDescriptor::convert_to_tt_xy_pair(const std::vector<s
     return core_pairs;
 }
 
+tt::ARCH SocDescriptor::get_arch_from_soc_descriptor_path(const std::string &soc_descriptor_path) {
+    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_path);
+    return tt::arch_from_str(device_descriptor_yaml["arch_name"].as<std::string>());
+}
+
+tt_xy_pair SocDescriptor::get_grid_size_from_soc_descriptor_path(const std::string &soc_descriptor_path) {
+    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_path);
+    return tt_xy_pair(
+        device_descriptor_yaml["grid"]["x_size"].as<int>(), device_descriptor_yaml["grid"]["y_size"].as<int>());
+}
+
 std::vector<std::vector<tt_xy_pair>> SocDescriptor::convert_dram_cores_from_yaml(
     YAML::Node &device_descriptor_yaml, const std::string &dram_core) {
     std::vector<std::vector<tt_xy_pair>> dram_cores;
@@ -627,6 +638,7 @@ std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
 }
 
 void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
+    const tt_xy_pair empty = {0, 0};
     for (const auto &core_type :
          {CoreType::TENSIX,
           CoreType::DRAM,
@@ -640,7 +652,9 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
             core_type == CoreType::L2CPU) {
-            // Ethernet and Router cores aren't arranged in a grid.
+            // Ethernet and Router cores aren't arranged in a grid, initializing as empty
+            grid_size_map.insert({core_type, empty});
+            harvested_grid_size_map.insert({core_type, empty});
             continue;
         }
         grid_size_map.insert({core_type, coordinate_manager->get_grid_size(core_type)});

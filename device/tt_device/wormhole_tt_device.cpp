@@ -36,10 +36,19 @@ void WormholeTTDevice::post_init_hook() {
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
-    // NOC1 is not yet applicable to JTAG.
-    arc_core = wormhole::ARC_CORES_NOC0[0];
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
     wait_arc_core_start(1000);
+}
+
+WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -47,11 +56,8 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
     // We use DRAM core (0, 0) to read this information, but it can be read from any core.
     // TODO: read this information from PCIE BAR.
-    //
-    // NOC1 is not available yet on JTAG.
-    const tt_xy_pair dram_core = umd_use_noc1 && communication_device_type_ != IODeviceType::JTAG
-                                     ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0])
-                                     : tt_xy_pair(0, 0);
+    const tt_xy_pair dram_core =
+        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0]) : tt_xy_pair(0, 0);
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 
@@ -433,8 +439,6 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     }
     return time_taken_heartbeat + time_taken_port;
 }
-
-tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
 
 uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 

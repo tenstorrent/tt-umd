@@ -43,12 +43,17 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
-    tt_xy_pair get_arc_core() const;
-
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+
+protected:
+    /*
+     * Create a device without an underlying communication device.
+     * Used for remote devices that depend on remote_communication.
+     */
+    WormholeTTDevice();
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
@@ -82,7 +87,6 @@ private:
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.
     std::mutex dma_mutex_;
-    tt_xy_pair arc_core;
 
     EthAddresses eth_addresses;
 };

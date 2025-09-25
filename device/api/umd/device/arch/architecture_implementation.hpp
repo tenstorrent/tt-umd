@@ -14,16 +14,13 @@
 
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-
-struct device_l1_address_params;
-struct driver_host_address_params;
-struct driver_eth_interface_params;
-struct driver_noc_params;
 
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 
@@ -67,6 +64,9 @@ public:
     virtual uint32_t get_tlb_base_index_16m() const = 0;
     virtual uint32_t get_tensix_soft_reset_addr() const = 0;
     virtual uint32_t get_debug_reg_addr() const = 0;
+    virtual uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const = 0;
+    virtual tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
+    virtual uint32_t get_soft_reset_staggered_start() const = 0;
     virtual uint32_t get_grid_size_x() const = 0;
     virtual uint32_t get_grid_size_y() const = 0;
     virtual uint32_t get_tlb_cfg_reg_size_bytes() const = 0;

@@ -6,6 +6,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "blackhole/eth_interface.h"
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
@@ -114,6 +115,75 @@ uint64_t blackhole_implementation::get_noc_reg_base(
     }
 
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+}
+
+uint32_t blackhole_implementation::get_soft_reset_reg_value(tt::umd::RiscType risc_type) const {
+    if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
+        // Throw if any of the NEO cores are selected.
+        TT_THROW("NEO risc cores should not be used on Blackhole architecture.");
+    }
+
+    // Fill up Tensix related bits based on architecture agnostic bits.
+    if ((risc_type & RiscType::ALL) != RiscType::NONE) {
+        risc_type |= RiscType::ALL_TENSIX;
+    }
+    if ((risc_type & RiscType::ALL_TRISCS) != RiscType::NONE) {
+        risc_type |= RiscType::ALL_TENSIX_TRISCS;
+    }
+    if ((risc_type & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE) {
+        risc_type |= RiscType::ALL_TENSIX_DMS;
+    }
+
+    uint32_t soft_reset_reg_value = 0;
+    if ((risc_type & RiscType::BRISC) != RiscType::NONE) {
+        soft_reset_reg_value |= blackhole::SOFT_RESET_BRISC;
+    }
+    if ((risc_type & RiscType::TRISC0) != RiscType::NONE) {
+        soft_reset_reg_value |= blackhole::SOFT_RESET_TRISC0;
+    }
+    if ((risc_type & RiscType::TRISC1) != RiscType::NONE) {
+        soft_reset_reg_value |= blackhole::SOFT_RESET_TRISC1;
+    }
+    if ((risc_type & RiscType::TRISC2) != RiscType::NONE) {
+        soft_reset_reg_value |= blackhole::SOFT_RESET_TRISC2;
+    }
+    if ((risc_type & RiscType::NCRISC) != RiscType::NONE) {
+        soft_reset_reg_value |= blackhole::SOFT_RESET_NCRISC;
+    }
+
+    return soft_reset_reg_value;
+}
+
+RiscType blackhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
+    RiscType risc_type = RiscType::NONE;
+    if (soft_reset_reg_value & blackhole::SOFT_RESET_BRISC) {
+        risc_type |= RiscType::BRISC;
+    }
+    if (soft_reset_reg_value & blackhole::SOFT_RESET_TRISC0) {
+        risc_type |= RiscType::TRISC0;
+    }
+    if (soft_reset_reg_value & blackhole::SOFT_RESET_TRISC1) {
+        risc_type |= RiscType::TRISC1;
+    }
+    if (soft_reset_reg_value & blackhole::SOFT_RESET_TRISC2) {
+        risc_type |= RiscType::TRISC2;
+    }
+    if (soft_reset_reg_value & blackhole::SOFT_RESET_NCRISC) {
+        risc_type |= RiscType::NCRISC;
+    }
+
+    // Set arhitecture agnostic bits based on tensix bits.
+    if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
+        risc_type |= RiscType::ALL;
+    }
+    if ((risc_type & RiscType::ALL_TENSIX_TRISCS) != RiscType::NONE) {
+        risc_type |= RiscType::ALL_TRISCS;
+    }
+    if ((risc_type & RiscType::ALL_TENSIX_DMS) != RiscType::NONE) {
+        risc_type |= RiscType::ALL_DATA_MOVEMENT;
+    }
+
+    return risc_type;
 }
 
 namespace blackhole {

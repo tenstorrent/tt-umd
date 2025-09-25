@@ -49,7 +49,7 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/simulation/simulation_device.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
@@ -211,6 +211,9 @@ void Cluster::verify_fw_bundle_version() {
             arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
     }
 
+    // TODO: Add a check for running proper FW version on Blackhole galaxy when the feature for unique ID on ETH core is
+    // properly released.
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
@@ -277,8 +280,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogSiliconDriver, "Creating Simulation device");
-        // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
-        return std::make_unique<SimulationDevice>(simulator_directory);
+        return SimulationChip::create(simulator_directory, soc_desc);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -421,6 +423,9 @@ Cluster::Cluster(ClusterOptions options) {
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
 
+    bool is_ttsim_simulation =
+        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
@@ -435,11 +440,18 @@ Cluster::Cluster(ClusterOptions options) {
             auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
             if (options.chip_type == ChipType::SIMULATION) {
-                SimulationDeviceInit init(options.simulator_directory);
-                arch = init.get_soc_descriptor().arch;
+                if (options.sdesc_path.empty()) {
+                    options.sdesc_path =
+                        SimulationDevice::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                }
+                arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
             }
 #endif
-            temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster(options.target_devices, arch);
+            // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
+            // simulation.
+            bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+            temp_full_cluster_desc_ptr =
+                ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
         }
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
@@ -458,14 +470,6 @@ Cluster::Cluster(ClusterOptions options) {
         // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
         // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
         cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
-    }
-
-    if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
-        if (options.simulator_directory.extension() == ".so") {
-            options.sdesc_path = options.simulator_directory.parent_path() / "soc_descriptor.yaml";
-        } else {
-            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
-        }
     }
 
     // Construct all the required chips from the cluster descriptor.
@@ -525,20 +529,25 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot deassert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot assert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+}
+
+RiscType Cluster::get_risc_reset_state(const chip_id_t chip, const CoreCoord core) {
+    return get_chip(chip)->get_risc_reset_state(core);
+}
+
+void Cluster::assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type) {
+    get_chip(chip)->assert_risc_reset(core, risc_type);
+}
+
+void Cluster::deassert_risc_reset(
+    const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
+    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }

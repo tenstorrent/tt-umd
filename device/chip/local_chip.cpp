@@ -48,7 +48,9 @@ std::unique_ptr<LocalChip> LocalChip::create(
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
-        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
+        // Note that the eth_coord is not important here since this is only used for eth broadcasting.
+        remote_communication =
+            RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
     }
 
     return std::unique_ptr<LocalChip>(new LocalChip(
@@ -77,7 +79,9 @@ std::unique_ptr<LocalChip> LocalChip::create(
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
-        remote_communication = std::make_unique<RemoteCommunication>(tt_device.get(), sysmem_manager.get());
+        // Note that the eth_coord is not important here since this is only used for eth broadcasting.
+        remote_communication =
+            RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
     }
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
@@ -203,7 +207,7 @@ void LocalChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
         set_power_state(DevicePowerState::LONG_IDLE);
-        send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+        assert_risc_reset(RiscType::ALL);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
@@ -283,15 +287,14 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, l1_dest, size);
-        return;
-    }
-
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->write_to_device(src, translated_core, l1_dest, size);
+        return;
+    }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
@@ -331,15 +334,14 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         l1_src,
         size);
 
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, l1_src, size);
-        return;
-    }
-
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        return;
+    }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
@@ -503,7 +505,7 @@ void LocalChip::ethernet_broadcast_write(
     }
 
     // target_chip and target_core are ignored when broadcast is enabled.
-    remote_communication_->write_to_non_mmio({0, 0, 0, 0}, {0, 0}, src, core_dest, size, true, broadcast_header);
+    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, broadcast_header);
 }
 
 void LocalChip::wait_for_non_mmio_flush() {
@@ -511,28 +513,12 @@ void LocalChip::wait_for_non_mmio_flush() {
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
-    // Depending on the device type, the implementation may vary.
-    // Currently JTAG doesn't support remote communication.
-    if (!remote_communication_) {
-        TT_THROW(
-            "Ethernet remote transfer is currently not supported for {} devices.",
-            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
-    }
-
     // Set cores to be used by the broadcast communication.
     remote_communication_->set_remote_transfer_ethernet_cores(
         get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    // Depending on the device type, the implementation may vary.
-    // Currently JTAG doesn't support remote communication.
-    if (!remote_communication_) {
-        TT_THROW(
-            "Ethernet remote transfer is currently not supported for {} devices.",
-            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
-    }
-
     // Set cores to be used by the broadcast communication.
     remote_communication_->set_remote_transfer_ethernet_cores(
         get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));

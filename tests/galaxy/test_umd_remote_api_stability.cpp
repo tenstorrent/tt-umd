@@ -11,7 +11,7 @@
 #include "filesystem"
 #include "gtest/gtest.h"
 #include "tests/galaxy/test_galaxy_common.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"

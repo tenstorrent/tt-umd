@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 set(POSITION_INDEPENDENT_CODE ON)
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -21,8 +23,29 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
+# --- Embed lite_fabric.bin as a C header ---
+set(LITE_FABRIC_BIN ${CMAKE_CURRENT_SOURCE_DIR}/libs/lite_fabric.bin)
+set(LITE_FABRIC_EMBED ${CMAKE_CURRENT_BINARY_DIR}/lite_fabric.embed)
+
+add_custom_command(
+    OUTPUT
+        ${LITE_FABRIC_EMBED}
+    COMMAND
+        ${CMAKE_COMMAND} -E echo "Generating ${LITE_FABRIC_EMBED} from ${LITE_FABRIC_BIN}"
+    COMMAND
+        cat ${LITE_FABRIC_BIN} | xxd -i > ${LITE_FABRIC_EMBED}
+    DEPENDS
+        ${LITE_FABRIC_BIN}
+    COMMENT "Embedding lite_fabric.bin as C array"
+    VERBATIM
+)
+
+add_custom_target(generate_lite_fabric_embed ALL DEPENDS ${LITE_FABRIC_EMBED})
+
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
+
+add_dependencies(device generate_lite_fabric_embed)
 
 target_sources(
     device
@@ -58,6 +81,7 @@ target_sources(
         firmware/blackhole_18_7_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
+        types/risc_type.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
@@ -77,15 +101,21 @@ target_sources(
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
         tt_device/remote_communication.cpp
+        tt_device/remote_communication_legacy_firmware.cpp
+        tt_device/remote_communication_lite_fabric.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
+        lite_fabric/lite_fabric_host_utils.cpp
+        ${LITE_FABRIC_EMBED} # include generated embed file
 )
 
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         device
         PRIVATE
-            simulation/simulation_device.cpp
+            simulation/simulation_chip.cpp
+            simulation/tt_sim_chip.cpp
+            simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
     )
@@ -135,7 +165,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
-                api/umd/device/simulation/simulation_device.hpp
+                api/umd/device/types/risc_type.hpp
+                api/umd/device/simulation/simulation_chip.hpp
+                api/umd/device/simulation/tt_simulation_chip.hpp
+                api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/tt_xy_pair.h
@@ -144,7 +177,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/blackhole_arc.hpp
                 api/umd/device/types/cluster_descriptor_types.hpp
                 api/umd/device/types/cluster_types.hpp
-                api/umd/device/types/harvesting.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp
@@ -152,9 +184,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 # To be removed
+                api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/hugepage.h
                 api/umd/device/tt_core_coordinates.h
-                api/umd/device/tt_simulation_device.h
                 api/umd/device/tt_cluster_descriptor.h
                 api/umd/device/tt_soc_descriptor.h
                 api/umd/device/wormhole_implementation.h
@@ -167,12 +199,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/cluster_descriptor_types.h
                 api/umd/device/cluster.h
                 api/umd/device/types/harvesting.h
+                api/umd/device/types/harvesting.hpp
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/types/cluster_types.h
                 api/umd/device/jtag/jtag_device.h
                 api/umd/device/jtag/jtag.h
                 api/umd/device/logging/config.h
                 api/umd/device/tt_device/tt_device.h
+                api/umd/device/lite_fabric/lite_fabric.hpp
     )
 endif()
 

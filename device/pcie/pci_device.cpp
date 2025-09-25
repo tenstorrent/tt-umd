@@ -31,9 +31,6 @@ static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
-static const size_t DMABUF_SIZE = (1 << 20);                   // 1 MiB
-static const size_t DMABUF_TOTAL_SIZE = DMABUF_SIZE + 0x1000;  // Extra page for completion
-
 // TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
 // TLB windows and there is no longer a pre-defined WC/UC split.
 static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
@@ -503,65 +500,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         }
     }
 
-    // DMA buffer setup.  This is different than the hugepage-based buffers that
-    // are mapped to be accessible via the chip NOC.  This buffer is used by the
-    // PCIe DMA engine for transferring data between device and host.  A few
-    // things to note:
-    // 1. This is Wormhole-only.
-    // 2. Although the DMA engine could target the hugepages, the partitioning
-    // scheme for the hugepages is mostly up to the application.  Requiring the
-    // application to relinquish part of the hugepage memory and then coordinate
-    // with us about it sounds like a terrible idea.
-    // 3. Lack of current IOMMU support for Wormhole means that the buffer needs
-    // to be small enough that Linux will have a reasonable chance of being able
-    // to actually allocate it.
-    // 4. Longer-term, we could move to an IOMMU-based scheme where:
-    //    - Application allocates a buffer
-    //    - Driver pins it and maps it for DMA
-    //    - Application uses the buffer as an arena for DMA-able structures
-    //    - Driver initiates DMAs based on its knowledge of the buffer
-    // 5. + 0x1000 is for the completion page.  Since this entire implementation
-    // is a temporary hack until it's implemented in the driver, we'll need to
-    // poll a completion page to know when the DMA is done instead of receiving
-    // an interrupt.
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        tenstorrent_allocate_dma_buf dma_buf{};
-
-        dma_buf.in.requested_size = DMABUF_TOTAL_SIZE;
-        dma_buf.in.buf_index = 0;
-
-        if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-            // There is a chance this will fail because we're not requiring
-            // IOMMU.  Linux might not have a contiguous chunk of memory to give
-            // us.  I'm not really sure what to do here.  PCIe DMA support is a
-            // new feature in UMD and the application might not care about it,
-            // so throwing our way out of here is wrong.  For now, we will log
-            // here and throw when PCIe DMA is attempted.  Maybe a higher layer
-            // in UMD can fall back to MMIO if that happens.
-            log_error(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
-        } else {
-            // OK - we have a buffer.  Map it.
-            void *buffer = mmap(
-                nullptr,
-                DMABUF_TOTAL_SIZE,
-                PROT_READ | PROT_WRITE,
-                MAP_SHARED,
-                pci_device_file_desc,
-                dma_buf.out.mapping_offset);
-
-            if (buffer == MAP_FAILED) {
-                // Similar rationale to above, although this is worse because we
-                // can't deallocate it.  That only happens when we close the fd.
-                log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
-            } else {
-                dma_buffer.buffer = (uint8_t *)buffer;
-                dma_buffer.completion = (uint8_t *)buffer + DMABUF_SIZE;
-                dma_buffer.buffer_pa = dma_buf.out.physical_address;
-                dma_buffer.completion_pa = dma_buf.out.physical_address + DMABUF_SIZE;
-                dma_buffer.size = DMABUF_SIZE;
-            }
-        }
-    }
+    allocate_pcie_dma_buffer();
 }
 
 PCIDevice::~PCIDevice() {
@@ -588,7 +527,7 @@ PCIDevice::~PCIDevice() {
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
-        munmap(dma_buffer.buffer, DMABUF_TOTAL_SIZE);
+        munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
     }
 }
 
@@ -804,6 +743,112 @@ uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
         TT_THROW("Failed reading or parsing sysfs config: {}", sysfs_path);
     }
     return *command_byte;
+}
+
+bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
+    const size_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+
+    void *dma_buf_mapping =
+        mmap(nullptr, dma_buf_alloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    try {
+        uint64_t iova = map_for_dma(dma_buf_mapping, dma_buf_alloc_size);
+
+        dma_buffer.buffer = (uint8_t *)dma_buf_mapping;
+        dma_buffer.completion = (uint8_t *)dma_buf_mapping + dma_buf_size;
+        dma_buffer.buffer_pa = iova;
+        dma_buffer.completion_pa = iova + dma_buf_size;
+        dma_buffer.size = dma_buf_size;
+
+        return true;
+    } catch (...) {
+        log_debug(LogSiliconDriver, "Failed to allocate PCIe DMA buffer of size {} with IOMMU enabled.", dma_buf_size);
+        munmap(dma_buf_mapping, dma_buf_alloc_size);
+        return false;
+    }
+}
+
+bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
+    tenstorrent_allocate_dma_buf dma_buf{};
+
+    const uint64_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+
+    dma_buf.in.requested_size = dma_buf_alloc_size;
+    dma_buf.in.buf_index = 0;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+        log_debug(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+    } else {
+        // OK - we have a buffer.  Map it.
+        void *buffer = mmap(
+            nullptr,
+            dma_buf_alloc_size,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            pci_device_file_desc,
+            dma_buf.out.mapping_offset);
+
+        if (buffer == MAP_FAILED) {
+            // Similar rationale to above, although this is worse because we
+            // can't deallocate it.  That only happens when we close the fd.
+            log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
+            return false;
+        } else {
+            log_debug(
+                LogSiliconDriver,
+                "Allocated PCIe DMA buffer of size {} for PCI device {}.",
+                dma_buf_alloc_size,
+                pci_device_num);
+            dma_buffer.buffer = (uint8_t *)buffer;
+            dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
+            dma_buffer.buffer_pa = dma_buf.out.physical_address;
+            dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
+            dma_buffer.size = dma_buf_size;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void PCIDevice::allocate_pcie_dma_buffer() {
+    if (arch != tt::ARCH::WORMHOLE_B0) {
+        // DMA buffer is only supported on Wormhole B0.
+        return;
+    }
+    // DMA buffer allocation.
+    // Allocation tries to allocate larger DMA buffers first. Starting size depends on whether IOMMU is enabled or not.
+    // If IOMMU is enabled, we will try to allocate 16MB buffer first.
+    // If IOMMU is not enabled, we will try to allocate 2MB buffer first.
+    // If that fails, we will try smaller sizes until we can't allocate even single page.
+    // + 0x1000 is for the completion page.  Since this entire implementation
+    // is a temporary hack until it's implemented in the driver, we'll need to
+    // poll a completion page to know when the DMA is done instead of receiving
+    // an interrupt.
+    uint32_t dma_buf_size;
+    static const uint32_t page_size = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
+    const uint32_t one_mb = 1 << 20;
+    if (is_iommu_enabled()) {
+        dma_buf_size = 16 * one_mb;
+    } else {
+        dma_buf_size = 2 * one_mb;
+    }
+
+    while (dma_buf_size >= page_size) {
+        bool dma_buf_allocation_success = false;
+
+        if (is_iommu_enabled()) {
+            dma_buf_allocation_success = try_allocate_pcie_dma_buffer_iommu(dma_buf_size);
+        } else {
+            dma_buf_allocation_success = try_allocate_pcie_dma_buffer_no_iommu(dma_buf_size);
+        }
+
+        if (dma_buf_allocation_success) {
+            break;
+        }
+
+        dma_buf_size >>= 1;
+    }
 }
 
 }  // namespace tt::umd

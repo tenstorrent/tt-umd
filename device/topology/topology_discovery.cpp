@@ -105,9 +105,17 @@ void TopologyDiscovery::get_connected_chips() {
                 break;
             }
         }
+
+        initialize_remote_communication(chip.get());
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
-        log_debug(LogSiliconDriver, "Discovered PCI chip with PCI ID {} and asic ID {}", device_id, asic_id);
+        log_debug(
+            LogSiliconDriver,
+            "Discovered {} chip with {} ID {} and asic ID {}",
+            DeviceTypeToString.at(io_device_type),
+            DeviceTypeToString.at(io_device_type),
+            device_id,
+            asic_id);
     }
 }
 
@@ -185,7 +193,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
-                eth_coord_t eth_coord = get_remote_eth_coord(chip, eth_core).value();
+                std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
@@ -194,7 +202,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 discovered_chips.insert(remote_asic_id);
                 remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, gateway_chip_id);
                 if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, get_remote_eth_coord(chip, eth_core).value());
+                    eth_coords.emplace(remote_asic_id, eth_coord.value());
                 }
             } else {
                 ethernet_connections.push_back(
@@ -241,6 +249,11 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
+
+        if (chip->get_tt_device()->get_pci_device()) {
+            cluster_desc->chip_to_bus_id.insert(
+                {current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_info().pci_bus});
+        }
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {
@@ -319,5 +332,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
+
+void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
 
 }  // namespace tt::umd

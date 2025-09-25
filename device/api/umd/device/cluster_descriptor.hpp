@@ -64,7 +64,7 @@ public:
      * @param arch Architecture of the mock cluster.
      */
     static std::unique_ptr<ClusterDescriptor> create_mock_cluster(
-        const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch);
+        const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled);
 
     /**
      * Creates a constrained cluster descriptor that only contains the chips specified in target_chip_ids.
@@ -243,6 +243,10 @@ public:
 
     IODeviceType get_io_device_type() const;
 
+    uint16_t get_bus_id(chip_id_t chip_id) const;
+
+    const std::unordered_map<chip_id_t, uint16_t> &get_chip_to_bus_id() const;
+
 private:
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
@@ -307,6 +311,9 @@ private:
     std::map<chip_id_t, HarvestingMasks> harvesting_masks_map = {};
 
     IODeviceType io_device_type = IODeviceType::PCIe;
+
+    // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
+    std::unordered_map<chip_id_t, uint16_t> chip_to_bus_id = {};
 };
 
 using tt_ClusterDescriptor = ClusterDescriptor;

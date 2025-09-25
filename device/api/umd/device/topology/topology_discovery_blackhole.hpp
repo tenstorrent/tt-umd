@@ -54,9 +54,13 @@ protected:
     bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(
-        eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     void patch_eth_connections() override;
+
+    void initialize_remote_communication(Chip* chip) override;
+
+    void init_topology_discovery() override;
 };
 
 }  // namespace tt::umd

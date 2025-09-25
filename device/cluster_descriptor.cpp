@@ -416,6 +416,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, target_chip_ids);
     desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, target_chip_ids);
 
+    desc->chip_to_bus_id = filter_chip_collection(full_cluster_desc->chip_to_bus_id, target_chip_ids);
+
     desc->galaxy_shelves_exit_chip_coords_per_y_dim = full_cluster_desc->galaxy_shelves_exit_chip_coords_per_y_dim;
     desc->galaxy_racks_exit_chip_coords_per_x_dim = full_cluster_desc->galaxy_racks_exit_chip_coords_per_x_dim;
 
@@ -461,7 +463,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
-    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch) {
+    const std::unordered_set<chip_id_t> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
     std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     BoardType board_type;
@@ -473,7 +475,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::UNKNOWN;
-            harvesting_masks.pcie_harvesting_mask = 0x0;
+            // Example value from silicon machine.
+            harvesting_masks.eth_harvesting_mask = 0x120;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -491,8 +494,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
-        /* NOC translation is not supported for Simulation chips */
-        desc->noc_translation_enabled.insert({logical_id, true});
+        desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();
@@ -601,6 +603,11 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             uint64_t chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
             int channel_1 = endpoints.at(1)["chan"].as<int>();
             ethernet_connections_to_remote_devices[chip_0][channel_0] = {chip_1, channel_1};
+
+            // Mark the local channel as active and remove from idle, to accurately represent used Ethernet channels in
+            // mock clusters (matching real hardware discovery)
+            active_eth_channels[chip_0].insert(channel_0);
+            idle_eth_channels[chip_0].erase(channel_0);
         }
     }
 }
@@ -688,7 +695,7 @@ void ClusterDescriptor::fill_galaxy_connections() {
                 y_dim,
                 shelf_exit_chip_coords.source_chip_coord);
             for (const auto &destination_chip_coord : shelf_exit_chip_coords.destination_chip_coords) {
-                log_debug(LogSiliconDriver, "\tdestination_chip_coord: {}", destination_chip_coord);
+                log_debug(LogSiliconDriver, "\tdestination_chip_coord:{}", destination_chip_coord);
             }
         }
     }
@@ -821,6 +828,32 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             chip_unique_ids.insert({chip, unique_id});
         }
     }
+
+    if (yaml["chip_to_bus_id"]) {
+        for (const auto &chip_bus_id : yaml["chip_to_bus_id"].as<std::map<int, std::string>>()) {
+            auto &chip = chip_bus_id.first;
+            std::string bus_str = chip_bus_id.second;
+
+            // Enforce '0x' prefix.
+            if (bus_str.substr(0, 2) != "0x") {
+                std::string msg =
+                    "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
+                throw std::runtime_error(msg);
+            }
+            bus_str = bus_str.substr(2);
+
+            uint16_t bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
+            chip_to_bus_id.insert({chip, bus_id});
+        }
+    }
+
+    if (yaml["asic_locations"]) {
+        for (const auto &chip_asic_locations : yaml["asic_locations"].as<std::map<int, uint64_t>>()) {
+            auto &chip = chip_asic_locations.first;
+            auto &asic_location = chip_asic_locations.second;
+            asic_locations.insert({chip, asic_location});
+        }
+    }
 }
 
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
@@ -857,7 +890,15 @@ void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
 
 void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     for (const auto &chip : this->all_chips) {
-        // This will also fill up the closest_mmio_chip_cache
+        if (this->is_chip_mmio_capable(chip)) {
+            this->chips_grouped_by_closest_mmio[chip].insert(chip);
+            continue;
+        }
+        // TODO: This is to handle the case when we are not using ETH coordinates and have remote chip.
+        // Obviously, we have to figure out how to handle these cases in general in the future.
+        if (this->chip_locations.empty()) {
+            continue;
+        }
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
         this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
     }
@@ -1078,6 +1119,14 @@ std::string ClusterDescriptor::serialize() const {
     }
     out << YAML::EndMap;
 
+    out << YAML::Key << "chip_to_bus_id" << YAML::Value << YAML::BeginMap;
+    std::map<chip_id_t, uint16_t> sorted_chip_to_bus_id(chip_to_bus_id.begin(), chip_to_bus_id.end());
+    for (const auto &[chip, bus_id] : sorted_chip_to_bus_id) {
+        std::string hex_bus_id = fmt::format("0x{:04x}", bus_id);
+        out << YAML::Key << chip << YAML::Value << hex_bus_id;
+    }
+    out << YAML::EndMap;
+
     out << YAML::Key << "boards" << YAML::Value << YAML::BeginSeq;
     for (const auto &[board_id, chips] : board_to_chips) {
         out << YAML::BeginSeq;
@@ -1096,6 +1145,14 @@ std::string ClusterDescriptor::serialize() const {
         out << YAML::EndSeq;
     }
     out << YAML::EndSeq;
+
+    out << YAML::Key << "asic_locations" << YAML::Value << YAML::BeginMap;
+    std::map<chip_id_t, uint8_t> asic_locations_map =
+        std::map<chip_id_t, uint8_t>(asic_locations.begin(), asic_locations.end());
+    for (const auto &[chip_id, asic_location] : asic_locations_map) {
+        out << YAML::Key << chip_id << YAML::Value << static_cast<int>(asic_location);
+    }
+    out << YAML::EndMap;
 
     out << YAML::EndMap;
 
@@ -1204,5 +1261,13 @@ uint8_t ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
 }
 
 IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
+
+uint16_t ClusterDescriptor::get_bus_id(chip_id_t chip_id) const {
+    auto it = chip_to_bus_id.find(chip_id);
+    if (it == chip_to_bus_id.end()) {
+        return 0;
+    }
+    return it->second;
+}
 
 }  // namespace tt::umd

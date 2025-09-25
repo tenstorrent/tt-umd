@@ -453,10 +453,10 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         EXPECT_EQ(eth_translated.x, eth_translated_coordinate_start_x + eth_channel);
         EXPECT_EQ(eth_translated.y, eth_translated_coordinate_start_y);
 
-        EXPECT_EQ((xy_pair)eth_noc0, blackhole::ETH_CORES_NOC0[eth_channel]);
+        EXPECT_EQ(static_cast<tt_xy_pair>(eth_noc0), blackhole::ETH_CORES_NOC0[eth_channel]);
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
     // Next 2 channels should each be one of the next 3 eth cores.
@@ -471,8 +471,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
             std::find(eth_cores_first_triplet.begin(), eth_cores_first_triplet.end(), eth_noc0) !=
             eth_cores_first_triplet.end());
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
     // The next 2 channels should each be one of the next 3 eth cores.
@@ -487,8 +487,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
             std::find(eth_cores_second_triplet.begin(), eth_cores_second_triplet.end(), eth_noc0) !=
             eth_cores_second_triplet.end());
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
     // The last 4 channels are mapped 1-1 with the rest of the eth cores.
@@ -497,10 +497,10 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         const CoreCoord eth_noc0 = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ((xy_pair)eth_noc0, blackhole::ETH_CORES_NOC0[eth_channel + 2]);
+        EXPECT_EQ(static_cast<tt_xy_pair>(eth_noc0), blackhole::ETH_CORES_NOC0[eth_channel + 2]);
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 }
 

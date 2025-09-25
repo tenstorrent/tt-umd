@@ -9,8 +9,19 @@ target_link_libraries(
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         cxxopts::cxxopts
-        execinfo
 )
+
+check_function_exists(
+    backtrace
+    HAVE_BACKTRACE
+)
+
+if(NOT HAVE_BACKTRACE)
+    find_library(EXECINFO_LIB execinfo)
+    if(EXECINFO_LIB)
+        target_link_libraries(tools_common INTERFACE ${EXECINFO_LIB})
+    endif()
+endif()
 
 add_executable(telemetry telemetry.cpp)
 target_link_libraries(telemetry PRIVATE tools_common)

@@ -20,7 +20,8 @@ constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x
 /* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/libtt_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
-JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {
+JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& target_devices) :
+    jtag(std::move(jtag_device)) {
     jtag->close_jlink();
 
     std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
@@ -28,7 +29,18 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
         TT_THROW("There are no devices");
     }
 
+    std::unordered_set potential_devices_set(potential_devices.begin(), potential_devices.end());
+    std::for_each(target_devices.begin(), target_devices.end(), [&](int x) {
+        if (potential_devices_set.find(x) == potential_devices_set.end()) {
+            log_warning(tt::LogSiliconDriver, "Target JTAG device with id {} not connected", std::to_string(x));
+        }
+    });
+
     for (int jlink_id : potential_devices) {
+        if (!target_devices.empty() && target_devices.find(jlink_id) == target_devices.end()) {
+            continue;
+        }
+
         uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
             continue;
@@ -61,7 +73,8 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
     }
 }
 
-/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(const std::filesystem::path& binary_directory) {
+/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(
+    const std::filesystem::path& binary_directory, const std::unordered_set<int>& target_devices) {
     std::filesystem::path actual_path = binary_directory;
 
     if (actual_path.empty()) {
@@ -77,7 +90,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
     }
 
     std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
-    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag));
+    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), target_devices);
 
     // Check that all chips are of the same type
     auto arch = jtag_device->get_jtag_arch(0);

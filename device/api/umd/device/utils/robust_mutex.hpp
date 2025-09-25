@@ -7,7 +7,7 @@
 
 #include <cstdint>
 #include <string>
-#include <pthread>
+#include <pthread.h>
 
 namespace tt::umd {
 

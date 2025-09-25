@@ -240,7 +240,7 @@ check_function_exists(
 if(NOT HAVE_BACKTRACE)
     find_library(EXECINFO_LIB execinfo)
     if(EXECINFO_LIB)
-        target_link_libraries(device PUBLIC ${EXECINFO_LIB})
+        target_link_libraries(device PRIVATE ${EXECINFO_LIB})
     endif()
 endif()
 

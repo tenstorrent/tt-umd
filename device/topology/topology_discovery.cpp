@@ -121,8 +121,6 @@ void TopologyDiscovery::get_connected_chips() {
 
 void TopologyDiscovery::discover_remote_chips() {
     std::set<uint64_t> discovered_chips = {};
-    // Needed to know which chip to use for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
@@ -230,6 +228,10 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         if (!chip->is_mmio_capable()) {
             asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
             cluster_desc->chip_unique_ids.emplace(chip_id, current_chip_asic_id);
+            if (eth_coords.empty()) {
+                cluster_desc->closest_mmio_chip_cache[chip_id] =
+                    asic_id_to_chip_id.at(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id));
+            }
             chip_id++;
         }
     }

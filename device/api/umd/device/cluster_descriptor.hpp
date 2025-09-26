@@ -142,6 +142,11 @@ public:
     const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
 
     /**
+     * Return ETH coordinates as reported by the routing firmware for given logical chip ID.
+     */
+    const eth_coord_t get_chip_location(const chip_id_t chip) const;
+
+    /**
      * Returns the map of logical chip IDs and their ETH locations as reported by the routing firmware.
      */
     const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;

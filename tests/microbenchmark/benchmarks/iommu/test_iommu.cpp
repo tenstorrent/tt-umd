@@ -5,6 +5,8 @@
  */
 #include <sys/mman.h>
 
+#include <cstddef>
+
 #include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
@@ -74,8 +76,6 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
-    const std::vector<uint64_t> mapping_sizes;
-
     std::cout << "Running IOMMU benchmark for different mapping sizes." << std::endl;
     std::cout << "--------------------------------------------------------" << std::endl;
     std::cout << "Page size: " << page_size << " bytes." << std::endl;
@@ -132,8 +132,6 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     guard_test_iommu();
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
-
-    const std::vector<uint64_t> mapping_sizes;
 
     std::cout << "Running IOMMU benchmark for different mapping sizes." << std::endl;
     std::cout << "--------------------------------------------------------" << std::endl;
@@ -199,8 +197,6 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
-    const std::vector<uint64_t> mapping_sizes;
-
     std::cout << "Running IOMMU benchmark for different mapping sizes." << std::endl;
     std::cout << "--------------------------------------------------------" << std::endl;
     std::cout << "Page size: " << page_size << " bytes." << std::endl;
@@ -251,4 +247,183 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     update_data(rows, mapping_size, map_times, unmap_times);
 
     test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Measure the time it takes to map buffers of different sizes through IOMMU, as well as configure iATU to make these
+ * buffers visible to device over NOC. This test allocates buffers of different size, starting from single page (usually
+ * 4KB) up to 1GB, and measures the time it takes to map them through IOMMU. It prints out the time taken for each
+ * mapping and the average time per page.
+ */
+TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
+    guard_test_iommu();
+
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    std::cout << "Running IOMMU benchmark for different mapping sizes." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+    std::cout << "Page size: " << page_size << " bytes." << std::endl;
+
+    const uint64_t mapping_size_limit = 1ULL << 30;  // 1 GB
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    PCIDevice* pci_device = cluster->get_chip(chip)->get_tt_device()->get_pci_device().get();
+
+    const std::vector<std::string> headers = {
+        "Number of pages",
+        "Mapping size (MB)",
+        "Average map time (ns)",
+        "Bandwidth map (MB/s)",
+        "Average unmap time (ns)",
+        "Bandwidth unmap (MB/s)"};
+
+    std::vector<std::vector<std::string>> rows;
+
+    for (uint64_t size = page_size; size <= mapping_size_limit; size *= 2) {
+        std::vector<uint64_t> map_times;
+        std::vector<uint64_t> unmap_times;
+
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            void* mapping =
+                mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+            auto now = std::chrono::steady_clock::now();
+            pci_device->map_buffer_to_noc(mapping, size);
+            auto end = std::chrono::steady_clock::now();
+            map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
+
+            now = std::chrono::steady_clock::now();
+            pci_device->unmap_for_dma(mapping, size);
+            end = std::chrono::steady_clock::now();
+            unmap_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
+
+            munmap(mapping, size);
+        }
+
+        update_data(rows, size, map_times, unmap_times);
+    }
+    test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Measure the time it takes to map buffers of size of 1GB through IOMMU, as well as configure iATU to make these
+ * buffers visible to device over NOC.
+ */
+TEST(MicrobenchmarkIOMMU, Map1GBPages) {
+    guard_test_iommu();
+
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    std::cout << "Running IOMMU benchmark for 3 1GB pages." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+    std::cout << "Page size: " << page_size << " bytes." << std::endl;
+
+    const uint64_t one_gb = 1ULL << 30;  // 1 GB
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    PCIDevice* pci_device = cluster->get_chip(chip)->get_tt_device()->get_pci_device().get();
+
+    void* mapping0 = mmap(nullptr, one_gb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void* mapping1 = mmap(nullptr, one_gb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    void* mapping2 = mmap(nullptr, one_gb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    uint64_t map_ns = 0;
+    uint64_t unmap_ns = 0;
+
+    for (uint32_t i = 0; i < NUM_ITERATIONS; i++) {
+        {
+            auto now = std::chrono::steady_clock::now();
+            pci_device->map_buffer_to_noc(mapping0, one_gb);
+            pci_device->map_buffer_to_noc(mapping1, one_gb);
+            pci_device->map_buffer_to_noc(mapping2, one_gb);
+            auto end = std::chrono::steady_clock::now();
+            map_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        }
+
+        {
+            auto now = std::chrono::steady_clock::now();
+            pci_device->unmap_for_dma(mapping0, one_gb);
+            pci_device->unmap_for_dma(mapping1, one_gb);
+            pci_device->unmap_for_dma(mapping2, one_gb);
+            auto end = std::chrono::steady_clock::now();
+            unmap_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        }
+    }
+
+    double avg_map_time_per_one_gb_page = (double)map_ns / (NUM_ITERATIONS * 3);
+    double avg_unmap_time_per_one_gb_page = (double)unmap_ns / (NUM_ITERATIONS * 3);
+
+    std::cout << "Average map time for 1GB page: " << avg_map_time_per_one_gb_page << " ns. ("
+              << (avg_map_time_per_one_gb_page / 1e9) << " seconds)" << std::endl;
+    std::cout << "Average unmap time for 1GB page: " << avg_unmap_time_per_one_gb_page << " ns. ("
+              << (avg_unmap_time_per_one_gb_page / 1e9) << " seconds)" << std::endl;
+}
+
+/**
+ * Measure the time it takes to map buffers of size of 1GB through IOMMU, as well as configure iATU to make these
+ * buffers visible to device over NOC. This uses SysmemBuffer class to manage the buffer and its mapping, to confirm
+ * there is no overhead compared to previous test.
+ */
+TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
+    guard_test_iommu();
+
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    std::cout << "Running IOMMU benchmark for 3 1GB pages." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+    std::cout << "Page size: " << page_size << " bytes." << std::endl;
+
+    const uint64_t one_gb = 1ULL << 30;  // 1 GB
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    TLBManager* tlb_manager = cluster->get_chip(chip)->get_tlb_manager();
+
+    void* mapping0 = mmap(nullptr, one_gb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void* mapping1 = mmap(nullptr, one_gb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    void* mapping2 = mmap(nullptr, one_gb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer0 = nullptr;
+    std::unique_ptr<SysmemBuffer> sysmem_buffer1 = nullptr;
+    std::unique_ptr<SysmemBuffer> sysmem_buffer2 = nullptr;
+
+    uint64_t map_ns = 0;
+    uint64_t unmap_ns = 0;
+
+    for (uint32_t i = 0; i < NUM_ITERATIONS; i++) {
+        {
+            auto now = std::chrono::steady_clock::now();
+            sysmem_buffer0 = std::make_unique<SysmemBuffer>(tlb_manager, mapping0, one_gb, true);
+            sysmem_buffer1 = std::make_unique<SysmemBuffer>(tlb_manager, mapping1, one_gb, true);
+            sysmem_buffer2 = std::make_unique<SysmemBuffer>(tlb_manager, mapping2, one_gb, true);
+            auto end = std::chrono::steady_clock::now();
+            map_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        }
+
+        {
+            auto now = std::chrono::steady_clock::now();
+            sysmem_buffer0.reset();
+            sysmem_buffer1.reset();
+            sysmem_buffer2.reset();
+            auto end = std::chrono::steady_clock::now();
+            unmap_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        }
+    }
+
+    double avg_map_time_per_one_gb_page = (double)map_ns / (NUM_ITERATIONS * 3);
+    double avg_unmap_time_per_one_gb_page = (double)unmap_ns / (NUM_ITERATIONS * 3);
+
+    std::cout << "Average map time for 1GB page: " << avg_map_time_per_one_gb_page << " ns. ("
+              << (avg_map_time_per_one_gb_page / 1e9) << " seconds)" << std::endl;
+    std::cout << "Average unmap time for 1GB page: " << avg_unmap_time_per_one_gb_page << " ns. ("
+              << (avg_unmap_time_per_one_gb_page / 1e9) << " seconds)" << std::endl;
 }

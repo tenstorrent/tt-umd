@@ -62,6 +62,11 @@ enum TlbMapping : uint8_t {
     WC = 1,  // Write-combined
 };
 
+struct dynamic_tlb {
+    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
+    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
+};
+
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.

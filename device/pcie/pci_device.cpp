@@ -23,6 +23,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

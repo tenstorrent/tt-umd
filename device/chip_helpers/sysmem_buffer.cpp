@@ -104,10 +104,7 @@ SysmemBuffer::~SysmemBuffer() {
         tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {
         log_warning(
-            LogSiliconDriver,
-            "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).",
-            mapped_buffer_size_,
-            device_io_addr_);
+            LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);
     }
 }
 

@@ -23,7 +23,8 @@ namespace tt::umd {
 static_assert(!std::is_abstract<TTSimulationChip>(), "TTSimulationChip must be non-abstract.");
 
 TTSimulationChip::TTSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
-    SimulationChip(simulator_directory, soc_descriptor) {
+    SimulationChip(simulator_directory, soc_descriptor),
+    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
     if (!std::filesystem::exists(simulator_directory)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
@@ -76,42 +77,44 @@ void TTSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_
 
 void TTSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::mutex> lock(device_lock);
-    uint32_t reset_value = uint32_t(soft_resets);
     if ((libttsim_pci_device_id == 0x401E) || (libttsim_pci_device_id == 0xB140)) {  // WH/BH
-        pfn_libttsim_tile_wr_bytes(translated_core.x, translated_core.y, 0xFFB121B0, &reset_value, sizeof(reset_value));
+        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+        uint32_t reset_value = uint32_t(soft_resets);
+        pfn_libttsim_tile_wr_bytes(
+            translated_core.x, translated_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
     } else {
         TT_THROW("Missing implementation of reset for this chip.");
     }
 }
 
 void TTSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
-    }
+    Chip::send_tensix_risc_reset(soft_resets);
 }
 
 void TTSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
+    TT_THROW("Untested implementation of assert_risc_reset, test and then enable");
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        throw std::runtime_error("TTSIM doesn't support Quasar NEO Data Movement core reset.");
-    } else {
-        TT_THROW("Implement this path using appropriate calls to libttsim_tile_wr_bytes.");
-        // pfn_libttsim_tensix_reset_assert(translate_core.x, translate_core.y);
-    }
+    uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t reset_value;
+    pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    reset_value |= soft_reset_update;
+    pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
 }
 
 void TTSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
+    TT_THROW("Untested implementation of deassert_risc_reset, test and then enable");
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        throw std::runtime_error("TTSIM doesn't support Quasar NEO Data Movement core reset.");
-    } else {
-        TT_THROW("Implement this path using appropriate calls to libttsim_tile_wr_bytes.");
-        // pfn_libttsim_tensix_reset_deassert(translate_core.x, translate_core.y);
-    }
+    uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t reset_value;
+    pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    reset_value &= ~soft_reset_update;
+    pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
 }
 
 }  // namespace tt::umd

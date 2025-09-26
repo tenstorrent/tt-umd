@@ -11,6 +11,8 @@
 
 #include "assert.hpp"
 #include "umd/device/jtag/jtag.h"
+#include "umd/device/utils/common.hpp"
+#include "utils.hpp"
 
 constexpr uint32_t ROW_LEN = 12;
 constexpr uint32_t WORMHOLE_ID = 0x138a5;
@@ -20,27 +22,13 @@ constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x
 /* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/libtt_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
-JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& target_devices) :
+JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices) :
     jtag(std::move(jtag_device)) {
     jtag->close_jlink();
 
-    std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
-    if (potential_devices.empty()) {
-        TT_THROW("There are no devices");
-    }
+    std::unordered_set<int> visible_devices = get_jtag_visible_devices(jtag_target_devices);
 
-    std::unordered_set potential_devices_set(potential_devices.begin(), potential_devices.end());
-    std::for_each(target_devices.begin(), target_devices.end(), [&](int x) {
-        if (potential_devices_set.find(x) == potential_devices_set.end()) {
-            log_warning(tt::LogSiliconDriver, "Target JTAG device with id {} not connected", std::to_string(x));
-        }
-    });
-
-    for (int jlink_id : potential_devices) {
-        if (!target_devices.empty() && target_devices.find(jlink_id) == target_devices.end()) {
-            continue;
-        }
-
+    for (int jlink_id : visible_devices) {
         uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
             continue;
@@ -74,7 +62,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
 }
 
 /* static */ std::shared_ptr<JtagDevice> JtagDevice::create(
-    const std::filesystem::path& binary_directory, const std::unordered_set<int>& target_devices) {
+    const std::filesystem::path& binary_directory, const std::unordered_set<int>& jtag_target_devices) {
     std::filesystem::path actual_path = binary_directory;
 
     if (actual_path.empty()) {
@@ -90,7 +78,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     }
 
     std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
-    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), target_devices);
+    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), jtag_target_devices);
 
     // Check that all chips are of the same type
     auto arch = jtag_device->get_jtag_arch(0);
@@ -322,4 +310,41 @@ int JtagDevice::get_device_id(uint8_t chip_id) const {
             get_device_cnt());
     }
     return jlink_devices[chip_id];
+}
+
+std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const {
+    std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
+    if (potential_devices.empty()) {
+        TT_THROW("There are no j-link devices connected to host.");
+    }
+    std::unordered_set<int> potential_devices_set(potential_devices.begin(), potential_devices.end());
+
+    const std::optional<std::string> env_var_value =
+        tt::umd::utils::get_env_var_value(tt::umd::TT_VISIBLE_DEVICES_ENV.data());
+    const std::unordered_set<int>& actual_jtag_target_devices =
+        jtag_target_devices.empty() && env_var_value.has_value()
+            ? tt::umd::utils::get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
+            : jtag_target_devices;
+
+    if (actual_jtag_target_devices.empty()) {
+        return potential_devices_set;
+    }
+
+    // Find if any of the target devices are not connected
+    std::for_each(actual_jtag_target_devices.begin(), actual_jtag_target_devices.end(), [&](int jtag_device_id) {
+        if (potential_devices_set.find(jtag_device_id) == potential_devices_set.end()) {
+            log_warning(
+                tt::LogSiliconDriver, "Target JTAG device with id {} not connected", std::to_string(jtag_device_id));
+        }
+    });
+
+    // Filter out visible devices that are not specified as target-devices.
+    std::unordered_set<int> visible_devices;
+    std::for_each(potential_devices_set.begin(), potential_devices_set.end(), [&](int jtag_device_id) {
+        if (actual_jtag_target_devices.find(jtag_device_id) != actual_jtag_target_devices.end()) {
+            visible_devices.insert(jtag_device_id);
+        }
+    });
+
+    return visible_devices;
 }

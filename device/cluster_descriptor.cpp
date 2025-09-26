@@ -423,6 +423,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
     desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, target_chip_ids);
 
+    desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, target_chip_ids);
+
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
         if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
@@ -912,6 +914,13 @@ ClusterDescriptor::get_ethernet_connections() const {
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
 ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
     return this->ethernet_connections_to_remote_devices;
+}
+
+const eth_coord_t ClusterDescriptor::get_chip_location(const chip_id_t chip) const {
+    if (chip_locations.find(chip) == chip_locations.end()) {
+        return {0, 0, 0, 0};
+    }
+    return chip_locations.at(chip);
 }
 
 const std::unordered_map<chip_id_t, eth_coord_t> &ClusterDescriptor::get_chip_locations() const {

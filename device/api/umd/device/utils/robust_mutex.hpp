@@ -5,9 +5,10 @@
  */
 #pragma once
 
+#include <pthread.h>
+
 #include <cstdint>
 #include <string>
-#include <pthread.h>
 
 namespace tt::umd {
 

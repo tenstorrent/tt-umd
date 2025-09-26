@@ -132,7 +132,7 @@ void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Asserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
         core,
         soft_reset_current_state,
@@ -151,7 +151,7 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
         soft_reset_new |
         (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Deasserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
         core,
         soft_reset_current_state,
@@ -251,7 +251,7 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_stat
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
                 "{}",

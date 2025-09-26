@@ -112,7 +112,7 @@ void Cluster::verify_sysmem_initialized() {
                 hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
         }
         if (!hugepages_initialized) {
-            log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", chip_id);
+            log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);
         }
     }
 }
@@ -156,7 +156,7 @@ void Cluster::log_pci_device_summary() {
         bool current_iommu_state = pci_device->is_iommu_enabled();
         if (current_iommu_state != expected_iommu_state) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "IOMMU state mismatch for chip {}: expected {}, got {}",
                 chip_id,
                 iommu_state_str(expected_iommu_state),
@@ -170,10 +170,10 @@ void Cluster::log_pci_device_summary() {
     }
 
     if (all_devices_same_iommu_state) {
-        log_info(LogSiliconDriver, "IOMMU: {}", iommu_state_str(expected_iommu_state));
+        log_info(LogUMD, "IOMMU: {}", iommu_state_str(expected_iommu_state));
     }
 
-    log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
+    log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
 void Cluster::verify_fw_bundle_version() {
@@ -203,7 +203,7 @@ void Cluster::verify_fw_bundle_version() {
 
     if (compare_fw_bundle_with_latest == 1) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
             "features may not be supported.",
             fw_bundle_version.to_string(),
@@ -218,7 +218,7 @@ void Cluster::verify_fw_bundle_version() {
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 fmt::format(
                     "Firmware bundle version mismatch for chip {}: expected {}, got {}",
                     chip_id,
@@ -228,8 +228,7 @@ void Cluster::verify_fw_bundle_version() {
         }
     }
     if (all_device_same_fw_bundle_version) {
-        log_info(
-            LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
+        log_info(LogUMD, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
     }
 }
 
@@ -244,7 +243,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
         log_info(
-            LogSiliconDriver,
+            LogUMD,
             "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
             DeviceTypeToString.at(cluster_desc->get_io_device_type()),
             local_chip_ids_,
@@ -279,7 +278,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
-        log_info(LogSiliconDriver, "Creating Simulation device");
+        log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(simulator_directory, soc_desc);
 #else
         throw std::runtime_error(
@@ -388,13 +387,13 @@ HarvestingMasks Cluster::get_harvesting_masks(
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
     if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
+        log_info(LogUMD, "Skipping harvesting for chip {}.", chip_id);
         return HarvestingMasks{};
     }
 
     HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
         "{:#x}).",
         chip_id,
@@ -571,7 +570,7 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
-    log_debug(LogSiliconDriver, "Cluster::~Cluster");
+    log_debug(LogUMD, "Cluster::~Cluster");
 
     cluster_desc.reset();
 }
@@ -1048,14 +1047,14 @@ void Cluster::verify_eth_fw() {
 void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
     if (fw_versions.empty()) {
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
             device_id);
         return;
     }
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Software version {}, Ethernet FW version {} (Device {})",
         sw.str(),
         fw_first_eth_core.str(),

@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
                    << fractional_seconds.count() << " - " << telemetry_message;
                 output_file << ss.str() << std::endl;
             } else {
-                log_info(tt::LogSiliconDriver, "{}", telemetry_message);
+                log_info(tt::LogUMD, "{}", telemetry_message);
             }
         }
 

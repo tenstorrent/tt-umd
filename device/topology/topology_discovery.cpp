@@ -110,7 +110,7 @@ void TopologyDiscovery::get_connected_chips() {
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "Discovered {} chip with {} ID {} and asic ID {}",
             DeviceTypeToString.at(io_device_type),
             DeviceTypeToString.at(io_device_type),
@@ -183,7 +183,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     ethernet_connections_to_remote_devices.push_back(
                         {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
                 }
-                log_debug(LogSiliconDriver, "Remote chip outside of UMD cluster {}.", remote_asic_id);
+                log_debug(LogUMD, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
                 continue;

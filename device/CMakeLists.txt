@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(POSITION_INDEPENDENT_CODE ON)
+include(CheckFunctionExists)
 
 if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs)
@@ -231,6 +232,18 @@ target_link_libraries(
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )
+
+check_function_exists(
+    backtrace
+    HAVE_BACKTRACE
+)
+
+if(NOT HAVE_BACKTRACE)
+    find_library(EXECINFO_LIB execinfo)
+    if(EXECINFO_LIB)
+        target_link_libraries(device PRIVATE ${EXECINFO_LIB})
+    endif()
+endif()
 
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(

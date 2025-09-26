@@ -14,6 +14,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/pcie_protocol.hpp"
 #include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -34,7 +35,8 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    device_protocol(std::make_unique<PcieProtocol>(pci_device_.get(), *architecture_impl_)) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
 }
 
@@ -302,18 +304,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
         jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
-    while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
-        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-        read_block(mapped_address, transfer_size, buffer_addr);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-    }
+    device_protocol->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -321,19 +312,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         jtag_device_->write(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
-
-    while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
-        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-        write_block(mapped_address, transfer_size, buffer_addr);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-    }
+    device_protocol->write_to_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_tlb_reg(

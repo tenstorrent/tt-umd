@@ -20,6 +20,7 @@
 #include "types/tensix_soft_reset_options.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/cluster_pcie_interface.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.hpp"
@@ -703,6 +704,8 @@ private:
     tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
+
+    std::optional<IClusterPcie> pcie_cluster = std::nullopt;
 };
 
 }  // namespace tt::umd

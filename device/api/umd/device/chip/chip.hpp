@@ -41,23 +41,12 @@ public:
 
     const ChipInfo& get_chip_info();
 
-    virtual TTDevice* get_tt_device() = 0;
-    virtual SysmemManager* get_sysmem_manager() = 0;
-    virtual TLBManager* get_tlb_manager() = 0;
-
-    virtual int get_num_host_channels() = 0;
-    virtual int get_host_channel_size(std::uint32_t channel) = 0;
-    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;
-    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) = 0;
+    virtual void verify_initialization(){};
 
     virtual void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
     virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) = 0;
     virtual void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
-    virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
-    virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
-
-    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() = 0;
 
     virtual void wait_for_non_mmio_flush() = 0;
 
@@ -74,7 +63,6 @@ public:
 
     virtual void set_power_state(DevicePowerState state) = 0;
     virtual int get_clock() = 0;
-    virtual int get_numa_node() = 0;
 
     virtual int arc_msg(
         uint32_t msg_code,

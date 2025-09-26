@@ -245,7 +245,6 @@ if(NOT HAVE_BACKTRACE)
     endif()
 endif()
 
-
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
         device

@@ -407,8 +407,6 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
     desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
     desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
-    desc->chip_uid_to_chip_id = filter_chip_collection(full_cluster_desc->chip_uid_to_chip_id, target_chip_ids);
-    desc->chip_id_to_chip_uid = filter_chip_collection(full_cluster_desc->chip_id_to_chip_uid, target_chip_ids);
     desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, target_chip_ids);
     // Note that these preserve the full set of channels. So some channels will be reported as active
     // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
@@ -995,27 +993,6 @@ tt::ARCH ClusterDescriptor::get_arch(chip_id_t chip_id) const {
 const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &
 ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
-}
-
-void ClusterDescriptor::add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid) {
-    chip_id_to_chip_uid[chip_id] = chip_uid;
-    chip_uid_to_chip_id[chip_uid] = chip_id;
-}
-
-std::optional<chip_id_t> ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const {
-    auto chip_id_it = chip_uid_to_chip_id.find(chip_uid);
-    if (chip_id_it == chip_uid_to_chip_id.end()) {
-        return std::nullopt;
-    }
-    return chip_id_it->second;
-}
-
-std::optional<ChipUID> ClusterDescriptor::get_chip_uid(chip_id_t chip_id) const {
-    auto chip_uid_it = chip_id_to_chip_uid.find(chip_id);
-    if (chip_uid_it == chip_id_to_chip_uid.end()) {
-        return std::nullopt;
-    }
-    return chip_uid_it->second;
 }
 
 std::string ClusterDescriptor::serialize() const {

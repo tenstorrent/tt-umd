@@ -180,6 +180,13 @@ public:
      */
     const SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
+    /**
+     * Get the PCI bus ID for a specific chip.
+     *
+     * @param chip_id Chip for which PCI bus ID will be returned.
+     */
+    uint16_t get_bus_id(chip_id_t chip_id) const;
+
     //---------- Functions used for configuration and initialization.
 
     /**

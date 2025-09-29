@@ -108,6 +108,12 @@ public:
     const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
 
     /**
+     * Returns the architecture of the cluster, assuming that all chips are of the same architecture. For now, because
+     * mixed-architecture clusters are not yet supported, throws an exception if this is not true.
+     */
+     tt::ARCH get_arch() const;
+
+    /**
      * Returns the architecture of a specific chip.
      * @param chip_id Logical chip ID to get the architecture for.
      */

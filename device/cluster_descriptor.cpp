@@ -984,6 +984,27 @@ BoardType ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
     return chip_board_type.at(chip_id);
 }
 
+tt::ARCH ClusterDescriptor::get_arch() const {
+    const std::unordered_set<chip_id_t>& chips = get_all_chips();
+    if (chips.empty()) {
+        TT_THROW("Unable to determine architecture because no chips were detected.");
+    }
+    tt::ARCH arch = get_arch(*chips.begin());
+    if (arch == tt::ARCH::Invalid) {
+        TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+    }
+
+    // We don't yet support mixed architecture clusters. Check that all chips are the same architecture.
+    bool all_same_arch = std::all_of(
+        chips.begin(), chips.end(), [&](chip_id_t chip_id) { return this->get_arch(chip_id) == arch; });
+
+    if (!all_same_arch) {
+        TT_THROW("Chips with differing architectures detected. This is unsupported.");
+    }
+
+    return arch;
+}
+
 tt::ARCH ClusterDescriptor::get_arch(chip_id_t chip_id) const {
     TT_ASSERT(
         chip_arch.find(chip_id) != chip_arch.end(),

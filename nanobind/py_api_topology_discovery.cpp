@@ -28,7 +28,10 @@ void bind_topology_discovery(nb::module_ &m) {
         .def("get_chip_locations", &tt_ClusterDescriptor::get_chip_locations)
         .def("get_chips_with_mmio", &tt_ClusterDescriptor::get_chips_with_mmio)
         .def("get_active_eth_channels", &tt_ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
-        .def("get_arch", static_cast<tt::ARCH (tt_ClusterDescriptor::*)(chip_id_t) const>(&tt_ClusterDescriptor::get_arch), nb::arg("chip_id"));
+        .def(
+            "get_arch",
+            static_cast<tt::ARCH (tt_ClusterDescriptor::*)(chip_id_t) const>(&tt_ClusterDescriptor::get_arch),
+            nb::arg("chip_id"));
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

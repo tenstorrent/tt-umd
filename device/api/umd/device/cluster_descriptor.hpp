@@ -111,7 +111,7 @@ public:
      * Returns the architecture of the cluster, assuming that all chips are of the same architecture. For now, because
      * mixed-architecture clusters are not yet supported, throws an exception if this is not true.
      */
-     tt::ARCH get_arch() const;
+    tt::ARCH get_arch() const;
 
     /**
      * Returns the architecture of a specific chip.

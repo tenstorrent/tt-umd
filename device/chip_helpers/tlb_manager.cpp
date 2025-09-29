@@ -24,7 +24,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
         tt_device_->get_pci_device()->get_device_num(),
         core.str(),

@@ -35,7 +35,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         }
         uint32_t id = jtag->read_id();
         if (id != WORMHOLE_ID) {
-            log_warning(tt::LogSiliconDriver, "Only supporting WORMHOLE for now.");
+            log_warning(tt::LogUMD, "Only supporting WORMHOLE for now");
             jtag->close_jlink();
             continue;
         }
@@ -134,7 +134,7 @@ tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
     auto arch_id = read_id(chip_id);
 
     if (!arch_id) {
-        log_warning(tt::LogSiliconDriver, "Failed to read JTAG architecture for chip_id {}", chip_id);
+        log_warning(tt::LogUMD, "Failed to read JTAG architecture for chip_id {}", chip_id);
         return tt::ARCH::Invalid;
     }
 

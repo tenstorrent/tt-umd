@@ -83,7 +83,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
     iatu_regions_.insert(region);
 
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Device: {} Mapped iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}",
         this->pci_device_->get_device_num(),
         region,
@@ -219,7 +219,7 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-            log_error(LogSiliconDriver, "ETH training timed out after {} ms", timeout_ms);
+            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms);
             break;
         }
     }

@@ -57,7 +57,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         jtag->close_jlink();
     }
     if (jlink_devices.empty()) {
-        log_warning(tt::LogSiliconDriver, "There are no supported devices.");
+        log_warning(tt::LogUMD, "There are no supported devices.");
     }
 }
 
@@ -315,7 +315,7 @@ int JtagDevice::get_device_id(uint8_t chip_id) const {
 std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const {
     std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
     if (potential_devices.empty()) {
-        log_warning(tt::LogSiliconDriver, "There are no j-link devices connected to host.");
+        log_warning(tt::LogUMD, "There are no j-link devices connected to host.");
     }
     std::unordered_set<int> potential_devices_set(potential_devices.begin(), potential_devices.end());
 
@@ -333,8 +333,7 @@ std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordere
     // Find if any of the target devices are not connected.
     std::for_each(actual_jtag_target_devices.begin(), actual_jtag_target_devices.end(), [&](int jtag_device_id) {
         if (potential_devices_set.find(jtag_device_id) == potential_devices_set.end()) {
-            log_warning(
-                tt::LogSiliconDriver, "Target JTAG device with id {} not connected", std::to_string(jtag_device_id));
+            log_warning(tt::LogUMD, "Target JTAG device with id {} not connected", std::to_string(jtag_device_id));
         }
     });
 

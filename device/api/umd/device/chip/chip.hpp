@@ -99,7 +99,7 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    virtual void set_power_state(DevicePowerState state) = 0;
+    virtual void set_power_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 

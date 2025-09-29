@@ -20,7 +20,7 @@ WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(t
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
-        log_error(LogSiliconDriver, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        log_error(LogUMD, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
 
     TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
@@ -58,7 +58,7 @@ uint32_t WormholeArcMessenger::send_message(
     tt_device->read_from_arc(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
 
     if (misc & (1 << 16)) {
-        log_error(LogSiliconDriver, "trigger_fw_int failed on device {}", 0);
+        log_error(LogUMD, "trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         uint32_t val_wr = misc | (1 << 16);
@@ -88,7 +88,7 @@ uint32_t WormholeArcMessenger::send_message(
             exit_code = (status & 0xffff0000) >> 16;
             break;
         } else if (status == HANG_READ_VALUE) {
-            log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
+            log_warning(LogUMD, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
             exit_code = HANG_READ_VALUE;
             break;
         }

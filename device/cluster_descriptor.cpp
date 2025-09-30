@@ -989,19 +989,12 @@ tt::ARCH ClusterDescriptor::get_arch() const {
     if (chips.empty()) {
         TT_THROW("Unable to determine architecture because no chips were detected.");
     }
+
+    // We already validated that all chips have the same arch
     tt::ARCH arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
         TT_THROW("Chip {} has invalid architecture.", *chips.begin());
     }
-
-    // We don't yet support mixed architecture clusters. Check that all chips are the same architecture.
-    bool all_same_arch =
-        std::all_of(chips.begin(), chips.end(), [&](chip_id_t chip_id) { return this->get_arch(chip_id) == arch; });
-
-    if (!all_same_arch) {
-        TT_THROW("Chips with differing architectures detected. This is unsupported.");
-    }
-
     return arch;
 }
 
@@ -1270,6 +1263,19 @@ void ClusterDescriptor::verify_cluster_descriptor_info() {
                 chips.size(),
                 number_chips_from_board,
                 board_type_to_string(board_type));
+        }
+    }
+
+    const std::unordered_set<chip_id_t> &chips = get_all_chips();
+    if (!chips.empty()) {
+        tt::ARCH arch = get_arch(*chips.begin());
+        if (arch == tt::ARCH::Invalid) {
+            TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+        }
+        bool all_same_arch =
+            std::all_of(chips.begin(), chips.end(), [&](chip_id_t chip_id) { return this->get_arch(chip_id) == arch; });
+        if (!all_same_arch) {
+            TT_THROW("Chips with differing architectures detected. This is unsupported.");
         }
     }
 }

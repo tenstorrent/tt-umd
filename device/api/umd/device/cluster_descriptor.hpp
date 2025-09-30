@@ -108,8 +108,8 @@ public:
     const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
 
     /**
-     * Returns the architecture of the cluster, assuming that all chips are of the same architecture. For now, because
-     * mixed-architecture clusters are not yet supported, throws an exception if this is not true.
+     * Returns the architecture of the cluster. Throws an exception if the architecture is Invalid or there are no
+     * chips.
      */
     tt::ARCH get_arch() const;
 

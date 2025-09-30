@@ -100,10 +100,6 @@ const SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
-uint16_t Cluster::get_bus_id(chip_id_t chip) const {
-    return get_chip(chip)->get_tt_device()->get_pci_device()->get_device_info().pci_bus;
-}
-
 void Cluster::verify_sysmem_initialized() {
     for (const chip_id_t& chip_id : local_chip_ids_) {
         bool hugepages_initialized =

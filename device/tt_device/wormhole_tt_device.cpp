@@ -11,6 +11,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -42,6 +43,14 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
                             : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
     wait_arc_core_start(1000);
+}
+
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
+    TTDevice(std::move(remote_communication), target_chip, std::make_unique<wormhole_implementation>()) {
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {

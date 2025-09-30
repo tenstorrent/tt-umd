@@ -51,7 +51,7 @@ protected:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    TTDevice* local_tt_device_;
+    TTDevice* local_tt_device_ = nullptr;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };

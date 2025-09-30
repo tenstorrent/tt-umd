@@ -14,9 +14,11 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/ethernet_protocol.hpp"
 #include "umd/device/tt_device/jtag_protocol.hpp"
 #include "umd/device/tt_device/pcie_protocol.hpp"
 #include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
+#include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -52,6 +54,19 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()),
     device_protocol(std::make_unique<JtagProtocol>(jtag_device_.get(), jlink_id_)) {
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
+}
+
+TTDevice::TTDevice(
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    eth_coord_t target_chip,
+    std::unique_ptr<architecture_implementation> architecture_impl) :
+    communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
+    communication_device_id_(
+        jtag_device_->get_device_id(remote_communication->get_local_device()->get_communication_device_id())),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()),
+    device_protocol(std::make_unique<EthernetProtocol>(std::move(remote_communication), target_chip)) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
 }
 
@@ -109,6 +124,32 @@ std::unique_ptr<TTDevice> TTDevice::create(
         }
         default:
             throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
+    }
+}
+
+std::unique_ptr<TTDevice> TTDevice::create(
+    TTDevice *local_tt_device, SysmemManager *sysmem_manager, eth_coord_t target_chip) {
+    switch (local_tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (sysmem_manager == nullptr) {
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
+                    RemoteCommunication::create_remote_communication(local_tt_device, target_chip), target_chip));
+            } else {
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
+                    RemoteCommunication::create_remote_communication(local_tt_device, target_chip, sysmem_manager),
+                    target_chip));
+            }
+        case ARCH::BLACKHOLE:
+            if (sysmem_manager == nullptr) {
+                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
+                    RemoteCommunication::create_remote_communication(local_tt_device, target_chip), target_chip));
+            } else {
+                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
+                    RemoteCommunication::create_remote_communication(local_tt_device, target_chip, sysmem_manager),
+                    target_chip));
+            }
+        default:
+            return nullptr;
     }
 }
 
@@ -506,9 +547,9 @@ TTDevice::~TTDevice() {
     lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), communication_device_type_);
 }
 
-void TTDevice::wait_for_non_mmio_flush() {}
+void TTDevice::wait_for_non_mmio_flush() { device_protocol->wait_for_non_mmio_flush(); }
 
-bool TTDevice::is_remote() { return is_remote_tt_device; }
+bool TTDevice::is_remote() { return device_protocol->is_remote(); }
 
 int TTDevice::get_communication_device_id() const { return communication_device_id_; }
 

@@ -47,6 +47,7 @@ public:
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 
 protected:
     /*
@@ -89,5 +90,6 @@ private:
     std::mutex dma_mutex_;
 
     EthAddresses eth_addresses;
+    eth_coord_t target_chip_;
 };
 }  // namespace tt::umd

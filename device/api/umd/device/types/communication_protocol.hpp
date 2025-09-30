@@ -10,10 +10,7 @@
 
 namespace tt::umd {
 
-enum class IODeviceType {
-    PCIe,
-    JTAG,
-};
+enum class IODeviceType { PCIe, JTAG, ETH };
 
 // Const map of Device type names for each of the types listed in the enum.
 static const std::unordered_map<IODeviceType, std::string> DeviceTypeToString = {

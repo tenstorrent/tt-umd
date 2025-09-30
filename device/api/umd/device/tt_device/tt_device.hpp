@@ -35,6 +35,7 @@ static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 class ArcMessenger;
 class ArcTelemetryReader;
+class SysmemManager;
 class RemoteCommunication;
 
 class TTDevice {
@@ -49,11 +50,18 @@ public:
     static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+    static std::unique_ptr<TTDevice> create(
+        TTDevice *local_tt_device, SysmemManager *sysmem_manager, eth_coord_t target_chip);
 
+    // TODO: Polish constructors later
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        eth_coord_t target_chip,
         std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice();

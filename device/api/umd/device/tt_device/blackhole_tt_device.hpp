@@ -47,6 +47,8 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms) override;
 
+    BlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 

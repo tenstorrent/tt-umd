@@ -109,6 +109,14 @@ public:
 
     virtual uint8_t get_asic_location();
 
+    /*
+     * Get heartbeat from ARC core.
+     * If using current telemetry, the value is taken from TIMER_HEARTBEAT
+     * On legacy telemetry, the value is taken from ARC0_HEALTH
+     * @returns An integer that should increase with every call.
+     */
+    virtual uint32_t get_heartbeat();
+
 protected:
     TTDevice* tt_device = nullptr;
 

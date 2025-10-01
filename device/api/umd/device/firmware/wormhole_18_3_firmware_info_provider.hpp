@@ -48,6 +48,8 @@ public:
     std::optional<uint32_t> get_vcore() override;
 
     std::optional<double> get_board_temperature() override;
+
+    uint32_t get_heartbeat() override;
 };
 
 }  // namespace tt::umd

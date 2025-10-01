@@ -139,4 +139,8 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 
+uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() {
+    return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ARC0_HEALTH);
+}
+
 }  // namespace tt::umd

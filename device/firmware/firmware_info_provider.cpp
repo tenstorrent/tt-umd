@@ -198,4 +198,8 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() {
     return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 
+uint32_t FirmwareInfoProvider::get_heartbeat() {
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::TIMER_HEARTBEAT);
+}
+
 }  // namespace tt::umd

@@ -217,7 +217,7 @@ dynamic_tlb PcieProtocol::set_dynamic_tlb(
     }
 
     log_trace(
-        LogSiliconDriver,
+        LogUMD,
         "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, "
         "multicast "
         "= {}, ordering = {}",
@@ -257,7 +257,7 @@ dynamic_tlb PcieProtocol::set_dynamic_tlb(
             .apply_offset(tlb_config.offset);
 
     log_trace(
-        LogSiliconDriver,
+        LogUMD,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
         "tlb_cfg_reg: 0x{:x} to core ({},{})",
         tlb_index,

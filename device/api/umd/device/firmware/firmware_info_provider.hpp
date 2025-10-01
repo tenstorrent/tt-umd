@@ -113,7 +113,7 @@ public:
      * Get heartbeat from ARC core.
      * If using current telemetry, the value is taken from TIMER_HEARTBEAT
      * On legacy telemetry, the value is taken from ARC0_HEALTH
-     * @returns An integer that should increase with every call.
+     * @returns An integer that does not decrease on subsequent calls.
      */
     virtual uint32_t get_heartbeat() const;
 

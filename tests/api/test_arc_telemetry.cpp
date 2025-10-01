@@ -17,7 +17,7 @@ TEST(TestTelemetry, BasicTelemetry) {
         tt_device->init_tt_device();
         if (tt_device->get_firmware_version() < semver_t(18, 4, 0)) {
             log_warning(
-                tt::LogSiliconDriver,
+                tt::LogUMD,
                 "Skipping telemetry test on device {} with firmware version {} < 18.4.0",
                 pci_device_id,
                 tt_device->get_firmware_version().to_string());

@@ -22,7 +22,7 @@ class Blackhole_18_7_FirmwareInfoProvider : public FirmwareInfoProvider {
 public:
     Blackhole_18_7_FirmwareInfoProvider(TTDevice* tt_device);
 
-    uint32_t get_max_clock_freq() override;
+    uint32_t get_max_clock_freq() const override;
 };
 
 }  // namespace tt::umd

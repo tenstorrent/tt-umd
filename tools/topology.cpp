@@ -53,6 +53,6 @@ int main(int argc, char *argv[]) {
     }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);
-    log_info(tt::LogSiliconDriver, "Cluster descriptor serialized to {}", output_path);
+    log_info(tt::LogUMD, "Cluster descriptor serialized to {}", output_path);
     return 0;
 }

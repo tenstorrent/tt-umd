@@ -273,7 +273,7 @@ private:
         h2d.sender_host_write_index =
             lite_fabric::wrap_increment<SENDER_NUM_BUFFERS_ARRAY[0]>(h2d.sender_host_write_index);
 
-        log_debug(LogSiliconDriver, "Flushing h2d sender_host_write_index to {}", h2d.sender_host_write_index);
+        log_debug(LogUMD, "Flushing h2d sender_host_write_index to {}", h2d.sender_host_write_index);
         flush_h2d(virtual_core_sender);
     }
 
@@ -286,7 +286,7 @@ private:
             throw std::runtime_error("Payload size exceeds channel buffer size");
         }
         uint32_t addr = get_next_send_buffer_slot_address(channel_address) + sizeof(FabricLiteHeader);
-        log_debug(LogSiliconDriver, "Send {}B payload only {:#x}", size, addr);
+        log_debug(LogUMD, "Send {}B payload only {:#x}", size, addr);
         tt_device->write_to_device(data, virtual_core_sender, addr, size);
     }
 
@@ -348,7 +348,7 @@ private:
 
         uint32_t receiver_header_address = get_next_receiver_buffer_slot_address(receiver_channel_base);
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "Reading data from {} {:#x} unaligned {}",
             receiver_core.str(),
             receiver_header_address,

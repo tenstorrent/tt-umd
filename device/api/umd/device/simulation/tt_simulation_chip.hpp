@@ -31,6 +31,8 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 private:
+    std::unique_ptr<architecture_implementation> architecture_impl_;
+
     void* libttsim_handle = nullptr;
     uint32_t libttsim_pci_device_id = 0;
     void (*pfn_libttsim_init)() = nullptr;
@@ -38,8 +40,6 @@ private:
     uint32_t (*pfn_libttsim_pci_config_rd32)(uint32_t bus_device_function, uint32_t offset) = nullptr;
     void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tensix_reset_deassert)(uint32_t x, uint32_t y) = nullptr;
-    void (*pfn_libttsim_tensix_reset_assert)(uint32_t x, uint32_t y) = nullptr;
     void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
 };
 

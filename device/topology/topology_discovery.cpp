@@ -110,7 +110,7 @@ void TopologyDiscovery::get_connected_chips() {
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "Discovered {} chip with {} ID {} and asic ID {}",
             DeviceTypeToString.at(io_device_type),
             DeviceTypeToString.at(io_device_type),
@@ -121,8 +121,6 @@ void TopologyDiscovery::get_connected_chips() {
 
 void TopologyDiscovery::discover_remote_chips() {
     std::set<uint64_t> discovered_chips = {};
-    // Needed to know which chip to use for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
@@ -183,7 +181,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     ethernet_connections_to_remote_devices.push_back(
                         {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
                 }
-                log_debug(LogSiliconDriver, "Remote chip outside of UMD cluster {}.", remote_asic_id);
+                log_debug(LogUMD, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
                 continue;
@@ -230,6 +228,10 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         if (!chip->is_mmio_capable()) {
             asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
             cluster_desc->chip_unique_ids.emplace(chip_id, current_chip_asic_id);
+            if (eth_coords.empty()) {
+                cluster_desc->closest_mmio_chip_cache[chip_id] =
+                    asic_id_to_chip_id.at(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id));
+            }
             chip_id++;
         }
     }

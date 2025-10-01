@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {

@@ -9,8 +9,8 @@
 using namespace tt;
 using namespace tt::umd;
 
-constexpr uint32_t one_mb = 1 << 20;
-constexpr uint32_t one_kb = 1 << 10;
+constexpr size_t one_mb = 1 << 20;
+constexpr size_t one_kb = 1 << 10;
 constexpr uint32_t NUM_ITERATIONS = 10;
 
 /**
@@ -20,13 +20,19 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
     // Sizes are chosen in a way to avoid TLB benchmark taking too long. 32 MB already
     // tests chunking of data into smaller chunks to match TLB size.
     // 64 MB and above showed the same perf locally.
-    const std::array<uint32_t, 6> sizes = {
+    const std::vector<size_t> sizes = {
+        1,
+        2,
+        4,
+        8,
+        1 * one_kb,
+        2 * one_kb,
+        4 * one_kb,
+        8 * one_kb,
         1 * one_mb,
         2 * one_mb,
         4 * one_mb,
         8 * one_mb,
-        16 * one_mb,
-        32 * one_mb,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -62,7 +68,15 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
  * Measure BW of IO to Tensix core on ETH connected device.
  */
 TEST(MicrobenchmarkEthernetIO, Tensix) {
-    const std::array<uint32_t, 1> sizes = {
+    const std::vector<size_t> sizes = {
+        1,
+        2,
+        4,
+        8,
+        1 * one_kb,
+        2 * one_kb,
+        4 * one_kb,
+        8 * one_kb,
         1 * one_mb,
     };
 
@@ -84,7 +98,7 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
 
     std::vector<std::vector<std::string>> rows;
 
-    for (uint32_t buf_size : sizes) {
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, tensix_core);
         row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
@@ -99,7 +113,15 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
  * Measure BW of IO to Ethernet core on ETH connected device.
  */
 TEST(MicrobenchmarkEthernetIO, Eth) {
-    const std::array<uint32_t, 1> sizes = {
+    const std::vector<size_t> sizes = {
+        1,
+        2,
+        4,
+        8,
+        1 * one_kb,
+        2 * one_kb,
+        4 * one_kb,
+        8 * one_kb,
         128 * one_kb,
     };
 
@@ -119,8 +141,8 @@ TEST(MicrobenchmarkEthernetIO, Eth) {
     };
 
     std::vector<std::vector<std::string>> rows;
-    constexpr uint32_t address = 128 * one_kb;
-    for (uint32_t buf_size : sizes) {
+    constexpr size_t address = 128 * one_kb;
+    for (size_t buf_size : sizes) {
         std::vector<std::string> row;
         auto [wr_bw, rd_bw] =
             test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, eth_core, address);

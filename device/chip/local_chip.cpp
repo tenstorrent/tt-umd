@@ -222,7 +222,7 @@ int LocalChip::get_num_host_channels() {
     // pcie device breaks or isn't present.
     if (!sysmem_manager_) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return 0;
@@ -237,7 +237,7 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
     // pcie device breaks or isn't present.
     if (!sysmem_manager_) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return 0;
@@ -255,7 +255,7 @@ void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysm
     // pcie device breaks or isn't present.
     if (!sysmem_manager_) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
@@ -269,7 +269,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     // pcie device breaks or isn't present.
     if (!sysmem_manager_) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
@@ -279,7 +279,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
 
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     log_trace(
-        LogSiliconDriver,
+        LogUMD,
         "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
         DeviceTypeToString.at(tt_device_->get_communication_device_type()),
         tt_device_->get_communication_device_id(),
@@ -320,13 +320,13 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_trace(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogUMD, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     log_trace(
-        LogSiliconDriver,
+        LogUMD,
         "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
         DeviceTypeToString.at(tt_device_->get_communication_device_type()),
         tt_device_->get_communication_device_id(),
@@ -353,7 +353,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         }
         log_trace(
-            LogSiliconDriver,
+            LogUMD,
             "  read_block called with tlb_offset: {}, tlb_size: {}",
             tlb_description.tlb_offset,
             tlb_description.size);
@@ -361,7 +361,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_trace(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        log_trace(LogUMD, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index, translated_core, l1_src, tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
@@ -372,7 +372,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             l1_src += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_trace(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogUMD, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -381,6 +381,15 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
         TT_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
+    if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        log_warning(
+            LogUMD,
+            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) write.",
+            get_tt_device()->get_communication_device_id());
+        write_to_device(core, src, addr, size);
+        return;
     }
 
     static const std::string tlb_name = "LARGE_WRITE_TLB";
@@ -413,6 +422,15 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
         TT_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+    }
+
+    if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        log_warning(
+            LogUMD,
+            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) read.",
+            get_tt_device()->get_communication_device_id());
+        read_from_device(core, dst, addr, size);
+        return;
     }
 
     static const std::string tlb_name = "LARGE_READ_TLB";
@@ -463,7 +481,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+    log_debug(LogUMD, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] =
         tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_dest, tlb_data::Strict);
@@ -487,7 +505,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+    log_debug(LogUMD, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] =
         tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_src, tlb_data::Strict);
@@ -602,7 +620,7 @@ void LocalChip::set_membar_flag(
                     cores_synced.insert(core);
                 } else {
                     log_trace(
-                        LogSiliconDriver,
+                        LogUMD,
                         "Waiting for core {} to recieve mem bar flag {} in function",
                         core.str(),
                         barrier_value);
@@ -687,25 +705,6 @@ void LocalChip::deassert_risc_resets() {
             0,
             0);
     }
-}
-
-void LocalChip::set_power_state(DevicePowerState state) {
-    int exit_code = 0;
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t msg = get_power_state_arc_msg(state);
-        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        if (state == DevicePowerState::BUSY) {
-            exit_code =
-                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
-        } else {
-            exit_code =
-                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
-        }
-    }
-    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
-
-    wait_for_aiclk_value(tt_device_.get(), state);
 }
 
 int LocalChip::get_clock() { return tt_device_->get_clock(); }

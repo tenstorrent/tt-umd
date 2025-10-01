@@ -11,6 +11,6 @@ namespace tt::umd {
 Blackhole_18_7_FirmwareInfoProvider::Blackhole_18_7_FirmwareInfoProvider(TTDevice* tt_device) :
     FirmwareInfoProvider(tt_device) {}
 
-uint32_t Blackhole_18_7_FirmwareInfoProvider::get_max_clock_freq() { return blackhole::AICLK_BUSY_VAL; }
+uint32_t Blackhole_18_7_FirmwareInfoProvider::get_max_clock_freq() const { return blackhole::AICLK_BUSY_VAL; }
 
 }  // namespace tt::umd

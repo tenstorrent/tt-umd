@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(POSITION_INDEPENDENT_CODE ON)
+include(CheckFunctionExists)
 
 if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs)
@@ -113,7 +114,9 @@ if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         device
         PRIVATE
-            simulation/simulation_device.cpp
+            simulation/simulation_chip.cpp
+            simulation/tt_sim_chip.cpp
+            simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
     )
@@ -164,7 +167,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/risc_type.hpp
-                api/umd/device/simulation/simulation_device.hpp
+                api/umd/device/simulation/simulation_chip.hpp
+                api/umd/device/simulation/tt_simulation_chip.hpp
+                api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/tt_xy_pair.h
@@ -180,9 +185,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 # To be removed
+                api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/hugepage.h
                 api/umd/device/tt_core_coordinates.h
-                api/umd/device/tt_simulation_device.h
                 api/umd/device/tt_cluster_descriptor.h
                 api/umd/device/tt_soc_descriptor.h
                 api/umd/device/wormhole_implementation.h
@@ -227,6 +232,18 @@ target_link_libraries(
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )
+
+check_function_exists(
+    backtrace
+    HAVE_BACKTRACE
+)
+
+if(NOT HAVE_BACKTRACE)
+    find_library(EXECINFO_LIB execinfo)
+    if(EXECINFO_LIB)
+        target_link_libraries(device PRIVATE ${EXECINFO_LIB})
+    endif()
+endif()
 
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(

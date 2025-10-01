@@ -524,25 +524,24 @@ void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSI
 void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
 
 void Cluster::deassert_risc_reset_at_core(
-    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    chip_id_t chip, const CoreCoord& core, const TensixSoftResetOptions& soft_resets) {
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
-    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    chip_id_t chip, const CoreCoord& core, const TensixSoftResetOptions& soft_resets) {
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
-RiscType Cluster::get_risc_reset_state(const chip_id_t chip, const CoreCoord core) {
+RiscType Cluster::get_risc_reset_state(chip_id_t chip, const CoreCoord& core) {
     return get_chip(chip)->get_risc_reset_state(core);
 }
 
-void Cluster::assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type) {
+void Cluster::assert_risc_reset(chip_id_t chip, const CoreCoord& core, RiscType risc_type) {
     get_chip(chip)->assert_risc_reset(core, risc_type);
 }
 
-void Cluster::deassert_risc_reset(
-    const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
+void Cluster::deassert_risc_reset(chip_id_t chip, const CoreCoord& core, RiscType risc_type, bool staggered_start) {
     get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
 }
 
@@ -553,7 +552,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
+Writer Cluster::get_static_tlb_writer(chip_id_t chip, const CoreCoord& core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
@@ -572,7 +571,7 @@ Cluster::~Cluster() {
     cluster_desc.reset();
 }
 
-tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
+tlb_configuration Cluster::get_tlb_configuration(chip_id_t chip, const CoreCoord& core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
@@ -589,7 +588,7 @@ void Cluster::configure_tlb(
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, const CoreCoord& core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
 }
@@ -628,7 +627,7 @@ RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
 }
 
-void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
+void Cluster::wait_for_non_mmio_flush(chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
 
 void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {
@@ -921,41 +920,41 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
+void Cluster::l1_membar(chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
+void Cluster::dram_membar(chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->dram_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
+void Cluster::dram_membar(chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
     get_chip(chip)->dram_membar(channels);
 }
 
 void Cluster::write_to_device(
-    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, const CoreCoord& core, uint64_t addr) {
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::write_to_device_reg(
-    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, const CoreCoord& core, uint64_t addr) {
     get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
-void Cluster::dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
+void Cluster::dma_write_to_device(const void* src, size_t size, chip_id_t chip, const CoreCoord& core, uint64_t addr) {
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
-void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
+void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, const CoreCoord& core, uint64_t addr) {
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
-void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, const CoreCoord& core, uint64_t addr, uint32_t size) {
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 
-void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, const CoreCoord& core, uint64_t addr, uint32_t size) {
     get_chip(chip)->read_from_device_reg(core, mem_ptr, addr, size);
 }
 

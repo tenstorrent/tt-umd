@@ -19,7 +19,7 @@ namespace nb = nanobind;
 
 using namespace tt::umd;
 
-// Helper function for easy creation of RemoteWormholeTTDevice
+// Helper function for easy creation of WormholeTTDevice
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice *local_chip, tt_ClusterDescriptor *cluster_descriptor, chip_id_t remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
@@ -85,7 +85,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("addr"));
 
-    nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
+    nb::class_<WormholeTTDevice, TTDevice>(m, "WormholeTTDevice");
 
     m.def(
         "create_remote_wormhole_tt_device",
@@ -94,5 +94,5 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
         nb::rv_policy::take_ownership,
-        "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
+        "Creates a WormholeTTDevice for communication with a remote chip.");
 }

@@ -343,6 +343,8 @@ public:
         return 0;
     }
 
+    uint64_t get_arc_noc_apb_peripheral_offset() const override { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
+
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return blackhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
@@ -454,6 +456,10 @@ public:
     driver_host_address_params get_host_address_params() const override;
     driver_eth_interface_params get_eth_interface_params() const override;
     driver_noc_params get_noc_params() const override;
+
+    tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) override {
+        return blackhole::get_arc_core(noc_translation_enabled, umd_use_noc1);
+    }
 
     virtual uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
 

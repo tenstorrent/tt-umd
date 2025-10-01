@@ -39,6 +39,7 @@ public:
     virtual uint32_t get_arc_message_test() const = 0;
     virtual uint32_t get_arc_csm_mailbox_offset() const = 0;
     virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
+    virtual uint64_t get_arc_noc_apb_peripheral_offset() const = 0;
     virtual uint32_t get_arc_reset_arc_misc_cntl_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_2_offset() const = 0;
@@ -91,6 +92,7 @@ public:
     virtual driver_eth_interface_params get_eth_interface_params() const = 0;
     virtual driver_noc_params get_noc_params() const = 0;
 
+    virtual tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) = 0;
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 
     virtual uint64_t get_noc_node_id_offset() const = 0;

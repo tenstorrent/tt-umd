@@ -35,6 +35,9 @@ public:
 
     eth_coord_t target_chip_{};
 
+    // Ethernet specific methods.
+    RemoteCommunication* get_remote_communication() { return remote_communication_.get(); }
+
 private:
     std::unique_ptr<RemoteCommunication> remote_communication_ = nullptr;
     architecture_implementation& architecture_implementation_;

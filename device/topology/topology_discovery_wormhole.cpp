@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/chip/local_chip.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
 extern bool umd_use_noc1;

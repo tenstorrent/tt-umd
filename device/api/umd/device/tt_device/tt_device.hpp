@@ -68,6 +68,7 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
+    std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
 
@@ -306,6 +307,8 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    DeviceProtocol *get_device_protocol() { return device_protocol_.get(); }
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -346,7 +349,7 @@ private:
 
     virtual void post_init_hook(){};
 
-    std::unique_ptr<DeviceProtocol> device_protocol = nullptr;
+    std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
 };
 
 }  // namespace tt::umd

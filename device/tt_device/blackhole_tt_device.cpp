@@ -25,9 +25,8 @@ BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
-BlackholeTTDevice::BlackholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
-    TTDevice(std::move(remote_communication), target_chip, std::make_unique<blackhole_implementation>()) {
+BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
+    TTDevice(std::move(remote_communication), {}, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 

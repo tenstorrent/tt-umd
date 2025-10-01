@@ -8,6 +8,8 @@
 #include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 using namespace tt::umd;
 

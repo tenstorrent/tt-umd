@@ -11,8 +11,7 @@
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
-#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/ethernet_protocol.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
@@ -72,13 +71,10 @@ RemoteChip::RemoteChip(
     //   2. Restructuring the inheritance hierarchy to eliminate this dependency
     //   3. Using composition instead of inheritance for remote communication
     // ToDo: Figure out a proper way to make an abstraction to redesign this
-    if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        remote_communication_ =
-            dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
-    } else {
-        remote_communication_ =
-            dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
-    }
+    // Attemp
+    remote_communication_ =
+        dynamic_cast<EthernetProtocol*>(remote_tt_device->get_device_protocol())->get_remote_communication();
+
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();
 }
@@ -126,7 +122,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> RemoteChip::get_fast_pci
     throw std::runtime_error("RemoteChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
-void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
+void RemoteChip::wait_for_non_mmio_flush() { tt_device_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 

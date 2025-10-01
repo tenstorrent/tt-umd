@@ -17,6 +17,30 @@ void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
     jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
 }
 
+void JtagProtocol::write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    auto arc_noc_core = architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1);
+    jtag_device_->write(
+        jlink_id_,
+        mem_ptr,
+        arc_noc_core.x,
+        arc_noc_core.y,
+        architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
+        sizeof(uint32_t));
+    return;
+}
+
+void JtagProtocol::read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    auto arc_noc_core = architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1);
+    jtag_device_->read(
+        jlink_id_,
+        mem_ptr,
+        arc_noc_core.x,
+        arc_noc_core.y,
+        architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
+        sizeof(uint32_t));
+    return;
+}
+
 void JtagProtocol::wait_for_non_mmio_flush() {}
 
 bool JtagProtocol::is_remote() { return false; }

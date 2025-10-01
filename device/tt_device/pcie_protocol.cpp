@@ -50,6 +50,49 @@ void PcieProtocol::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t add
     }
 }
 
+void PcieProtocol::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    switch (architecture_implementation_.get_architecture()) {
+        case ARCH::WORMHOLE_B0:
+            bar_write32(
+                architecture_implementation_.get_arc_axi_apb_peripheral_offset() + arc_addr_offset,
+                *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+            return;
+        case ARCH::BLACKHOLE:
+            // TODO: Blackhole can also do a bar_write on most BOARD types, so a refactoring can be done here
+            write_to_device(
+                mem_ptr,
+                architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1),
+                architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
+                size);
+            return;
+        default:
+            // throw here
+            return;
+    }
+}
+
+void PcieProtocol::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    switch (architecture_implementation_.get_architecture()) {
+        case ARCH::WORMHOLE_B0: {
+            auto result =
+                bar_read32(architecture_implementation_.get_arc_axi_apb_peripheral_offset() + arc_addr_offset);
+            *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
+            return;
+        }
+        case ARCH::BLACKHOLE:
+            // TODO: Blackhole can also do a bar_write on most BOARD types, so a refactoring can be done here
+            read_from_device(
+                mem_ptr,
+                architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1),
+                architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
+                size);
+            return;
+        default:
+            // throw here
+            return;
+    }
+}
+
 void PcieProtocol::wait_for_non_mmio_flush() {}
 
 bool PcieProtocol::is_remote() { return false; }
@@ -90,6 +133,48 @@ void PcieProtocol::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *b
     if (num_bytes >= sizeof(std::uint32_t)) {
         detect_hang_read(*reinterpret_cast<std::uint32_t *>(dest));
     }
+}
+
+// This is only needed for the BH workaround in iatu_configure_peer_region since no arc
+void PcieProtocol::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
+    while (word_len-- != 0) {
+        *dest++ = *src++;
+    }
+}
+
+void PcieProtocol::write_regs(uint32_t byte_addr, uint32_t word_len, const void *data) {
+    volatile uint32_t *dest = pci_device_->get_register_address<uint32_t>(byte_addr);
+    const uint32_t *src = reinterpret_cast<const uint32_t *>(data);
+
+    write_regs(dest, src, word_len);
+}
+
+void PcieProtocol::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
+    const volatile uint32_t *src = pci_device_->get_register_address<uint32_t>(byte_addr);
+    uint32_t *dest = reinterpret_cast<uint32_t *>(data);
+
+    while (word_len-- != 0) {
+        uint32_t temp = *src++;
+        memcpy(dest++, &temp, sizeof(temp));
+    }
+}
+
+void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
+    if (addr < pci_device_->bar0_uc_offset) {
+        write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
+    } else {
+        write_regs(addr, 1, &data);
+    }
+}
+
+uint32_t PcieProtocol::bar_read32(uint32_t addr) {
+    uint32_t data;
+    if (addr < pci_device_->bar0_uc_offset) {
+        read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
+    } else {
+        read_regs(addr, 1, &data);
+    }
+    return data;
 }
 
 void PcieProtocol::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {

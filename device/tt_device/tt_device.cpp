@@ -53,7 +53,7 @@ TTDevice::TTDevice(
     communication_device_id_(jtag_device_->get_device_id(jlink_id_)),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()),
-    device_protocol(std::make_unique<JtagProtocol>(jtag_device_.get(), jlink_id_)) {
+    device_protocol(std::make_unique<JtagProtocol>(jtag_device_.get(), jlink_id_, *architecture_impl_)) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
 }
 
@@ -66,7 +66,8 @@ TTDevice::TTDevice(
         jtag_device_->get_device_id(remote_communication->get_local_device()->get_communication_device_id())),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()),
-    device_protocol(std::make_unique<EthernetProtocol>(std::move(remote_communication), target_chip)) {
+    device_protocol(
+        std::make_unique<EthernetProtocol>(std::move(remote_communication), target_chip, *architecture_impl_)) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
 }
 

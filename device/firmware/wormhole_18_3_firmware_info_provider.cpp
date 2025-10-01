@@ -23,24 +23,24 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);
 }
 
-uint64_t Wormhole_18_3_FirmwareInfoProvider::get_board_id() {
+uint64_t Wormhole_18_3_FirmwareInfoProvider::get_board_id() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return (static_cast<uint64_t>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH)) << 32) |
            (telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_LOW));
 }
 
-uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() {
+uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION);
 }
 
-double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() {
+double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
     // Stored in S12.4 format.
     return static_cast<double>(
                (tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF)) /
            16.0;
 }
 
-DramTrainingStatus Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) {
+DramTrainingStatus Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) const {
     uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
     uint8_t status = (telemetry_data >> (dram_channel * 4)) & 0xF;
 
@@ -57,19 +57,19 @@ DramTrainingStatus Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(
     }
 }
 
-uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() {
+uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() const {
     uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(tt::umd::wormhole::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
-uint8_t Wormhole_18_3_FirmwareInfoProvider::get_asic_location() {
+uint8_t Wormhole_18_3_FirmwareInfoProvider::get_asic_location() const {
     // 0 is a placeholder value for older WH fw versions. This is something that is not used by SW for older Wormhole FW
     // versions.
     // TODO: support asic location to be optional if needed, at the moment this is not a priroty.
     return 0;
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_aiclk() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_aiclk() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!aiclk_available) {
         return std::nullopt;
@@ -77,7 +77,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_aiclk() {
     return telemetry->read_entry(wormhole::TelemetryTag::AICLK) & 0xFFFF;
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_axiclk() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_axiclk() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!axiclk_available) {
         return std::nullopt;
@@ -85,7 +85,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_axiclk() {
     return telemetry->read_entry(wormhole::TelemetryTag::AXICLK);
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_arcclk() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_arcclk() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!arcclk_available) {
         return std::nullopt;
@@ -93,7 +93,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_arcclk() {
     return telemetry->read_entry(wormhole::TelemetryTag::ARCCLK);
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!fan_speed_available) {
         return std::nullopt;
@@ -106,7 +106,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() {
     return fan_speed;
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdp() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdp() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!tdp_available) {
         return std::nullopt;
@@ -114,7 +114,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdp() {
     return telemetry->read_entry(wormhole::TelemetryTag::TDP) & 0xFFFF;
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdc() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdc() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!tdc_available) {
         return std::nullopt;
@@ -122,7 +122,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdc() {
     return telemetry->read_entry(wormhole::TelemetryTag::TDC) & 0xFFFF;
 }
 
-std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_vcore() {
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_vcore() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!vcore_available) {
         return std::nullopt;
@@ -130,7 +130,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_vcore() {
     return telemetry->read_entry(wormhole::TelemetryTag::VCORE);
 }
 
-std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature() {
+std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!board_temperature_available) {
         return std::nullopt;
@@ -139,7 +139,7 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 
-uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() {
+uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ARC0_HEALTH);
 }
 

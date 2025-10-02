@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <numeric>
+
+#include "assert.hpp"
 #include "gtest/gtest.h"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -9,17 +12,68 @@
 using namespace tt;
 using namespace tt::umd;
 
-TEST(TestTelemetry, BasicTelemetry) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+class TestTelemetry : public ::testing::Test {
+protected:
+    static void SetDeviceType() {
+        const char* jtag_env = std::getenv("TEST_USE_JTAG");
+        if (jtag_env && std::string(jtag_env) == "1") {
+            device_type_ = IODeviceType::JTAG;
+        }
+    }
 
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
+    // This method runs once before ALL tests marked with TestTelemetry.
+    static void SetUpTestSuite() {
+        SetDeviceType();
+
+        std::vector<int> device_ids;
+        switch (device_type_) {
+            case IODeviceType::JTAG: {
+                auto device_cnt = JtagDevice::create()->get_device_cnt();
+                device_ids = std::vector<int>(device_cnt);
+                std::iota(device_ids.begin(), device_ids.end(), 0);
+                break;
+            }
+            case IODeviceType::PCIe: {
+                device_ids = PCIDevice::enumerate_devices();
+                break;
+            }
+            default:
+                TT_THROW("Unsupported device type");
+        }
+
+        for (int device_id : device_ids) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, device_type_);
+            tt_device->init_tt_device();
+            devices.push_back(std::move(tt_device));
+        }
+
+        setup_successful_ = true;
+    }
+
+    // This method runs before EACH individual test marked with TestTelemetry.
+    void SetUp() override {
+        // Check if devices were successfully set up in SetUpTestSuite
+        if (!setup_successful_) {
+            GTEST_SKIP() << "Skipping test as device setup was not successful.";
+        }
+    }
+
+    static std::vector<std::unique_ptr<TTDevice>> devices;
+    static IODeviceType device_type_;
+    static bool setup_successful_;
+};
+
+/*static*/ std::vector<std::unique_ptr<TTDevice>> TestTelemetry::devices;
+/*static*/ IODeviceType TestTelemetry::device_type_ = IODeviceType::PCIe;
+/*static*/ bool TestTelemetry::setup_successful_ = false;
+
+TEST_F(TestTelemetry, BasicTelemetry) {
+    for (const auto& tt_device : devices) {
         if (tt_device->get_firmware_version() < semver_t(18, 4, 0)) {
             log_warning(
                 tt::LogUMD,
                 "Skipping telemetry test on device {} with firmware version {} < 18.4.0",
-                pci_device_id,
+                tt_device->get_communication_device_id(),
                 tt_device->get_firmware_version().to_string());
             continue;
         }
@@ -34,11 +88,8 @@ TEST(TestTelemetry, BasicTelemetry) {
     }
 }
 
-TEST(TestTelemetry, TelemetryEntryAvailable) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+TEST_F(TestTelemetry, TelemetryEntryAvailable) {
+    for (const auto& tt_device : devices) {
         tt_device->init_tt_device();
         ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
 

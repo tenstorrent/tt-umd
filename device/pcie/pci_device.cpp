@@ -553,11 +553,27 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() {
-    // return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc;
-    // TODO: This feature is turned off for now. We'll enable it once all machines have smoothly transitioned to IOMMU.
-    // Also change other places in this function which have the same check.
-    return false;
+bool PCIDevice::is_mapping_buffer_to_noc_supported() { return true; }
+
+void *PCIDevice::allocate_dma_buffer(size_t size, uint8_t n, uint64_t *iova, uint64_t *noc_address) {
+    tenstorrent_allocate_dma_buf dma_buf{};
+    dma_buf.in.requested_size = size;
+    dma_buf.in.buf_index = n;
+    dma_buf.in.flags = TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+        return nullptr;
+    }
+
+    void *buf = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, dma_buf.out.mapping_offset);
+    if (buf == MAP_FAILED) {
+        return nullptr;
+    }
+
+    *iova = dma_buf.out.physical_address;
+    *noc_address = dma_buf.out.noc_address;
+
+    return buf;
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {

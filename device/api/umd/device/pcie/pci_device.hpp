@@ -245,6 +245,21 @@ public:
      */
     static bool is_mapping_buffer_to_noc_supported();
 
+    /**
+     * This method is a hack to support the SiFive P550 platform, which has an
+     * IOMMU but lacks coherent DMA. The lack of coherent DMA means that we can
+     * not pin pages for DMA without plumbing in a cache invalidation path from
+     * KMD up to the application. I'm not going to do that, so the next best
+     * thing is get the driver to allocate an uncached DMA buffer for us. This
+     * requires a hacked driver that:
+     * 1. allows a 1GB KMD-allocated buffer (regular KMD imposes a 256MB limit)
+     * 2. maps the buffer for NOC access from the bottom of the NOC-facing PCIe
+     *    address space (driver-allocated DMA buffers are not typically mapped
+     *    for NOC access; when they are, they are mapped from the top).
+     * This method will fail if running against a normal release of KMD.
+     */
+    void* allocate_dma_buffer(size_t size, uint8_t n, uint64_t *iova, uint64_t *noc_address);
+
 public:
     // TODO: we can and should make all of these private.
     void *bar0_uc = nullptr;

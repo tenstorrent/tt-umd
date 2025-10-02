@@ -17,6 +17,8 @@
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
 
+#define P550_HACK 1
+
 namespace tt::umd {
 
 SysmemManager::SysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) :
@@ -48,6 +50,15 @@ bool SysmemManager::pin_or_map_sysmem_to_device() {
 SysmemManager::~SysmemManager() { unpin_or_unmap_sysmem(); }
 
 void SysmemManager::unpin_or_unmap_sysmem() {
+#if P550_HACK
+    for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
+        if (hugepage_mapping.mapping) {
+            munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+        }
+    }
+    hugepage_mapping_per_channel.clear();
+    return;
+#endif
     // This will unmap the iommu buffer if it was mapped through kmd.
     sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
@@ -302,6 +313,28 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
     }
+#if P550_HACK
+    auto pci_device = tt_device_->get_pci_device();
+    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
+    for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
+        size_t actual_size = ch == 3 ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
+        uint64_t iova;
+        uint64_t noc_address;
+        void *buffer = pci_device->allocate_dma_buffer(actual_size, ch + 6, &iova, &noc_address);  // LOL 6
+        if (!buffer) {
+            TT_THROW("Failed to allocate DMA buffer with KMD");
+        }
+        hugepage_mapping_per_channel[ch] = {buffer, actual_size, iova};
+        log_info(
+            LogUMD,
+            "Allocated DMA buffer for sysmem (size: {:#x}, iova: {:#x}, noc_address: {:#x}).",
+            actual_size,
+            iova,
+            noc_address);
+    }
+
+    return true;
+#endif
 
     log_info(LogUMD, "Allocating sysmem without hugepages (size: {:#x}).", iommu_mapping_size);
     iommu_mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
@@ -328,6 +361,9 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
 }
 
 bool SysmemManager::pin_or_map_iommu() {
+#if P550_HACK
+    return true;
+#endif
     if (iommu_mapping == nullptr) {
         // No fake hugepage channels requested, so just skip mapping.
         return true;

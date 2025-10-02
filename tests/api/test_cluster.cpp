@@ -965,7 +965,9 @@ TEST(TestCluster, SysmemReadWrite) {
     Cluster cluster(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = channels,
     });
-    const chip_id_t mmio_chip_id = 0;
+    const auto chip_ids = cluster.get_target_device_ids();
+    ASSERT_GT(chip_ids.size(), 0);
+    const auto mmio_chip_id = *chip_ids.begin();
     const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
     const auto pcie_core = pci_cores.at(0);
     const auto base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);

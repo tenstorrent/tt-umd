@@ -132,7 +132,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
                 api/umd/device/arch/architecture_implementation.hpp
+                api/umd/device/arc/arc_messenger.hpp
+                api/umd/device/arc/arc_telemetry_reader.hpp
                 api/umd/device/arc/blackhole_arc_message_queue.hpp
+                api/umd/device/arc/blackhole_arc_messenger.hpp
+                api/umd/device/arc/smbus_arc_telemetry_reader.hpp
+                api/umd/device/arc/wormhole_arc_messenger.hpp
+                api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
+                api/umd/device/arc_telemetry_reader.h
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
@@ -149,6 +156,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/pcie/pci_device.hpp
+                api/umd/device/pcie/tlb_handle.hpp
+                api/umd/device/pcie/tlb_window.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
@@ -159,6 +168,15 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_blackhole_tt_device.hpp
+                api/umd/device/tt_device/remote_communication.hpp
+                api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
+                api/umd/device/tt_device/remote_communication_lite_fabric.hpp
+                api/umd/device/lite_fabric/lite_fabric.hpp
+                api/umd/device/lite_fabric/fabric_edm_types.hpp
+                api/umd/device/lite_fabric/lf_dev_mem_map.hpp
+                api/umd/device/lite_fabric/lite_fabric_constants.hpp
+                api/umd/device/lite_fabric/lite_fabric_header.hpp
+                api/umd/device/lite_fabric/lite_fabric_host_utils.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp
                 api/umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp
@@ -172,13 +190,25 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.hpp
+                api/umd/device/topology/topology_discovery_blackhole.hpp
+                api/umd/device/topology/topology_discovery_wormhole.hpp
+                api/umd/device/topology/topology_discovery.hpp
+                api/umd/device/topology/topology_utils.hpp
                 api/umd/device/tt_xy_pair.h
                 api/umd/device/utils/common.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
+                api/umd/device/types/blackhole_eth.hpp
                 api/umd/device/types/cluster_descriptor_types.hpp
                 api/umd/device/types/cluster_types.hpp
+                api/umd/device/types/communication_protocol.hpp
+                api/umd/device/types/core_coordinates.hpp
+                api/umd/device/types/harvesting.h
+                api/umd/device/types/harvesting.hpp
+                api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
+                api/umd/device/types/wormhole_dram.hpp
+                api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp
                 api/umd/device/arch/wormhole_implementation.hpp

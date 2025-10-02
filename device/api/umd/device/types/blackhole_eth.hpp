@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
@@ -64,7 +66,7 @@ struct chip_info_t {
     uint32_t asic_id_lo;    // 6
     uint32_t ack;           // 7
 
-    uint64_t get_board_id() const { return ((uint64_t)board_id_hi << 32) | board_id_lo; }
+    uint64_t get_board_id() const { return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo; }
 };
 
 struct serdes_rx_bist_results_t {

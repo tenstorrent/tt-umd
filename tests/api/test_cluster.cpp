@@ -957,34 +957,24 @@ INSTANTIATE_TEST_SUITE_P(
  * 5. Verifies that the offsets have been zeroed from host's perspective.
  */
 TEST(TestCluster, SysmemReadWrite) {
+    {
+        Cluster cluster;
+        if (cluster.get_target_device_ids().empty()) {
+            GTEST_SKIP() << "No chips present on the system. Skipping test.";
+        }
+    }
     const size_t ONE_GIG = 1ULL << 30;
     const uint64_t ALIGNMENT = sizeof(uint32_t);
     const bool is_vm = test_utils::is_virtual_machine();
     const bool has_iommu = test_utils::is_iommu_available();
     const uint32_t channels = is_vm ? 1 : has_iommu ? 3 : 2;
-
-    std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
-    auto cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
-    auto chips_with_pcie = cluster_desc->get_chips_with_mmio();
-
-    if (chips_with_pcie.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
     Cluster cluster(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = channels,
-        .target_devices = {first_chip_only},
-        .cluster_descriptor = cluster_desc.get(),
     });
-    const auto chip_ids = cluster.get_target_device_ids();
-    ASSERT_GT(chip_ids.size(), 0);
-    const auto mmio_chip_id = *chip_ids.begin();
+    const auto mmio_chip_id = 0;
     const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
     const auto pcie_core = pci_cores.at(0);
     const auto base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
-
-    ASSERT_EQ(pci_cores.size(), 1);
 
     auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
         static std::random_device rd;

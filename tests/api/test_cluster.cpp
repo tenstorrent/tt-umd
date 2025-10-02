@@ -962,8 +962,20 @@ TEST(TestCluster, SysmemReadWrite) {
     const bool is_vm = test_utils::is_virtual_machine();
     const bool has_iommu = test_utils::is_iommu_available();
     const uint32_t channels = is_vm ? 1 : has_iommu ? 3 : 2;
+
+    std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
+    auto cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
+    auto chips_with_pcie = cluster_desc->get_chips_with_mmio();
+
+    if (chips_with_pcie.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
     Cluster cluster(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = channels,
+        .target_devices = {first_chip_only},
+        .cluster_descriptor = cluster_desc.get(),
     });
     const auto chip_ids = cluster.get_target_device_ids();
     ASSERT_GT(chip_ids.size(), 0);

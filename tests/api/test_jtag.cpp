@@ -157,7 +157,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
             ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
             // Since we can have multiple chips with their own jlink,
             // we have to find the one which direct connection to PCIe link.
-            if (jtag_chip_info.chip_uid.board_id == chip_info.chip_uid.board_id &&
+            if (jtag_chip_info.board_id == chip_info.board_id &&
                 jtag_chip_info.asic_location == chip_info.asic_location) {
                 device.tt_device_->read_from_device(
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));

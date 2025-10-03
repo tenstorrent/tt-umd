@@ -41,6 +41,19 @@ public:
 private:
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 
+    /*
+     * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice
+     * without an underlying communication device.
+     * It was created as a workaround to allow RemoteWormholeTTDevice creation over JTAG.
+     * It should not be used for PCIe as certain functionalities from base class rely on the presence of an underlying
+     * communication device. Creating a RemoteWormholeTTDevice without an underlying communication device over PCIe
+     * would require overriding several methods from the base class.
+     * TODO: In the future, either remove this constructor or refactor the class hierarchy to better support PCIe use
+     * case.
+     */
+    RemoteWormholeTTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip, IODeviceType device_type);
+
     friend std::unique_ptr<TTDevice> TTDevice::create(
         std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 

@@ -68,6 +68,7 @@ TTDevice::TTDevice(
     } else {
         jtag_device_ = remote_communication->get_local_device()->get_jtag_device();
     }
+    is_remote_tt_device = true;
     device_protocol_ =
         std::make_unique<EthernetProtocol>(std::move(remote_communication), target_chip, *architecture_impl_);
     lock_manager.initialize_mutex(

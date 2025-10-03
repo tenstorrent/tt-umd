@@ -193,4 +193,14 @@ RiscType wormhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_r
 
     return risc_type;
 }
+
+namespace wormhole {
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
+    return (noc_translation_enabled || !umd_use_noc1) ? wormhole::ARC_CORES_NOC0[0]
+                                                      : tt_xy_pair(
+                                                            wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                                            wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+}
+}  // namespace wormhole
+
 }  // namespace tt::umd

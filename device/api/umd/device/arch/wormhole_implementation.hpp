@@ -307,6 +307,10 @@ static const uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 static const uint32_t SOFT_RESET_NCRISC = 1 << 18;
 static const uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
+// Return arc core pair that can be used to access ARC core on the device. This depends on information
+// whether NOC translation is enabled and if we want to use NOC0 or NOC1.
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
+
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {
@@ -344,6 +348,8 @@ public:
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(wormhole::arc_message_type::TEST); }
 
     uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
+
+    uint64_t get_arc_noc_apb_peripheral_offset() const override { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 
@@ -446,6 +452,10 @@ public:
     driver_host_address_params get_host_address_params() const override;
     driver_eth_interface_params get_eth_interface_params() const override;
     driver_noc_params get_noc_params() const override;
+
+    tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) override {
+        return wormhole::get_arc_core(noc_translation_enabled, umd_use_noc1);
+    }
 
     virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 

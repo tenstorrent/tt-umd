@@ -11,6 +11,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -28,6 +29,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
+    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
 }
 
 void WormholeTTDevice::post_init_hook() {
@@ -44,11 +46,21 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
     wait_arc_core_start(1000);
 }
 
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
+    TTDevice(std::move(remote_communication), target_chip, std::make_unique<wormhole_implementation>()) {
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
+    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
+}
+
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
     arc_core = umd_use_noc1 ? tt_xy_pair(
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
+    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -364,42 +376,6 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
         TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
     }
     dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
-}
-
-void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range");
-    }
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(
-            jlink_id_,
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0].x,
-            wormhole::ARC_CORES_NOC0[0].y,
-            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
-        return;
-    }
-    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
-    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
-}
-
-void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range");
-    }
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(
-            jlink_id_,
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0].x,
-            wormhole::ARC_CORES_NOC0[0].y,
-            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
-        return;
-    }
-    bar_write32(
-        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
 uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {

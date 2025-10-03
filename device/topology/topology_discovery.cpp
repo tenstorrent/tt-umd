@@ -85,7 +85,7 @@ void TopologyDiscovery::get_connected_chips() {
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
+            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path, target_devices)->get_device_cnt();
             device_ids = std::vector<int>(device_cnt);
             std::iota(device_ids.begin(), device_ids.end(), 0);
             break;

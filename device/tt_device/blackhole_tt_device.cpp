@@ -198,14 +198,6 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
-};
-
-void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
-}
-
 uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
     uint32_t time_taken = 0;
 

@@ -355,6 +355,14 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 
+void TTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    device_protocol_->write_to_arc(mem_ptr, arc_addr_offset, size);
+}
+
+void TTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    device_protocol_->read_from_arc(mem_ptr, arc_addr_offset, size);
+}
+
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
     TT_ASSERT(

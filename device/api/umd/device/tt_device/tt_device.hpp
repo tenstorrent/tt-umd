@@ -152,7 +152,7 @@ public:
      * chips.
      *
      */
-    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size);
 
     /**
      * Write function that will send write message to the ARC core.
@@ -168,7 +168,7 @@ public:
      * chips.
      *
      */
-    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.

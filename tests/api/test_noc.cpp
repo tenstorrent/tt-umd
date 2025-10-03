@@ -72,11 +72,15 @@ TEST(TestNoc, TestNoc0NodeId) {
 }
 
 TEST(TestNoc, TestNoc1NodeId) {
+    std::cout << "TTDevice::use_noc1(true);" << std::endl;
     TTDevice::use_noc1(true);
 
+    std::cout << "std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();" << std::endl;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
+        std::cout << "read_noc_id_reg(cluster, " << chip << ", CoreCoord(" << core.x << ", " << core.y << "))"
+                  << std::endl;
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 1) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
@@ -88,8 +92,11 @@ TEST(TestNoc, TestNoc1NodeId) {
     };
 
     auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+        std::cout << "check_noc_id_cores(cluster, " << chip << ", CoreType::" << static_cast<int>(core_type) << ")"
+                  << std::endl;
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC1);
         for (const CoreCoord& core : cores) {
+            std::cout << "  Checking core (" << core.x << ", " << core.y << ")" << std::endl;
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
             EXPECT_EQ(core.x, x);
             EXPECT_EQ(core.y, y);
@@ -98,9 +105,12 @@ TEST(TestNoc, TestNoc1NodeId) {
 
     auto check_noc_id_harvested_cores = [read_noc_id_reg](
                                             std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+        std::cout << "check_noc_id_harvested_cores(cluster, " << chip << ", CoreType::" << static_cast<int>(core_type)
+                  << ")" << std::endl;
         const std::vector<CoreCoord>& cores =
             cluster->get_soc_descriptor(chip).get_harvested_cores(core_type, CoordSystem::NOC1);
         for (const CoreCoord& core : cores) {
+            std::cout << "  Checking harvested core (" << core.x << ", " << core.y << ")" << std::endl;
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
             EXPECT_EQ(core.x, x);
             EXPECT_EQ(core.y, y);
@@ -108,6 +118,7 @@ TEST(TestNoc, TestNoc1NodeId) {
     };
 
     for (chip_id_t chip : cluster->get_target_device_ids()) {
+        std::cout << "Iterating chip: " << chip << std::endl;
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
@@ -140,5 +151,6 @@ TEST(TestNoc, TestNoc1NodeId) {
             check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
         }
     }
+    std::cout << "TTDevice::use_noc1(false);" << std::endl;
     TTDevice::use_noc1(false);
 }

@@ -23,6 +23,7 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :

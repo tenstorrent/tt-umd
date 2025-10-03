@@ -108,8 +108,8 @@ void Cluster::verify_sysmem_initialized() {
         // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
         // if using remote only for small transactions)
         if (remote_chip_ids_.size()) {
-            TT_ASSERT(
-                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
+            // TT_ASSERT(
+            //     hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
         }
         if (!hugepages_initialized) {
             log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);

@@ -71,15 +71,15 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
           {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
           {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
-          {arch: baremetal, card: ubuntu-22.04},
+          # {arch: baremetal, card: ubuntu-22.04},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

@@ -153,6 +153,8 @@ int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int seria
 
 int JtagDevice::open_jlink_wrapper(uint8_t chip_id) { return jtag->open_jlink_wrapper(); }
 
+// TODO: implement std::optional type return in JTAG library itself.
+// For now JTAG library handles it by exiting the program on error.
 std::optional<uint32_t> JtagDevice::read_tdr(uint8_t chip_id, const char* client, uint32_t reg_offset) {
     select_device(chip_id);
     return jtag->read_tdr(client, reg_offset);
@@ -309,4 +311,17 @@ int JtagDevice::get_device_id(uint8_t chip_id) const {
             get_device_cnt());
     }
     return jlink_devices[chip_id];
+}
+
+bool JtagDevice::is_hardware_hung(uint8_t chip_id) {
+    // Timeout value 10 is chosen from JTAG library.
+    // Checkout the library implementation for more details.
+    uint32_t timeout = 10;
+    std::optional<uint32_t> status;
+    do {
+        status = read_tdr(chip_id, "arc", 0x4);
+        status = ((status.value() >> 16) & 0xf);
+        timeout--;
+    } while (((status.value() & 0x1) == 0) && (timeout > 0));
+    return timeout == 0;
 }

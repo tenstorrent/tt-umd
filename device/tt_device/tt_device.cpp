@@ -116,7 +116,7 @@ void TTDevice::init_tt_device() {
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
@@ -131,7 +131,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
     TTDevice *local_tt_device, SysmemManager *sysmem_manager, eth_coord_t target_chip) {
     switch (local_tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:

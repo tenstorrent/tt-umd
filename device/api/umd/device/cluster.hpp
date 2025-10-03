@@ -222,7 +222,7 @@ public:
      */
     void configure_tlb(
         chip_id_t logical_device_id,
-        CoreCoord core,
+        const CoreCoord& core,
         int32_t tlb_index,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
@@ -286,9 +286,7 @@ public:
      * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     void deassert_risc_reset_at_core(
-        const chip_id_t chip,
-        const CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
+        chip_id_t chip, const CoreCoord& core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
 
     /**
      * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
@@ -307,9 +305,7 @@ public:
      * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     void assert_risc_reset_at_core(
-        const chip_id_t chip,
-        const CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
+        chip_id_t chip, const CoreCoord& core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
     //---------- New API for starting/stopping the device, with variants for Tensix and Neo.
 
@@ -319,7 +315,7 @@ public:
      * @param chip Chip to target.
      * @param core Core to target.
      */
-    RiscType get_risc_reset_state(const chip_id_t chip, const CoreCoord core);
+    RiscType get_risc_reset_state(chip_id_t chip, const CoreCoord& core);
 
     /**
      * Assert the soft reset signal at designated RISC cores on a single tensix core.
@@ -331,7 +327,7 @@ public:
      * @param core Core to target.
      * @param risc_type Specifies which RISCV cores on Tensix to assert.
      */
-    void assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type);
+    void assert_risc_reset(chip_id_t chip, const CoreCoord& core, RiscType risc_type);
 
     /**
      * Deassert the soft reset signal at designated RISC cores on a single tensix core.
@@ -344,8 +340,7 @@ public:
      * @param risc_type Specifies which RISCV cores on Tensix to deassert.
      * @param staggered_start Specifies whether the stagger signal should be active.
      */
-    void deassert_risc_reset(
-        const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start = true);
+    void deassert_risc_reset(chip_id_t chip, const CoreCoord& core, RiscType risc_type, bool staggered_start = true);
 
     //---------- IO functions for Tensix cores, including DRAM.
 
@@ -360,7 +355,8 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr);
+    void write_to_device(
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, const CoreCoord& core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -373,7 +369,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(void* mem_ptr, chip_id_t chip, const CoreCoord& core, uint64_t addr, uint32_t size);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -389,7 +385,7 @@ public:
      * @param addr Address to write to.
      */
     void write_to_device_reg(
-        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr);
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, const CoreCoord& core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -404,7 +400,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device_reg(void* mem_ptr, chip_id_t chip, const CoreCoord& core, uint64_t addr, uint32_t size);
 
     /**
      * Use PCIe DMA to write device memory (L1 or DRAM).
@@ -415,7 +411,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr);
+    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, const CoreCoord& core, uint64_t addr);
 
     /**
      * Use PCIe DMA to read device memory (L1 or DRAM).
@@ -426,7 +422,7 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      */
-    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr);
+    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, const CoreCoord& core, uint64_t addr);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -465,7 +461,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const chip_id_t chip, const CoreCoord core);
+    Writer get_static_tlb_writer(chip_id_t chip, const CoreCoord& core);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -477,7 +473,7 @@ public:
      * @param chip Chip to target.
      * @param cores Cores being targeted.
      */
-    void l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
+    void l1_membar(chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
 
     /**
      * DRAM memory barrier.
@@ -487,7 +483,7 @@ public:
      * @param chip Chip to target.
      * @param channels Channels being targeted.
      */
-    void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels = {});
+    void dram_membar(chip_id_t chip, const std::unordered_set<uint32_t>& channels = {});
 
     /**
      * DRAM memory barrier.
@@ -497,7 +493,7 @@ public:
      * @param chip Chip being targeted.
      * @param cores Cores being targeted.
      */
-    void dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
+    void dram_membar(chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
 
     // Runtime functions
     /**
@@ -516,7 +512,7 @@ public:
      *
      * @param chip_id Chip to target.
      */
-    void wait_for_non_mmio_flush(const chip_id_t chip_id);
+    void wait_for_non_mmio_flush(chip_id_t chip_id);
 
     //---------- IO functions for host memory. Write and read functions, and getting host memory info.
 
@@ -669,7 +665,7 @@ public:
     /**
      * Exposes how TLBs are configured for a specific device.
      */
-    tlb_configuration get_tlb_configuration(const chip_id_t chip, const CoreCoord core);
+    tlb_configuration get_tlb_configuration(chip_id_t chip, const CoreCoord& core);
 
 private:
     // Helper functions

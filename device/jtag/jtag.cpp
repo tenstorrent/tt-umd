@@ -133,3 +133,5 @@ void Jtag::close_jlink() { GET_FUNCTION_POINTER(close_jlink)(); }
 uint32_t Jtag::read_id_raw() { return GET_FUNCTION_POINTER(read_id_raw)(); }
 
 uint32_t Jtag::read_id() { return GET_FUNCTION_POINTER(read_id)(); }
+
+uint32_t Jtag::get_device_family(void) { return GET_FUNCTION_POINTER(get_device_family)(); }

@@ -44,6 +44,7 @@ public:
     void close_jlink();
     uint32_t read_id_raw();
     uint32_t read_id();
+    uint32_t get_device_family(void);
 
 private:
     static DlHandle handle;

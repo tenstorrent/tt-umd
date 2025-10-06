@@ -24,6 +24,11 @@ BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+    TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+}
+
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
     // application crashes -- this is a good example of why userspace should not

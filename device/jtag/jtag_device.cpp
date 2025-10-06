@@ -17,7 +17,15 @@ constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
-/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/libtt_jtag.so");
+typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
+
+static const std::unordered_map<DeviceFamily, tt::ARCH> DeviceFamilyToArch = {
+    {DeviceFamily::DEVICE_FAMILY_BLACKHOLE, tt::ARCH::BLACKHOLE},
+    {DeviceFamily::DEVICE_FAMILY_WORMHOLE, tt::ARCH::WORMHOLE_B0},
+    {DeviceFamily::DEVICE_FAMILY_UNKNOWN, tt::ARCH::Invalid}};
+
+/* static */ std::filesystem::path JtagDevice::jtag_library_path =
+    std::filesystem::path("./tt-umd/build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {
@@ -34,11 +42,11 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
             continue;
         }
         uint32_t id = jtag->read_id();
-        if (id != WORMHOLE_ID) {
-            log_warning(tt::LogUMD, "Only supporting WORMHOLE for now");
-            jtag->close_jlink();
-            continue;
-        }
+        // if (id != WORMHOLE_ID) {
+        //     log_warning(tt::LogUMD, "Only supporting WORMHOLE for now");
+        //     jtag->close_jlink();
+        //     continue;
+        // }
 
         jlink_devices.push_back(jlink_id);
         uint32_t efuse = jtag->read_axi(WORMHOLE_ARC_EFUSE_HARVESTING);
@@ -130,20 +138,14 @@ void JtagDevice::select_device(uint8_t chip_id) {
 }
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
-    auto arch_id = read_id(chip_id);
+    auto arch_id = jtag->get_device_family();
 
     if (!arch_id) {
         log_warning(tt::LogUMD, "Failed to read JTAG architecture for chip_id {}", chip_id);
         return tt::ARCH::Invalid;
     }
 
-    uint32_t id = *arch_id;
-    switch (id) {
-        case WORMHOLE_ID:
-            return tt::ARCH::WORMHOLE_B0;
-        default:
-            return tt::ARCH::Invalid;
-    }
+    return DeviceFamilyToArch.at(static_cast<DeviceFamily>(arch_id));
 }
 
 int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {

@@ -74,7 +74,7 @@ void TTDevice::init_tt_device() {
             case ARCH::WORMHOLE_B0:
                 return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
             case ARCH::BLACKHOLE:
-                TT_THROW("JTAG is not yet supported on Blackhole architecture.");
+                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(jtag_device, device_number));
             default:
                 return nullptr;
         }

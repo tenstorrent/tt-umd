@@ -43,7 +43,7 @@ private:
 
     /*
      * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice
-     * without an underlying communication device.
+     * without an underlying communication device (pcie_device or jtag_device).
      * It was created as a workaround to allow RemoteWormholeTTDevice creation over JTAG.
      * It should not be used for PCIe as certain functionalities from base class rely on the presence of an underlying
      * communication device. Creating a RemoteWormholeTTDevice without an underlying communication device over PCIe

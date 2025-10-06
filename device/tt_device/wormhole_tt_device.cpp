@@ -29,7 +29,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
-    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
+    get_device_protocol()->set_arc_core(arc_core);
 }
 
 void WormholeTTDevice::post_init_hook() {
@@ -52,7 +52,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
-    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
+    get_device_protocol()->set_arc_core(arc_core);
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -60,7 +60,7 @@ WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implem
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
-    get_device_protocol()->set_noc_translation_enabled(get_noc_translation_enabled());
+    get_device_protocol()->set_arc_core(arc_core);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {

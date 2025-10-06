@@ -18,7 +18,7 @@ void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 }
 
 void JtagProtocol::write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    auto arc_noc_core = architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1);
+    auto arc_noc_core = arc_core_;
     jtag_device_->write(
         jlink_id_,
         mem_ptr,
@@ -30,7 +30,7 @@ void JtagProtocol::write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, s
 }
 
 void JtagProtocol::read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    auto arc_noc_core = architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1);
+    auto arc_noc_core = arc_core_;
     jtag_device_->read(
         jlink_id_,
         mem_ptr,

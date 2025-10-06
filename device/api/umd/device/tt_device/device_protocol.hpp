@@ -24,7 +24,7 @@ public:
     virtual void wait_for_non_mmio_flush() = 0;
     virtual bool is_remote() = 0;
 
-    virtual void set_noc_translation_enabled(bool noc_translation_enabled) = 0;
+    virtual void set_arc_core(tt_xy_pair arc_core) = 0;
 };
 
 }  // namespace tt::umd

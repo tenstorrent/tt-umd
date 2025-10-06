@@ -29,18 +29,12 @@ void EthernetProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t
 
 void EthernetProtocol::write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
     write_to_device(
-        mem_ptr,
-        architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1),
-        architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
-        size);
+        mem_ptr, arc_core_, architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset, size);
 }
 
 void EthernetProtocol::read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
     read_from_device(
-        mem_ptr,
-        architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1),
-        architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
-        size);
+        mem_ptr, arc_core_, architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset, size);
 }
 
 void EthernetProtocol::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

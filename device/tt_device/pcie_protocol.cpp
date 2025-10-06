@@ -61,7 +61,7 @@ void PcieProtocol::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, s
             // TODO: Blackhole can also do a bar_write on most BOARD types, so a refactoring can be done here
             write_to_device(
                 mem_ptr,
-                architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1),
+                arc_core_,
                 architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
                 size);
             return;
@@ -83,7 +83,7 @@ void PcieProtocol::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t
             // TODO: Blackhole can also do a bar_write on most BOARD types, so a refactoring can be done here
             read_from_device(
                 mem_ptr,
-                architecture_implementation_.get_arc_core(noc_translation_enabled_, umd_use_noc1),
+                arc_core_,
                 architecture_implementation_.get_arc_noc_apb_peripheral_offset() + arc_addr_offset,
                 size);
             return;

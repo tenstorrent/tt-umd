@@ -25,16 +25,14 @@ public:
     void wait_for_non_mmio_flush() override;
     bool is_remote() override;
 
-    void set_noc_translation_enabled(bool noc_translation_enabled) override {
-        noc_translation_enabled_ = noc_translation_enabled;
-    };
+    void set_arc_core(tt_xy_pair arc_core) override { arc_core_ = arc_core; };
 
 private:
     JtagDevice* jtag_device_;
     uint8_t jlink_id_;
     architecture_implementation& architecture_implementation_;
 
-    bool noc_translation_enabled_ = false;
+    tt_xy_pair arc_core_;
 };
 
 }  // namespace tt::umd

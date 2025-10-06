@@ -28,7 +28,7 @@ jobs:
         ]
 
     name: Building docker image ${{ matrix.build.name }}
-    runs-on: ${{ matrix.build.runs-one }}
+    runs-on: ${{ matrix.build.runs-one}}
 
     steps:
       - name: Set environment variable

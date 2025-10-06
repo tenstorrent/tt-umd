@@ -4,15 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <fmt/ranges.h>
 
 #include <cstdint>
 #include <random>
 #include <string>
 #include <vector>
 
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 namespace test_utils {
@@ -42,6 +44,10 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     for (size_t i = (n / 8) * 8; i < n; ++i) {
         data[i] = static_cast<uint8_t>(gen());
     }
+}
+
+inline std::string convert_to_comma_separated_string(const std::unordered_set<int>& devices) {
+    return fmt::format("{}", fmt::join(devices, ","));
 }
 
 }  // namespace test_utils

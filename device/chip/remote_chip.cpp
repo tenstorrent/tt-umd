@@ -4,25 +4,82 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/remote_chip.h"
+#include "umd/device/chip/remote_chip.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/chip/local_chip.h"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
-    Chip(soc_descriptor) {
-    local_chip_ = remote_tt_device->get_local_chip();
-    remote_communication_ = remote_tt_device->get_remote_communication();
+std::unique_ptr<RemoteChip> RemoteChip::create(
+    LocalChip* local_chip,
+    eth_coord_t target_eth_coord,
+    std::set<uint32_t> remote_transfer_eth_channels,
+    std::string sdesc_path) {
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
+    remote_communication->set_remote_transfer_ethernet_cores(
+        local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            remote_transfer_eth_channels, CoordSystem::TRANSLATED));
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
+
+    SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        soc_descriptor = SocDescriptor(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
+    } else {
+        soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
+    }
+    return std::unique_ptr<tt::umd::RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+}
+
+std::unique_ptr<RemoteChip> RemoteChip::create(
+    LocalChip* local_chip,
+    eth_coord_t target_eth_coord,
+    std::set<uint32_t> remote_transfer_eth_channels,
+    SocDescriptor soc_descriptor) {
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
+    remote_communication->set_remote_transfer_ethernet_cores(
+        local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            remote_transfer_eth_channels, CoordSystem::TRANSLATED));
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
+
+    return std::unique_ptr<tt::umd::RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+}
+
+RemoteChip::RemoteChip(
+    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
+    Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
+    // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
+    // The base TTDevice interface should provide access to RemoteCommunication directly,
+    // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
+    // This violates the Liskov Substitution Principle and creates tight coupling.
+    // Consider either:
+    //   1. Adding get_remote_communication() to the TTDevice base interface (probably not)
+    //   2. Restructuring the inheritance hierarchy to eliminate this dependency
+    //   3. Using composition instead of inheritance for remote communication
+    // ToDo: Figure out a proper way to make an abstraction to redesign this
+    if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        remote_communication_ =
+            dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+    } else {
+        remote_communication_ =
+            dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+    }
     tt_device_ = std::move(remote_tt_device);
-    chip_info_ = tt_device_->get_chip_info();
-    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
     wait_chip_to_be_ready();
 }
 
@@ -35,8 +92,8 @@ void RemoteChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
         if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-            set_power_state(tt_DevicePowerState::LONG_IDLE);
-            send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+            set_power_state(DevicePowerState::LONG_IDLE);
+            assert_risc_reset(RiscType::ALL);
         }
     }
 }
@@ -69,10 +126,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> RemoteChip::get_fast_pci
     throw std::runtime_error("RemoteChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
-void RemoteChip::wait_for_non_mmio_flush() {
-    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-    remote_communication_->wait_for_non_mmio_flush();
-}
+void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
@@ -81,17 +135,6 @@ void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
-
-void RemoteChip::set_power_state(tt_DevicePowerState state) {
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t msg = get_power_state_arc_msg(state);
-        int exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-        TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
-    }
-    wait_for_aiclk_value(tt_device_.get(), state);
-}
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
@@ -113,9 +156,15 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        local_chip_->get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
+}
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        local_chip_->get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
+}
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/hugepage.h"
+#include "hugepage.hpp"
 
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask
@@ -31,7 +31,7 @@ uint32_t get_num_hugepages() {
         std::string value;
         std::getline(hugepages_file, value);
         num_hugepages = std::stoi(value);
-        log_debug(LogSiliconDriver, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
+        log_debug(LogUMD, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
         TT_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
     }
@@ -42,15 +42,15 @@ uint32_t get_num_hugepages() {
 uint32_t get_available_num_host_mem_channels(
     const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id) {
     // To minimally support hybrid dev systems with mix of ARCH, get only devices matching current ARCH's device_id.
-    uint32_t total_num_tt_mmio_devices = tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices();
+    uint32_t total_num_tt_mmio_devices = tt::cpuset::cpuset_allocator::get_num_tt_pci_devices();
     uint32_t num_tt_mmio_devices_for_arch =
-        tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(device_id, revision_id);
+        tt::cpuset::cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(device_id, revision_id);
     uint32_t total_hugepages = get_num_hugepages();
 
     // This shouldn't happen on silicon machines.
     if (num_tt_mmio_devices_for_arch == 0) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "No TT devices found that match PCI device_id: 0x{:x} revision: {}, returning NumHostMemChannels:0",
             device_id,
             revision_id);
@@ -66,14 +66,14 @@ uint32_t get_available_num_host_mem_channels(
     // on.
     if (total_num_tt_mmio_devices > num_tt_mmio_devices_for_arch) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "Hybrid system mixing different TTDevices - this is not well supported. Ensure sufficient "
             "Hugepages/HostMemChannels per device.");
     }
 
     if (total_hugepages < num_tt_mmio_devices_for_arch) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "Insufficient NumHugepages: {} should be at least NumMMIODevices: {} for device_id: 0x{:x} revision: {}. "
             "NumHostMemChannels would be 0, bumping to 1.",
             total_hugepages,
@@ -84,7 +84,7 @@ uint32_t get_available_num_host_mem_channels(
 
     if (num_channels_per_device_available < num_channels_per_device_target) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "NumHostMemChannels: {} used for device_id: 0x{:x} less than target: {}. Workload will fail if it exceeds "
             "NumHostMemChannels. Increase Number of Hugepages.",
             num_channels_per_device_available,
@@ -132,7 +132,7 @@ std::string find_hugepage_dir(std::size_t pagesize) {
     }
 
     log_warning(
-        LogSiliconDriver,
+        LogUMD,
         "ttSiliconDevice::find_hugepage_dir: no huge page mount found in /proc/mounts for path: {} with hugepage_size: "
         "{}.",
         hugepage_dir,
@@ -168,7 +168,7 @@ int open_hugepage_file(const std::string& dir, chip_id_t physical_device_id, uin
         std::find(filename_str.begin(), filename_str.end(), '\0'),
         filename_str.end());  // Erase NULL terminator for printing.
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "ttSiliconDevice::open_hugepage_file: using filename: {} for physical_device_id: {} channel: {}",
         filename_str.c_str(),
         physical_device_id,
@@ -181,7 +181,7 @@ int open_hugepage_file(const std::string& dir, chip_id_t physical_device_id, uin
         open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH);
     if (fd == -1 && errno == EACCES) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.",
             filename_str);
         unlink(filename.data());
@@ -193,7 +193,7 @@ int open_hugepage_file(const std::string& dir, chip_id_t physical_device_id, uin
     umask(old_umask);
 
     if (fd == -1) {
-        log_warning(LogSiliconDriver, "open_hugepage_file failed");
+        log_warning(LogUMD, "open_hugepage_file failed");
         return -1;
     }
 

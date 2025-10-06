@@ -16,6 +16,10 @@ on:
       timeout:
         required: true
         type: number
+      build-type:
+        required: true
+        type: string
+        default: Release
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -33,7 +37,8 @@ jobs:
       - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: --user root ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '' }}
+      # Set dummy var for baremetal, as options has to have some value
+      options: ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
@@ -54,7 +59,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./
 
       # This is needed to preserve file permissions
@@ -77,3 +82,13 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkIOMMU*
+
+      - name: Run Cluster open benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkOpenCluster*
+
+      - name: Run ethernet IO benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkEthernetIO*

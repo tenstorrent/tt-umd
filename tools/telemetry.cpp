@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include "umd/device/types/telemetry.hpp"
+
 #include <chrono>
 #include <cxxopts.hpp>
 #include <fstream>
@@ -13,49 +15,43 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "common.h"
+#include "common.hpp"
 #include "fmt/core.h"
-#include "umd/device/arc_telemetry_reader.h"
-#include "umd/device/types/blackhole_telemetry.h"
-#include "umd/device/types/wormhole_telemetry.h"
+#include "fmt/format.h"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 
-std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader, tt::ARCH arch) {
-    uint32_t aiclk_info;
-    uint32_t vcore;
-    uint32_t tdp;
-    uint32_t asic_temperature;
-
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        aiclk_info = telemetry_reader->read_entry(wormhole::TelemetryTag::AICLK);
-        vcore = telemetry_reader->read_entry(wormhole::TelemetryTag::VCORE);
-        tdp = telemetry_reader->read_entry(wormhole::TelemetryTag::TDP);
-        asic_temperature = telemetry_reader->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE);
-    } else {
-        aiclk_info = telemetry_reader->read_entry(blackhole::TelemetryTag::AICLK);
-        vcore = telemetry_reader->read_entry(blackhole::TelemetryTag::VCORE);
-        tdp = telemetry_reader->read_entry(blackhole::TelemetryTag::TDP);
-        asic_temperature = telemetry_reader->read_entry(blackhole::TelemetryTag::ASIC_TEMPERATURE);
+std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware_info_provider, tt::ARCH arch) {
+    if (firmware_info_provider == nullptr) {
+        return fmt::format("Could not get information for device ID {}.", pci_device);
     }
 
-    uint32_t aiclk_current = aiclk_info & 0xFFFF;
-    tdp = tdp & 0xFFFF;
-
-    float current_temperature;
-    if (arch == tt::ARCH::BLACKHOLE) {
-        current_temperature = static_cast<int32_t>(asic_temperature) / 65536.0f;
-    } else {
-        current_temperature = (asic_temperature & 0xFFFF) / 16.0;
-    }
+    double asic_temperature = firmware_info_provider->get_asic_temperature();
+    double board_temperature = firmware_info_provider->get_board_temperature().value_or(0);
+    uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
+    uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);
+    uint32_t arcclk = firmware_info_provider->get_arcclk().value_or(0);
+    uint32_t fs = firmware_info_provider->get_fan_speed().value_or(0);
+    uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
+    uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
+    uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
 
     return fmt::format(
-        "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}",
+        "Device ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
+        "Fan {} rpm, TDP {} W, TDC {} A, VCORE {} mV",
         pci_device,
-        aiclk_current,
-        vcore,
+        asic_temperature,
+        board_temperature,
+        aiclk,
+        axiclk,
+        arcclk,
+        fs,
         tdp,
-        current_temperature);
+        tdc,
+        vcore);
 }
 
 int main(int argc, char* argv[]) {
@@ -67,7 +63,7 @@ int main(int argc, char* argv[]) {
         cxxopts::value<std::vector<std::string>>())(
         "t,tag",
         "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
-        "power, temperature and vcore. See device/api/umd/device/types/wormhole_telemetry.h (or blackhole_telemetry.h) "
+        "power, temperature and vcore. See device/api/umd/device/types/telemetry.hpp"
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(
@@ -114,6 +110,8 @@ int main(int argc, char* argv[]) {
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+
         std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader =
             ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
         tt_devices.push_back(std::move(tt_device));
@@ -125,12 +123,13 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < telemetry_readers.size(); i++) {
             int device_id = telemetry_readers.at(i).first;
             auto& telemetry_reader = telemetry_readers.at(i).second;
+            auto firmware_info_provider = tt_devices.at(i)->get_firmware_info_provider();
 
             std::string telemetry_message;
             if (telemetry_tag == -1) {
                 auto arch = tt_devices.at(i)->get_arch();
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-                    telemetry_message = run_default_telemetry(device_id, telemetry_reader.get(), arch);
+                    telemetry_message = run_default_telemetry(device_id, firmware_info_provider, arch);
                 } else {
                     throw std::runtime_error("Unsupported device architecture");
                 }
@@ -149,7 +148,7 @@ int main(int argc, char* argv[]) {
                    << fractional_seconds.count() << " - " << telemetry_message;
                 output_file << ss.str() << std::endl;
             } else {
-                log_info(tt::LogSiliconDriver, "{}", telemetry_message);
+                log_info(tt::LogUMD, "{}", telemetry_message);
             }
         }
 

@@ -15,43 +15,41 @@
 #include <vector>
 
 #include "hwloc.h"
-#include "umd/device/types/cluster_descriptor_types.h"  // For chip_id_t
+#include "umd/device/types/cluster_descriptor_types.hpp"  // For chip_id_t
 
 namespace tt::cpuset {
 //! Utility functions for various backend paramsf
 
-using tt::umd::chip_id_t;
-
 // CPU ID allocator for pinning threads to cpu_ids
 // It's a singleton that should be retrieved via get()
-struct tt_cpuset_allocator {
+struct cpuset_allocator {
 public:
-    tt_cpuset_allocator(tt_cpuset_allocator const &) = delete;
-    void operator=(tt_cpuset_allocator const &) = delete;
+    cpuset_allocator(cpuset_allocator const &) = delete;
+    void operator=(cpuset_allocator const &) = delete;
 
     // Bind an already allocated memory region to particular numa nodes
     static bool bind_area_to_memory_nodeset(chip_id_t physical_device_id, const void *addr, size_t len) {
-        auto &instance = tt_cpuset_allocator::get();
+        auto &instance = cpuset_allocator::get();
         return instance.bind_area_memory_nodeset(physical_device_id, addr, len);
     }
 
     static int get_num_tt_pci_devices() {
-        auto &instance = tt_cpuset_allocator::get();
+        auto &instance = cpuset_allocator::get();
         return instance._get_num_tt_pci_devices();
     }
 
     static int get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id) {
-        auto &instance = tt_cpuset_allocator::get();
+        auto &instance = cpuset_allocator::get();
         return instance._get_num_tt_pci_devices_by_pci_device_id(device_id, revision_id);
     }
 
 private:
-    static tt_cpuset_allocator &get() {
-        static tt_cpuset_allocator instance;
+    static cpuset_allocator &get() {
+        static cpuset_allocator instance;
         return instance;
     }
 
-    tt_cpuset_allocator();
+    cpuset_allocator();
 
     int TENSTORRENT_VENDOR_ID = 0x1e52;
 

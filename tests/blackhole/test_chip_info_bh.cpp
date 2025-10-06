@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include "gtest/gtest.h"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(BlackholeChipInfo, BasicChipInfo) {
@@ -11,6 +12,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         const ChipInfo chip_info = tt_device->get_chip_info();
 
@@ -19,6 +21,6 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
             chip_info.board_type == BoardType::P300);
 
         // TODO: uncomment this when we can read asic location properly from telemetry.
-        // EXPECT_TRUE(chip_info.chip_uid.asic_location == 0 || chip_info.chip_uid.asic_location == 1);
+        // EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);
     }
 }

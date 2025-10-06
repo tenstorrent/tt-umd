@@ -1,6 +1,14 @@
-# Tenstorrent AI User-Mode Driver
-## Official Repository
-https://github.com/tenstorrent/tt-umd
+<div align="center">
+<h1> TT-UMD :tm: </h1>
+
+User Mode Driver
+
+<img src="./docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
+
+</div>
+<br/>
+
+# Quickstart
 
 ## Software Dependencies
 UMD requires Tenstorrent's [kernel-mode driver](https://github.com/tenstorrent/tt-kmd)
@@ -17,7 +25,6 @@ chmod u+x llvm.sh
 sudo ./llvm.sh 17
 ```
 
-
 ## IOMMU and Hugepage requirements
 To determine whether your system requires hugepage configuration, run the provided script:
 
@@ -25,7 +32,9 @@ To determine whether your system requires hugepage configuration, run the provid
 ./scripts/iommu_detect.sh
 ```
 
-#### Grayskull and Wormhole
+### Wormhole and Blackhole
+If your system IOMMU is enabled, no hugepage setup is required.
+If you don't have IOMMU enabled, than hugepages might be required for some of the driver functionality.
 [1G hugepages](https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst) are required for shared device/host memory.  Techniques for setup:
   * Recommended: the [tt-system-tools](https://github.com/tenstorrent/tt-system-tools) repository contains a .deb package which will configure your system
       * `sudo dpkg -i tenstorrent-tools_1.1-5_all.deb`
@@ -34,10 +43,22 @@ To determine whether your system requires hugepage configuration, run the provid
     * Put system IOMMU in passthrough mode or disable it
     * Allocate 1 or more 1G hugepages
     * Mount the hugetlbfs at /dev/hugepages-1G (e.g. `mount -t hugetlbfs hugetlbfs /dev/hugepages-1G -o mode=777,pagesize=1024M`)
-#### Blackhole
-If your system IOMMU is enabled, no hugepage setup is required.
 
-## Build flow
+## Install and use UMD
+
+### Python bindings
+
+You can just run the following command, and you'll have tt_umd python package available in your environment:
+```
+pip install git+https://github.com/tenstorrent/tt-umd.git
+```
+
+Or if you have UMD downloaded locally you can install from local source:
+```
+pip install .
+```
+
+### Build flow for C++ lib
 
 To build `libdevice.so`:
 ```
@@ -45,10 +66,9 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-You also need to configure cmake to enable tests, hence the need to run cmake configuration step again.
-To build tests:
+To build all components (some are turned off by default, like tests), you can run these commands:
 ```
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
 cmake --build build
 ```
 
@@ -58,7 +78,7 @@ export CMAKE_C_COMPILER=/usr/bin/gcc
 export CMAKE_CXX_COMPILER=/usr/bin/g++
 ```
 
-## Build debian dev package
+#### Build debian dev package
 ```
 cmake --build build --target package
 
@@ -67,6 +87,9 @@ cmake --build build --target package
 
 # Integration
 UMD can be consumed by downstream projects in multiple ways.
+
+## From Source (Python)
+You can use tt_umd module by installing it in your current python environment
 
 ## From Source (CMake)
 You can link `libdevice.so` by linking against the `umd::device` target.
@@ -98,11 +121,17 @@ You can run UMD tests without silicon by following setup instructions [here](htt
 
 For UMD, sample tests can be found in `tests/simulation/test_simulation_device.cpp`
 
-# Pre-commit Hook Integration for Formatting and Linting
+# Development workflow
+
+For developing tt-umd, you can see the full set of dependencies in [docker_install_common.sh](.github/docker_install_common.sh)
+
+After that you can look at the section defined above [Install and use UMD](#install-and-use-umd)
+
+## Pre-commit Hook Integration for Formatting and Linting
 
 As part of maintaining consistent code formatting across the project, we have integrated the [pre-commit](https://pre-commit.com/) framework into our workflow. The pre-commit hooks will help automatically check and format code before commits are made, ensuring that we adhere to the project's coding standards.
 
-## What is Pre-commit?
+### What is Pre-commit?
 
 Pre-commit is a framework for managing and maintaining multi-language pre-commit hooks. It helps catch common issues early by running a set of hooks before code is committed, automating tasks like:
 
@@ -112,7 +141,7 @@ Pre-commit is a framework for managing and maintaining multi-language pre-commit
 
 For more details on pre-commit, you can visit the [official documentation](https://pre-commit.com/).
 
-## How to Set Up Pre-commit Locally
+### How to Set Up Pre-commit Locally
 
 To set up pre-commit on your local machine, follow these steps:
 
@@ -132,22 +161,22 @@ To set up pre-commit on your local machine, follow these steps:
    ```bash
    pre-commit run --all-files
    ```
-## Why You Should Use Pre-commit
+### Why You Should Use Pre-commit
 By setting up pre-commit locally, you can help maintain the quality of the codebase and ensure that commits consistently meet the project's formatting standards. This saves time during code reviews and reduces the likelihood of code formatting issues slipping into the repository.
 
 Since the hooks run automatically before each commit, you don't need to remember to manually format or check your code, making it easier to maintain consistency.
 
 We strongly encourage all developers to integrate pre-commit into their workflow.
 
-# Formatting C++ code
+## Formatting C++ code
 
-## Installing clang-format
+### Installing clang-format
 
 If you're using an IRD docker, clang-format should be already available.
 If you don't have clang-format in your working environment, follow the instructions
 on [llvm website](https://apt.llvm.org/) for installing it.
 
-## Formatting files
+### Formatting files
 
 If working with VSCode, you can copy the provided default settings:
 ```bash
@@ -161,6 +190,14 @@ You can also manually auto format the whole repo using mentioned pre-commit:
 ```bash
    pre-commit run --all-files
 ```
+
+## Bumping the UMD version
+
+There is an automated workflow for creating releases. It is triggered by merging a PR to main which changes the VERSION file.
+
+You can change the VERSION as part of another PR or as an isolated PR. Please also update the CHANGELOG with the exact version you are changeing to.
+
+Once the PR is merged, a draft Release will be created with the generated changelog and artifacts. Please review it and publish it using the tag which exactly matches the version of the release.
 
 # Grayskull End of Life
 

@@ -4,31 +4,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/chip.h"
+#include "umd/device/chip/chip.hpp"
 
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/architecture_implementation.h"
-#include "umd/device/driver_atomics.h"
-#include "umd/device/tt_silicon_driver_common.hpp"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
-    set_default_params(soc_descriptor.arch);
-}
+Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) { set_default_params(soc_descriptor.arch); }
 
-Chip::Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor) :
+Chip::Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor) :
     chip_info_(chip_info), soc_descriptor_(soc_descriptor) {
     set_default_params(soc_descriptor.arch);
 }
 
-tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
+SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
@@ -39,15 +39,6 @@ void Chip::set_default_params(ARCH arch) {
 
     // Default initialize dram_address_params.
     dram_address_params = {0u};
-
-    // Default initialize host_address_params based on detected arch
-    host_address_params = architecture_implementation->get_host_address_params();
-
-    // Default initialize eth_interface_params based on detected arch
-    eth_interface_params = architecture_implementation->get_eth_interface_params();
-
-    // Default initialize noc_params based on detected arch
-    noc_params = architecture_implementation->get_noc_params();
 }
 
 void Chip::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
@@ -64,55 +55,35 @@ void Chip::wait_chip_to_be_ready() {
 }
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    const std::vector<CoreCoord> eth_cores =
-        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    uint32_t timeout_left = timeout_ms;
+    const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_device->wait_eth_core_training(eth_core, timeout_ms);
+        tt_xy_pair actual_eth_core = eth_core;
+        if (chip_info_.board_type == BoardType::UBB) {
+            // TODO issue 1208: figure out why translated ETH don't work on UBB
+            actual_eth_core =
+                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        } else {
+            actual_eth_core = translate_chip_coord_to_translated(eth_core);
+        }
+
+        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
 }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
     TTDevice* tt_device = get_tt_device();
-
-    auto start = std::chrono::system_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
-
-        if (dram_training_status.empty()) {
-            // DRAM training status is not available, breaking the wait for DRAM training.
-            break;
+    const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+    const uint32_t chip_num_dram_channels = std::min(
+        static_cast<size_t>(tt_device->get_architecture_implementation()->get_dram_banks_number()),
+        get_soc_descriptor().get_dram_cores().size());
+    for (int dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+        // Skip the check for harvested channels.
+        if (dram_harvesting_mask & (1 << dram_channel)) {
+            continue;
         }
-
-        bool all_dram_channels_trained = true;
-        const uint32_t chip_num_dram_channels =
-            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
-        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
-        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
-            // Skip the check for harvested channels.
-            if (dram_harvesting_mask & (1 << dram_channel)) {
-                continue;
-            }
-
-            // Check if there is an error in training for the channel.
-            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
-                throw std::runtime_error("DRAM training failed");
-            }
-
-            // Verify whether the channel is trained.
-            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
-        }
-
-        if (all_dram_channels_trained) {
-            break;
-        }
-
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
-            break;
-        }
+        tt_device->wait_dram_channel_training(dram_channel);
     }
 }
 
@@ -134,40 +105,76 @@ void Chip::enable_ethernet_queue(int timeout_s) {
     }
 }
 
+// TODO: Remove this API once we switch to the new one.
 void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    TT_ASSERT(
+        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
-    write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
-    tt_driver_atomics::sfence();
+    uint32_t valid_val = static_cast<uint32_t>(valid);
+    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), valid_val);
 }
 
+// TODO: Remove this API once we switch to the new one.
 void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
         send_tensix_risc_reset(core, soft_resets);
     }
 }
 
-void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
-    uint32_t tensix_risc_state = 0x00000000;
-    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
-    read_from_device_reg(
-        core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
-    TensixSoftResetOptions set_selected_riscs = static_cast<TensixSoftResetOptions>(tensix_risc_state) | selected_riscs;
-    send_tensix_risc_reset(core, set_selected_riscs);
+RiscType Chip::get_risc_reset_state(CoreCoord core) {
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
+    return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 
-void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
-    uint32_t tensix_risc_state = 0x00000000;
-    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
-    read_from_device_reg(
-        core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
-    TensixSoftResetOptions set_selected_riscs =
-        static_cast<TensixSoftResetOptions>(tensix_risc_state) & invert_selected_options(selected_riscs);
-    send_tensix_risc_reset(core, set_selected_riscs);
+void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_update =
+        get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
+    log_debug(
+        LogUMD,
+        "Asserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
+        core,
+        soft_reset_current_state,
+        soft_reset_update,
+        soft_reset_new);
+    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), soft_reset_new);
 }
 
-uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
+void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_update =
+        get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
+    // The update variable should be applied in such a way that it clears the bits that are set in the selected_riscs.
+    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
+    uint32_t soft_reset_new_with_staggered_start =
+        soft_reset_new |
+        (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
+    log_debug(
+        LogUMD,
+        "Deasserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
+        core,
+        soft_reset_current_state,
+        soft_reset_update,
+        soft_reset_new_with_staggered_start);
+    get_tt_device()->set_risc_reset_state(
+        translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
+}
+
+void Chip::assert_risc_reset(const RiscType selected_riscs) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+        assert_risc_reset(core, selected_riscs);
+    }
+}
+
+void Chip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+        deassert_risc_reset(core, selected_riscs, staggered_start);
+    }
+}
+
+uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
@@ -219,32 +226,42 @@ int Chip::arc_msg(
     return exit_code;
 }
 
+void Chip::set_power_state(DevicePowerState state) {
+    int exit_code = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t msg = get_power_state_arc_msg(state);
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        if (state == DevicePowerState::BUSY) {
+            exit_code =
+                get_tt_device()->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+        } else {
+            exit_code = get_tt_device()->get_arc_messenger()->send_message(
+                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+        }
+    }
+    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    wait_for_aiclk_value(get_tt_device(), state);
+}
+
 tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
     // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
     // Tensix cores are always used in translated space. Other cores are used either in
     // NOC1 or translated space depending on the umd_use_noc1 flag.
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (soc_descriptor_.noc_translation_enabled) {
-        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            if (core.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-            } else {
-                return soc_descriptor_.translate_coord_to(core, CoordSystem::NOC1);
-            }
-        } else {
-            return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        }
-    } else {
-        return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    if (soc_descriptor_.noc_translation_enabled && soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     }
+
+    return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
-void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t target_aiclk = 0;
-    if (power_state == tt_DevicePowerState::BUSY) {
+    if (power_state == DevicePowerState::BUSY) {
         target_aiclk = tt_device->get_max_clock_freq();
-    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+    } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }
     uint32_t aiclk = tt_device->get_clock();
@@ -253,7 +270,7 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_s
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
                 "{}",

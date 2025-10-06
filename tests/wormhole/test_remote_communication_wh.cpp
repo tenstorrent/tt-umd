@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/cluster.h"
-#include "umd/device/remote_communication.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/types/cluster_types.h"
-#include "umd/device/wormhole_implementation.h"
+#include "tests/test_utils/fetch_local_files.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
@@ -23,10 +23,9 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     chip_id_t mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
-    std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(cluster->get_local_chip(mmio_chip_id));
+    LocalChip* local_chip = cluster->get_local_chip(mmio_chip_id);
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     std::vector<uint32_t> data_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> data_read(10, 0);
@@ -46,15 +45,17 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
         eth_coord_t remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
 
+        std::unique_ptr<RemoteCommunicationLegacyFirmware> remote_comm =
+            std::make_unique<RemoteCommunicationLegacyFirmware>(
+                local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
+        remote_comm->set_remote_transfer_ethernet_cores(local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id), CoordSystem::TRANSLATED));
+
         for (const CoreCoord& core : cluster->get_soc_descriptor(remote_chip_id).get_cores(CoreType::TENSIX)) {
             CoreCoord translated_core =
                 cluster->get_soc_descriptor(remote_chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
             remote_comm->write_to_non_mmio(
-                remote_eth_coord,
-                translated_core,
-                data_to_write.data(),
-                address0,
-                data_to_write.size() * sizeof(uint32_t));
+                translated_core, data_to_write.data(), address0, data_to_write.size() * sizeof(uint32_t));
 
             cluster->write_to_device(
                 data_to_write.data(), data_to_write.size() * sizeof(uint32_t), remote_chip_id, core, address1);
@@ -62,7 +63,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->wait_for_non_mmio_flush();
 
             remote_comm->read_non_mmio(
-                remote_eth_coord, translated_core, data_read.data(), address1, data_read.size() * sizeof(uint32_t));
+                translated_core, data_read.data(), address1, data_read.size() * sizeof(uint32_t));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";

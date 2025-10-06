@@ -11,3 +11,6 @@ compile_commands.json
 *.csv
 core
 __pycache__
+tt_umd.egg-info
+.venv
+ucli.key

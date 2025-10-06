@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/mock_chip.h"
+#include "umd/device/chip/mock_chip.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
 
-MockChip::MockChip(tt_SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
+MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 
@@ -58,6 +58,8 @@ int MockChip::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
+    // This designates success for the ARC enable eth queue message.
+    *return_3 = 1;
     return 0;
 }
 
@@ -69,9 +71,13 @@ void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
+void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {}
+
+void MockChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {}
+
 void MockChip::deassert_risc_resets() {}
 
-void MockChip::set_power_state(tt_DevicePowerState state) {}
+void MockChip::set_power_state(DevicePowerState state) {}
 
 int MockChip::get_clock() { return 0; }
 
@@ -79,5 +85,5 @@ int MockChip::get_numa_node() { return 0; }
 
 void MockChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
-void MockChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void MockChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {}
 }  // namespace tt::umd

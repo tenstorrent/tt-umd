@@ -4,26 +4,40 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip_helpers/sysmem_buffer.h"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
-SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size) :
+SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc) :
     tlb_manager_(tlb_manager), buffer_va_(buffer_va), mapped_buffer_size_(buffer_size), buffer_size_(buffer_size) {
     align_address_and_size();
-    device_io_addr_ = tlb_manager->get_tt_device()->get_pci_device()->map_for_dma(buffer_va_, mapped_buffer_size_);
+    PCIDevice* pci_device = tlb_manager->get_tt_device()->get_pci_device().get();
+    if (map_to_noc) {
+        std::tie(noc_addr_, device_io_addr_) = pci_device->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);
+    } else {
+        device_io_addr_ = pci_device->map_for_dma(buffer_va_, mapped_buffer_size_);
+        noc_addr_ = std::nullopt;
+    }
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+
+    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        TT_THROW(
+            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+            tt_device_->get_pci_device()->get_device_num());
+    }
+
     validate(offset);
+
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
     const uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
@@ -49,10 +63,18 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+
+    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        TT_THROW(
+            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+            tt_device_->get_pci_device()->get_device_num());
+    }
+
     validate(offset);
+
     static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
@@ -82,10 +104,7 @@ SysmemBuffer::~SysmemBuffer() {
         tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {
         log_warning(
-            LogSiliconDriver,
-            "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).",
-            mapped_buffer_size_,
-            device_io_addr_);
+            LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);
     }
 }
 

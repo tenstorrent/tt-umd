@@ -7,9 +7,9 @@
 #include <gtest/gtest.h>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
-#include "umd/device/tt_soc_descriptor.h"
 
 using namespace tt::umd;
 
@@ -19,12 +19,12 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         ChipInfo chip_info = tt_device->get_chip_info();
 
-        tt_SocDescriptor soc_desc(
-            tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
 
         // TODO: This should be part of TTDevice interface, not Cluster or Chip.
         // Configure TLBs.
@@ -55,16 +55,14 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         std::int32_t c_zero_address = 0;
 
-        for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
-            auto virtual_core = soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL);
-            auto translated_core = soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED);
+        for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
             tlb_manager->configure_tlb(
-                virtual_core, translated_core, get_static_tlb_index(core), c_zero_address, tlb_data::Relaxed);
+                translated_core, get_static_tlb_index(translated_core), c_zero_address, tlb_data::Relaxed);
         }
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
-        auto any_worker_virtual_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
-        tlb_configuration tlb_description = tlb_manager->get_tlb_configuration(any_worker_virtual_core);
+        auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tlb_configuration tlb_description = tlb_manager->get_tlb_configuration(any_worker_translated_core);
 
         // TODO: Maybe accept tlb_index only?
         uint64_t address_l1_to_write = 0;
@@ -74,7 +72,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         // Another way to write to the TLB.
         // TODO: This should be converted to AbstractIO writer.
-        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_virtual_core);
+        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_translated_core);
         writer.write(address_l1_to_write, buffer_to_write[0]);
     }
 }

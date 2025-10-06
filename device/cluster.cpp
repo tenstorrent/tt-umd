@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 #include <assert.h>
 #include <dirent.h>
@@ -36,27 +36,29 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/cluster.h"
-#include "api/umd/device/tt_core_coordinates.h"
+#include "api/umd/device/cluster.hpp"
+#include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
-#include "umd/device/architecture_implementation.h"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/chip/local_chip.h"
-#include "umd/device/chip/mock_chip.h"
-#include "umd/device/chip/remote_chip.h"
-#include "umd/device/chip_helpers/tlb_manager.h"
-#include "umd/device/driver_atomics.h"
-#include "umd/device/hugepage.h"
-#include "umd/device/topology_utils.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_core_coordinates.h"
-#include "umd/device/tt_simulation_device.h"
-#include "umd/device/tt_soc_descriptor.h"
-#include "umd/device/types/arch.h"
-#include "umd/device/types/blackhole_eth.h"
-#include "umd/device/types/tlb.h"
-#include "umd/device/umd_utils.h"
-#include "umd/device/wormhole_implementation.h"
+#include "hugepage.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/chip/mock_chip.hpp"
+#include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery_blackhole.hpp"
+#include "umd/device/topology/topology_discovery_wormhole.hpp"
+#include "umd/device/topology/topology_utils.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/common.hpp"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
@@ -71,8 +73,8 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 #include <iomanip>
 #include <thread>
 
-#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
 
@@ -94,7 +96,7 @@ struct remote_update_ptr_t {
     uint32_t pad[3];
 };
 
-const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
+const SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
@@ -110,8 +112,22 @@ void Cluster::verify_sysmem_initialized() {
                 hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
         }
         if (!hugepages_initialized) {
-            log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", chip_id);
+            log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);
         }
+    }
+}
+
+void Cluster::log_device_summary() {
+    switch (cluster_desc->get_io_device_type()) {
+        case IODeviceType::PCIe:
+            log_pci_device_summary();
+            break;
+        case IODeviceType::JTAG:
+            // Currently no specific device logging needed for JTAG.
+            break;
+        default:
+            TT_THROW("Unknown device type for logging.");
+            break;
     }
 }
 
@@ -140,7 +156,7 @@ void Cluster::log_pci_device_summary() {
         bool current_iommu_state = pci_device->is_iommu_enabled();
         if (current_iommu_state != expected_iommu_state) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "IOMMU state mismatch for chip {}: expected {}, got {}",
                 chip_id,
                 iommu_state_str(expected_iommu_state),
@@ -154,33 +170,65 @@ void Cluster::log_pci_device_summary() {
     }
 
     if (all_devices_same_iommu_state) {
-        log_info(LogSiliconDriver, "IOMMU: {}", iommu_state_str(expected_iommu_state));
+        log_info(LogUMD, "IOMMU: {}", iommu_state_str(expected_iommu_state));
     }
 
-    log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
+    log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
 void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
         return;
     }
-    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_chip_info().firmware_version;
+    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_firmware_version();
+
+    semver_t minimal_compatible_fw_version = FirmwareInfoProvider::get_minimum_compatible_firmware_version(
+        chips_.begin()->second->get_tt_device()->get_arch());
+
+    int compare_fw_bundles_result = semver_t::compare_firmware_bundle(fw_bundle_version, minimal_compatible_fw_version);
+
+    if (compare_fw_bundles_result == -1) {
+        throw std::runtime_error(fmt::format(
+            "Firmware version {} on the system is older than the minimum compatible version {} for {} architecture.",
+            fw_bundle_version.to_string(),
+            minimal_compatible_fw_version.to_string(),
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
+    }
+
+    semver_t latest_supported_fw_version = FirmwareInfoProvider::get_latest_supported_firmware_version(
+        chips_.begin()->second->get_tt_device()->get_arch());
+
+    int compare_fw_bundle_with_latest =
+        semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
+
+    if (compare_fw_bundle_with_latest == 1) {
+        log_warning(
+            LogUMD,
+            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
+            "features may not be supported.",
+            fw_bundle_version.to_string(),
+            latest_supported_fw_version.to_string(),
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
+    }
+
+    // TODO: Add a check for running proper FW version on Blackhole galaxy when the feature for unique ID on ETH core is
+    // properly released.
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
-        if (chip->get_tt_device()->get_chip_info().firmware_version != fw_bundle_version) {
+        if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 fmt::format(
                     "Firmware bundle version mismatch for chip {}: expected {}, got {}",
                     chip_id,
                     fw_bundle_version.to_string(),
-                    chip->get_tt_device()->get_chip_info().firmware_version.to_string()));
+                    chip->get_tt_device()->get_firmware_version().to_string()));
             all_device_same_fw_bundle_version = false;
         }
     }
     if (all_device_same_fw_bundle_version) {
-        log_info(
-            LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
+        log_info(LogUMD, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
     }
 }
 
@@ -195,22 +243,25 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
         log_info(
-            LogSiliconDriver,
-            "Opening local chip ids/pci ids: {}/{} and remote chip ids {}",
+            LogUMD,
+            "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
+            DeviceTypeToString.at(cluster_desc->get_io_device_type()),
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
         verify_fw_bundle_version();
-        log_pci_device_summary();
+        log_device_summary();
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
-        verify_sysmem_initialized();
+        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
+            verify_sysmem_initialized();
+        }
     }
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    if (remote_chip_ids_.empty()) {
+    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON || arch_name == tt::ARCH::BLACKHOLE) {
         use_ethernet_broadcast = false;
     }
 }
@@ -218,8 +269,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     const ChipType& chip_type,
-    tt_ClusterDescriptor* cluster_desc,
-    tt_SocDescriptor& soc_desc,
+    ClusterDescriptor* cluster_desc,
+    SocDescriptor& soc_desc,
     int num_host_mem_channels,
     const std::filesystem::path& simulator_directory) {
     if (chip_type == ChipType::MOCK) {
@@ -227,8 +278,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
-        // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
-        return std::make_unique<tt_SimulationDevice>(simulator_directory);
+        log_info(LogUMD, "Creating Simulation device");
+        return SimulationChip::create(simulator_directory, soc_desc);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -237,29 +288,38 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto chip = std::make_unique<LocalChip>(
-            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
-        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+        auto chip = LocalChip::create(
+            (cluster_desc->io_device_type == IODeviceType::JTAG ? chip_id
+                                                                : cluster_desc->get_chips_with_mmio().at(chip_id)),
+            soc_desc,
+            num_host_mem_channels,
+            cluster_desc->io_device_type);
+
+        // Currrently remote transfer is only supported by PCIe.
+        // TODO: implement remote transfer for JTAG comm.
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0 &&
+            cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }
         return chip;
     } else {
-        if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
-            throw std::runtime_error("Remote chips are supported only for wormhole.");
-        }
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-            get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)),
-            cluster_desc->get_chip_locations().at(chip_id));
-        return std::make_unique<RemoteChip>(soc_desc, std::move(remote_tt_device));
+        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        LocalChip* local_chip = get_local_chip(gateway_id);
+        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
+        return RemoteChip::create(
+            local_chip,
+            cluster_desc->get_chip_location(chip_id),
+            cluster_desc->get_active_eth_channels(gateway_id),
+            soc_desc);
     }
 }
 
-tt_SocDescriptor Cluster::construct_soc_descriptor(
+SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path,
     chip_id_t chip_id,
     ChipType chip_type,
-    tt_ClusterDescriptor* cluster_desc,
+    ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
     bool chip_in_cluster_descriptor =
@@ -272,24 +332,22 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
             fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
     }
 
-    bool noc_translation_table_en =
-        chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
-    HarvestingMasks harvesting_masks =
-        chip_in_cluster_descriptor
-            ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
-            : HarvestingMasks{};
-    BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;
-    uint8_t asic_location =
-        chip_in_cluster_descriptor ? cluster_desc->get_chip_uid(chip_id).value_or(ChipUID{}).asic_location : 0;
+    ChipInfo chip_info;
+    if (chip_in_cluster_descriptor) {
+        chip_info.noc_translation_enabled = cluster_desc->get_noc_translation_table_en().at(chip_id);
+        chip_info.harvesting_masks =
+            get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+        chip_info.board_type = cluster_desc->get_board_type(chip_id);
+        chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
+    }
 
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 
-        return tt_SocDescriptor(arch, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+        return SocDescriptor(arch, chip_info);
 
     } else {
-        tt_SocDescriptor soc_desc =
-            tt_SocDescriptor(soc_desc_path, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+        SocDescriptor soc_desc = SocDescriptor(soc_desc_path, chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
@@ -312,7 +370,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type != ChipType::SILICON || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -322,17 +380,17 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
 
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
+    ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
     if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
+        log_info(LogUMD, "Skipping harvesting for chip {}.", chip_id);
         return HarvestingMasks{};
     }
 
     HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
         "{:#x}).",
         chip_id,
@@ -358,61 +416,67 @@ void Cluster::verify_cluster_options(const ClusterOptions& options) {
 Cluster::Cluster(ClusterOptions options) {
     Cluster::verify_cluster_options(options);
     // If the cluster descriptor is not provided, create a new one.
-    tt_ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
-    std::unique_ptr<tt_ClusterDescriptor> temp_full_cluster_desc_ptr;
+    ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
+    std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
+
+    bool is_ttsim_simulation =
+        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+
+    // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
-        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
+        if (options.chip_type == ChipType::SILICON) {
+            // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+                options.sdesc_path,
+                options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
+                options.io_device_type);
+        } else {
+            // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
+            // descriptor from passed target devices.
+            auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+            if (options.chip_type == ChipType::SIMULATION) {
+                if (options.sdesc_path.empty()) {
+                    options.sdesc_path =
+                        SimulationDevice::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                }
+                arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+            }
+#endif
+            // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
+            // simulation.
+            bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+            temp_full_cluster_desc_ptr =
+                ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+        }
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
 
-    std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
-    // If no target devices are passed, obtain them from the cluster descriptor.
-    if (chips_to_construct.empty()) {
-        chips_to_construct = temp_full_cluster_desc->get_all_chips();
-        // If no target devices are passed and the cluster descriptor is not constrained, we can use the full cluster.
-        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
-        // called for tt_ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
-        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
-        cluster_desc = std::make_unique<tt_ClusterDescriptor>(*temp_full_cluster_desc);
-    } else {
-        // Create constrained cluster descriptor which only contains the chips to be in this Cluster.
+    // If target devices were passed, we want to honour it by constraining the cluster descriptor to only include the
+    // chips in the target devices. Note that we can skip this step in case of mock cluster descriptor, since it was
+    // already created using the target devices.
+    if (!options.target_devices.empty() && options.chip_type == ChipType::SILICON) {
+        // If target devices are passed create constrained cluster descriptor which only contains the chips to be in
+        // this Cluster.
         cluster_desc =
-            tt_ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
-    }
-    std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
-    // Check target_devices against the cluster descriptor in case of silicon chips.
-    // We also have to sort them so that local chips are constructed first.
-    // For MOCK and SIMULATION chip types, passing target_devices which are not in cluster descriptor is allowed.
-    if (options.chip_type == ChipType::SILICON) {
-        chips_to_construct_vec = cluster_desc->get_chips_local_first(chips_to_construct);
+            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
     } else {
-        // If we're running on a system where system chips don't match what was requested through target_chips for non
-        // silicon chip, then just create a mock cluster descriptor so we still have info for those chips. This includes
-        // systems with no silicon chips.
-        bool construct_mock_cluster_descriptor = false;
-        for (auto const& chip_id : chips_to_construct_vec) {
-            if (temp_full_cluster_desc->get_all_chips().find(chip_id) ==
-                temp_full_cluster_desc->get_all_chips().end()) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Chip {} not found in cluster descriptor, creating mock cluster descriptor.",
-                    chip_id);
-                construct_mock_cluster_descriptor = true;
-                break;
-            }
-        }
-        if (construct_mock_cluster_descriptor) {
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, tt::ARCH::WORMHOLE_B0);
-        }
+        // If no target devices are passed, we can use the full cluster.
+        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
+        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
+        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
+        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
     }
-    for (auto& chip_id : chips_to_construct_vec) {
+
+    // Construct all the required chips from the cluster descriptor.
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         // Combine passed simulated_harvesting_masks
         HarvestingMasks simulated_harvesting_masks =
             options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
                                                    options.simulated_harvesting_masks_per_chip.end())
                                                       ? options.simulated_harvesting_masks_per_chip.at(chip_id)
                                                       : HarvestingMasks{});
-        tt_SocDescriptor soc_desc = construct_soc_descriptor(
+        SocDescriptor soc_desc = construct_soc_descriptor(
             options.sdesc_path,
             chip_id,
             options.chip_type,
@@ -437,7 +501,16 @@ Cluster::Cluster(ClusterOptions options) {
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
+    // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
+    // and set the active ethernet cores for them.
+    for (const auto& remote_chip_id : remote_chip_ids_) {
+        if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == mmio_chip) {
+            get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+        }
+    }
+    // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -452,32 +525,37 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot deassert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot assert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
-tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
+RiscType Cluster::get_risc_reset_state(const chip_id_t chip, const CoreCoord core) {
+    return get_chip(chip)->get_risc_reset_state(core);
+}
+
+void Cluster::assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type) {
+    get_chip(chip)->assert_risc_reset(core, risc_type);
+}
+
+void Cluster::deassert_risc_reset(
+    const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
+    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
+}
+
+ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
     int device_id) {
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
+Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -489,14 +567,14 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
-    log_debug(LogSiliconDriver, "Cluster::~Cluster");
+    log_debug(LogUMD, "Cluster::~Cluster");
 
     cluster_desc.reset();
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_tlb_configuration(virtual_core);
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
@@ -504,7 +582,7 @@ void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
+        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
         tlb_index,
         address,
         ordering);
@@ -512,9 +590,8 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -686,7 +763,7 @@ void Cluster::ethernet_broadcast_write(
     const std::set<chip_id_t>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
-    bool use_virtual_coords) {
+    bool use_translated_coords) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported
         std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers =
@@ -705,7 +782,7 @@ void Cluster::ethernet_broadcast_write(
         // Write broadcast block to device.
         for (auto& mmio_group : broadcast_headers) {
             for (auto& header : mmio_group.second) {
-                header.at(4) = use_virtual_coords * 0x8000;  // Reset row/col exclusion masks
+                header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
                 get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
@@ -713,12 +790,11 @@ void Cluster::ethernet_broadcast_write(
         }
     } else {
         // Broadcast not supported. Implement this at the software level as a for loop
-        std::vector<tt_cxy_pair> cores_to_write = {};
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::VIRTUAL)) {
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
                     write_to_device(mem_ptr, size_in_bytes, chip, core, address);
@@ -771,7 +847,7 @@ void Cluster::broadcast_write_to_cluster(
             }
         } else {
             TT_ASSERT(
-                use_virtual_coords_for_eth_broadcast or
+                use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
@@ -781,7 +857,7 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                use_virtual_coords_for_eth_broadcast);
+                use_translated_coords_for_eth_broadcast);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
@@ -820,7 +896,7 @@ void Cluster::broadcast_write_to_cluster(
             }
         } else {
             TT_ASSERT(
-                use_virtual_coords_for_eth_broadcast or
+                use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
@@ -830,7 +906,7 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                use_virtual_coords_for_eth_broadcast);
+                use_translated_coords_for_eth_broadcast);
         }
     }
 }
@@ -925,7 +1001,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     wait_for_non_mmio_flush();
 }
 
-void Cluster::set_power_state(tt_DevicePowerState device_state) {
+void Cluster::set_power_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
         chip->set_power_state(device_state);
     }
@@ -947,7 +1023,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     }
 
     // Set power state to busy
-    set_power_state(tt_DevicePowerState::BUSY);
+    set_power_state(DevicePowerState::BUSY);
 }
 
 void Cluster::verify_eth_fw() {
@@ -967,14 +1043,14 @@ void Cluster::verify_eth_fw() {
 void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
     if (fw_versions.empty()) {
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
             device_id);
         return;
     }
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Software version {}, Ethernet FW version {} (Device {})",
         sw.str(),
         fw_first_eth_core.str(),
@@ -990,12 +1066,12 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
     // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
     // Temporarily enable this feature for 6.7.241 as well for testing.
-    use_virtual_coords_for_eth_broadcast &=
+    use_translated_coords_for_eth_broadcast &=
         (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) &&
         get_soc_descriptor(device_id).noc_translation_enabled;
 }
 
-void Cluster::start_device(const tt_device_params& device_params) {
+void Cluster::start_device(const device_params& device_params) {
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -1055,158 +1131,9 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
     }
 }
 
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
-    if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-        chip_id_t chip_id = 0;
-        for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = nullptr;
-            if (sdesc_path.empty()) {
-                chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-            } else {
-                chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
-            }
-            chips.emplace(chip_id, std::move(chip));
-            chip_id++;
-        }
-
-        return Cluster::create_cluster_descriptor(chips);
-    } else {
-        return TopologyDiscovery(pci_target_devices, sdesc_path).create_ethernet_map();
-    }
-}
-
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
-    const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips) {
-    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-
-    if (chips.empty()) {
-        return desc;
-    }
-
-    for (auto& it : chips) {
-        const chip_id_t chip_id = it.first;
-        const std::unique_ptr<Chip>& chip = it.second;
-
-        // TODO: Use the line below when we can read asic location from the Blackhole telemetry.
-        // Until then we have to read it from ETH core.
-        // desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
-
-        // TODO: Remove this when we can read asic location from the Blackhole telemetry.
-        // Until then we have to read it from ETH core.
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
-            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            const CoreCoord& eth_core = eth_cores[eth_channel];
-            TTDevice* tt_device = chip->get_tt_device();
-            blackhole::boot_results_t boot_results;
-
-            tt_device->read_from_device(
-                (uint8_t*)&boot_results,
-                tt_xy_pair(eth_core.x, eth_core.y),
-                blackhole::BOOT_RESULTS_ADDR,
-                sizeof(boot_results));
-
-            // We can read the asic location only from active ETH cores.
-            if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
-                const blackhole::chip_info_t& local_info = boot_results.local_info;
-                desc->add_chip_uid(chip_id, ChipUID{chip->get_chip_info().chip_uid.board_id, local_info.asic_location});
-            }
-        }
-    }
-
-    for (auto& it : chips) {
-        const chip_id_t chip_id = it.first;
-        const std::unique_ptr<Chip>& chip = it.second;
-
-        desc->all_chips.insert(chip_id);
-        desc->chip_arch.insert({chip_id, chip->get_tt_device()->get_arch()});
-
-        desc->chips_with_mmio.insert({chip_id, chip->get_tt_device()->get_pci_device()->get_device_num()});
-
-        desc->chip_board_type.insert({chip_id, chip->get_chip_info().board_type});
-
-        desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
-        desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
-
-        desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
-    }
-
-    for (auto& it : chips) {
-        const chip_id_t chip_id = it.first;
-        const std::unique_ptr<Chip>& chip = it.second;
-
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
-            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-
-        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            const CoreCoord& eth_core = eth_cores[eth_channel];
-            TTDevice* tt_device = chip->get_tt_device();
-            blackhole::boot_results_t boot_results;
-
-            tt_device->read_from_device(
-                (uint8_t*)&boot_results,
-                tt_xy_pair(eth_core.x, eth_core.y),
-                blackhole::BOOT_RESULTS_ADDR,
-                sizeof(boot_results));
-
-            if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
-                // active eth core
-                desc->active_eth_channels[chip_id].insert(eth_channel);
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
-                const blackhole::chip_info_t& local_info = boot_results.local_info;
-                const blackhole::chip_info_t& remote_info = boot_results.remote_info;
-
-                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
-                std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-                if (!remote_chip_id.has_value()) {
-                    log_debug(
-                        LogSiliconDriver,
-                        "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
-                        "target devices opened by this driver.",
-                        eth_core.x,
-                        eth_core.y,
-                        chip_id,
-                        remote_info.get_chip_uid().board_id);
-                } else {
-                    const CoreCoord logical_remote_coord =
-                        chips.at(remote_chip_id.value())
-                            ->get_soc_descriptor()
-                            .translate_coord_to(
-                                blackhole::ETH_CORES_NOC0[remote_info.eth_id], CoordSystem::NOC0, CoordSystem::LOGICAL);
-                    // Adding a connection only one way, the other chip should add it another way.
-                    desc->ethernet_connections[local_chip_id][eth_channel] = {
-                        remote_chip_id.value(), logical_remote_coord.y};
-                }
-            } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN) {
-                // active eth core, just with link being down.
-                desc->active_eth_channels[chip_id].insert(eth_channel);
-                log_debug(
-                    LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
-            } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNUSED) {
-                // idle core
-                desc->idle_eth_channels[chip_id].insert(eth_channel);
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle", eth_core.x, eth_core.y, chip_id);
-            } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNKNOWN) {
-                log_debug(
-                    LogSiliconDriver,
-                    "Port on eth core ({}, {}) on chip {} is in unknown state",
-                    eth_core.x,
-                    eth_core.y,
-                    chip_id);
-            }
-        }
-    }
-
-    desc->fill_chips_grouped_by_closest_mmio();
-
-    desc->verify_cluster_descriptor_info();
-
-    return desc;
+std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
+    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type) {
+    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
 }
 
 }  // namespace tt::umd

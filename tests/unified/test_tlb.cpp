@@ -5,10 +5,11 @@
  */
 #include <gtest/gtest.h>
 
-#include "umd/device/cluster.h"
-#include "umd/device/tt_device/tlb_window.h"
-#include "umd/device/types/tlb.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/tlb.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 bool is_kmd_version_good() {

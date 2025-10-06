@@ -11,8 +11,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
-#include "umd/device/cluster.h"
-#include "umd/device/types/arch.h"
+#include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 
@@ -201,7 +200,9 @@ TEST(Multiprocess, WorkloadVSMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), true);
+        tt_device->init_tt_device();
+
+        SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
@@ -227,7 +228,9 @@ TEST(Multiprocess, LongLivedMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), true);
+        tt_device->init_tt_device();
+
+        SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;

@@ -15,7 +15,6 @@ on:
     branches: ["main"]
 
 env:
-  BUILD_TARGET: device umd_tools
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -43,7 +42,6 @@ jobs:
     runs-on: ${{ matrix.image.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image.docker-image }}:latest
-      options: --user root
 
     steps:
       - uses: actions/checkout@v4
@@ -51,15 +49,16 @@ jobs:
           submodules: recursive
 
       - name: Set GCC compiler
-          # In case clang is selected, don't set these variables, cmake will find it by default.
+        # In case clang is selected, don't set these variables, cmake will find it by default.
         if: ${{ matrix.image.compiler != 'clang' }}
         run: |
           echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV
           echo "CMAKE_CXX_COMPILER=${{ matrix.image.cpp }}" >> $GITHUB_ENV
 
-      - name: Build ${{ env.BUILD_TARGET }}
+      # Build with all components to verify the build passes.
+      - name: Build All
         run: |
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_ALL=ON
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."

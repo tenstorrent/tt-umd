@@ -10,13 +10,13 @@
 
 #include "filesystem"
 #include "gtest/gtest.h"
-#include "tests/galaxy/test_galaxy_common.h"
-#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/galaxy/test_galaxy_common.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "tests/wormhole/test_wh_common.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_soc_descriptor.h"
+#include "tests/wormhole/test_wh_common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
@@ -33,7 +33,7 @@ protected:
     static uint32_t scale_number_of_tests;
 
     static void SetUpTestSuite() {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+        std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
         detected_num_chips = cluster_desc->get_number_of_chips();
         if (detected_num_chips < EXPECTED_MIN_CHIPS) {
             skip_tests = true;
@@ -56,7 +56,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
     int seed = 0;
 
     assert(cluster != nullptr);
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfers");
+    log_info(LogUMD, "Started MixedRemoteTransfers");
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
@@ -85,7 +85,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
+    log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
     std::thread t1([&]() {

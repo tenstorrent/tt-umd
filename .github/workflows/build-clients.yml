@@ -19,14 +19,13 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
 
     name: Build tt-metal with newest UMD
-    runs-on: tt-beta-ubuntu-2204-large
+    runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
         TRACY_NO_INVARIANT_CHECK: 1
         TRACY_NO_ISA_EXTENSIONS: 1
-      options: --user root
 
     steps:
       - name: Checkout tt-metal repo
@@ -36,8 +35,8 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500 # Need enough history for `git describe`
-          fetch-tags: true # Need tags for `git describe`
+          fetch-depth: 500  # Need enough history for `git describe`
+          fetch-tags: true  # Need tags for `git describe`
 
       - name: Checkout UMD
         uses: actions/checkout@v4
@@ -61,7 +60,6 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
-      options: --user root
 
     steps:
       - name: Checkout tt-exalens repo
@@ -84,3 +82,102 @@ jobs:
           cd tt-exalens
           make build
           cd ../
+
+  build-tt-sim:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+
+    name: Build and run ttsim with newest UMD
+    runs-on: tt-ubuntu-2204-large-stable
+    container:
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      env:
+        # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
+        TRACY_NO_INVARIANT_CHECK: 1
+        TRACY_NO_ISA_EXTENSIONS: 1
+
+    steps:
+      - name: Checkout tt-metal repo
+        uses: actions/checkout@v4
+        with:
+          # Clone under tt-metal directory
+          path: tt-metal
+          repository: tenstorrent/tt-metal
+          submodules: recursive
+          fetch-depth: 500  # Need enough history for `git describe`
+          fetch-tags: true  # Need tags for `git describe`
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          # Clone directly into tt-metal directory for umd
+          path: tt-metal/tt_metal/third_party/umd
+          submodules: recursive
+
+      - name: Get ttsim ref
+        id: get-ttsim-ref
+        run: |
+          # Extract the ref value from tt-metal's ttsim.yaml
+          # Look for the ttsim-ref input default value
+          if [ -f "tt-metal/.github/workflows/ttsim.yaml" ]; then
+            TTSIM_REF=$(grep -A 5 "ttsim-ref:" tt-metal/.github/workflows/ttsim.yaml \
+                      | grep "default:" \
+                      | sed 's/.*default: *"\?\([^"]*\)"\?.*/\1/' \
+                      | tr -d ' ')
+            if [ -z "$TTSIM_REF" ]; then
+              echo "Warning: Could not extract ttsim ref from input default, using main branch"
+              TTSIM_REF="main"
+            fi
+          else
+            echo "Warning: ttsim.yaml not found, using main branch"
+            TTSIM_REF="main"
+          fi
+          echo "Extracted ttsim ref: $TTSIM_REF"
+          echo "ttsim-ref=$TTSIM_REF" >> $GITHUB_OUTPUT
+
+      - name: Checkout ttsim repo
+        uses: actions/checkout@v4
+        with:
+          path: ttsim
+          repository: tenstorrent/ttsim
+          ref: ${{ steps.get-ttsim-ref.outputs.ttsim-ref }}
+          submodules: recursive
+          token: ${{ secrets.TTSIM_TOKEN }}
+
+      - name: Build tt-sim
+        run: |
+          cd ttsim/src
+          ../scripts/make.py _out/release_wh/libttsim.so
+          ../scripts/make.py _out/release_bh/libttsim.so
+          ../scripts/make.py _out/release_qsr/libttsim.so
+          cd ../../
+
+      - name: Build tt-metal
+        run: |
+          cd tt-metal
+          export TT_METAL_HOME=$(pwd)
+          export PYTHONPATH=$(pwd)
+          echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
+          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          ./build_metal.sh --build-programming-examples
+          cd ../
+
+      - name: Prepare sim paths
+        run: |
+          echo "Preparing sim paths"
+          mkdir -p sim_wh sim_bh
+          cp ttsim/src/_out/release_wh/libttsim.so sim_wh/libttsim.so
+          cp ttsim/src/_out/release_bh/libttsim.so sim_bh/libttsim.so
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
+
+      - name: Run tt-sim wormhole tests
+        run: |
+          export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+
+      - name: Run tt-sim blackhole tests
+        run: |
+          export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv

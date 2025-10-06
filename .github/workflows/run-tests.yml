@@ -90,7 +90,20 @@ jobs:
           ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
       - name: Run API tests
+        shell: bash
         run: |
+          if ! command -v sudo &> /dev/null; then
+            echo "sudo not found, attempting to install..."
+            sh -c "apt update && apt install -y sudo && apt install -y python3.10-venv"
+          else
+            sudo apt update
+            sudo apt install -y python3.10-venv
+          fi
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install git+https://github.com/tenstorrent/tt-smi.git
+          tt-smi -r
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       - name: Run arch-specific UMD unit tests

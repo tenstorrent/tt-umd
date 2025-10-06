@@ -505,6 +505,8 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+int run_tt_smi_reset() { return system("tt-smi -r"); }
+
 TEST(TestCluster, WarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -526,7 +528,8 @@ TEST(TestCluster, WarmResetScratch) {
             tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
         write_test_data);
 
-    WarmReset::warm_reset();
+    // WarmReset::warm_reset();
+    run_tt_smi_reset();
 
     cluster.reset();
 

@@ -10,14 +10,14 @@
 
 #include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
-#include "umd/device/simulation/tt_simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
 
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimulationChip>(simulator_directory, soc_descriptor);
+        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor);
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor);
     }

@@ -186,7 +186,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
-                api/umd/device/simulation/tt_simulation_chip.hpp
+                api/umd/device/simulation/tt_sim_chip.hpp
                 api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.hpp

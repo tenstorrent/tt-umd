@@ -135,7 +135,7 @@ protected:
 
     uint32_t get_power_state_arc_msg(DevicePowerState state);
 
-    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 100);
 
     ChipInfo chip_info_;
 

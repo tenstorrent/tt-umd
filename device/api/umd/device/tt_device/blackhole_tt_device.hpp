@@ -35,10 +35,6 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
-    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
     ChipInfo get_chip_info() override;
 
     uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
@@ -46,6 +42,8 @@ public:
     uint64_t get_arc_noc_base_address() const override;
 
     bool wait_arc_post_reset(const uint32_t timeout_ms) override;
+
+    BlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);

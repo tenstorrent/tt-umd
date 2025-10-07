@@ -12,6 +12,7 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -22,6 +23,13 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    get_device_protocol()->set_arc_core(arc_core);
+}
+
+BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
+    TTDevice(std::move(remote_communication), {}, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    get_device_protocol()->set_arc_core(arc_core);
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -190,14 +198,6 @@ void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t 
 
 void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
-};
-
-void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 }
 
 uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {

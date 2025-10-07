@@ -33,10 +33,6 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
-    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
     ChipInfo get_chip_info() override;
 
     uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
@@ -47,6 +43,7 @@ public:
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 
 protected:
     /*
@@ -89,5 +86,6 @@ private:
     std::mutex dma_mutex_;
 
     EthAddresses eth_addresses;
+    eth_coord_t target_chip_;
 };
 }  // namespace tt::umd

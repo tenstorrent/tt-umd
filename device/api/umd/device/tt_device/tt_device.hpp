@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 
+#include "device_protocol.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -32,13 +33,9 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
-
 class ArcMessenger;
 class ArcTelemetryReader;
+class SysmemManager;
 class RemoteCommunication;
 
 class TTDevice {
@@ -53,17 +50,25 @@ public:
     static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+    static std::unique_ptr<TTDevice> create(
+        TTDevice *local_tt_device, SysmemManager *sysmem_manager, eth_coord_t target_chip);
 
+    // TODO: Polish constructors later
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        eth_coord_t target_chip,
         std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
+    std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
 
@@ -147,7 +152,7 @@ public:
      * chips.
      *
      */
-    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size);
 
     /**
      * Write function that will send write message to the ARC core.
@@ -163,7 +168,7 @@ public:
      * chips.
      *
      */
-    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -302,6 +307,8 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    DeviceProtocol *get_device_protocol() { return device_protocol_.get(); }
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -341,6 +348,8 @@ private:
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};
+
+    std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
 };
 
 }  // namespace tt::umd

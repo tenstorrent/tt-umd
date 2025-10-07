@@ -105,19 +105,26 @@ void TopologyDiscovery::get_connected_chips() {
                 eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
 
             tt_version eth_fw_version(eth_fw_version_read);
+
             if (!first_eth_fw_version.has_value()) {
+                log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.str());
+                log_info(LogUMD, "UMD supported minimum ETH FW version: ", ERISC_FW_SUPPORTED_VERSION_MIN.str());
                 first_eth_fw_version = eth_fw_version;
-                if (ERISC_FW_SUPPORTED_VERSION_MIN.major <= eth_fw_version.major) {
-                    TT_THROW("ETH FW major version is newer than UMD supported version.");
+                if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
+                    TT_THROW("ETH FW major version is newer than UMD supported version");
                 }
 
-                if (ERISC_FW_SUPPORTED_VERSION_MIN.minor <= eth_fw_version.minor) {
-                    TT_THROW("ETH FW minor version is newer than UMD supported version.");
+                if (ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
+                    TT_THROW("ETH FW minor version is newer than UMD supported version");
                 }
             }
 
             if (eth_fw_version != first_eth_fw_version) {
-                TT_THROW("ETH FW version mismatch");
+                TT_THROW(
+                    "ETH FW version mismatch for LocalChip {} ETH core {}, found: .",
+                    device_id,
+                    eth_core.str(),
+                    eth_fw_version.str());
             }
 
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
@@ -223,7 +230,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 tt_version eth_fw_version(eth_fw_version_read);
 
                 if (eth_fw_version != first_eth_fw_version) {
-                    TT_THROW("ETH FW version mismatch");
+                    TT_THROW(
+                        "ETH FW version mismatch for RemoteChip ASIC ID {} ETH core {}, found: {}.",
+                        remote_asic_id,
+                        eth_core.str(),
+                        eth_fw_version.str());
                 }
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));

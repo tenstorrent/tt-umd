@@ -80,8 +80,6 @@ enum class TenstorrentResetDevice : uint32_t {
     CONFIG_WRITE = 2
 };
 
-inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
-
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N

@@ -584,7 +584,7 @@ ChipInfo TTDevice::get_chip_info() {
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
-    chip_info.chip_uid.board_id = get_board_id();
+    chip_info.board_id = get_board_id();
     chip_info.board_type = get_board_type();
     chip_info.asic_location = get_asic_location();
 

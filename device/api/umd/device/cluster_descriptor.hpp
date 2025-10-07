@@ -108,6 +108,12 @@ public:
     const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
 
     /**
+     * Returns the architecture of the cluster. Throws an exception if the architecture is Invalid or there are no
+     * chips.
+     */
+    tt::ARCH get_arch() const;
+
+    /**
      * Returns the architecture of a specific chip.
      * @param chip_id Logical chip ID to get the architecture for.
      */
@@ -155,18 +161,6 @@ public:
      * Returns the map of logical chip IDs and their PCIe ids as reported by the operating system.
      */
     const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
-
-    // TODO: Remove the concept of ChipUUID.
-    /**
-     * Returns the logical chip IDs for a given ChipUIDs.
-     */
-    std::optional<chip_id_t> get_chip_id(const ChipUID &chip_uid) const;
-
-    /**
-     * Returns the ChipUID for a given chip.
-     * @param chip_id Logical chip ID to get the ChipUID for.
-     */
-    std::optional<ChipUID> get_chip_uid(chip_id_t chip_id) const;
 
     /**
      * Returns the harvesting masks for a given chip ID.
@@ -256,7 +250,6 @@ private:
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
     // Helpers during construction of cluster descriptor.
-    void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);
     void add_chip_to_board(chip_id_t chip_id, uint64_t board_id);
 
     // Helper functions for filling up the cluster descriptor.
@@ -288,8 +281,6 @@ private:
     std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
-    std::map<ChipUID, chip_id_t> chip_uid_to_chip_id = {};
-    std::map<chip_id_t, ChipUID> chip_id_to_chip_uid = {};
     std::unordered_map<chip_id_t, uint64_t> chip_unique_ids = {};
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};

@@ -10,14 +10,14 @@
 
 #include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
-#include "umd/device/simulation/tt_simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
 
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimulationChip>(simulator_directory, soc_descriptor);
+        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor);
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor);
     }
@@ -58,10 +58,6 @@ void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord
 
 void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
-}
-
-std::function<void(uint32_t, uint32_t, const uint8_t*)> SimulationChip::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error("SimulationChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
 void SimulationChip::wait_for_non_mmio_flush() {}

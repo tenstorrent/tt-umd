@@ -159,17 +159,17 @@ void LocalChip::initialize_default_chip_mutexes() {
 
 void LocalChip::initialize_membars() {
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
         l1_address_params.tensix_l1_barrier_base);
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -189,9 +189,7 @@ void LocalChip::start_device() {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    // TODO: Enable this once all tt-metal tests are passing.
-    // chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE,
-    // tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
     check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
@@ -456,14 +454,6 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     }
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
-    const auto callable = [this](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
-    };
-
-    return callable;
-}
-
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
@@ -661,10 +651,10 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert barrier on all cores with L1
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
+            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL), l1_address_params.eth_l1_barrier_base);
+            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
     }
 }
 
@@ -681,7 +671,8 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         // Insert Barrier on all DRAM Cores
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-            dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            dram_cores_vector.push_back(
+                soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
         }
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     }
@@ -690,7 +681,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
+        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED));
     }
     dram_membar(dram_cores_to_sync);
 }

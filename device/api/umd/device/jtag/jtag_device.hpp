@@ -8,16 +8,19 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <unordered_set>
 
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/types/arch.hpp"
 
 class JtagDevice {
 public:
-    explicit JtagDevice(std::unique_ptr<Jtag> jtag_device);
+    explicit JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices = {});
     ~JtagDevice();
 
-    static std::shared_ptr<JtagDevice> create(const std::filesystem::path& binary_directory = jtag_library_path);
+    static std::shared_ptr<JtagDevice> create(
+        const std::filesystem::path& binary_directory = jtag_library_path,
+        const std::unordered_set<int>& jtag_target_devices = {});
 
     void close_device() {}
 
@@ -79,6 +82,7 @@ public:
 
 private:
     void select_device(uint8_t chip_id);
+    std::unordered_set<int> get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const;
     std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;
     std::vector<uint32_t> efuse_harvesting;

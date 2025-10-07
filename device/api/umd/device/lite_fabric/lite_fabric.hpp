@@ -175,24 +175,25 @@ struct HostToLiteFabricInterface {
         write_noc_addr(mem_ptr, size, sender_core, dst_noc_addr);
     }
 
-    void barrier(CoreCoord virtual_core_sender) {
+    void barrier(CoreCoord translated_core_sender) {
         uint32_t barrier_value = 0xca11ba11;
         const auto do_barrier =
-            [&](const CoreCoord& virtual_core, const std::string& core_type_name, uint32_t barrier_addr) -> void {
-            const uint64_t dest_noc_upper = (uint64_t(virtual_core.y) << (36 + 6)) | (uint64_t(virtual_core.x) << 36);
+            [&](const CoreCoord& translated_core, const std::string& core_type_name, uint32_t barrier_addr) -> void {
+            const uint64_t dest_noc_upper =
+                (uint64_t(translated_core.y) << (36 + 6)) | (uint64_t(translated_core.x) << 36);
             uint64_t dest_noc_addr = dest_noc_upper | (uint64_t)barrier_addr;
-            write_one_page(&barrier_value, sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+            write_one_page(&barrier_value, sizeof(uint32_t), translated_core_sender, dest_noc_addr);
 
             uint32_t read_barrier = 0;
-            read_one_page(&read_barrier, sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+            read_one_page(&read_barrier, sizeof(uint32_t), translated_core_sender, dest_noc_addr);
 
             if (read_barrier != barrier_value) {
                 throw std::runtime_error(fmt::format(
                     "Lite fabric barrier failed. Chip memory corruption on {} translated core ({}, {}): barrier value "
                     "mismatch {:#x} != {:#x}",
                     core_type_name,
-                    virtual_core.x,
-                    virtual_core.y,
+                    translated_core.x,
+                    translated_core.y,
                     read_barrier,
                     barrier_value));
             }
@@ -220,18 +221,18 @@ private:
         return channel_address + buffer_index * CHANNEL_BUFFER_SIZE;
     }
 
-    void wait_for_empty_write_slot(CoreCoord virtual_core_sender) {
+    void wait_for_empty_write_slot(CoreCoord translated_core_sender) {
         uint32_t offset = offsetof(HostToLiteFabricInterface, d2h);
         do {
             tt_device->read_from_device(
                 (void*)(reinterpret_cast<uintptr_t>(this) + offset),
-                virtual_core_sender,
+                translated_core_sender,
                 host_interface_on_device_addr + offset,
                 sizeof(DeviceToHost));
         } while ((h2d.sender_host_write_index + 1) % NUM_BUFFERS == d2h.fabric_sender_channel_index);
     }
 
-    void wait_for_read_event(CoreCoord virtual_core_sender, uint32_t read_event_addr) {
+    void wait_for_read_event(CoreCoord translated_core_sender, uint32_t read_event_addr) {
         tt_driver_atomics::mfence();
         volatile FabricLiteHeader header;
         header.command_fields.noc_read.event = 0;
@@ -239,7 +240,7 @@ private:
         while (true) {
             tt_device->read_from_device(
                 const_cast<void*>(static_cast<volatile void*>(&header)),
-                virtual_core_sender,
+                translated_core_sender,
 
                 read_event_addr,
                 sizeof(FabricLiteHeader));
@@ -257,28 +258,28 @@ private:
     }
 
     void send_payload_flush_non_blocking_from_address(
-        FabricLiteHeader& header, CoreCoord virtual_core_sender, uint32_t channel_address) {
+        FabricLiteHeader& header, CoreCoord translated_core_sender, uint32_t channel_address) {
         if (!header.get_payload_size_excluding_header()) {
             return;
         }
 
         uint32_t addr = get_next_send_buffer_slot_address(channel_address);
 
-        tt_device->write_to_device(&header, virtual_core_sender, addr, sizeof(FabricLiteHeader));
+        tt_device->write_to_device(&header, translated_core_sender, addr, sizeof(FabricLiteHeader));
 
         // TODO: Membar shouldn't be need here because we are using TTDevice read/writes which
         // are using strict ordering so it should commit transactions in order they were issued.
-        // chip->l1_membar({virtual_core_sender});
+        // chip->l1_membar({translated_core_sender});
 
         h2d.sender_host_write_index =
             lite_fabric::wrap_increment<SENDER_NUM_BUFFERS_ARRAY[0]>(h2d.sender_host_write_index);
 
         log_debug(LogUMD, "Flushing h2d sender_host_write_index to {}", h2d.sender_host_write_index);
-        flush_h2d(virtual_core_sender);
+        flush_h2d(translated_core_sender);
     }
 
     void send_payload_without_header_non_blocking_from_address(
-        void* data, size_t size, CoreCoord virtual_core_sender, uint32_t channel_address) {
+        void* data, size_t size, CoreCoord translated_core_sender, uint32_t channel_address) {
         if (!size) {
             return;
         }
@@ -287,22 +288,22 @@ private:
         }
         uint32_t addr = get_next_send_buffer_slot_address(channel_address) + sizeof(FabricLiteHeader);
         log_debug(LogUMD, "Send {}B payload only {:#x}", size, addr);
-        tt_device->write_to_device(data, virtual_core_sender, addr, size);
+        tt_device->write_to_device(data, translated_core_sender, addr, size);
     }
 
-    void flush_h2d(CoreCoord virtual_core_sender) {
+    void flush_h2d(CoreCoord translated_core_sender) {
         tt_driver_atomics::mfence();
 
         tt_device->write_to_device(
             (void*)(reinterpret_cast<uintptr_t>(this) + offsetof(HostToLiteFabricInterface, h2d)),
-            virtual_core_sender,
+            translated_core_sender,
 
             host_interface_on_device_addr + offsetof(HostToLiteFabricInterface, h2d),
             sizeof(HostToDevice));
 
         // TODO: Membar shouldn't be need here because we are using TTDevice read/writes which
         // are using strict ordering so it should commit transactions in order they were issued.
-        // chip->l1_membar({virtual_core_sender});
+        // chip->l1_membar({translated_core_sender});
     }
 
     void write_one_page(void* mem_ptr, size_t size, CoreCoord sender_core, uint64_t dst_noc_addr) {

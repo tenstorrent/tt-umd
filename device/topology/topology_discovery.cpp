@@ -266,7 +266,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             }
         }
 
-        cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().chip_uid.board_id);
+        cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().board_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {

@@ -17,6 +17,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
@@ -96,37 +97,11 @@ void TopologyDiscovery::get_connected_chips() {
     for (auto& device_id : device_ids) {
         std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type);
 
+        verify_eth_version_local(device_id, chip.get());
+
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            // Check ETH FW version
-            uint32_t eth_fw_version_read;
-            chip->read_from_device(
-                eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
-
-            tt_version eth_fw_version(eth_fw_version_read);
-
-            if (!first_eth_fw_version.has_value()) {
-                log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.str());
-                log_info(LogUMD, "UMD supported minimum ETH FW version: ", ERISC_FW_SUPPORTED_VERSION_MIN.str());
-                first_eth_fw_version = eth_fw_version;
-                if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
-                    TT_THROW("ETH FW major version is newer than UMD supported version");
-                }
-
-                if (ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
-                    TT_THROW("ETH FW minor version is newer than UMD supported version");
-                }
-            }
-
-            if (eth_fw_version != first_eth_fw_version) {
-                TT_THROW(
-                    "ETH FW version mismatch for LocalChip {} ETH core {}, found: .",
-                    device_id,
-                    eth_core.str(),
-                    eth_fw_version.str());
-            }
-
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);
@@ -223,19 +198,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
-                // Check ETH FW version
-                uint32_t eth_fw_version_read;
-                chip->read_from_device(
-                    eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
-                tt_version eth_fw_version(eth_fw_version_read);
-
-                if (eth_fw_version != first_eth_fw_version) {
-                    TT_THROW(
-                        "ETH FW version mismatch for RemoteChip ASIC ID {} ETH core {}, found: {}.",
-                        remote_asic_id,
-                        eth_core.str(),
-                        eth_fw_version.str());
-                }
+                verify_eth_version_remote(remote_asic_id, remote_chip.get());
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
@@ -379,5 +342,69 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
+
+void TopologyDiscovery::verify_eth_version_local(int device_id, Chip* chip) {
+    // ETH FW version check incomplete for BH.
+    if (chip->get_soc_descriptor().arch != tt::ARCH::WORMHOLE_B0) {
+        return;
+    }
+
+    std::vector<CoreCoord> eth_cores =
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    for (const CoreCoord& eth_core : eth_cores) {
+        // Check ETH FW version
+        uint32_t eth_fw_version_read;
+        chip->read_from_device(
+            eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+
+        tt_version eth_fw_version(eth_fw_version_read);
+
+        if (!first_eth_fw_version.has_value()) {
+            log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.str());
+            log_info(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.str());
+            first_eth_fw_version = eth_fw_version;
+            if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
+                TT_THROW("ETH FW major version is newer than UMD supported version");
+            }
+
+            if (ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
+                TT_THROW("ETH FW minor version is newer than UMD supported version");
+            }
+        }
+
+        if (eth_fw_version != first_eth_fw_version) {
+            TT_THROW(
+                "ETH FW version mismatch for LocalChip {} ETH core {}, found: {}.",
+                device_id,
+                eth_core.str(),
+                eth_fw_version.str());
+        }
+    }
+}
+
+void TopologyDiscovery::verify_eth_version_remote(int asic_id, Chip* chip) {
+    // ETH FW version check incomplete for BH.
+    if (chip->get_soc_descriptor().arch != tt::ARCH::WORMHOLE_B0) {
+        return;
+    }
+
+    std::vector<CoreCoord> eth_cores =
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    for (const CoreCoord& eth_core : eth_cores) {
+        // Check ETH FW version
+        uint32_t eth_fw_version_read;
+        chip->read_from_device(
+            eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+        tt_version eth_fw_version(eth_fw_version_read);
+
+        if (eth_fw_version != first_eth_fw_version) {
+            TT_THROW(
+                "ETH FW version mismatch for RemoteChip ASIC ID {} ETH core {}, found: {}.",
+                asic_id,
+                eth_core.str(),
+                eth_fw_version.str());
+        }
+    }
+}
 
 }  // namespace tt::umd

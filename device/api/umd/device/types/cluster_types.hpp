@@ -219,9 +219,9 @@ constexpr inline bool operator>=(const tt_version& a, const tt_version& b) {
 }
 
 // ERISC FW version Required by UMD
-static constexpr tt_version ERISC_FW_SUPPORTED_VERSION_MIN = tt_version(0x06060000);
-static constexpr tt_version ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = tt_version(6, 5, 0);
-static constexpr tt_version ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = tt_version(6, 8, 0);
+constexpr tt_version ERISC_FW_SUPPORTED_VERSION_MIN = tt_version(0x06060000);
+constexpr tt_version ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = tt_version(6, 5, 0);
+constexpr tt_version ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = tt_version(6, 8, 0);
 
 struct HugepageMapping {
     void* mapping = nullptr;

@@ -189,9 +189,7 @@ void LocalChip::start_device() {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    // TODO: Enable this once all tt-metal tests are passing.
-    // chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE,
-    // tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
     check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
@@ -454,14 +452,6 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
         addr += transfer_size;
         buffer += transfer_size;
     }
-}
-
-std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
-    const auto callable = [this](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
-    };
-
-    return callable;
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {

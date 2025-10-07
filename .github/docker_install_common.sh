@@ -1,7 +1,10 @@
 #!/bin/bash
 
-# Install gnupg first (required for GPG operations)
-apt-get update && apt-get install -y gnupg
+# Install essential packages first (required for HTTPS and GPG operations)
+apt-get update && apt-get install -y \
+    ca-certificates \
+    gnupg \
+    wget
 
 # Add Kitware repository for latest CMake
 wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null

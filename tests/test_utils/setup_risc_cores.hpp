@@ -33,13 +33,14 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
     for (auto& chip_id : cluster->get_target_device_ids()) {
         for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
             auto chip = cluster->get_chip(chip_id);
-            auto core = cluster->get_soc_descriptor(0).translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
+            auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
             TensixSoftResetOptions brisc_core{TensixSoftResetOptions::BRISC};
 
             TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
 
-            cluster->assert_risc_reset();
+            // cluster->assert_risc_reset();
+            cluster->assert_risc_reset_at_core(chip_id, core, TENSIX_ASSERT_SOFT_RESET);
 
             cluster->l1_membar(chip_id, {core});
 

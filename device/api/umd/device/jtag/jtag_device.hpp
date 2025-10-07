@@ -28,6 +28,12 @@ public:
 
     int open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number);
     int open_jlink_wrapper(uint8_t chip_id);
+
+    /*
+     * chip_id -> J-link device index in vector of devices.
+     * client -> debug client name (e.g. "arc", "pcie"). Communicates with JTAG ports on clients through TDR(TAP Data
+     * Register). reg_offset -> Register offset inside the client.
+     */
     std::optional<uint32_t> read_tdr(uint8_t chip_id, const char* client, uint32_t reg_offset);
     std::optional<uint32_t> readmon_tdr(uint8_t chip_id, const char* client, uint32_t id, uint32_t reg_offset);
     std::optional<int> writemon_tdr(

@@ -319,8 +319,9 @@ bool JtagDevice::is_hardware_hung(uint8_t chip_id) {
     uint32_t timeout = 10;
     std::optional<uint32_t> status;
     do {
+        // Details about status format can be found inside JTAG library.
         status = read_tdr(chip_id, "arc", 0x4);
-        status = ((status.value() >> 16) & 0xf);
+        status = status.value() >> 16;
         timeout--;
     } while (((status.value() & 0x1) == 0) && (timeout > 0));
     return timeout == 0;

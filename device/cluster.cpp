@@ -545,11 +545,6 @@ void Cluster::deassert_risc_reset(
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
-    int device_id) {
-    return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
-}
-
 Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);

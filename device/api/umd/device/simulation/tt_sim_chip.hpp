@@ -14,10 +14,10 @@
 namespace tt::umd {
 
 // TTSIM implementation using dynamic library (.so files).
-class TTSimulationChip : public SimulationChip {
+class TTSimChip : public SimulationChip {
 public:
-    TTSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
-    ~TTSimulationChip() override;
+    TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+    ~TTSimChip() override;
 
     void start_device() override;
     void close_device() override;

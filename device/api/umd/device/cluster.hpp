@@ -691,11 +691,10 @@ private:
         const std::set<chip_id_t>& chips_to_exclude);
 
     // Test functions
+    // TODO: Move this check to TopologyDiscovery
     void verify_fw_bundle_version();
     void log_device_summary();
     void log_pci_device_summary();
-    void verify_eth_fw();
-    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
     void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.

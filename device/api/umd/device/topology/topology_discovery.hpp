@@ -12,6 +12,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 namespace tt::umd {
 
@@ -147,6 +148,10 @@ protected:
     const IODeviceType io_device_type;
 
     bool is_running_on_6u = false;
+
+    // The ETH FW version found on the first discovered local chip, that needs
+    // to match with all of the other discovered ETH FW versions on all chips.
+    std::optional<tt_version> first_eth_fw_version;
 };
 
 }  // namespace tt::umd

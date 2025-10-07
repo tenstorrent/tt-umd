@@ -99,6 +99,27 @@ void TopologyDiscovery::get_connected_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
+            // Check ETH FW version
+            uint32_t eth_fw_version_read;
+            chip->read_from_device(
+                eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+
+            tt_version eth_fw_version(eth_fw_version_read);
+            if (!first_eth_fw_version.has_value()) {
+                first_eth_fw_version = eth_fw_version;
+                if (ERISC_FW_SUPPORTED_VERSION_MIN.major <= eth_fw_version.major) {
+                    TT_THROW("ETH FW major version is newer than UMD supported version.");
+                }
+
+                if (ERISC_FW_SUPPORTED_VERSION_MIN.minor <= eth_fw_version.minor) {
+                    TT_THROW("ETH FW minor version is newer than UMD supported version.");
+                }
+            }
+
+            if (eth_fw_version != first_eth_fw_version) {
+                TT_THROW("ETH FW version mismatch");
+            }
+
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);
@@ -194,6 +215,16 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
+
+                // Check ETH FW version
+                uint32_t eth_fw_version_read;
+                chip->read_from_device(
+                    eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+                tt_version eth_fw_version(eth_fw_version_read);
+
+                if (eth_fw_version != first_eth_fw_version) {
+                    TT_THROW("ETH FW version mismatch");
+                }
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
@@ -297,6 +328,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         }
     }
     cluster_desc->io_device_type = io_device_type;
+    cluster_desc->eth_fw_version = first_eth_fw_version.value_or(tt_version());
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();
 

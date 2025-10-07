@@ -86,13 +86,14 @@ jobs:
           echo "Copying install artifacts..."
           cp -r ${{ env.TT_UMD_DIR_SHELL }}/${{ env.INSTALL_OUTPUT_DIR }} ./umd_install
           echo "Copying cmake example config file..."
-          mkdir -p ${{ env.TT_UMD_DIR_SHELL }}/cmake
-          cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/example_client.cmake ./cmake/example_client.cmake
-          cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/CPM.cmake ./cmake/CPM.cmake
+          mkdir -p ${{ env.CLIENTS_BUILD_DIR_SHELL }}/cmake
+          cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/example_client.cmake \
+             ${{ env.CLIENTS_BUILD_DIR_SHELL }}/cmake/example_client.cmake
+          cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/CPM.cmake ${{ env.CLIENTS_BUILD_DIR_SHELL }}/cmake/CPM.cmake
           echo "Copying components to build..."
-          cp -r ${{ env.TT_UMD_DIR_SHELL }}/examples ./examples
-          cp -r ${{ env.TT_UMD_DIR_SHELL }}/nanobind ./nanobind
-          cp -r ${{ env.TT_UMD_DIR_SHELL }}/tools ./tools
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/examples ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/nanobind ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/tools ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           echo "Preparation complete."
 
       - name: Build examples as standalone

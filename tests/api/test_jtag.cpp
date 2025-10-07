@@ -27,22 +27,20 @@ protected:
 
     static void SetUpTestSuite() {
         if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
-            log_warning(
-                tt::LogSiliconDriver, "JTAG library does not exist at {}", JtagDevice::jtag_library_path.string());
+            log_warning(tt::LogUMD, "JTAG library does not exist at {}", JtagDevice::jtag_library_path.string());
             return;
         }
 
         auto potential_jlink_devices = Jtag(JtagDevice::jtag_library_path.c_str()).enumerate_jlink();
         if (!potential_jlink_devices.size()) {
-            log_warning(tt::LogSiliconDriver, "There are no Jlink devices connected..");
+            log_warning(tt::LogUMD, "There are no Jlink devices connected..");
             return;
         }
 
         auto jlink_device_count_ = JtagDevice::create()->get_device_cnt();
 
         if (!jlink_device_count_) {
-            log_warning(
-                tt::LogSiliconDriver, "Jlink devices discovered but not usable with current Jtag implementation.");
+            log_warning(tt::LogUMD, "Jlink devices discovered but not usable with current Jtag implementation.");
             return;
         }
 
@@ -159,7 +157,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
             ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
             // Since we can have multiple chips with their own jlink,
             // we have to find the one which direct connection to PCIe link.
-            if (jtag_chip_info.chip_uid.board_id == chip_info.chip_uid.board_id &&
+            if (jtag_chip_info.board_id == chip_info.board_id &&
                 jtag_chip_info.asic_location == chip_info.asic_location) {
                 device.tt_device_->read_from_device(
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));

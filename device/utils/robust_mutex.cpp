@@ -55,15 +55,11 @@ public:
         if (err != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
             log_warning(
-                tt::LogSiliconDriver,
-                "pthread_mutex_unlock failed for mutex {} errno: {}",
-                mutex_name_,
-                std::to_string(err));
+                tt::LogUMD, "pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
         }
         if (flock(fd_, LOCK_UN) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver, "flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            log_warning(tt::LogUMD, "flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
     }
 
@@ -130,14 +126,14 @@ void RobustMutex::initialize() {
     //  - File was resized, but the initialized flag is correct (this is a bit unexpected, but theoretically possible).
     if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG && !file_was_resized) {
         log_warning(
-            tt::LogSiliconDriver,
+            tt::LogUMD,
             "The file was already of correct size, but the initialized flag is wrong. This could "
             "be due to previously failed initialization, or some other external factor. Mutex name: {}",
             mutex_name_);
     }
     if (mutex_wrapper_ptr_->initialized == INITIALIZED_FLAG && file_was_resized) {
         log_warning(
-            tt::LogSiliconDriver,
+            tt::LogUMD,
             "The file was resized, but the initialized flag is correct. This is an unexpected "
             "case, the mutex might fail. Mutex name: {}",
             mutex_name_);
@@ -181,7 +177,7 @@ bool RobustMutex::resize_shm_file() {
     // Report warning if the file size is not as expected, but continue with the initialization.
     if (file_size != 0 && file_size != target_file_size) {
         log_warning(
-            tt::LogSiliconDriver,
+            tt::LogUMD,
             "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
             "some other external factor.",
             std::to_string(file_size),
@@ -251,8 +247,7 @@ void RobustMutex::close_mutex() noexcept {
         // Unmap the shared memory backed pthread_mutex object.
         if (munmap((void*)mutex_wrapper_ptr_, sizeof(pthread_mutex_wrapper)) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver, "munmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            log_warning(tt::LogUMD, "munmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
         mutex_wrapper_ptr_ = nullptr;
     }
@@ -260,8 +255,7 @@ void RobustMutex::close_mutex() noexcept {
         // Close shared memory file.
         if (close(shm_fd_) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            log_warning(tt::LogUMD, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
         shm_fd_ = -1;
     }

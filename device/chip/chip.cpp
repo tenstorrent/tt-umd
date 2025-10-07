@@ -14,6 +14,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 
 extern bool umd_use_noc1;
@@ -132,7 +133,7 @@ void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Asserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
         core,
         soft_reset_current_state,
@@ -151,7 +152,7 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
         soft_reset_new |
         (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Deasserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
         core,
         soft_reset_current_state,
@@ -225,6 +226,24 @@ int Chip::arc_msg(
     return exit_code;
 }
 
+void Chip::set_power_state(DevicePowerState state) {
+    int exit_code = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t msg = get_power_state_arc_msg(state);
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        if (state == DevicePowerState::BUSY) {
+            exit_code =
+                get_tt_device()->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+        } else {
+            exit_code = get_tt_device()->get_arc_messenger()->send_message(
+                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+        }
+    }
+    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    wait_for_aiclk_value(get_tt_device(), state);
+}
+
 tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
     // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
     // Tensix cores are always used in translated space. Other cores are used either in
@@ -251,7 +270,7 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_stat
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
                 "{}",

@@ -19,7 +19,7 @@
 void DlCloser::operator()(void* handle) const {
     if (handle != nullptr) {
         dlclose(handle);
-        log_debug(tt::LogSiliconDriver, "JTAG library closed");
+        log_debug(tt::LogUMD, "JTAG library closed");
     }
 }
 
@@ -40,7 +40,7 @@ void Jtag::openLibrary(const std::string& filePath, int flags) {
         TT_THROW("Failed to open JTAG library: {}", dlerror());
     }
 
-    log_info(tt::LogSiliconDriver, "JTAG library {} opened successfully.", filePath);
+    log_info(tt::LogUMD, "JTAG library {} opened successfully.", filePath);
 }
 
 Jtag::Jtag(const char* lib_path) { openLibrary(lib_path); }

@@ -3,7 +3,7 @@
 # You can copy some parts or whole CMake configuration from this file to your client's CMakeLists.txt file.
 
 # We have to manually add all third_party dependencies here since we are building from install artifacts
-include(./CPM.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/CPM.cmake)
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4)
 CPMAddPackage(
     NAME spdlog

@@ -39,7 +39,6 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
 
             TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
 
-            // cluster->assert_risc_reset();
             cluster->assert_risc_reset_at_core(chip_id, core, TENSIX_ASSERT_SOFT_RESET);
 
             cluster->l1_membar(chip_id, {core});
@@ -53,7 +52,9 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
 
             cluster->l1_membar(chip_id, {core});
 
-            cluster->deassert_risc_reset_at_core(chip_id, core, risc_cores);
+            cluster->assert_risc_reset_at_core(chip_id, core, brisc_core);
+
+            cluster->l1_membar(chip_id, {core});
         }
     }
 }

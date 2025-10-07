@@ -95,6 +95,8 @@ jobs:
           cp -r ${{ env.TT_UMD_DIR_SHELL }}/nanobind ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
           cp -r ${{ env.TT_UMD_DIR_SHELL }}/tools ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           echo "Preparation complete."
+          pwd
+          ls -laR ${{ env.CLIENTS_BUILD_DIR_SHELL }}
 
       - name: Build examples as standalone
         run: |

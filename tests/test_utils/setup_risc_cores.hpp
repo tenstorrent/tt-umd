@@ -30,28 +30,30 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
             return;
     }
 
-    for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        auto chip = cluster->get_chip(0);
-        auto core = cluster->get_soc_descriptor(0).translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
+    for (auto& chip_id : cluster->get_target_device_ids()) {
+        for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+            auto chip = cluster->get_chip(chip_id);
+            auto core = cluster->get_soc_descriptor(0).translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
-        TensixSoftResetOptions brisc_core{TensixSoftResetOptions::BRISC};
+            TensixSoftResetOptions brisc_core{TensixSoftResetOptions::BRISC};
 
-        TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
+            TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
 
-        chip->set_tensix_risc_reset(core, TENSIX_ASSERT_SOFT_RESET);
+            cluster->assert_risc_reset();
 
-        cluster->l1_membar(0, {core});
+            cluster->l1_membar(chip_id, {core});
 
-        cluster->write_to_device(
-            brisc_program_default.data(), brisc_program_default.size() * sizeof(std::uint32_t), 0, core, 0);
+            cluster->write_to_device(
+                brisc_program_default.data(), brisc_program_default.size() * sizeof(std::uint32_t), chip_id, core, 0);
 
-        cluster->l1_membar(0, {core});
+            cluster->l1_membar(chip_id, {core});
 
-        chip->unset_tensix_risc_reset(core, brisc_core);
+            cluster->deassert_risc_reset_at_core(chip_id, core, brisc_core);
 
-        cluster->l1_membar(0, {core});
+            cluster->l1_membar(chip_id, {core});
 
-        chip->unset_tensix_risc_reset(core, risc_cores);
+            cluster->deassert_risc_reset_at_core(chip_id, core, risc_cores);
+        }
     }
 }
 

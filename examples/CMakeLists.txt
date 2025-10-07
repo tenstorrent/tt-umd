@@ -1,4 +1,4 @@
-# Check if this is being built as a standalone project with TT_UMD_BUILD_FROM_INSTALL
+# Check if this is being built as a standalone project by running cmake from this dir
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # This is a root project build from install artifacts
     cmake_minimum_required(VERSION 3.16)

@@ -285,37 +285,33 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
-# Check for install operations - require CMake 3.23+
-if(CMAKE_VERSION VERSION_LESS 3.23)
-    message(
-        FATAL_ERROR
-        "Install operations require CMake 3.23 or later for FILE_SET support. "
-        "Current version: ${CMAKE_VERSION}, minimum required: 3.23.0. "
-        "Please upgrade CMake to use install functionality."
+# Install functionality requires CMake 3.23+ for FILE_SET support
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+    install(
+        TARGETS
+            device
+        EXPORT ${PROJECT_NAME}Targets
+        ARCHIVE
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT umd-runtime
+        FILE_SET
+        api
+            COMPONENT umd-dev
     )
-endif()
 
-install(
-    TARGETS
-        device
-    EXPORT ${PROJECT_NAME}Targets
-    ARCHIVE
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        COMPONENT umd-runtime
-    FILE_SET
-    api
+    install(
+        EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+        NAMESPACE ${PROJECT_NAME}::
         COMPONENT umd-dev
-)
-
-install(
-    EXPORT ${PROJECT_NAME}Targets
-    FILE ${PROJECT_NAME}Targets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-    NAMESPACE ${PROJECT_NAME}::
-    COMPONENT umd-dev
-)
+    )
+else()
+    # Warn user that install functionality is not available
+    message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
+endif()
 
 # Add a custom command to copy the library to build/lib
 add_custom_command(

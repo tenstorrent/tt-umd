@@ -182,7 +182,7 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
-void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
+void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
     int status = system(convert_to_space_separated_string(
                             ipmi_tool_command,
@@ -204,7 +204,7 @@ void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_ti
     fmt::print("Program exited abnormally\n");
 }
 
-void ubb_wait_for_driver_load() {
+void WarmReset::ubb_wait_for_driver_load() {
     static constexpr size_t NUMBER_OF_PCIE_DEVICES = 32;
     auto pci_devices = PCIDevice::enumerate_devices();
     auto start = std::chrono::steady_clock::now();
@@ -219,6 +219,17 @@ void ubb_wait_for_driver_load() {
     }
 
     fmt::print("Failed to find all 32 PCIe devices, found: ", pci_devices.size(), "\n");
+}
+
+void WarmReset::ubb_warm_reset() {
+    static int constexpr UBB_NUM = 0xF;
+    static int constexpr DEV_NUM = 0xFF;
+    static int constexpr OP_MODE = 0x0;
+    static int constexpr RESET_TIME = 0xF;
+
+    wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+    sleep(30);
+    ubb_wait_for_driver_load();
 }
 
 }  // namespace tt::umd

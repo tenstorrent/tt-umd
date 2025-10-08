@@ -64,6 +64,7 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
+    std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
 
@@ -305,6 +306,7 @@ public:
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
+    // J-Link ID for JTAG communication (Index inside of a vector of j-links).
     uint8_t jlink_id_;
     IODeviceType communication_device_type_;
     int communication_device_id_;

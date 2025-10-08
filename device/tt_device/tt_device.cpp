@@ -112,6 +112,8 @@ architecture_implementation *TTDevice::get_architecture_implementation() { retur
 
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
+std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
+
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
@@ -299,6 +301,14 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
+        // if(core == arc_core)
+        // {
+        //     for(int i = 0; i < size/4; i++)
+        //     {
+        //         ((uint32_t*)mem_ptr)[i] = jtag_device_->read32_axi(jlink_id_, addr + i*4).value();
+        //     }
+        //     return;
+        // }
         jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }

@@ -26,6 +26,7 @@ BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
+    jlink_id_ = jlink_id;
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
@@ -34,6 +35,9 @@ BlackholeTTDevice::~BlackholeTTDevice() {
     // application crashes -- this is a good example of why userspace should not
     // be touching this hardware resource directly -- but it's a good idea to
     // clean up after ourselves.
+    if (get_communication_device_type() != IODeviceType::PCIe) {
+        return;
+    }
     if (pci_device_->bar2_uc != nullptr && pci_device_->bar2_uc != MAP_FAILED) {
         auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
 
@@ -98,14 +102,21 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 }
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
     uint32_t niu_cfg;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-    } else {
-        read_regs(addr, 1, &niu_cfg);
-    }
+    uint64_t addr;
 
+    if (get_communication_device_type() == IODeviceType::JTAG) {
+        // Target arc core.
+        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+    } else {
+        addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+        if (addr < get_pci_device()->bar0_uc_offset) {
+            read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
+        } else {
+            read_regs(addr, 1, &niu_cfg);
+        }
+    }
+    std::cout << "NIUCFG: " << niu_cfg << std::endl;
     return ((niu_cfg >> 14) & 0x1) != 0;
 }
 
@@ -198,6 +209,11 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 }
 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
+        *((uint32_t *)mem_ptr) =
+            jtag_device_->read32_axi(jlink_id_, get_arc_noc_base_address() + arc_addr_offset).value();
+        return;
+    }
     read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 };
 
@@ -231,7 +247,12 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
     return time_taken;
 }
 
-uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
+uint64_t BlackholeTTDevice::get_arc_noc_base_address() const {
+    // if(get_communication_device_type() == IODeviceType::JTAG) {
+    //     return blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::ARC_NOC_TO_ARC_XBAR_MAP_ADDRESS_START;
+    // }
+    return blackhole::ARC_NOC_XBAR_ADDRESS_START;
+}
 
 bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
 

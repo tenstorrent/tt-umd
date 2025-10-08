@@ -42,11 +42,6 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
             continue;
         }
         uint32_t id = jtag->read_id();
-        // if (id != WORMHOLE_ID) {
-        //     log_warning(tt::LogUMD, "Only supporting WORMHOLE for now");
-        //     jtag->close_jlink();
-        //     continue;
-        // }
 
         jlink_devices.push_back(jlink_id);
         uint32_t efuse = jtag->read_axi(WORMHOLE_ARC_EFUSE_HARVESTING);
@@ -138,7 +133,8 @@ void JtagDevice::select_device(uint8_t chip_id) {
 }
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
-    auto arch_id = jtag->get_device_family();
+    select_device(chip_id);
+    DeviceFamily arch_id = (DeviceFamily)jtag->get_device_family();
 
     if (!arch_id) {
         log_warning(tt::LogUMD, "Failed to read JTAG architecture for chip_id {}", chip_id);

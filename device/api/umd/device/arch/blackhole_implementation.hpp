@@ -225,6 +225,7 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
+constexpr uint64_t ARC_NOC_TO_ARC_XBAR_MAP_ADDRESS_START = 0x800000000;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
 static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0060;
@@ -252,6 +253,9 @@ static const uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
 static const uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
 static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
+
+static const uint64_t NIU_CFG_NOC0_ARC_ADDR = 0x80050100;
+static const uint64_t NIU_CFG_NOC1_ARC_ADDR = 0x80058100;
 
 static constexpr uint32_t AICLK_BUSY_VAL = 1350;
 static constexpr uint32_t AICLK_IDLE_VAL = 800;

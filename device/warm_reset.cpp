@@ -7,6 +7,7 @@
 #include "api/umd/device/warm_reset.hpp"
 
 #include <chrono>
+#include <cstdlib>
 #include <memory>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -14,6 +15,8 @@
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
+#include "fmt/core.h"
+#include "fmt/ranges.h"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 
@@ -166,6 +169,56 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     if (reset_ok) {
         log_info(tt::LogUMD, "Reset successfully completed.");
     }
+}
+
+template <typename... Args>
+inline std::string convert_to_space_separated_string(Args&&... args) {
+    return fmt::format("{}", fmt::join({fmt::to_string(std::forward<Args>(args))...}, " "));
+}
+
+template <typename T>
+std::string to_hex_string(T value) {
+    static_assert(std::is_integral<T>::value, "Template argument must be an integral type.");
+    return fmt::format("{:#x}", value);
+}
+
+void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
+    const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
+    int status = system(convert_to_space_separated_string(
+                            ipmi_tool_command,
+                            to_hex_string(ubb_num),
+                            to_hex_string(dev_num),
+                            to_hex_string(op_mode),
+                            to_hex_string(reset_time))
+                            .c_str());
+    if (status < 0) {
+        fmt::print("Error: {}\n", strerror(errno));
+        return;
+    }
+
+    if (WIFEXITED(status)) {
+        fmt::print("Program returned normally, exit code {}\n", WEXITSTATUS(status));
+        return;
+    }
+
+    fmt::print("Program exited abnormally\n");
+}
+
+void ubb_wait_for_driver_load() {
+    static constexpr size_t NUMBER_OF_PCIE_DEVICES = 32;
+    auto pci_devices = PCIDevice::enumerate_devices();
+    auto start = std::chrono::steady_clock::now();
+    auto timeout_duration = std::chrono::seconds(100);
+    while (std::chrono::steady_clock::now() - start < timeout_duration) {
+        if (pci_devices.size() == NUMBER_OF_PCIE_DEVICES) {
+            fmt::print("Found all 32 PCIe devices\n");
+            return;
+        }
+        sleep(1);
+        pci_devices = PCIDevice::enumerate_devices();
+    }
+
+    fmt::print("Failed to find all 32 PCIe devices, found: ", pci_devices.size(), "\n");
 }
 
 }  // namespace tt::umd

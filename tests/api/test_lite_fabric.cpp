@@ -52,6 +52,10 @@ protected:
             }
         }
 
+        if (eth_cores_up.empty()) {
+            GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least one Ethernet core to be up.";
+        }
+
         fabric_chip->set_barrier_address_params(
             {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 0});
 
@@ -62,8 +66,7 @@ protected:
     void SetUp() override {
         if (should_skip_lite_fabric_tests()) {
             GTEST_SKIP()
-                << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices to be "
-                   "connected to the host.";
+                << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices connected with ethernet.";
         }
         host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get()->get_tt_device());
         lite_fabric::launch_lite_fabric(fabric_chip.get(), eth_cores_up);
@@ -75,6 +78,8 @@ protected:
         if (fabric_chip.get() != nullptr) {
             lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up);
         }
+        fabric_chip.reset();
+        non_fabric_chip.reset();
     }
 
     bool should_skip_lite_fabric_tests() {
@@ -87,6 +92,10 @@ protected:
         auto chip = LocalChip::create(pci_devices_ids[0]);
 
         if (chip->get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+            return true;
+        }
+
+        if (!fabric_chip || !non_fabric_chip) {
             return true;
         }
 

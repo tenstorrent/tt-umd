@@ -285,6 +285,7 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
+# Install functionality requires CMake 3.23+ for FILE_SET support
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     install(
         TARGETS
@@ -307,6 +308,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
         NAMESPACE ${PROJECT_NAME}::
         COMPONENT umd-dev
     )
+else()
+    # Warn user that install functionality is not available
+    message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
 endif()
 
 # Add a custom command to copy the library to build/lib

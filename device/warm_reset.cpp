@@ -184,12 +184,12 @@ std::string to_hex_string(T value) {
 
 void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
-    fmt::print("Executing command: ", convert_to_space_separated_string(
+    fmt::print("Executing command: {}\n", convert_to_space_separated_string(
                             ipmi_tool_command,
                             to_hex_string(ubb_num),
                             to_hex_string(dev_num),
                             to_hex_string(op_mode),
-                            to_hex_string(reset_time)), "\n");
+                            to_hex_string(reset_time)));
 
     int status = system(convert_to_space_separated_string(
                             ipmi_tool_command,

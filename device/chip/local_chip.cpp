@@ -116,6 +116,9 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
+    cached_pcie_dma_tlb_window.reset();
+    cached_wc_tlb_window.reset();
+    cached_uc_tlb_window.reset();
     remote_communication_.reset();
     sysmem_manager_.reset();
     tlb_manager_.reset();
@@ -700,4 +703,37 @@ void LocalChip::deassert_risc_resets() {
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
+
+TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
+    if (cached_wc_tlb_window == nullptr) {
+        cached_wc_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+        return cached_wc_tlb_window.get();
+    }
+
+    cached_wc_tlb_window->configure(config);
+    return cached_wc_tlb_window.get();
+}
+
+TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
+    if (cached_uc_tlb_window == nullptr) {
+        cached_uc_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        return cached_uc_tlb_window.get();
+    }
+
+    cached_uc_tlb_window->configure(config);
+    return cached_uc_tlb_window.get();
+}
+
+TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
+    if (cached_pcie_dma_tlb_window == nullptr) {
+        cached_pcie_dma_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        return cached_pcie_dma_tlb_window.get();
+    }
+
+    cached_pcie_dma_tlb_window->configure(config);
+    return cached_pcie_dma_tlb_window.get();
+}
 }  // namespace tt::umd

@@ -6,14 +6,20 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <mutex>
+#include <queue>
+#include <thread>
 #include <vector>
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_simulation_host.hpp"
 #include "umd/device/utils/lock_manager.h"
+#include "tt_simulation_device_generated.h"
 
 namespace tt::umd {
 
@@ -92,6 +98,15 @@ public:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) override;
 
+    // Structure for received messages
+    struct ReceivedMessage {
+        void* data;
+        size_t size;
+    };
+
+    // Helper method to wait for regular command responses
+    ReceivedMessage wait_for_command_response();
+
 private:
     // State variables
     tt_driver_noc_params noc_params;
@@ -105,6 +120,18 @@ private:
     // the simulation device code should acquire a lock
     // to ensure it can be called safely from multiple threads.
     LockManager lock_manager;
+
+    // AXI RAM notification handler
+    std::thread notification_thread;
+    std::atomic<bool> notification_thread_running{false};
+    void notification_handler_thread();
+    void handle_ram_write_notification(const DeviceRequestResponse* notification);
+    void handle_ram_read_notification(const DeviceRequestResponse* notification);
+
+    // Queue for regular commands (non-notification)
+    std::queue<ReceivedMessage> command_queue;
+    std::mutex command_queue_mutex;
+    std::condition_variable command_queue_cv;
 };
 
 }  // namespace tt::umd

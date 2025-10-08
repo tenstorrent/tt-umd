@@ -109,13 +109,13 @@ void tt_SimulationHost::start_host() {
 
 void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     int rv;
-    log_debug(tt::LogEmulationDriver, "Sending messsage to remote..");
+    log_debug(tt::LogEmulationDriver, "STD: Sending messsage to remote..");
 
     void *msg = nng_alloc(buf_size);
     std::memcpy(msg, buf, buf_size);
 
     rv = nng_send(*host_socket, msg, buf_size, NNG_FLAG_ALLOC);
-    log_debug(tt::LogEmulationDriver, "Message sent.");
+    log_debug(tt::LogEmulationDriver, "STD: Message sent.");
     if (rv != 0) {
         log_info(tt::LogEmulationDriver, "Failed to send message to remote: {}", nng_strerror(rv));
     }
@@ -124,13 +124,48 @@ void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
 size_t tt_SimulationHost::recv_from_device(void **data_ptr) {
     int rv;
     size_t data_size;
-    log_debug(tt::LogEmulationDriver, "Receiving messsage from remote..");
+    log_debug(tt::LogEmulationDriver, "RFD: Receiving messsage from remote..");
     rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
-    log_debug(tt::LogEmulationDriver, "Message received.");
+    log_debug(tt::LogEmulationDriver, "RFD: Message received.");
     if (rv != 0) {
         log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
     }
     return data_size;
 }
 
+size_t tt_SimulationHost::recv_from_device_with_timeout(void **data_ptr, int timeout_ms) {
+    int rv;
+    size_t data_size=0;
+    
+    log_debug(tt::LogEmulationDriver, "RFD (with timeout): Receiving message from remote..");
+    
+    // Save original timeout
+    nng_duration original_timeout;
+    size_t timeout_size = sizeof(original_timeout);
+    nng_socket_get(*host_socket, NNG_OPT_RECVTIMEO, &original_timeout, &timeout_size);
+    
+    // Set new timeout
+    rv = nng_socket_set_ms(*host_socket, NNG_OPT_RECVTIMEO, timeout_ms);
+    if (rv != 0) {
+        log_error(tt::LogEmulationDriver, "Failed to set receive timeout: {}", nng_strerror(rv));
+        return 0;
+    }
+    
+    // Receive with timeout
+    rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
+    
+    // Restore original timeout
+    nng_socket_set(*host_socket, NNG_OPT_RECVTIMEO, &original_timeout, sizeof(original_timeout));
+    
+    if (rv == NNG_ETIMEDOUT) {
+        log_debug(tt::LogEmulationDriver, "RFD (with timeout): Timeout occurred after {} ms", timeout_ms);
+        return 0;
+    } else if (rv != 0) {
+        log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
+        return 0;
+    }
+    
+    log_debug(tt::LogEmulationDriver, "RFD (with timeout): Message received.");
+    return data_size;
+}
 }  // namespace tt::umd

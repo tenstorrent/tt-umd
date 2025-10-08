@@ -9,7 +9,13 @@
 #include <nng/nng.h>
 #include <uv.h>
 
+#include <condition_variable>
+#include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <queue>
+#include <random>
+#include <sstream>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -99,7 +105,27 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { lock_manager.clear_mutex(MutexType::TT_SIMULATOR); }
+tt_SimulationDevice::~tt_SimulationDevice() {
+    lock_manager.clear_mutex(MutexType::TT_SIMULATOR);
+    
+    // Stop notification thread if running
+    if (notification_thread_running.load()) {
+        notification_thread_running.store(false);
+        if (notification_thread.joinable()) {
+            notification_thread.join();
+        }
+    }
+    
+    // Clean up any remaining messages in the command queue
+    std::lock_guard<std::mutex> lock(command_queue_mutex);
+    while (!command_queue.empty()) {
+        auto msg = command_queue.front();
+        command_queue.pop();
+        if (msg.data != nullptr && msg.size > 0) {
+            nng_free(msg.data, msg.size);
+        }
+    }
+}
 
 void tt_SimulationDevice::start_device() {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
@@ -113,6 +139,11 @@ void tt_SimulationDevice::start_device() {
     auto cmd = buf->command();
     TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
+
+    // Start notification handler thread
+    log_info(tt::LogEmulationDriver, "Starting AXI RAM notification handler thread...");
+    notification_thread_running.store(true);
+    notification_thread = std::thread(&tt_SimulationDevice::notification_handler_thread, this);
 }
 
 void tt_SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
@@ -145,6 +176,19 @@ void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& s
 }
 
 void tt_SimulationDevice::close_device() {
+    // Stop notification thread
+    if (notification_thread_running.load()) {
+        log_info(tt::LogEmulationDriver, "Stopping AXI RAM notification handler thread...");
+        notification_thread_running.store(false);
+        
+        // Wake up any threads waiting on the command queue so they can exit gracefully
+        command_queue_cv.notify_all();
+        
+        if (notification_thread.joinable()) {
+            notification_thread.join();
+        }
+    }
+
     // disconnect from remote connection
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
@@ -171,15 +215,20 @@ void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint6
 
 void tt_SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
-    void* rd_resp;
 
     // Send read request
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     auto rd_req_buf = create_flatbuffer(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size);
     host.send_to_device(rd_req_buf.GetBufferPointer(), rd_req_buf.GetSize());
 
-    // Get read response
-    size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
+    // Get read response from the command queue
+    auto msg = wait_for_command_response();
+    if (msg.data == nullptr || msg.size == 0) {
+        TT_THROW("Failed to receive response from device - notification thread may have stopped");
+    }
+    
+    void* rd_resp = msg.data;
+    size_t rd_rsp_sz = msg.size;
 
     auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
 
@@ -266,6 +315,153 @@ SysmemManager* tt_SimulationDevice::get_sysmem_manager() {
 
 TLBManager* tt_SimulationDevice::get_tlb_manager() {
     throw std::runtime_error("tt_SimulationDevice::get_tlb_manager is not available for this chip.");
+}
+
+// AXI RAM Notification Handler Thread
+void tt_SimulationDevice::notification_handler_thread() {
+    log_info(tt::LogEmulationDriver, "Notification handler thread started");
+    
+    while (notification_thread_running.load()) {
+        void* buf_ptr = nullptr;
+        size_t buf_size = 0;
+        
+        try {
+            // Receive message from device
+            buf_size = host.recv_from_device_with_timeout(&buf_ptr, 5000);  // 1000 ms timeout
+            
+            if (buf_size == 0 || buf_ptr == nullptr) {
+                continue;  // No message received, continue polling
+            }
+            log_info(tt::LogEmulationDriver, "Notification handler thread: received message from host");
+            
+            // Parse the message
+            auto buf = GetDeviceRequestResponse(buf_ptr);
+            auto cmd = buf->command();
+            
+            // Check if this is a notification command
+            if (cmd == DEVICE_COMMAND_AXI_RAM_WRITE_NOTIFICATION) {
+                handle_ram_write_notification(buf);
+                // Free the buffer since notifications are handled immediately
+                nng_free(buf_ptr, buf_size);
+            } else if (cmd == DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION) {
+                handle_ram_read_notification(buf);
+                // Free the buffer since notifications are handled immediately
+                nng_free(buf_ptr, buf_size);
+            } else {
+                // Regular command - put it in the queue for other threads to handle
+                log_info(
+                    tt::LogEmulationDriver,
+                    "Notification thread received regular command: {}, putting in queue",
+                    static_cast<int>(cmd));
+                
+                ReceivedMessage msg;
+                msg.data = buf_ptr;
+                msg.size = buf_size;
+                
+                {
+                    std::lock_guard<std::mutex> lock(command_queue_mutex);
+                    command_queue.push(msg);
+                }
+                command_queue_cv.notify_one();
+                
+                // Don't free buf_ptr here - it will be freed by the consumer
+            }
+            
+        } catch (const std::exception& e) {
+            log_error(tt::LogEmulationDriver, "Error in notification handler thread: {}", e.what());
+            if (buf_ptr != nullptr && buf_size > 0) {
+                nng_free(buf_ptr, buf_size);
+            }
+        }
+    }
+    
+    log_info(tt::LogEmulationDriver, "Notification handler thread stopped");
+}
+
+void tt_SimulationDevice::handle_ram_write_notification(const DeviceRequestResponse* notification) {
+    uint32_t ram_idx = notification->core()->x();
+    uint64_t address = notification->address();
+    uint32_t size = notification->size();
+    
+    log_info(
+        tt::LogEmulationDriver,
+        "[AXI_RAM_WRITE] RAM[{}] @ 0x{:08x} size={}",
+        ram_idx,
+        address,
+        size);
+    
+    // Log data if present
+    if (notification->data() && notification->data()->size() > 0) {
+        std::stringstream ss;
+        size_t num_to_print = std::min<size_t>(size_t(4), notification->data()->size());
+        for (size_t i = 0; i < num_to_print; i++) {
+            ss << std::hex << std::setw(8) << std::setfill('0') << notification->data()->Get(i) << " ";
+        }
+        if (notification->data()->size() > 4) {
+            ss << "...";
+        }
+        log_debug(tt::LogEmulationDriver, "  Data: {}", ss.str());
+    }
+}
+
+void tt_SimulationDevice::handle_ram_read_notification(const DeviceRequestResponse* notification) {
+    uint32_t ram_idx = notification->core()->x();
+    uint64_t address = notification->address();
+    uint32_t size = notification->size();
+    
+    log_info(
+        tt::LogEmulationDriver,
+        "[AXI_RAM_READ] RAM[{}] @ 0x{:08x} size={} - generating random data",
+        ram_idx,
+        address,
+        size);
+    
+    // Generate random data
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint32_t> dist(0, 0xFFFFFFFF);
+    
+    uint32_t num_uint32s = (size + 3) / 4;  // Round up to nearest uint32
+    std::vector<uint32_t> random_data(num_uint32s);
+    for (uint32_t i = 0; i < num_uint32s; i++) {
+        random_data[i] = dist(gen);
+    }
+    
+    // Log the generated data
+    if (random_data.size() > 0) {
+        std::stringstream ss;
+        size_t num_to_print = std::min<size_t>(size_t(4), random_data.size());
+        for (size_t i = 0; i < num_to_print; i++) {
+            ss << std::hex << std::setw(8) << std::setfill('0') << random_data[i] << " ";
+        }
+        if (random_data.size() > 4) {
+            ss << "...";
+        }
+        log_debug(tt::LogEmulationDriver, "  Sending data: {}", ss.str());
+    }
+    
+    // Send response back to remote with random data
+    tt_xy_pair core = {ram_idx, 0};  // Use ram_idx as X coordinate
+    auto response_builder = create_flatbuffer(DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION, random_data, core, address, size);
+    host.send_to_device(response_builder.GetBufferPointer(), response_builder.GetSize());
+    
+    log_debug(tt::LogEmulationDriver, "[AXI_RAM_READ] Response sent");
+}
+
+tt_SimulationDevice::ReceivedMessage tt_SimulationDevice::wait_for_command_response() {
+    std::unique_lock<std::mutex> lock(command_queue_mutex);
+    command_queue_cv.wait(lock, [this] { 
+        return !command_queue.empty() || !notification_thread_running.load(); 
+    });
+    
+    if (!command_queue.empty()) {
+        auto msg = command_queue.front();
+        command_queue.pop();
+        return msg;
+    } else {
+        // Notification thread has stopped, return empty message
+        return {nullptr, 0};
+    }
 }
 
 }  // namespace tt::umd

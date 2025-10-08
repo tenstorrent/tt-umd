@@ -92,10 +92,22 @@ std::string RiscTypeToString(RiscType value);
 RiscType invert_selected_options(RiscType selected);
 
 constexpr RiscType operator|(RiscType lhs, RiscType rhs) {
+    if (lhs == RiscType::ALL || lhs == RiscType::ALL_TRISCS || lhs == RiscType::ALL_DATA_MOVEMENT) {
+        TT_THROW("Reserved value ALL, ALL_TRISCS, ALL_DATA_MOVEMENT should not be used with this operator.");
+    }
+    if (rhs == RiscType::ALL || rhs == RiscType::ALL_TRISCS || rhs == RiscType::ALL_DATA_MOVEMENT) {
+        TT_THROW("Reserved value ALL, ALL_TRISCS, ALL_DATA_MOVEMENT should not be used with this operator.");
+    }
     return static_cast<RiscType>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 constexpr RiscType operator&(RiscType lhs, RiscType rhs) {
+    if (lhs == RiscType::ALL || lhs == RiscType::ALL_TRISCS || lhs == RiscType::ALL_DATA_MOVEMENT) {
+        TT_THROW("Reserved value ALL, ALL_TRISCS, ALL_DATA_MOVEMENT should not be used with this operator.");
+    }
+    if (rhs == RiscType::ALL || rhs == RiscType::ALL_TRISCS || rhs == RiscType::ALL_DATA_MOVEMENT) {
+        TT_THROW("Reserved value ALL, ALL_TRISCS, ALL_DATA_MOVEMENT should not be used with this operator.");
+    }
     return static_cast<RiscType>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 

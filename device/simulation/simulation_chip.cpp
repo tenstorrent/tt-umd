@@ -15,11 +15,11 @@
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor);
+        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id);
     } else {
-        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor);
+        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id);
     }
 }
 
@@ -28,11 +28,12 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
                                                  : (simulator_path / "soc_descriptor.yaml");
 }
 
-SimulationChip::SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
+SimulationChip::SimulationChip(
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) :
     Chip(soc_descriptor), simulator_directory_(simulator_directory) {
-    soc_descriptor_per_chip.emplace(0, soc_descriptor);
+    soc_descriptor_per_chip.emplace(chip_id, soc_descriptor);
     arch_name = soc_descriptor.arch;
-    target_devices_in_cluster = {0};
+    target_devices_in_cluster = {chip_id};
 
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory_);

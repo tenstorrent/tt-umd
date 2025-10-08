@@ -53,7 +53,8 @@ protected:
         }
 
         if (eth_cores_up.empty()) {
-            GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least one Ethernet core to be up.";
+            GTEST_SKIP() <<
+                "Skipping lite fabric tests. Lite fabric tests require at least one Ethernet core to be up.";
         }
 
         fabric_chip->set_barrier_address_params(
@@ -65,8 +66,8 @@ protected:
 
     void SetUp() override {
         if (should_skip_lite_fabric_tests()) {
-            GTEST_SKIP()
-                << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices connected with ethernet.";
+            GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices "
+                            "connected with ethernet.";
         }
         host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get()->get_tt_device());
         lite_fabric::launch_lite_fabric(fabric_chip.get(), eth_cores_up);

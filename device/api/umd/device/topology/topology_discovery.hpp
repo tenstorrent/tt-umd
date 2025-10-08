@@ -149,12 +149,14 @@ protected:
 
     bool is_running_on_6u = false;
 
-    void verify_eth_version_local(int device_id, Chip* chip);
-    void verify_eth_version_remote(int asic_id, Chip* chip);
+    bool verify_eth_version_local(int device_id, Chip* chip);
+    bool verify_eth_version_remote(int asic_id, Chip* chip);
 
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.
     std::optional<tt_version> first_eth_fw_version;
+
+    bool discover_local_chips_only = false;
 };
 
 }  // namespace tt::umd

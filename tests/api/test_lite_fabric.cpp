@@ -53,8 +53,8 @@ protected:
         }
 
         if (eth_cores_up.empty()) {
-            GTEST_SKIP() <<
-                "Skipping lite fabric tests. Lite fabric tests require at least one Ethernet core to be up.";
+            GTEST_SKIP()
+                << "Skipping lite fabric tests. Lite fabric tests require at least one Ethernet core to be up.";
         }
 
         fabric_chip->set_barrier_address_params(

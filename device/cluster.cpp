@@ -59,6 +59,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
+#include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
@@ -460,6 +461,18 @@ Cluster::Cluster(ClusterOptions options) {
         // this Cluster.
         cluster_desc =
             ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
+#ifdef TT_UMD_BUILD_SIMULATION
+    } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
+        // Filter devices only when a cluster descriptor is passed for simulation.
+        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
+        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        if (!visible_devices.empty()) {
+            cluster_desc =
+                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
+        } else {
+            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+        }
+#endif
     } else {
         // If no target devices are passed, we can use the full cluster.
         // Note that the pointer is being dereferenced below, that means that the default copy constructor will be

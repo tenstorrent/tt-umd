@@ -11,6 +11,7 @@
 #include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 

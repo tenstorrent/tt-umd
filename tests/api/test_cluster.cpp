@@ -32,6 +32,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/warm_reset.hpp"
+#include "utils.hpp"
 
 // TODO: obviously we need some other way to set this up
 #include "noc/noc_parameters.h"
@@ -106,7 +107,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
         std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
 
-        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
+        if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
             ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
 
@@ -125,7 +126,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
         }
 
-        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
             ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
     }

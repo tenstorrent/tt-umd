@@ -87,29 +87,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
-    uint32_t bar_read_initial = 0;
-    read_from_arc_apb(&bar_read_initial, wormhole::ARC_RESET_SCRATCH_OFFSET + 3 * 4, sizeof(uint32_t));
-    //  TODO: figure out 325 and 500 constants meaning and put it in variable.
-    uint32_t arg = bar_read_initial == 500 ? 325 : 500;
-    uint32_t bar_read_again;
-    std::vector<uint32_t> ret_vals(1);
-    uint32_t arc_msg_return = get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_test(), ret_vals, arg, 0, timeout_ms);
-    bar_read_again = ret_vals[0];
-    if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-        uint32_t postcode = 0;
-        read_from_arc_apb(&postcode, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(uint32_t));
-        throw std::runtime_error(fmt::format(
-            "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
-            "bar_read_again: {}",
-            postcode,
-            arc_msg_return,
-            arg,
-            bar_read_initial,
-            bar_read_again));
-    }
-}
+void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) { wait_arc_post_reset(timeout_ms); }
 
 uint32_t WormholeTTDevice::get_clock() {
     const uint32_t timeouts_ms = 1000;

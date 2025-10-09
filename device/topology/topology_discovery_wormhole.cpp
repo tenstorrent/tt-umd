@@ -352,7 +352,6 @@ void TopologyDiscoveryWormhole::verify_eth_version_local(int device_id, Chip* ch
     std::vector<CoreCoord> eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
     for (const CoreCoord& eth_core : eth_cores) {
-        // Check ETH FW version
         uint32_t eth_fw_version_read;
         chip->read_from_device(
             eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
@@ -386,7 +385,6 @@ void TopologyDiscoveryWormhole::verify_eth_version_remote(int asic_id, Chip* chi
     std::vector<CoreCoord> eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
     for (const CoreCoord& eth_core : eth_cores) {
-        // Check ETH FW version
         uint32_t eth_fw_version_read;
         chip->read_from_device(
             eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));

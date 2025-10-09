@@ -8,6 +8,7 @@
 
 #include <dlfcn.h>
 
+#include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -23,15 +24,36 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
 
-TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
-    SimulationChip(simulator_directory, soc_descriptor),
+TTSimChip::TTSimChip(
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) :
+    SimulationChip(simulator_directory, soc_descriptor, chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
     if (!std::filesystem::exists(simulator_directory)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
 
-    // dlopen the simulator library and dlsym the entry points.
-    libttsim_handle = dlopen(simulator_directory.string().c_str(), RTLD_LAZY);
+    // Create a unique copy of the .so file with chip_id appended to allow multiple instances
+    const auto sim_chip_dir_template = std::filesystem::temp_directory_path() / "umd_XXXXXX";
+    const std::filesystem::path sim_chip_dir = mkdtemp(sim_chip_dir_template.string().data());
+    const std::string filename = simulator_directory.stem().string();
+    const std::string extension = simulator_directory.extension().string();
+
+    copied_simulator_directory_ = sim_chip_dir / (filename + "_chip" + std::to_string(chip_id) + extension);
+
+    // Check if the copied .so file already exists and log a warning
+    if (std::filesystem::exists(copied_simulator_directory_)) {
+        log_warning(
+            tt::LogEmulationDriver,
+            "Copied simulator file already exists, overwriting: {}",
+            copied_simulator_directory_.string());
+    }
+
+    // Copy the original .so file to the new location
+    std::filesystem::copy_file(
+        simulator_directory, copied_simulator_directory_, std::filesystem::copy_options::overwrite_existing);
+
+    // dlopen the copied simulator library and dlsym the entry points.
+    libttsim_handle = dlopen(copied_simulator_directory_.string().c_str(), RTLD_LAZY);
     if (!libttsim_handle) {
         TT_THROW("Failed to dlopen simulator library: ", dlerror());
     }
@@ -43,7 +65,13 @@ TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescri
     DLSYM_FUNCTION(libttsim_clock)
 }
 
-TTSimChip::~TTSimChip() { dlclose(libttsim_handle); }
+TTSimChip::~TTSimChip() {
+    dlclose(libttsim_handle);
+    // Clean up the copied .so file
+    if (!copied_simulator_directory_.empty() && std::filesystem::exists(copied_simulator_directory_)) {
+        std::filesystem::remove_all(copied_simulator_directory_.parent_path());
+    }
+}
 
 void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);

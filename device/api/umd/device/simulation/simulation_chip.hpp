@@ -23,7 +23,7 @@ public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     static std::unique_ptr<SimulationChip> create(
-        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
 
     virtual ~SimulationChip() = default;
 
@@ -83,7 +83,7 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
-    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
 
     // Simulator directory.
     // Common state variables.

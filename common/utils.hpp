@@ -59,4 +59,16 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
+// This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
+// active.
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
+
+static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
+    const std::optional<std::string> env_var_value = tt::umd::utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+    return target_devices.empty() && env_var_value.has_value()
+               ? tt::umd::utils::get_unordered_set_from_string(env_var_value.value())
+                     .value_or(std::unordered_set<int>{})
+               : target_devices;
+}
+
 }  // namespace tt::umd::utils

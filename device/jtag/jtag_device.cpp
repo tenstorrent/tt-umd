@@ -321,12 +321,7 @@ std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordere
     }
     std::unordered_set<int> potential_devices_set(potential_devices.begin(), potential_devices.end());
 
-    const std::optional<std::string> env_var_value =
-        tt::umd::utils::get_env_var_value(tt::umd::TT_VISIBLE_DEVICES_ENV.data());
-    const std::unordered_set<int>& actual_jtag_target_devices =
-        jtag_target_devices.empty() && env_var_value.has_value()
-            ? tt::umd::utils::get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
-            : jtag_target_devices;
+    const std::unordered_set<int> actual_jtag_target_devices = tt::umd::utils::get_visible_devices(jtag_target_devices);
 
     if (actual_jtag_target_devices.empty()) {
         return potential_devices_set;

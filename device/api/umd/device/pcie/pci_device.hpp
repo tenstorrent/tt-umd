@@ -92,10 +92,6 @@ class PCIDevice {
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
-private:
-    static std::optional<std::unordered_set<int>> get_visible_devices(
-        const std::unordered_set<int> &pci_target_devices);
-
 public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/

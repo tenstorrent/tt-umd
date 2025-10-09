@@ -16,7 +16,7 @@ namespace tt::umd {
 // TTSIM implementation using dynamic library (.so files).
 class TTSimChip : public SimulationChip {
 public:
-    TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+    TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
     ~TTSimChip() override;
 
     void start_device() override;
@@ -32,6 +32,7 @@ public:
 
 private:
     std::unique_ptr<architecture_implementation> architecture_impl_;
+    std::filesystem::path copied_simulator_directory_;
 
     void* libttsim_handle = nullptr;
     uint32_t libttsim_pci_device_id = 0;

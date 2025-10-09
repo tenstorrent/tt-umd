@@ -443,9 +443,25 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
 uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {
-    uint32_t channel = std::distance(
-        wormhole::ETH_CORES_NOC0.begin(),
-        std::find(wormhole::ETH_CORES_NOC0.begin(), wormhole::ETH_CORES_NOC0.end(), eth_core));
+    uint32_t channel = 0;
+    if (umd_use_noc1) {
+        static bool noc1_vector_initialized = false;
+        static std::vector<tt_xy_pair> eth_cores_noc1 = {};
+        if (!noc1_vector_initialized) {
+            noc1_vector_initialized = true;
+            for (auto core : wormhole::ETH_CORES_NOC0) {
+                eth_cores_noc1.push_back(
+                    tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[core.x], wormhole::NOC0_Y_TO_NOC1_Y[core.y]));
+            }
+        }
+
+        channel =
+            std::distance(eth_cores_noc1.begin(), std::find(eth_cores_noc1.begin(), eth_cores_noc1.end(), eth_core));
+    } else {
+        channel = std::distance(
+            wormhole::ETH_CORES_NOC0.begin(),
+            std::find(wormhole::ETH_CORES_NOC0.begin(), wormhole::ETH_CORES_NOC0.end(), eth_core));
+    }
     uint32_t port_status;
     read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
     return port_status;

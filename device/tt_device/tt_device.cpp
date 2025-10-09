@@ -607,4 +607,13 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
+TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window =
+            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        return cached_tlb_window.get();
+    }
+    cached_tlb_window->configure(config);
+    return cached_tlb_window.get();
+}
 }  // namespace tt::umd

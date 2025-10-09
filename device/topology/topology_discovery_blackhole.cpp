@@ -288,8 +288,8 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
 
 // TODO: ETH FW version check incomplete for BH.
 // Waiting on SYS-1795 to publish ETH_FW_VERSION telemetry tag in Arc FW.
-void TopologyDiscoveryBlackhole::verify_eth_version_local(int device_id, Chip* chip) {}
+void TopologyDiscoveryBlackhole::verify_eth_version_local(Chip* chip) {}
 
-void TopologyDiscoveryBlackhole::verify_eth_version_remote(int asic_id, Chip* chip) {}
+void TopologyDiscoveryBlackhole::verify_eth_version_remote(Chip* chip) {}
 
 }  // namespace tt::umd

@@ -62,8 +62,8 @@ protected:
 
     void init_topology_discovery() override;
 
-    void verify_eth_version_local(int device_id, Chip* chip) override;
-    void verify_eth_version_remote(int asic_id, Chip* chip) override;
+    void verify_eth_version_local(Chip* chip) override;
+    void verify_eth_version_remote(Chip* chip) override;
 };
 
 }  // namespace tt::umd

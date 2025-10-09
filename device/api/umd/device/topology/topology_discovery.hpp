@@ -149,8 +149,8 @@ protected:
 
     bool is_running_on_6u = false;
 
-    virtual void verify_eth_version_local(int device_id, Chip* chip) = 0;
-    virtual void verify_eth_version_remote(int asic_id, Chip* chip) = 0;
+    virtual void verify_eth_version_local(Chip* chip) = 0;
+    virtual void verify_eth_version_remote(Chip* chip) = 0;
 
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.

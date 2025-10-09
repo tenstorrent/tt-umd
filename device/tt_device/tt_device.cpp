@@ -58,10 +58,10 @@ TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_imp
 
 void TTDevice::init_tt_device() {
     pre_init_hook();
+    wait_arc_core_start();
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    wait_arc_core_start();
     post_init_hook();
 }
 

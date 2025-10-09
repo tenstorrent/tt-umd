@@ -171,7 +171,8 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
         try {
             tlb_window = std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(size, mapping), config);
             return tlb_window;
-        } catch (...) {
+        } catch (const std::exception& e) {
+            log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", size, e.what());
         }
     }
 

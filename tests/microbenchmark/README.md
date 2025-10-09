@@ -61,3 +61,12 @@ At the moment, ```std::chrono``` is used to measure time for performance inside 
 This section specifies machine specification for all configurations
 
 - N150 machine - PCIe Gen4 x16, CPU AMD EPYC 7352 24-Core Processor 96 cores, 2.3 GHz
+
+## List of benchmarks
+
+List of benchmarks in UMD at the moment is
+
+- [TLB IO benchmark](benchmarks/tlb/README.md)
+- [PCIe DMA benchmark](benchmarks/pcie_dma/README.md)
+- [IOMMU benchmark](benchmarks/iommu/README.md)
+- [Ethernet IO benchmark](benchmarks/ethernet_io/README.md)

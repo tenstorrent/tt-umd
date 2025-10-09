@@ -47,9 +47,7 @@ void RemoteWormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr
     write_to_device(mem_ptr, get_arc_core(), get_arc_noc_base_address() + arc_addr_offset, size);
 }
 
-bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
-    throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
-}
+bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
 
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
     remote_communication_->get_local_device()->detect_hang_read(data_read);

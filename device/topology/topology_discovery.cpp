@@ -67,12 +67,27 @@ TopologyDiscovery::TopologyDiscovery(
     target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+    init_local_devices();
     init_topology_discovery();
     cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_connected_chips();
     discover_remote_chips();
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
+}
+
+void TopologyDiscovery::init_local_devices() {
+    auto pci_device_ids = PCIDevice::enumerate_devices();
+
+    std::vector<std::unique_ptr<TTDevice>> tt_devices;
+
+    for (auto& i : pci_device_ids) {
+        auto tt_device = TTDevice::create(i);
+        if (!tt_device->wait_arc_post_reset(300'000)) {
+            std::cout << "Reset failed for pci id " << i << " - ARC core init failed\n";
+            continue;
+        }
+    }
 }
 
 void TopologyDiscovery::init_topology_discovery() {}

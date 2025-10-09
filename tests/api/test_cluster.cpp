@@ -566,21 +566,6 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 
     cluster.reset();
 
-    auto pci_device_ids = PCIDevice::enumerate_devices();
-
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    tt_devices.reserve(pci_device_ids.size());
-
-    for (auto& i : pci_device_ids) {
-        auto tt_device = TTDevice::create(i);
-        if (!tt_device->wait_arc_post_reset(300'000)) {
-            // log_warning(tt::LogUMD, "Reset failed for pci id {} - ARC core init failed", i);
-            std::cout << "Reset failed for pci id " << i << " - ARC core init failed\n";
-            continue;
-        }
-        tt_devices.emplace_back(std::move(tt_device));
-    }
-
     cluster = std::make_unique<Cluster>();
     chip_id = *cluster->get_target_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();

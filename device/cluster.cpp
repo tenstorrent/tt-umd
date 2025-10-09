@@ -60,6 +60,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
@@ -237,7 +238,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
-    tt_version fw_first_eth_core = cluster_desc->eth_fw_version;
+    semver_t fw_first_eth_core = cluster_desc->eth_fw_version;
 
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
@@ -264,7 +265,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
                     (fw_first_eth_core >= ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
-                     fw_first_eth_core == tt_version(6, 7, 241)) &&
+                     fw_first_eth_core == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
         }
@@ -1087,12 +1088,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) c
     }
 }
 
-tt_version Cluster::get_ethernet_fw_version() const {
+semver_t Cluster::get_ethernet_fw_version() const {
     TT_ASSERT(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
-    TT_ASSERT(
-        eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
-        "Device must be started before querying Ethernet FW version.");
-    return eth_fw_version;
+    TT_ASSERT(eth_fw_version.has_value(), "Device must be started before querying Ethernet FW version.");
+    return eth_fw_version.value();
 }
 
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {

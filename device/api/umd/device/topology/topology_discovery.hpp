@@ -154,7 +154,7 @@ protected:
 
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.
-    std::optional<tt_version> first_eth_fw_version;
+    std::optional<semver_t> first_eth_fw_version;
 };
 
 }  // namespace tt::umd

@@ -620,7 +620,7 @@ public:
      * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
      * Will return a bogus version if no remote chips are supported for the device.
      */
-    tt_version get_ethernet_fw_version() const;
+    semver_t get_ethernet_fw_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -735,9 +735,7 @@ private:
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
-    tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
-    // ERISC FW Version Required by UMD
-    static constexpr std::uint32_t SW_VERSION = 0x06060000;
+    std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.
 };
 
 }  // namespace tt::umd

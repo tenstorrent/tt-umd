@@ -9,6 +9,7 @@
 
 #include "assert.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
@@ -356,11 +357,11 @@ void TopologyDiscoveryWormhole::verify_eth_version_local(int device_id, Chip* ch
         chip->read_from_device(
             eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
 
-        tt_version eth_fw_version(eth_fw_version_read);
+        semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
 
         if (!first_eth_fw_version.has_value()) {
-            log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.str());
-            log_info(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.str());
+            log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.to_string());
+            log_info(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
             first_eth_fw_version = eth_fw_version;
             if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
                 TT_THROW("ETH FW major version is newer than UMD supported version");
@@ -376,7 +377,7 @@ void TopologyDiscoveryWormhole::verify_eth_version_local(int device_id, Chip* ch
                 "ETH FW version mismatch for LocalChip {} ETH core {}, found: {}.",
                 device_id,
                 eth_core.str(),
-                eth_fw_version.str());
+                eth_fw_version.to_string());
         }
     }
 }
@@ -389,14 +390,14 @@ void TopologyDiscoveryWormhole::verify_eth_version_remote(int asic_id, Chip* chi
         uint32_t eth_fw_version_read;
         chip->read_from_device(
             eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
-        tt_version eth_fw_version(eth_fw_version_read);
+        semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
 
         if (eth_fw_version != first_eth_fw_version) {
             TT_THROW(
                 "ETH FW version mismatch for RemoteChip ASIC ID {} ETH core {}, found: {}.",
                 asic_id,
                 eth_core.str(),
-                eth_fw_version.str());
+                eth_fw_version.to_string());
         }
     }
 }

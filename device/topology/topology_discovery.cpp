@@ -19,6 +19,7 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
@@ -302,7 +303,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         }
     }
     cluster_desc->io_device_type = io_device_type;
-    cluster_desc->eth_fw_version = first_eth_fw_version.value_or(tt_version());
+    cluster_desc->eth_fw_version = first_eth_fw_version.value_or(semver_t(0xFFFF, 0xFF, 0xFF));
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();
 

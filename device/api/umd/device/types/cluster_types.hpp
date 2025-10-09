@@ -233,6 +233,7 @@ struct HugepageMapping {
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.
+using tt_version = tt::umd::tt_version;
 using barrier_address_params = tt::umd::BarrierAddressParams;
 using device_params = tt::umd::DeviceParams;
 using tt_device_params = tt::umd::DeviceParams;

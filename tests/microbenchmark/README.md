@@ -54,10 +54,10 @@ You can look at [TLB benchmark directory](./benchmarks/tlb/) as an example.
 
 ## Timing tool
 
-At the moment, ```std::chrono``` is used to measure time for performance inside UMD microbenchmarks. This should be improved in the future by more sophisticated tool.
+At the moment, ```std::chrono``` is used to measure time for performance inside UMD microbenchmarks. This should be improved in the future by a more sophisticated tool.
 
 ## Machine specification
 
 This section specifies machine specification for all configurations
 
-- N150 machine - PCIe Gen4 x16, CPU ?
+- N150 machine - PCIe Gen4 x16, CPU AMD EPYC 7352 24-Core Processor 96 cores, 2.3 GHz

@@ -220,11 +220,11 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
     log_warning(tt::LogUMD, "Reset failed! Program terminated for an unknown reason (status: 0x{:x})", status);
 }
 
-void WarmReset::ubb_wait_for_driver_load() {
+void WarmReset::ubb_wait_for_driver_load(uint64_t timeout_s) {
     static constexpr size_t NUMBER_OF_PCIE_DEVICES = 32;
     auto pci_devices = PCIDevice::enumerate_devices();
     auto start = std::chrono::steady_clock::now();
-    auto timeout_duration = std::chrono::seconds(100);
+    auto timeout_duration = std::chrono::seconds(timeout_s);
     while (std::chrono::steady_clock::now() - start < timeout_duration) {
         if (pci_devices.size() == NUMBER_OF_PCIE_DEVICES) {
             log_info(tt::LogUMD, "Found all {} PCIe devices", NUMBER_OF_PCIE_DEVICES);
@@ -238,7 +238,7 @@ void WarmReset::ubb_wait_for_driver_load() {
         tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
 }
 
-void WarmReset::ubb_warm_reset() {
+void WarmReset::ubb_warm_reset(uint64_t timeout_s) {
     static int constexpr UBB_NUM = 0xF;
     static int constexpr DEV_NUM = 0xFF;
     static int constexpr OP_MODE = 0x0;
@@ -248,7 +248,7 @@ void WarmReset::ubb_warm_reset() {
     log_info(tt::LogUMD, "Waiting for 30 seconds");
     sleep(30);
     log_info(tt::LogUMD, "30 seconds elapsed");
-    ubb_wait_for_driver_load();
+    ubb_wait_for_driver_load(timeout_s);
 }
 
 }  // namespace tt::umd

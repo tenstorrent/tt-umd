@@ -553,6 +553,11 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
         GTEST_SKIP() << "Only galaxy test configuration.";
     }
 
+    auto arch = cluster->get_cluster_description()->get_arch();
+    if (arch != tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP() << "Only test Wormhole architecture for Galaxy UBB reset.";
+    }
+
     static constexpr uint32_t write_test_data = 0xDEADBEEF;
 
     for(auto& chip_id : cluster->get_target_mmio_device_ids()) {

@@ -117,6 +117,9 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
+    cached_pcie_dma_tlb_window.reset();
+    cached_wc_tlb_window.reset();
+    cached_uc_tlb_window.reset();
     remote_communication_.reset();
     sysmem_manager_.reset();
     tlb_manager_.reset();
@@ -190,9 +193,7 @@ void LocalChip::start_device() {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    // TODO: Enable this once all tt-metal tests are passing.
-    // chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE,
-    // tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
     check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
@@ -457,14 +458,6 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     }
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
-    const auto callable = [this](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
-    };
-
-    return callable;
-}
-
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
@@ -711,4 +704,37 @@ void LocalChip::deassert_risc_resets() {
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
+
+TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
+    if (cached_wc_tlb_window == nullptr) {
+        cached_wc_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+        return cached_wc_tlb_window.get();
+    }
+
+    cached_wc_tlb_window->configure(config);
+    return cached_wc_tlb_window.get();
+}
+
+TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
+    if (cached_uc_tlb_window == nullptr) {
+        cached_uc_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        return cached_uc_tlb_window.get();
+    }
+
+    cached_uc_tlb_window->configure(config);
+    return cached_uc_tlb_window.get();
+}
+
+TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
+    if (cached_pcie_dma_tlb_window == nullptr) {
+        cached_pcie_dma_tlb_window = std::make_unique<TlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        return cached_pcie_dma_tlb_window.get();
+    }
+
+    cached_pcie_dma_tlb_window->configure(config);
+    return cached_pcie_dma_tlb_window.get();
+}
 }  // namespace tt::umd

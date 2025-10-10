@@ -29,7 +29,7 @@ protected:
         }
         auto soc_descriptor_path = SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
-        device = SimulationChip::create(simulator_path, soc_descriptor);
+        device = SimulationChip::create(simulator_path, soc_descriptor, 0);
         device->start_device();
     }
 

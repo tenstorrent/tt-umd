@@ -7,6 +7,7 @@
 #include <nanobind/stl/map.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -119,4 +120,30 @@ void bind_telemetry(nb::module_ &m) {
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+
+    nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
+        .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)
+        .def("get_board_id", &FirmwareInfoProvider::get_board_id)
+        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version)
+        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
+        .def("get_aiclk", &FirmwareInfoProvider::get_aiclk)
+        .def("get_axiclk", &FirmwareInfoProvider::get_axiclk)
+        .def("get_arcclk", &FirmwareInfoProvider::get_arcclk)
+        .def("get_fan_speed", &FirmwareInfoProvider::get_fan_speed)
+        .def("get_tdp", &FirmwareInfoProvider::get_tdp)
+        .def("get_tdc", &FirmwareInfoProvider::get_tdc)
+        .def("get_vcore", &FirmwareInfoProvider::get_vcore)
+        .def("get_board_temperature", &FirmwareInfoProvider::get_board_temperature)
+        .def("get_dram_training_status", &FirmwareInfoProvider::get_dram_training_status, nb::arg("dram_channel"))
+        .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq)
+        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
+        .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat)
+        .def_static(
+            "get_minimum_compatible_firmware_version",
+            &FirmwareInfoProvider::get_minimum_compatible_firmware_version,
+            nb::arg("arch"))
+        .def_static(
+            "get_latest_supported_firmware_version",
+            &FirmwareInfoProvider::get_latest_supported_firmware_version,
+            nb::arg("arch"));
 }

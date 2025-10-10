@@ -216,7 +216,14 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
         // This covers N300, P300.
         case 2: {
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            const BoardType board_type = cluster_desc->get_board_type(*all_chips.begin());
+            if (board_type == BoardType::N300) {
+                EXPECT_EQ(chips_with_mmio.size(), 1);
+            } else if (board_type == BoardType::P300) {
+                EXPECT_TRUE(chips_with_mmio.size() == 1 || chips_with_mmio.size() == 2)
+                    << "Unexpected number of mmio capable chips for P300: " << chips_with_mmio.size();
+            }
 
             auto eth_connections = cluster_desc->get_ethernet_connections();
             EXPECT_EQ(count_connections(eth_connections), 4);

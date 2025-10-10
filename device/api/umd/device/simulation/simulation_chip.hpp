@@ -23,7 +23,7 @@ public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     static std::unique_ptr<SimulationChip> create(
-        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
 
     virtual ~SimulationChip() = default;
 
@@ -46,8 +46,6 @@ public:
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
-
-    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
 
     void wait_for_non_mmio_flush() override;
 
@@ -85,7 +83,7 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
-    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor);
+    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
 
     // Simulator directory.
     // Common state variables.

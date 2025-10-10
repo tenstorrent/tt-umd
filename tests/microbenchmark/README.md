@@ -8,14 +8,11 @@ This repository contains microbenchmarks for evaluating the performance of key c
 
 - **`benchmarks/`**  
   One directory per benchmark (e.g., `test_tlb/`, `test_pcie_dma/`). Each contains:
-  - `README.md` – details about the benchmark’s purpose and usage.
+  - `README.md` – details about the benchmark’s purpose and usage, as well as results of the benchmark.
   - Benchmark source code - multiple tests for the part of the system that is being tested
 
 - **`common/`**  
   Shared utilities used across benchmarks, such as timing helpers or data generators.
-
-- **`results/`**  
-  Benchmarks results: At the moment, we are going to put results in README tables. In the future we would want to make .csv files directly from benchmarks.
 
 ---
 
@@ -57,4 +54,19 @@ You can look at [TLB benchmark directory](./benchmarks/tlb/) as an example.
 
 ## Timing tool
 
-At the moment, ```std::chrono``` is used to measure time for performance inside UMD microbenchmarks. This should be improved in the future by more sophisticated tool.
+At the moment, ```std::chrono``` is used to measure time for performance inside UMD microbenchmarks. This should be improved in the future by a more sophisticated tool.
+
+## Machine specification
+
+This section specifies machine specification for all configurations
+
+- N150 machine - PCIe Gen4 x16, CPU AMD EPYC 7352 24-Core Processor 96 cores, 2.3 GHz
+
+## List of benchmarks
+
+List of benchmarks in UMD at the moment is
+
+- [TLB IO benchmark](benchmarks/tlb/README.md)
+- [PCIe DMA benchmark](benchmarks/pcie_dma/README.md)
+- [IOMMU benchmark](benchmarks/iommu/README.md)
+- [Ethernet IO benchmark](benchmarks/ethernet_io/README.md)

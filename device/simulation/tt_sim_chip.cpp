@@ -4,13 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "umd/device/simulation/tt_sim_chip.hpp"
+
 #include <dlfcn.h>
 
+#include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/simulation/tt_simulation_chip.hpp"
 
 #define DLSYM_FUNCTION(func_name)                                                    \
     pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
@@ -20,17 +22,38 @@
 
 namespace tt::umd {
 
-static_assert(!std::is_abstract<TTSimulationChip>(), "TTSimulationChip must be non-abstract.");
+static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
 
-TTSimulationChip::TTSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
-    SimulationChip(simulator_directory, soc_descriptor),
+TTSimChip::TTSimChip(
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) :
+    SimulationChip(simulator_directory, soc_descriptor, chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
     if (!std::filesystem::exists(simulator_directory)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
 
-    // dlopen the simulator library and dlsym the entry points.
-    libttsim_handle = dlopen(simulator_directory.string().c_str(), RTLD_LAZY);
+    // Create a unique copy of the .so file with chip_id appended to allow multiple instances
+    const auto sim_chip_dir_template = std::filesystem::temp_directory_path() / "umd_XXXXXX";
+    const std::filesystem::path sim_chip_dir = mkdtemp(sim_chip_dir_template.string().data());
+    const std::string filename = simulator_directory.stem().string();
+    const std::string extension = simulator_directory.extension().string();
+
+    copied_simulator_directory_ = sim_chip_dir / (filename + "_chip" + std::to_string(chip_id) + extension);
+
+    // Check if the copied .so file already exists and log a warning
+    if (std::filesystem::exists(copied_simulator_directory_)) {
+        log_warning(
+            tt::LogEmulationDriver,
+            "Copied simulator file already exists, overwriting: {}",
+            copied_simulator_directory_.string());
+    }
+
+    // Copy the original .so file to the new location
+    std::filesystem::copy_file(
+        simulator_directory, copied_simulator_directory_, std::filesystem::copy_options::overwrite_existing);
+
+    // dlopen the copied simulator library and dlsym the entry points.
+    libttsim_handle = dlopen(copied_simulator_directory_.string().c_str(), RTLD_LAZY);
     if (!libttsim_handle) {
         TT_THROW("Failed to dlopen simulator library: ", dlerror());
     }
@@ -42,9 +65,15 @@ TTSimulationChip::TTSimulationChip(const std::filesystem::path& simulator_direct
     DLSYM_FUNCTION(libttsim_clock)
 }
 
-TTSimulationChip::~TTSimulationChip() { dlclose(libttsim_handle); }
+TTSimChip::~TTSimChip() {
+    dlclose(libttsim_handle);
+    // Clean up the copied .so file
+    if (!copied_simulator_directory_.empty() && std::filesystem::exists(copied_simulator_directory_)) {
+        std::filesystem::remove_all(copied_simulator_directory_.parent_path());
+    }
+}
 
-void TTSimulationChip::start_device() {
+void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
     pfn_libttsim_init();
 
@@ -56,26 +85,26 @@ void TTSimulationChip::start_device() {
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 }
 
-void TTSimulationChip::close_device() {
+void TTSimChip::close_device() {
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     pfn_libttsim_exit();
 }
 
-void TTSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, l1_dest, src, size);
 }
 
-void TTSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, l1_src, dest, size);
     pfn_libttsim_clock(10);
 }
 
-void TTSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
+void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::mutex> lock(device_lock);
     if ((libttsim_pci_device_id == 0x401E) || (libttsim_pci_device_id == 0xB140)) {  // WH/BH
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -87,14 +116,13 @@ void TTSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const 
     }
 }
 
-void TTSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     Chip::send_tensix_risc_reset(soft_resets);
 }
 
-void TTSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
-    TT_THROW("Untested implementation of assert_risc_reset, test and then enable");
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
@@ -104,10 +132,9 @@ void TTSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected
     pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
 }
 
-void TTSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    TT_THROW("Untested implementation of deassert_risc_reset, test and then enable");
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);

@@ -266,7 +266,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
             if (!device_cnt) {
-                return;
+                TT_THROW("Topology discovery initialisation failed, no JTAG devices were found..");
             }
             // JTAG devices (j-links) are referred to with their index within a vector
             // that's stored inside of a JtagDevice object.

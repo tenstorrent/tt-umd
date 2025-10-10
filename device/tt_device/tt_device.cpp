@@ -96,10 +96,19 @@ std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
+            // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
+            // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
+            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
+                return std::unique_ptr<RemoteWormholeTTDevice>(
+                    new RemoteWormholeTTDevice(std::move(remote_communication), target_chip, IODeviceType::JTAG));
+            }
             return std::unique_ptr<RemoteWormholeTTDevice>(
                 new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
         }
         case tt::ARCH::BLACKHOLE: {
+            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
+                TT_THROW("Remote TTDevice creation over JTAG is not yet supported for Blackhole architecture.");
+            }
             return std::unique_ptr<RemoteBlackholeTTDevice>(
                 new RemoteBlackholeTTDevice(std::move(remote_communication)));
         }
@@ -607,4 +616,13 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
+TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window =
+            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        return cached_tlb_window.get();
+    }
+    cached_tlb_window->configure(config);
+    return cached_tlb_window.get();
+}
 }  // namespace tt::umd

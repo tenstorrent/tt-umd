@@ -122,10 +122,6 @@ void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, ui
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> RemoteChip::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error("RemoteChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
-}
-
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }

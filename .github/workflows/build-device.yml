@@ -15,11 +15,16 @@ on:
     branches: ["main"]
 
 env:
+  TT_UMD_DIR: tt-umd
+  # Note that $GITHUB_WORKSPACE can only be used in the shell step.
+  TT_UMD_DIR_SHELL: $GITHUB_WORKSPACE/tt-umd
+  CLIENTS_BUILD_DIR_SHELL: $GITHUB_WORKSPACE/build_clients
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
+  INSTALL_OUTPUT_DIR: ./install
 
 jobs:
   build:
@@ -46,6 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Clone under tt-umd directory
+          path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
       - name: Set GCC compiler
@@ -58,7 +65,54 @@ jobs:
       # Build with all components to verify the build passes.
       - name: Build All
         run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_ALL=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
+
+      - name: Install device library
+        run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          echo "Installing device library..."
+          cmake --install ${{ env.BUILD_OUTPUT_DIR }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
+          echo "Install complete."
+
+      - name: Prepare and isolate install artifacts
+        run: |
+          echo "Preparing and isolating install artifacts..."
+          mkdir ${{ env.CLIENTS_BUILD_DIR_SHELL }}
+          cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}
+          echo "Copying install artifacts..."
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/${{ env.INSTALL_OUTPUT_DIR }} \
+             ${{ env.CLIENTS_BUILD_DIR_SHELL }}/umd_install
+          echo "Copying cmake example config file..."
+          mkdir -p ${{ env.CLIENTS_BUILD_DIR_SHELL }}/cmake
+          cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/example_client.cmake \
+             ${{ env.CLIENTS_BUILD_DIR_SHELL }}/cmake/example_client.cmake
+          cp ${{ env.TT_UMD_DIR_SHELL }}/cmake/CPM.cmake ${{ env.CLIENTS_BUILD_DIR_SHELL }}/cmake/CPM.cmake
+          echo "Copying components to build..."
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/examples ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/nanobind ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
+          cp -r ${{ env.TT_UMD_DIR_SHELL }}/tools ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
+          echo "Preparation complete."
+          pwd
+          ls -laR ${{ env.CLIENTS_BUILD_DIR_SHELL }}
+
+      - name: Build examples as standalone
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake --build build
+
+      - name: Build nanobind as standalone
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake --build build
+
+      - name: Build tools as standalone
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake --build build

@@ -52,6 +52,9 @@ protected:
     /*
      * Create a device without an underlying communication device.
      * Used for remote devices that depend on remote_communication.
+     * WARNING: This constructor should not be used for PCIe devices as certain functionalities from base class rely on
+     * the presence of an underlying communication device. Creating a WormholeTTDevice without an underlying
+     * communication device over PCIe would require overriding several methods from the base class.
      */
     WormholeTTDevice();
 

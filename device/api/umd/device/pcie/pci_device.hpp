@@ -80,8 +80,6 @@ enum class TenstorrentResetDevice : uint32_t {
     CONFIG_WRITE = 2
 };
 
-inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
-
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
@@ -93,10 +91,6 @@ class PCIDevice {
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
-
-private:
-    static std::optional<std::unordered_set<int>> get_visible_devices(
-        const std::unordered_set<int> &pci_target_devices);
 
 public:
     /**
@@ -244,6 +238,13 @@ public:
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.
      */
     static bool is_mapping_buffer_to_noc_supported();
+
+    /**
+     * Get the architecture of the PCIe device driver. The function enumerates PCIe devices on the system
+     * and returns the architecture of the first device it finds. If no devices are found, returns Invalid architecture.
+     * It also caches the value so subsequent calls are faster.
+     */
+    static tt::ARCH get_pcie_arch();
 
 public:
     // TODO: we can and should make all of these private.

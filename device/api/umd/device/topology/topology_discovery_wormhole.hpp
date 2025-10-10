@@ -78,5 +78,8 @@ protected:
 
     static const uint32_t ETH_UNKNOWN = 0;
     static const uint32_t ETH_UNCONNECTED = 1;
+
+    void verify_eth_version_local(Chip* chip) override;
+    void verify_eth_version_remote(Chip* chip) override;
 };
 }  // namespace tt::umd

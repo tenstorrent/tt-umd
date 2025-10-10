@@ -56,9 +56,11 @@
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
@@ -237,6 +239,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
+    eth_fw_version = cluster_desc->eth_fw_version;
+
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
@@ -252,9 +256,21 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             remote_chip_ids_);
         verify_fw_bundle_version();
         log_device_summary();
+
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            verify_eth_fw();
+            // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
+            use_ethernet_broadcast &= eth_fw_version >= ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
+            // Temporarily enable this feature for 6.7.241 as well for testing.
+            use_translated_coords_for_eth_broadcast = true;
+            for (const auto& chip : all_chip_ids_) {
+                use_translated_coords_for_eth_broadcast &=
+                    (eth_fw_version >= ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                     eth_fw_version == semver_t(6, 7, 241)) &&
+                    get_soc_descriptor(chip).noc_translation_enabled;
+            }
         }
+
         if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
             verify_sysmem_initialized();
         }
@@ -1031,51 +1047,6 @@ void Cluster::deassert_resets_and_set_power_state() {
     set_power_state(DevicePowerState::BUSY);
 }
 
-void Cluster::verify_eth_fw() {
-    for (const auto& chip : all_chip_ids_) {
-        uint32_t fw_version;
-        std::vector<uint32_t> fw_versions;
-        for (const CoreCoord eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH)) {
-            read_from_device(
-                &fw_version, chip, eth_core, get_chip(chip)->l1_address_params.fw_version_addr, sizeof(uint32_t));
-            fw_versions.push_back(fw_version);
-        }
-        verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-        eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
-    }
-}
-
-void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
-    if (fw_versions.empty()) {
-        log_debug(
-            LogUMD,
-            "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
-            device_id);
-        return;
-    }
-    tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
-    log_info(
-        LogUMD,
-        "Software version {}, Ethernet FW version {} (Device {})",
-        sw.str(),
-        fw_first_eth_core.str(),
-        device_id);
-    for (std::uint32_t& fw_version : fw_versions) {
-        tt_version fw(fw_version);
-        TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        TT_ASSERT(sw.major <= fw.major, "SW/FW major version number out of sync");
-        TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
-    }
-
-    // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-    use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
-    // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
-    // Temporarily enable this feature for 6.7.241 as well for testing.
-    use_translated_coords_for_eth_broadcast &=
-        (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) &&
-        get_soc_descriptor(device_id).noc_translation_enabled;
-}
-
 void Cluster::start_device(const device_params& device_params) {
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
@@ -1122,12 +1093,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) c
     }
 }
 
-tt_version Cluster::get_ethernet_fw_version() const {
+semver_t Cluster::get_ethernet_fw_version() const {
     TT_ASSERT(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
-    TT_ASSERT(
-        eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
-        "Device must be started before querying Ethernet FW version.");
-    return eth_fw_version;
+    TT_ASSERT(eth_fw_version.has_value(), "Device must be started before querying Ethernet FW version.");
+    return eth_fw_version.value();
 }
 
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {

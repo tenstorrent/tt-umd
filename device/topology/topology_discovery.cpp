@@ -90,7 +90,8 @@ void TopologyDiscovery::init_local_devices() {
         auto tt_device = TTDevice::create(pci_device_id);
         if (!tt_device->wait_arc_post_reset(300'000)) {
             log_error(tt::LogUMD, "Local TTDevice ARC core initialization failed for PCI id {}", pci_device_id);
-            throw std::runtime_error(fmt::format("Topology discovery aborted: failed to initialize local TTDevice for PCI id {}.", pci_device_id));
+            throw std::runtime_error(fmt::format(
+                "Topology discovery aborted: failed to initialize local TTDevice for PCI id {}.", pci_device_id));
         }
     }
 }

@@ -197,13 +197,13 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
 
     if (WIFEXITED(status)) {
         int exit_code = WEXITSTATUS(status);
-        
+
         if (exit_code == 0) {
             // Success: Exit code is 0
             log_info(tt::LogUMD, "Reset successfully completed. Exit code: {}", exit_code);
             return;
         }
-        
+
         // Failure: Program exited normally but with a non-zero code
         log_error(tt::LogUMD, "Reset error! Program exited with code: {}", exit_code);
         return;
@@ -211,9 +211,7 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
 
     if (WIFSIGNALED(status)) {
         int signal_num = WTERMSIG(status);
-        log_error(tt::LogUMD, "Reset failed! Program terminated by signal: {} ({})", 
-            signal_num, 
-            strsignal(signal_num));
+        log_error(tt::LogUMD, "Reset failed! Program terminated by signal: {} ({})", signal_num, strsignal(signal_num));
         return;
     }
 

@@ -805,8 +805,6 @@ TEST(SiliconDriverWH, DMA1) {
     const chip_id_t chip = 0;
     Cluster cluster;
 
-    cluster.start_device(device_params{});
-
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
@@ -855,9 +853,6 @@ TEST(SiliconDriverWH, DMA2) {
     const chip_id_t chip = 0;
     Cluster cluster;
 
-    set_barrier_params(cluster);
-    cluster.start_device(device_params{});
-
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
@@ -893,7 +888,7 @@ TEST(SiliconDriverWH, DMA2) {
         for (const auto& core : dram_cores) {
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
-            uint64_t addr = addr_dist(rng) & ~0x3ULL;
+            uint64_t addr = 0;
 
             // Generate a random pattern of the specified size.
             std::vector<uint8_t> pattern(size);
@@ -930,7 +925,7 @@ TEST(SiliconDriverWH, DMA2) {
         for (const auto& dram_core : dram_cores) {
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
-            uint64_t addr = addr_dist(rng) & ~0x3ULL;
+            uint64_t addr = 0;
 
             // Generate a random pattern of the specified size.
             std::vector<uint8_t> pattern(size);

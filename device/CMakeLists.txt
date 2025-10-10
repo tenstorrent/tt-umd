@@ -98,6 +98,7 @@ target_sources(
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
+        utils/debug_mode.cpp
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp

@@ -49,6 +49,7 @@ WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implem
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
+    log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {

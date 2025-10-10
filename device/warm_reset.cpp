@@ -12,13 +12,12 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "utils.hpp"
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
-
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -173,13 +172,15 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
 void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
-    log_info(tt::LogUMD, "Executing command: {}", utils::convert_to_space_separated_string(
-                            ipmi_tool_command,
-                            utils::to_hex_string(ubb_num),
-                            utils::to_hex_string(dev_num),
-                            utils::to_hex_string(op_mode),
-                            utils::to_hex_string(reset_time)));
-    
+    log_info(
+        tt::LogUMD,
+        "Executing command: {}",
+        utils::convert_to_space_separated_string(
+            ipmi_tool_command,
+            utils::to_hex_string(ubb_num),
+            utils::to_hex_string(dev_num),
+            utils::to_hex_string(op_mode),
+            utils::to_hex_string(reset_time)));
 
     int status = system(utils::convert_to_space_separated_string(
                             ipmi_tool_command,
@@ -215,7 +216,8 @@ void WarmReset::ubb_wait_for_driver_load() {
         pci_devices = PCIDevice::enumerate_devices();
     }
 
-    log_warning(tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
+    log_warning(
+        tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
 }
 
 void WarmReset::ubb_warm_reset() {

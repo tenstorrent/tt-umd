@@ -560,7 +560,7 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 
     static constexpr uint32_t write_test_data = 0xDEADBEEF;
 
-    for(auto& chip_id : cluster->get_target_mmio_device_ids()) {
+    for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
         tt_device->bar_write32(
             tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
@@ -574,7 +574,7 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 
     cluster = std::make_unique<Cluster>();
 
-    for(auto& chip_id : cluster->get_target_mmio_device_ids()) {
+    for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
         auto read_test_data = tt_device->bar_read32(

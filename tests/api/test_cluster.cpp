@@ -544,6 +544,7 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
 
 TEST(TestCluster, GalaxyWarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -582,6 +583,7 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
             tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
 
         EXPECT_NE(write_test_data, read_test_data);
+        EXPECT_EQ(DEFAULT_VALUE_IN_SCRATCH_REGISTER, read_test_data);
     }
 }
 

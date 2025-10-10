@@ -121,6 +121,8 @@ architecture_implementation *TTDevice::get_architecture_implementation() { retur
 
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
+std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
+
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {

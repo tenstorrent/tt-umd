@@ -154,7 +154,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     uint32_t peer_region_start = region_id_to_use * region_size;
     uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",
         region,
         peer_region_start,
@@ -530,7 +530,7 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
         auto now = std::chrono::system_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
         if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
-            log_debug(LogSiliconDriver, "Post reset wait for ARC timed out after: {}", timeout_ms);
+            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms);
             return false;
         }
 
@@ -544,18 +544,18 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_debug(LogSiliconDriver, "NoAccess error");
+                log_debug(LogUMD, "NoAccess error");
                 return false;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_debug(LogSiliconDriver, "WatchdogTriggered error");
+                log_debug(LogUMD, "WatchdogTriggered error");
                 return false;
             case STATUS_BOOT_INCOMPLETE_1:
             case STATUS_BOOT_INCOMPLETE_2:
-                log_debug(LogSiliconDriver, "BootIncomplete error");
+                log_debug(LogUMD, "BootIncomplete error");
                 continue;
             case STATUS_ASLEEP_1:
             case STATUS_ASLEEP_2:
-                log_debug(LogSiliconDriver, "Asleep error");
+                log_debug(LogUMD, "Asleep error");
                 continue;
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
@@ -567,26 +567,26 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
                 if (pc_idle) {
                     return true;
                 }
-                log_debug(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
+                log_debug(LogUMD, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
                 continue;
             }
         }
 
         // Check for outstanding DMA request
         if (bar_read_arc_csm_pcie_dma_request != 0) {
-            log_debug(LogSiliconDriver, "OutstandingPcieDMA error");
+            log_debug(LogUMD, "OutstandingPcieDMA error");
             continue;
         }
         // Check for queued message
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL) {
             uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
-            log_debug(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
+            log_debug(LogUMD, "MessageQueued error, message_id: {}", message_id);
             continue;
         }
         // Check for message being handled
         if ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL) {
             uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
-            log_debug(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
+            log_debug(LogUMD, "HandlingMessage error, message_id: {}", message_id);
             continue;
         }
         // Message complete, response written into bar_read_arc_reset_scratch_status

@@ -122,14 +122,7 @@ void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, ui
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> RemoteChip::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error("RemoteChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
-}
-
-void RemoteChip::wait_for_non_mmio_flush() {
-    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-    remote_communication_->wait_for_non_mmio_flush();
-}
+void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
@@ -138,17 +131,6 @@ void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
-
-void RemoteChip::set_power_state(DevicePowerState state) {
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t msg = get_power_state_arc_msg(state);
-        int exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-        TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
-    }
-    wait_for_aiclk_value(tt_device_.get(), state);
-}
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 

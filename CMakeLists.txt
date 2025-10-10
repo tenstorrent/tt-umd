@@ -41,6 +41,8 @@ project(
         CXX
 )
 
+message(STATUS "CMake version: ${CMAKE_VERSION}")
+
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 CHECK_COMPILERS()
 include(check_libcpp)

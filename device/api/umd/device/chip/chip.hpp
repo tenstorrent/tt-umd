@@ -57,8 +57,6 @@ public:
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
 
-    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() = 0;
-
     virtual void wait_for_non_mmio_flush() = 0;
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
@@ -99,7 +97,7 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    virtual void set_power_state(DevicePowerState state) = 0;
+    virtual void set_power_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -137,7 +135,7 @@ protected:
 
     uint32_t get_power_state_arc_msg(DevicePowerState state);
 
-    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 100);
 
     ChipInfo chip_info_;
 

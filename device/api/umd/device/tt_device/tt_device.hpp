@@ -17,6 +17,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -341,6 +342,12 @@ private:
     virtual void pre_init_hook(){};
 
     virtual void post_init_hook(){};
+
+    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+
+    TlbWindow *get_cached_tlb_window(tlb_data config);
+
+    std::mutex tt_device_io_lock;
 };
 
 }  // namespace tt::umd

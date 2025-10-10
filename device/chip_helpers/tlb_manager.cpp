@@ -13,6 +13,8 @@
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.hpp"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
@@ -24,7 +26,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
         tt_device_->get_pci_device()->get_device_num(),
         core.str(),
@@ -37,6 +39,41 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
     auto tlb_size = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
     tlb_config_map_.insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_index});
+}
+
+void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
+    TT_ASSERT(
+        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
+        "Invalid ordering specified in Cluster::configure_tlb");
+    log_debug(
+        LogUMD,
+        "Configuring TLB for chip: {} core: {} size: {} address: {} ordering: {}",
+        tt_device_->get_pci_device()->get_device_num(),
+        core.str(),
+        tlb_size,
+        address,
+        ordering);
+
+    tlb_data config{};
+    config.local_offset = address;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
+
+    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
+    map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
+    tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
+}
+
+TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
+    if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
+        return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
+    } else {
+        throw std::runtime_error(fmt::format("TLB window for core ({}, {}) not found.", core.x, core.y));
+    }
 }
 
 void TLBManager::set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t tlb_index) {
@@ -106,6 +143,40 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
 
     int tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+}
+
+const std::vector<size_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) {
+    constexpr uint32_t one_mb = 1 << 20;
+    constexpr size_t one_gb = 1024ULL * one_mb;
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return {1 * one_mb, 2 * one_mb, 16 * one_mb};
+        case tt::ARCH::BLACKHOLE:
+            return {2 * one_mb, 4ULL * one_gb};
+        default:
+            throw std::runtime_error(fmt::format("Unsupported architecture: {}", static_cast<int>(arch)));
+    }
+}
+
+std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
+    tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    if (tlb_size != 0) {
+        return std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
+    }
+
+    const std::vector<size_t> possible_arch_sizes = TLBManager::get_tlb_arch_sizes(tt_device_->get_arch());
+
+    for (const auto& size : possible_arch_sizes) {
+        std::unique_ptr<TlbWindow> tlb_window = nullptr;
+        try {
+            tlb_window = std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(size, mapping), config);
+            return tlb_window;
+        } catch (const std::exception& e) {
+            log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", size, e.what());
+        }
+    }
+
+    throw std::runtime_error(fmt::format("Failed to allocate TLB window."));
 }
 
 };  // namespace tt::umd

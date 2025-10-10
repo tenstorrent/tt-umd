@@ -74,7 +74,7 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex(
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
-        log_warning(LogSiliconDriver, "Mutex already initialized: {}", mutex_name);
+        log_warning(LogUMD, "Mutex already initialized: {}", mutex_name);
         return;
     }
 
@@ -84,7 +84,7 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
-        log_warning(LogSiliconDriver, "Mutex not initialized or already cleared: {}", mutex_name);
+        log_warning(LogUMD, "Mutex not initialized or already cleared: {}", mutex_name);
         return;
     }
     // The destructor will automatically close the underlying mutex.

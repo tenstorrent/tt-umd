@@ -30,7 +30,7 @@ set(ARCHS
 )
 foreach(ARCH IN LISTS ARCHS)
     set(HW_NOC_PARAMETERS_URL
-        "https://raw.githubusercontent.com/tenstorrent/tt-metal/refs/heads/main/tt_metal/hw/inc/${ARCH}/noc/noc_parameters.h"
+        "https://raw.githubusercontent.com/tenstorrent/tt-metal/refs/heads/main/tt_metal/hw/inc/tt-1xx/${ARCH}/noc/noc_parameters.h"
     )
     set(DESTINATION_DIR ${CMAKE_CURRENT_BINARY_DIR}/${ARCH}/noc)
     file(MAKE_DIRECTORY ${DESTINATION_DIR})

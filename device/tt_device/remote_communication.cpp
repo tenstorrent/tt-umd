@@ -51,9 +51,7 @@ tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
         // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in
         // the outgoing eth channels.
         log_warning(
-            LogSiliconDriver,
-            "Number of active ethernet cores {} exceeds the maximum of 8.",
-            remote_transfer_eth_cores_.size());
+            LogUMD, "Number of active ethernet cores {} exceeds the maximum of 8.", remote_transfer_eth_cores_.size());
     }
     if (remote_transfer_eth_cores_.empty()) {
         throw std::runtime_error("No remote transfer ethernet cores set.");

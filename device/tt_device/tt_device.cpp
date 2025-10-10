@@ -379,7 +379,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     }
 
     log_trace(
-        LogSiliconDriver,
+        LogUMD,
         "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, "
         "multicast "
         "= {}, ordering = {}",
@@ -418,7 +418,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             .apply_offset(tlb_config.offset);
 
     log_trace(
-        LogSiliconDriver,
+        LogUMD,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
         "tlb_cfg_reg: 0x{:x} to core ({},{})",
         tlb_index,
@@ -466,8 +466,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uin
         std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
 
         if (dram_training_status.empty()) {
-            log_warning(
-                LogSiliconDriver, "DRAM training status is not available, breaking the wait for DRAM training.");
+            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
             return;
         }
 
@@ -585,7 +584,7 @@ ChipInfo TTDevice::get_chip_info() {
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
-    chip_info.chip_uid.board_id = get_board_id();
+    chip_info.board_id = get_board_id();
     chip_info.board_type = get_board_type();
     chip_info.asic_location = get_asic_location();
 
@@ -608,4 +607,13 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
+TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window =
+            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        return cached_tlb_window.get();
+    }
+    cached_tlb_window->configure(config);
+    return cached_tlb_window.get();
+}
 }  // namespace tt::umd

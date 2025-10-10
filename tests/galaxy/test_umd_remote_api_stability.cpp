@@ -56,7 +56,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
     int seed = 0;
 
     assert(cluster != nullptr);
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfers");
+    log_info(LogUMD, "Started MixedRemoteTransfers");
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
@@ -85,7 +85,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
+    log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
     std::thread t1([&]() {

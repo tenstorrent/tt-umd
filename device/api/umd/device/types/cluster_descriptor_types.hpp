@@ -238,19 +238,6 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
 }
 
-struct ChipUID {
-    uint64_t board_id;
-    uint8_t asic_location;
-
-    bool operator<(const ChipUID &other) const {
-        return std::tie(board_id, asic_location) < std::tie(other.board_id, other.asic_location);
-    }
-
-    bool const operator==(const ChipUID &other) const {
-        return board_id == other.board_id && asic_location == other.asic_location;
-    }
-};
-
 struct HarvestingMasks {
     size_t tensix_harvesting_mask = 0;
     size_t dram_harvesting_mask = 0;
@@ -272,7 +259,7 @@ struct ChipInfo {
     bool noc_translation_enabled = false;
     HarvestingMasks harvesting_masks = {0, 0, 0, 0};
     BoardType board_type = BoardType::UNKNOWN;
-    ChipUID chip_uid = {0, 0};
+    uint64_t board_id = 0;
     uint8_t asic_location = 0;
 };
 

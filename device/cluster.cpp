@@ -59,6 +59,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
+#include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
@@ -112,7 +113,7 @@ void Cluster::verify_sysmem_initialized() {
                 hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
         }
         if (!hugepages_initialized) {
-            log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", chip_id);
+            log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);
         }
     }
 }
@@ -156,7 +157,7 @@ void Cluster::log_pci_device_summary() {
         bool current_iommu_state = pci_device->is_iommu_enabled();
         if (current_iommu_state != expected_iommu_state) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "IOMMU state mismatch for chip {}: expected {}, got {}",
                 chip_id,
                 iommu_state_str(expected_iommu_state),
@@ -170,10 +171,10 @@ void Cluster::log_pci_device_summary() {
     }
 
     if (all_devices_same_iommu_state) {
-        log_info(LogSiliconDriver, "IOMMU: {}", iommu_state_str(expected_iommu_state));
+        log_info(LogUMD, "IOMMU: {}", iommu_state_str(expected_iommu_state));
     }
 
-    log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
+    log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
 void Cluster::verify_fw_bundle_version() {
@@ -203,7 +204,7 @@ void Cluster::verify_fw_bundle_version() {
 
     if (compare_fw_bundle_with_latest == 1) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
             "features may not be supported.",
             fw_bundle_version.to_string(),
@@ -218,7 +219,7 @@ void Cluster::verify_fw_bundle_version() {
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 fmt::format(
                     "Firmware bundle version mismatch for chip {}: expected {}, got {}",
                     chip_id,
@@ -228,8 +229,7 @@ void Cluster::verify_fw_bundle_version() {
         }
     }
     if (all_device_same_fw_bundle_version) {
-        log_info(
-            LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
+        log_info(LogUMD, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
     }
 }
 
@@ -244,7 +244,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
         log_info(
-            LogSiliconDriver,
+            LogUMD,
             "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
             DeviceTypeToString.at(cluster_desc->get_io_device_type()),
             local_chip_ids_,
@@ -262,7 +262,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON) {
+    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON || arch_name == tt::ARCH::BLACKHOLE) {
         use_ethernet_broadcast = false;
     }
 }
@@ -279,8 +279,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
-        log_info(LogSiliconDriver, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc);
+        log_info(LogUMD, "Creating Simulation device");
+        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -305,15 +305,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         return chip;
     } else {
-        if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
-            throw std::runtime_error("Remote chips are supported only for wormhole.");
-        }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
         const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
             local_chip,
-            cluster_desc->get_chip_locations().at(chip_id),
+            cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
             soc_desc);
     }
@@ -388,13 +385,13 @@ HarvestingMasks Cluster::get_harvesting_masks(
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
     if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
+        log_info(LogUMD, "Skipping harvesting for chip {}.", chip_id);
         return HarvestingMasks{};
     }
 
     HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
         "{:#x}).",
         chip_id,
@@ -464,6 +461,18 @@ Cluster::Cluster(ClusterOptions options) {
         // this Cluster.
         cluster_desc =
             ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
+#ifdef TT_UMD_BUILD_SIMULATION
+    } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
+        // Filter devices only when a cluster descriptor is passed for simulation.
+        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
+        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        if (!visible_devices.empty()) {
+            cluster_desc =
+                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
+        } else {
+            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+        }
+#endif
     } else {
         // If no target devices are passed, we can use the full cluster.
         // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
@@ -552,11 +561,6 @@ void Cluster::deassert_risc_reset(
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
-    int device_id) {
-    return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
-}
-
 Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
@@ -571,7 +575,7 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
-    log_debug(LogSiliconDriver, "Cluster::~Cluster");
+    log_debug(LogUMD, "Cluster::~Cluster");
 
     cluster_desc.reset();
 }
@@ -586,7 +590,7 @@ void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
+        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
         tlb_index,
         address,
         ordering);
@@ -767,7 +771,7 @@ void Cluster::ethernet_broadcast_write(
     const std::set<chip_id_t>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
-    bool use_virtual_coords) {
+    bool use_translated_coords) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported
         std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers =
@@ -786,7 +790,7 @@ void Cluster::ethernet_broadcast_write(
         // Write broadcast block to device.
         for (auto& mmio_group : broadcast_headers) {
             for (auto& header : mmio_group.second) {
-                header.at(4) = use_virtual_coords * 0x8000;  // Reset row/col exclusion masks
+                header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
                 get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
@@ -794,12 +798,11 @@ void Cluster::ethernet_broadcast_write(
         }
     } else {
         // Broadcast not supported. Implement this at the software level as a for loop
-        std::vector<tt_cxy_pair> cores_to_write = {};
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::VIRTUAL)) {
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
                     write_to_device(mem_ptr, size_in_bytes, chip, core, address);
@@ -852,7 +855,7 @@ void Cluster::broadcast_write_to_cluster(
             }
         } else {
             TT_ASSERT(
-                use_virtual_coords_for_eth_broadcast or
+                use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
@@ -862,7 +865,7 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                use_virtual_coords_for_eth_broadcast);
+                use_translated_coords_for_eth_broadcast);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
@@ -901,7 +904,7 @@ void Cluster::broadcast_write_to_cluster(
             }
         } else {
             TT_ASSERT(
-                use_virtual_coords_for_eth_broadcast or
+                use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
@@ -911,7 +914,7 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                use_virtual_coords_for_eth_broadcast);
+                use_translated_coords_for_eth_broadcast);
         }
     }
 }
@@ -1048,14 +1051,14 @@ void Cluster::verify_eth_fw() {
 void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
     if (fw_versions.empty()) {
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
             device_id);
         return;
     }
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
     log_info(
-        LogSiliconDriver,
+        LogUMD,
         "Software version {}, Ethernet FW version {} (Device {})",
         sw.str(),
         fw_first_eth_core.str(),
@@ -1071,7 +1074,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
     // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
     // Temporarily enable this feature for 6.7.241 as well for testing.
-    use_virtual_coords_for_eth_broadcast &=
+    use_translated_coords_for_eth_broadcast &=
         (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) &&
         get_soc_descriptor(device_id).noc_translation_enabled;
 }

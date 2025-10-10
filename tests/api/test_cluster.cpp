@@ -750,6 +750,20 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 }
 
+TEST(TestCluster, SocDescriptorSerialize) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
+
+        std::filesystem::path file_path = soc_descriptor.serialize_to_file();
+        SocDescriptor soc(
+            file_path.string(),
+            {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
+             .harvesting_masks = soc_descriptor.harvesting_masks});
+    }
+}
+
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

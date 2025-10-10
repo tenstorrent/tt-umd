@@ -39,6 +39,7 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
+static const semver_t kmd_version_for_tlbs = semver_t(1, 34, 0);
 static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
 static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
 
@@ -276,8 +277,6 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(std::unordered_se
     return infos;
 }
 
-static const semver_t kmd_version_for_tlbs = semver_t(1, 34, 0);
-
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
@@ -288,6 +287,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
+    if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
+        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
+    }
     if (kmd_version < kmd_version_for_tlbs) {
         TT_THROW("Running UMD requires KMD version {} or newer.", kmd_version_for_tlbs.to_string());
     }
@@ -373,14 +375,13 @@ PCIDevice::PCIDevice(int pci_device_number) :
         throw std::runtime_error(fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
     }
 
-    const uint32_t one_mb = 1 << 20;
     bar0 = mmap(
         NULL,
-        3 * one_mb,
+        PCIDevice::bar0_size,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + 509 * one_mb);
+        bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
 
     if (bar0 == MAP_FAILED) {
         throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));

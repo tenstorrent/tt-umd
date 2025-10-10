@@ -249,7 +249,7 @@ public:
     // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
     void *bar0 = nullptr;
     // We only map 3MB of BAR0, which covers NOC2AXI access and ARC CSM memory.
-    const size_t bar0_size = 3 * (1 << 20);
+    static constexpr size_t bar0_size = 3 * (1 << 20);
 
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
@@ -281,6 +281,8 @@ private:
      * Uses ALLOCATE_DMA_BUF IOCTL which allocates physically contiguous memory for DMA transactions.
      */
     bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
+
+    static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 };
 
 }  // namespace tt::umd

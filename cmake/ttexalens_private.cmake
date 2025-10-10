@@ -2,7 +2,7 @@
 # If it is not, we should check if user has access to private repository.
 
 set(TTEXALENS_PRIVATE_GIT_REPOSITORY "git@yyz-gitlab.local.tenstorrent.com:tenstorrent/tt-exalens-private.git")
-set(TTEXALENS_PRIVATE_GIT_TAG "148c3dfaa1e3582fcb628148a109091d26d17265")
+set(TTEXALENS_PRIVATE_GIT_TAG "7433a053a54e7d05c85ea984be4f96e355300953")
 option(DOWNLOAD_TTEXALENS_PRIVATE "Download tt-lens private repository" OFF)
 
 if(DOWNLOAD_TTEXALENS_PRIVATE)

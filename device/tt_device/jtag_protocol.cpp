@@ -17,8 +17,4 @@ void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
     jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
 }
 
-void JtagProtocol::wait_for_non_mmio_flush() {}
-
-bool JtagProtocol::is_remote() { return false; }
-
 }  // namespace tt::umd

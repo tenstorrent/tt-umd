@@ -50,10 +50,6 @@ void PcieProtocol::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t add
     }
 }
 
-void PcieProtocol::wait_for_non_mmio_flush() {}
-
-bool PcieProtocol::is_remote() { return false; }
-
 void PcieProtocol::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
     void *dest = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {

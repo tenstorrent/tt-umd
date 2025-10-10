@@ -23,10 +23,6 @@ public:
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    void wait_for_non_mmio_flush() override;
-
-    bool is_remote() override;
-
     // PCIe specific methods.
     void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t* buffer_addr);
     void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buffer_addr);

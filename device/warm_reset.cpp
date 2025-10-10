@@ -12,11 +12,11 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
+#include "utils.hpp"
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
-#include "fmt/core.h"
-#include "fmt/ranges.h"
+
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 
@@ -112,7 +112,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
         if (!tt_device->wait_arc_post_reset(300'000)) {
-            log_warning(tt::LogUMD, "Reset failed for pci id {} - ARC core init failed", i);
+            log_warning(tt::LogUMD, "Reset failed for PCI id {} - ARC core init failed", i);
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));
@@ -171,44 +171,34 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     }
 }
 
-template <typename... Args>
-inline std::string convert_to_space_separated_string(Args&&... args) {
-    return fmt::format("{}", fmt::join({fmt::to_string(std::forward<Args>(args))...}, " "));
-}
-
-template <typename T>
-std::string to_hex_string(T value) {
-    static_assert(std::is_integral<T>::value, "Template argument must be an integral type.");
-    return fmt::format("{:#x}", value);
-}
-
 void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
-    fmt::print("Executing command: {}\n", convert_to_space_separated_string(
+    log_info(tt::LogUMD, "Executing command: {}", utils::convert_to_space_separated_string(
                             ipmi_tool_command,
-                            to_hex_string(ubb_num),
-                            to_hex_string(dev_num),
-                            to_hex_string(op_mode),
-                            to_hex_string(reset_time)));
+                            utils::to_hex_string(ubb_num),
+                            utils::to_hex_string(dev_num),
+                            utils::to_hex_string(op_mode),
+                            utils::to_hex_string(reset_time)));
+    
 
-    int status = system(convert_to_space_separated_string(
+    int status = system(utils::convert_to_space_separated_string(
                             ipmi_tool_command,
-                            to_hex_string(ubb_num),
-                            to_hex_string(dev_num),
-                            to_hex_string(op_mode),
-                            to_hex_string(reset_time))
+                            utils::to_hex_string(ubb_num),
+                            utils::to_hex_string(dev_num),
+                            utils::to_hex_string(op_mode),
+                            utils::to_hex_string(reset_time))
                             .c_str());
     if (status < 0) {
-        fmt::print("Error: {}\n", strerror(errno));
+        log_error(LogUMD, "Reset error! Exit code is: {}", strerror(errno));
         return;
     }
 
     if (WIFEXITED(status)) {
-        fmt::print("Program returned normally, exit code {}\n", WEXITSTATUS(status));
+        log_info(tt::LogUMD, "Reset successfully completed. Exit code is: {}", WEXITSTATUS(status));
         return;
     }
 
-    fmt::print("Program exited abnormally\n");
+    log_warning(tt::LogUMD, "Reset successfully completed, but program exited incorrectly. Exit code is: {}", WEXITSTATUS(status));
 }
 
 void WarmReset::ubb_wait_for_driver_load() {
@@ -218,14 +208,14 @@ void WarmReset::ubb_wait_for_driver_load() {
     auto timeout_duration = std::chrono::seconds(100);
     while (std::chrono::steady_clock::now() - start < timeout_duration) {
         if (pci_devices.size() == NUMBER_OF_PCIE_DEVICES) {
-            fmt::print("Found all 32 PCIe devices\n");
+            log_info(tt::LogUMD, "Found all {} PCIe devices", NUMBER_OF_PCIE_DEVICES);
             return;
         }
         sleep(1);
         pci_devices = PCIDevice::enumerate_devices();
     }
 
-    fmt::print("Failed to find all 32 PCIe devices, found: ", pci_devices.size(), "\n");
+    log_warning(tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
 }
 
 void WarmReset::ubb_warm_reset() {
@@ -235,11 +225,10 @@ void WarmReset::ubb_warm_reset() {
     static int constexpr RESET_TIME = 0xF;
 
     wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
-    fmt::print("Waiting for 30 seconds\n");
+    log_info(tt::LogUMD, "Waiting for 30 seconds");
     sleep(30);
-    fmt::print("30 seconds elapsed\n");
+    log_info(tt::LogUMD, "30 seconds elapsed");
     ubb_wait_for_driver_load();
-
 }
 
 }  // namespace tt::umd

@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include "fmt/ranges.h"
 
 namespace tt::umd::utils {
 
@@ -69,6 +70,17 @@ static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>
                ? tt::umd::utils::get_unordered_set_from_string(env_var_value.value())
                      .value_or(std::unordered_set<int>{})
                : target_devices;
+}
+
+template <typename... Args>
+inline std::string convert_to_space_separated_string(Args&&... args) {
+    return fmt::format("{}", fmt::join({fmt::to_string(std::forward<Args>(args))...}, " "));
+}
+
+template <typename T>
+std::string to_hex_string(T value) {
+    static_assert(std::is_integral<T>::value, "Template argument must be an integral type.");
+    return fmt::format("{:#x}", value);
 }
 
 }  // namespace tt::umd::utils

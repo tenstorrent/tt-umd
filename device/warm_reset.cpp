@@ -198,7 +198,7 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
         return;
     }
 
-    log_warning(tt::LogUMD, "Reset successfully completed, but program exited incorrectly. Exit code is: {}", WEXITSTATUS(status));
+    log_warning(tt::LogUMD, "Program exited incorrectly.");
 }
 
 void WarmReset::ubb_wait_for_driver_load() {

@@ -86,8 +86,8 @@ void TopologyDiscovery::init_local_devices() {
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
 
-    for (auto& i : pci_device_ids) {
-        auto tt_device = TTDevice::create(i);
+    for (auto& pci_device_id : pci_device_ids) {
+        auto tt_device = TTDevice::create(pci_device_id);
         if (!tt_device->wait_arc_post_reset(300'000)) {
             log_warning(tt::LogUMD, "Local TTDevice ARC core initialization failed for PCI id {}", i);
             continue;

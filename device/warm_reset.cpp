@@ -157,7 +157,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
         if (refclk_values_old[i] < refclk_current[i]) {
             reset_ok = false;
             log_warning(
-                LogUMD,
+                tt::LogUMD,
                 "Reset for PCI: {} didn't go through! Refclk didn't reset. Value before: {}, value after: {}",
                 i,
                 refclk_values_old[i],
@@ -189,17 +189,35 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
                             utils::to_hex_string(op_mode),
                             utils::to_hex_string(reset_time))
                             .c_str());
-    if (status < 0) {
-        log_error(LogUMD, "Reset error! Exit code is: {}", strerror(errno));
+
+    if (status == -1) {
+        log_error(tt::LogUMD, "System call failed to execute: {}", strerror(errno));
         return;
     }
 
     if (WIFEXITED(status)) {
-        log_info(tt::LogUMD, "Reset successfully completed. Exit code is: {}", WEXITSTATUS(status));
+        int exit_code = WEXITSTATUS(status);
+        
+        if (exit_code == 0) {
+            // Success: Exit code is 0
+            log_info(tt::LogUMD, "Reset successfully completed. Exit code: {}", exit_code);
+            return;
+        }
+        
+        // Failure: Program exited normally but with a non-zero code
+        log_error(tt::LogUMD, "Reset error! Program exited with code: {}", exit_code);
         return;
     }
 
-    log_warning(tt::LogUMD, "Program exited incorrectly.");
+    if (WIFSIGNALED(status)) {
+        int signal_num = WTERMSIG(status);
+        log_error(tt::LogUMD, "Reset failed! Program terminated by signal: {} ({})", 
+            signal_num, 
+            strsignal(signal_num));
+        return;
+    }
+
+    log_warning(tt::LogUMD, "Reset failed! Program terminated for an unknown reason (status: 0x{:x})", status);
 }
 
 void WarmReset::ubb_wait_for_driver_load() {

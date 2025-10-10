@@ -422,6 +422,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, target_chip_ids);
 
     desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, target_chip_ids);
+    desc->io_device_type = full_cluster_desc->io_device_type;
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {

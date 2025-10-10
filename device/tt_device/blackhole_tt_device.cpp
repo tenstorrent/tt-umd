@@ -286,8 +286,6 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {
-    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
-
     // TODO: I am commented that out because we end up in this code path if we
     // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
     // it doesn't necessarily mean the hardware is hung. It's possible to write

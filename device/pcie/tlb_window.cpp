@@ -345,14 +345,34 @@ void TlbWindow::custom_memcpy_aligned(void *dst, const void *src, std::size_t n)
         }
     }
 
-    // Optional memory fence for debugging/synchronization
-    // Ensures all streaming stores complete before function returns
-    // if constexpr (debug_sync) {
-    tt_driver_atomics::sfence();
-// }
 #else
     std::memcpy(dest, src, num_bytes);
 #endif
+}
+
+void TlbWindow::non_overlapping_memcpy(void *dst, const void *src, std::size_t n) {
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+
+    while (((uintptr_t)d & 7) && n) {
+        *d++ = *s++;
+        --n;
+    }
+
+    uint64_t *dw = (uint64_t *)d;
+    const uint64_t *sw = (const uint64_t *)s;
+
+    while (n >= 8) {
+        *dw++ = *sw++;
+        n -= 8;
+    }
+
+    d = (unsigned char *)dw;
+    s = (const unsigned char *)sw;
+
+    while (n--) {
+        *d++ = *s++;
+    }
 }
 
 void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {

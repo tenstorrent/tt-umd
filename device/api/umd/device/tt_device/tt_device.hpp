@@ -369,6 +369,7 @@ protected:
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
     void custom_memcpy(void *dst, const void *src, std::size_t size);
     void custom_memcpy_aligned(void *dst, const void *src, std::size_t n);
+    void non_overlapping_memcpy(void *dst, const void *src, std::size_t n);
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);

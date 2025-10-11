@@ -22,12 +22,13 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {name: ubuntu-22.04},
-          {name: ubuntu-24.04},
+          {name: ubuntu-22.04, runs-on: ubuntu-22.04},
+          {name: ubuntu-24.04, runs-on: ubuntu-22.04},
+          {name: alpine-3.22, runs-on: ubuntu-22.04}
         ]
 
     name: Building docker image ${{ matrix.build.name }}
-    runs-on: ${{ matrix.build.name }}
+    runs-on: ${{ matrix.build.runs-on}}
 
     steps:
       - name: Set environment variable

@@ -60,10 +60,10 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = eth_core;
-        if (chip_info_.board_type == BoardType::UBB) {
-            // TODO issue 1208: figure out why translated ETH don't work on UBB
-            actual_eth_core =
-                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        if (get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
+            // Translated space for ETH cores is different than NOC1 and wait_eth_core training is expecting NOC0
+            // coordinates.
+            actual_eth_core = soc_descriptor_.translate_coord_to(eth_core, CoordSystem::NOC0);
         } else {
             actual_eth_core = translate_chip_coord_to_translated(eth_core);
         }

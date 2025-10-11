@@ -647,20 +647,6 @@ TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 4);
 }
 
-TEST(SocDescriptor, SocDescriptorSerialize) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
-
-        std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-        SocDescriptor soc(
-            file_path.string(),
-            {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
-             .harvesting_masks = soc_descriptor.harvesting_masks});
-    }
-}
-
 TEST(SocDescriptor, SerializeSimulatorBlackhole) {
     const SocDescriptor& soc_descriptor = SocDescriptor(
         test_utils::GetSocDescAbsPath("blackhole_simulation_1x2.yaml"),

@@ -243,7 +243,7 @@ void WarmReset::ubb_warm_reset(uint64_t timeout_s) {
     static int constexpr RESET_TIME = 0xF;
 
     wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
-    log_info(tt::LogUMD, "Waiting for 30 seconds after reset to execution.");
+    log_info(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
     sleep(30);
     log_info(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_s);

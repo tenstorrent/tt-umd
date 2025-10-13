@@ -282,7 +282,7 @@ void run_data_broadcast_test(
 TEST(GalaxyDataMovement, BroadcastData1) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
-    tt_multichip_core_addr sender_core(4, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
+    tt_multichip_core_addr sender_core(4, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -295,7 +295,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
 TEST(GalaxyDataMovement, BroadcastData2) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
-    tt_multichip_core_addr sender_core(12, CoreCoord(18, 1, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
+    tt_multichip_core_addr sender_core(12, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
     receiver_cores.push_back(

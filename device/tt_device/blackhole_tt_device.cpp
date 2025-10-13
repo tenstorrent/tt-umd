@@ -240,6 +240,8 @@ bool BlackholeTTDevice::is_hardware_hung() {
     // exception. In my case, the hardware was not hung but the 0xffffffff was
     // related to a failure which was obscured by the exception. For now,
     // just return false.  -- @joelsmithTT, Oct 1 2025
+
+    log_warning(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
     return false;
 }
 

@@ -157,25 +157,6 @@ void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1
     nng_free(rd_resp, rd_rsp_sz);
 }
 
-void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::mutex> lock(device_lock);
-    if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
-    } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
-    } else {
-        TT_THROW("Invalid soft reset option.");
-    }
-}
-
-void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset({0, 0}, soft_resets);
-}
-
 void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);

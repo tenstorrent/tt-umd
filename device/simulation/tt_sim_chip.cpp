@@ -104,22 +104,6 @@ void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     pfn_libttsim_clock(10);
 }
 
-void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::mutex> lock(device_lock);
-    if ((libttsim_pci_device_id == 0x401E) || (libttsim_pci_device_id == 0xB140)) {  // WH/BH
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-        uint32_t reset_value = uint32_t(soft_resets);
-        pfn_libttsim_tile_wr_bytes(
-            translated_core.x, translated_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
-    } else {
-        TT_THROW("Missing implementation of reset for this chip.");
-    }
-}
-
-void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    Chip::send_tensix_risc_reset(soft_resets);
-}
-
 void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);

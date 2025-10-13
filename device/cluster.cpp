@@ -75,7 +75,6 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 #include <thread>
 
 #include "umd/device/tt_xy_pair.h"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
 
@@ -528,16 +527,6 @@ std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
 std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
 
 std::set<chip_id_t> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
-
-void Cluster::deassert_risc_reset_at_core(
-    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
-}
-
-void Cluster::assert_risc_reset_at_core(
-    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
-}
 
 RiscType Cluster::get_risc_reset_state(const chip_id_t chip, const CoreCoord core) {
     return get_chip(chip)->get_risc_reset_state(core);

@@ -42,10 +42,6 @@ SimulationChip::SimulationChip(
 }
 
 // Base class implementations (common simple methods).
-void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
-}
-
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }

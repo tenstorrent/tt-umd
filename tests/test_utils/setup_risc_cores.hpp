@@ -30,16 +30,16 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
             return;
     }
 
+    constexpr TensixSoftResetOptions brisc_core{TensixSoftResetOptions::BRISC};
+
+    constexpr TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
+
     for (auto& chip_id : cluster->get_target_device_ids()) {
         for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
             auto chip = cluster->get_chip(chip_id);
             auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
-            TensixSoftResetOptions brisc_core{TensixSoftResetOptions::BRISC};
-
-            TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
-
-            cluster->assert_risc_reset_at_core(chip_id, core, TENSIX_ASSERT_SOFT_RESET);
+            cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
 
             cluster->l1_membar(chip_id, {core});
 
@@ -48,11 +48,11 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
 
             cluster->l1_membar(chip_id, {core});
 
-            cluster->deassert_risc_reset_at_core(chip_id, core, brisc_core);
+            cluster->deassert_risc_reset(chip_id, core, RiscType::BRISC);
 
             cluster->l1_membar(chip_id, {core});
 
-            cluster->assert_risc_reset_at_core(chip_id, core, brisc_core);
+            cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
 
             cluster->l1_membar(chip_id, {core});
         }

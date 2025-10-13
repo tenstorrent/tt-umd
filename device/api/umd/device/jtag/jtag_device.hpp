@@ -13,6 +13,13 @@
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/types/arch.hpp"
 
+typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
+
+static const std::unordered_map<DeviceFamily, tt::ARCH> DeviceFamilyToArch = {
+    {DeviceFamily::DEVICE_FAMILY_WORMHOLE, tt::ARCH::WORMHOLE_B0},
+    {DeviceFamily::DEVICE_FAMILY_BLACKHOLE, tt::ARCH::BLACKHOLE},
+    {DeviceFamily::DEVICE_FAMILY_UNKNOWN, tt::ARCH::Invalid}};
+
 class JtagDevice {
 public:
     explicit JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices = {});

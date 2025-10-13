@@ -176,6 +176,68 @@ struct boot_results_t {
     chip_info_t remote_info;            // 248 - 255
 };
 
+// Ethernet Firmware mailbox messages.
+enum class FirmwareMailboxMessage : uint8_t {
+    // Message status mask.
+    // msg & ETH_MSG_STATUS_MASK != ETH_MSG_CALL means the mailbox is free.
+    ETH_MSG_STATUS_MASK,
+    // Execute message.
+    ETH_MSG_CALL,
+    // Indicates message processed.
+    ETH_MSG_DONE,
+    // Run link status check.
+    // arg0: copy_addr, arg1: unused, arg2: unused
+    ETH_MSG_LINK_STATUS_CHECK,
+    // Execute function from the core.
+    // arg0: L1 addr of function, arg1: unused, arg2: unused
+    ETH_MSG_RELEASE_CORE,
+    // Heartbeat counter.
+    HEARTBEAT,
+    // Retrain Count.
+    RETRAIN_COUNT,
+    // Rx Link Up.
+    RX_LINK_UP,
+    // Port Status.
+    PORT_STATUS,
+    // Number of mailbox message types.
+    COUNT,
+};
+
+#define ETH_RESULTS_BASE_ADDR 0x7CC00
+#define ETH_API_TABLE_BASE_ADDR ETH_RESULTS_BASE_ADDR + 0x4 * 192
+#define ETH_MAILBOX_BASE_ADDR 0x7D000
+#define ETH_MSG_STATUS_MASK 0xFFFF0000
+#define ETH_MSG_CALL 0xCA110000
+#define ETH_MSG_ACK 0xCEDE0000
+#define ETH_MSG_DONE 0xD0E50000
+#define ETH_MSG_TYPE_MASK 0x0000FFFF
+#define ETH_MSG_LINK_STATUS_CHECK 0x0001
+#define ETH_MSG_RELEASE_CORE 0x0002
+#define ETH_MSG_FEATURE_ENABLE 0x0003
+#define ETH_MSG_LINK_UP_CHECK 0x0004
+
+typedef enum {
+    MAILBOX_HOST,
+    MAILBOX_RISC1,
+    MAILBOX_CMFW,
+    MAILBOX_OTHER,
+    NUM_ETH_MAILBOX,
+} eth_mailbox_e;
+
+typedef enum {
+    FEATURE_LINK_STATUS_CHECK,
+    NUM_ETH_FEATURES,
+} feature_enable_e;
+
+struct eth_mailbox_t {
+    uint32_t msg;     // 0 - Message type
+    uint32_t arg[3];  // 1-3 - Arguments to the message (not all need to be used)
+};
+
+struct all_eth_mailbox_t {
+    eth_mailbox_t mailbox[4];  // 0-16 - 4 mailbox entries, 0 - Host, 1 - RSIC1, 2 - CMFW, 3 - Other
+};
+
 constexpr uint32_t BOOT_RESULTS_ADDR = 0x7CC00;
 
 }  // namespace blackhole

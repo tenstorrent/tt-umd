@@ -17,7 +17,7 @@
 #include "umd/device/lite_fabric/lf_dev_mem_map.hpp"
 #include "umd/device/lite_fabric/lite_fabric_constants.hpp"
 #include "umd/device/lite_fabric/lite_fabric_header.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

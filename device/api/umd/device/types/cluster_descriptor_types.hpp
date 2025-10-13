@@ -268,28 +268,7 @@ enum class DramTrainingStatus : uint8_t {
     FAIL = 1,
     SUCCESS = 2,
 };
-
-// TODO: To be removed once clients switch new names.
-using chip_id_t = ChipId;
-using ethernet_channel_t = EthernetChannel;
-using eth_coord_t = EthCoord;
-
 }  // namespace tt
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::BoardType;
-using tt::chip_id_t;
-using tt::eth_coord_t;
-using tt::ethernet_channel_t;
-using tt::get_number_of_chips_from_board_type;
-
-namespace tt::umd {
-using BoardType = tt::BoardType;
-using tt::get_number_of_chips_from_board_type;
-using HarvestingMasks = tt::HarvestingMasks;
-using chip_id_t = tt::chip_id_t;
-using ethernet_channel_t = tt::ethernet_channel_t;
-}  // namespace tt::umd
 
 namespace std {
 template <>

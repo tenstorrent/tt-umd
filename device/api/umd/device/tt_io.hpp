@@ -62,8 +62,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-namespace tt {
-using Writer = umd::Writer;
-}

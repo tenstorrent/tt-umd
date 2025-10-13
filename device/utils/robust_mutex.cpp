@@ -144,6 +144,14 @@ void RobustMutex::initialize() {
         // We need to initialize the mutex here, since it is the first time it is being used.
         initialize_pthread_mutex_first_use();
     }
+
+    // Close the file descriptor after mapping is complete.
+    // The mapped memory will remain valid even after closing the fd.
+    // This helps avoid hitting file descriptor limits on systems with many chips.
+    if (close(shm_fd_) != 0) {
+        log_warning(tt::LogUMD, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+    }
+    shm_fd_ = -1;
 }
 
 void RobustMutex::open_shm_file() {
@@ -252,7 +260,9 @@ void RobustMutex::close_mutex() noexcept {
         mutex_wrapper_ptr_ = nullptr;
     }
     if (shm_fd_ != -1) {
-        // Close shared memory file.
+        // Close shared memory file descriptor if it's still open.
+        // Note: In normal operation, this fd is closed at the end of initialize(),
+        // but we still handle cleanup here for safety (e.g., if initialization failed partway through).
         if (close(shm_fd_) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
             log_warning(tt::LogUMD, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));

@@ -36,18 +36,14 @@ uint32_t get_eth_channel_mask(Chip* chip, const std::vector<CoreCoord>& eth_core
 
 void set_reset_state(Chip* chip, CoreCoord eth_core, bool assert_reset) {
     // Lite fabric on blackhole runs on DM1. Don't touch DM0. It is running base firmware.
-    TensixSoftResetOptions reset_val = TENSIX_ASSERT_SOFT_RESET;
     if (assert_reset) {
-        reset_val = reset_val & static_cast<TensixSoftResetOptions>(
-                                    ~std::underlying_type<TensixSoftResetOptions>::type(TensixSoftResetOptions::BRISC));
-
-        chip->send_tensix_risc_reset(eth_core, reset_val);
+        // Assert all RISCs except ERISC0 (DM0)
+        RiscType riscs_to_reset = RiscType::ALL_TENSIX & ~RiscType::ERISC0;
+        chip->assert_risc_reset(eth_core, riscs_to_reset);
     } else {
-        reset_val = TENSIX_DEASSERT_SOFT_RESET &
-                    static_cast<TensixSoftResetOptions>(
-                        ~std::underlying_type<TensixSoftResetOptions>::type(TensixSoftResetOptions::TRISC0));
-
-        chip->send_tensix_risc_reset(eth_core, reset_val);
+        // Deassert all RISCs except ERISC1
+        RiscType riscs_to_deassert = RiscType::ALL_TENSIX & ~RiscType::ERISC1;
+        chip->deassert_risc_reset(eth_core, riscs_to_deassert, false);
     }
 }
 

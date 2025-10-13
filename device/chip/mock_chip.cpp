@@ -65,10 +65,6 @@ void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
-void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {}
-
-void MockChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {}
-
 void MockChip::deassert_risc_resets() {}
 
 void MockChip::set_power_state(DevicePowerState state) {}

@@ -15,7 +15,6 @@
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 extern bool umd_use_noc1;
 
@@ -102,23 +101,6 @@ void Chip::enable_ethernet_queue(int timeout_s) {
         if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
             break;
         }
-    }
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot control soft reset on a non-tensix or harvested core");
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = static_cast<uint32_t>(valid);
-    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), valid_val);
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
     }
 }
 

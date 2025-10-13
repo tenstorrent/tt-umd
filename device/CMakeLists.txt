@@ -81,7 +81,6 @@ target_sources(
         firmware/wormhole_18_7_firmware_info_provider.cpp
         firmware/blackhole_18_7_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
-        types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
@@ -183,7 +182,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
-                api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/tt_sim_chip.hpp
@@ -223,7 +221,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/wormhole_implementation.h
                 api/umd/device/blackhole_implementation.h
                 api/umd/device/coordinate_manager.h
-                api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/pci_device.hpp
                 api/umd/device/types/xy_pair.h
                 api/umd/device/types/arch.h

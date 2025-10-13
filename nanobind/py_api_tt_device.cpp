@@ -23,7 +23,7 @@ using namespace tt::umd;
 
 // Helper function for easy creation of RemoteWormholeTTDevice
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
-    TTDevice *local_chip, tt_ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
+    TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);

@@ -60,7 +60,11 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .base;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+
+    // In order to properly initiate DMA transfer, we need to calculate the offset into the TLB window
+    // based on the target address. Bitwise operations work in this case since all our TLB windows are power-of-two
+    // sized.
+    auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
 
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
@@ -112,7 +116,11 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .base;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+
+    // In order to properly initiate DMA transfer, we need to calculate the offset into the TLB window
+    // based on the target address. Bitwise operations work in this case since all our TLB windows are power-of-two
+    // sized.
+    auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
 
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();

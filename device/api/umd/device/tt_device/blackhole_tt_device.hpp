@@ -47,6 +47,13 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms) override;
 
+    void send_eth_mailbox_msg(
+        tt_xy_pair eth_core,
+        blackhole::FirmwareMailboxMessage msg_type,
+        uint32_t mailbox_index,
+        std::vector<uint32_t> args,
+        uint32_t timeout_ms = 1000) override;
+
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 

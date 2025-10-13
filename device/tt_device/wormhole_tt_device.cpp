@@ -623,4 +623,11 @@ bool WormholeTTDevice::is_hardware_hung() {
     return (scratch_data == HANG_READ_VALUE);
 }
 
+void WormholeTTDevice::send_eth_mailbox_msg(
+    tt_xy_pair eth_core,
+    blackhole::FirmwareMailboxMessage msg_type,
+    uint32_t mailbox_index,
+    std::vector<uint32_t> args,
+    uint32_t timeout_ms) {}
+
 }  // namespace tt::umd

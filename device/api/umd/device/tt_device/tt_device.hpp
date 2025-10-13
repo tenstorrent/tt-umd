@@ -18,6 +18,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -302,6 +303,13 @@ public:
      * @param risc_flags bitmask of riscs to set soft reset for
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+
+    virtual void send_eth_mailbox_msg(
+        tt_xy_pair eth_core,
+        blackhole::FirmwareMailboxMessage msg_type,
+        uint32_t mailbox_index,
+        std::vector<uint32_t> args,
+        uint32_t timeout_ms = 1000) = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

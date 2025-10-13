@@ -48,6 +48,13 @@ public:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
+    void send_eth_mailbox_msg(
+        tt_xy_pair eth_core,
+        blackhole::FirmwareMailboxMessage msg_type,
+        uint32_t mailbox_index,
+        std::vector<uint32_t> args,
+        uint32_t timeout_ms = 1000) override;
+
 protected:
     /*
      * Create a device without an underlying communication device.

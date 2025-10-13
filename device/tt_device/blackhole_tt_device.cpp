@@ -234,4 +234,83 @@ bool BlackholeTTDevice::is_hardware_hung() {
     throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
 }
 
+void BlackholeTTDevice::send_eth_mailbox_msg(
+    tt_xy_pair eth_core,
+    blackhole::FirmwareMailboxMessage msg_type,
+    uint32_t mailbox_index,
+    std::vector<uint32_t> args,
+    uint32_t timeout_ms) {
+    constexpr auto k_sleep_time = std::chrono::nanoseconds{50};
+
+    const uint64_t mailbox_addr = 0;  // TODO: this should depend on mailbox index.
+    const uint32_t max_args = 0;
+    const uint32_t status_mask = 0;
+    const auto call = 0;
+    const auto done_message = 0;
+
+    uint32_t msg_status;
+    read_from_device(&msg_status, eth_core, mailbox_addr, sizeof(msg_status));
+    msg_status &= status_mask;
+
+    {
+        const auto start_time = std::chrono::steady_clock::now();
+        while (msg_status != done_message && msg_status != 0) {
+            uint32_t mailbox_val;
+            read_from_device(&mailbox_val, eth_core, mailbox_addr, sizeof(uint32_t));
+            msg_status = mailbox_val & status_mask;
+
+            const auto timenow = std::chrono::steady_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(timenow - start_time).count();
+            if (elapsed > timeout_ms) {
+                // log_debug(
+                //     LogUMD,
+                //     "Device {}: Timed out while waiting for ack when trying to launch Metal ethernet firmware on "
+                //     "ethernet core {}. Last message status: {:#x}",
+                //     device_id,
+                //     virtual_core.str(),
+                //     mailbox_val);
+
+                // TT_THROW("Device {} Firmware update is required. Minimum tt-firmware verison is 18.8.0", device_id);
+            }
+            std::this_thread::sleep_for(k_sleep_time);
+        }
+    }
+
+    args.resize(max_args, 0);
+
+    uint32_t first_arg_addr = 0;
+    write_to_device(args.data(), eth_core, first_arg_addr, args.size() * sizeof(uint32_t));
+
+    const auto msg_val = 0;
+    const uint32_t msg = call | msg_val;
+    write_to_device(&msg_val, eth_core, mailbox_addr, sizeof(msg_val));
+
+    // here we need l1 barrier
+
+    {
+        const auto start_time = std::chrono::steady_clock::now();
+
+        do {
+            uint32_t mailbox_val;
+            read_from_device(&mailbox_val, eth_core, mailbox_addr, sizeof(uint32_t));
+            msg_status = mailbox_val & status_mask;
+
+            const auto timenow = std::chrono::steady_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(timenow - start_time).count();
+            if (elapsed > timeout_ms) {
+                // log_debug(
+                //     LogUMD,
+                //     "Device {}: Timed out while waiting for ack when trying to launch Metal ethernet firmware on "
+                //     "ethernet core {}. Last message status: {:#x}",
+                //     device_id,
+                //     virtual_core.str(),
+                //     mailbox_val);
+
+                // TT_THROW("Device {} Firmware update is required. Minimum tt-firmware verison is 18.8.0", device_id);
+            }
+            std::this_thread::sleep_for(k_sleep_time);
+        } while (msg_status != done_message);
+    }
+}
+
 }  // namespace tt::umd

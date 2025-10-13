@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/types/arch.h"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 

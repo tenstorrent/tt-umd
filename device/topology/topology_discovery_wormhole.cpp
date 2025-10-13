@@ -15,8 +15,8 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type) :
-    TopologyDiscovery(target_devices, sdesc_path, device_type) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type, bool break_ports) :
+    TopologyDiscovery(target_devices, sdesc_path, device_type, break_ports) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;

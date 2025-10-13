@@ -149,7 +149,8 @@ public:
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
         std::string sdesc_path = "",
         std::unordered_set<chip_id_t> target_devices = {},
-        IODeviceType device_type = IODeviceType::PCIe);
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool break_ports = false);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.

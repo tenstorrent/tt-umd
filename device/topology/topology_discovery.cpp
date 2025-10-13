@@ -24,7 +24,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool break_ports) {
     tt::ARCH current_arch = ARCH::Invalid;
 
     switch (device_type) {
@@ -54,17 +54,17 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
 
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
+            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type, break_ports).create_ethernet_map();
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
+            return TopologyDiscoveryBlackhole(target_devices, sdesc_path, break_ports).create_ethernet_map();
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
-    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool break_ports) :
+    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type), break_ports_(break_ports) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
@@ -76,6 +76,16 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
+
+void write_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t port_status) {
+    // Purposely set the links status as UNKOWN or UNCONNECTED
+    uint32_t channel =
+        chip->get_soc_descriptor()
+            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+            .y;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->write_to_device(&port_status, eth_core, 0x1200 + (channel * 4), sizeof(uint32_t));
+}
 
 void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
@@ -117,6 +127,24 @@ void TopologyDiscovery::get_connected_chips() {
             device_id,
             asic_id);
     }
+    if (break_ports_) {
+        std::cout << "Breaking ports" << std::endl;
+        // Take down all ethernet links between two chips (from a SW POV)
+        for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
+            std::vector<CoreCoord> eth_cores =
+                chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+            for (const CoreCoord& eth_core : eth_cores) {
+                uint32_t channel =
+                    chip->get_soc_descriptor()
+                        .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+                        .y;
+                if ((current_chip_asic_id == 87028789983326273 && (channel >= 8 && channel <= 11) ) ||
+                    (current_chip_asic_id == 159086384021254209 && (channel >= 4 && channel <= 7))) {
+                    write_port_status(chip.get(), eth_core, 0); // Set to ETH_UNKNOWN
+                }
+            }
+        }
+    }
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -136,7 +164,7 @@ void TopologyDiscovery::discover_remote_chips() {
             }
         }
     }
-
+    std::cout << "Chips to discover: " << chips_to_discover.size() << std::endl;
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;

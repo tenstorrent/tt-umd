@@ -22,8 +22,8 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
-    TopologyDiscovery(pci_target_devices, sdesc_path) {}
+    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path, bool break_ports) :
+    TopologyDiscovery(pci_target_devices, sdesc_path, IODeviceType::PCIe, break_ports) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
     std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {

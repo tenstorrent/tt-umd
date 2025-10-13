@@ -427,7 +427,8 @@ Cluster::Cluster(ClusterOptions options) {
             temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
                 options.sdesc_path,
                 options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
-                options.io_device_type);
+                options.io_device_type,
+                true);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -1137,8 +1138,9 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type) {
-    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
+    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type, bool break_ports) {
+    std::cout << "Creating cluster descriptor" << std::endl;
+    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type, break_ports);
 }
 
 }  // namespace tt::umd

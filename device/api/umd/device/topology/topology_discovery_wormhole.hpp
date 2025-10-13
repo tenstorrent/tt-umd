@@ -14,7 +14,8 @@ public:
     TopologyDiscoveryWormhole(
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
-        IODeviceType device_type = IODeviceType::PCIe);
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool break_ports = false);
 
 protected:
     struct EthAddresses {

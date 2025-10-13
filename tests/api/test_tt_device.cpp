@@ -219,7 +219,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         pattern_buf[i] = (uint8_t)(i % 256);
     }
 
-    for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
         TTDevice* remote_tt_device = cluster->get_chip(remote_chip_id)->get_tt_device();
 
         std::vector<CoreCoord> tensix_cores =

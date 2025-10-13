@@ -31,6 +31,6 @@ std::string find_hugepage_dir(std::size_t pagesize);
 // All processes operating on the same pipeline must agree on the file name.
 // Today we assume there's only one pipeline running within the system.
 // One hugepage per device such that each device gets unique memory.
-int open_hugepage_file(const std::string &dir, chip_id_t physical_device_id, uint16_t channel);
+int open_hugepage_file(const std::string &dir, ChipId physical_device_id, uint16_t channel);
 
 }  // namespace tt::umd

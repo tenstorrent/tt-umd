@@ -130,7 +130,7 @@ TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
 }
 
 TEST(SiliconDriverWH, CreateDestroy) {
-    device_params default_params;
+    DeviceParams default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
@@ -187,7 +187,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
         }
     }
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -266,7 +266,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         }
     }
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
@@ -321,7 +321,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         }
     }
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -363,7 +363,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
     set_barrier_params(cluster);
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -399,7 +399,7 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     Cluster cluster;
     set_barrier_params(cluster);
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
 
     std::thread th1 = std::thread([&] {
@@ -472,7 +472,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         }
     }
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
 
     std::vector<uint32_t> readback_membar_vec = {};
@@ -571,7 +571,7 @@ TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
@@ -647,7 +647,7 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster.start_device(default_params);
     auto eth_version = cluster.get_ethernet_fw_version();
     bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) &&
@@ -755,9 +755,9 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(device_params{});  // no special parameters
+    cluster.start_device(DeviceParams{});  // no special parameters
 
-    const chip_id_t mmio_chip_id = 0;
+    const ChipId mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
@@ -816,9 +816,9 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     });
 
     set_barrier_params(cluster);
-    cluster.start_device(device_params{});  // no special parameters
+    cluster.start_device(DeviceParams{});  // no special parameters
 
-    const chip_id_t mmio_chip_id = 0;
+    const ChipId mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 0x20000;  // runs in a reasonable amount of time
@@ -874,7 +874,7 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     const CoreCoord ARC_CORE = cluster.get_soc_descriptor(0).get_cores(CoreType::ARC).at(0);
 
     set_barrier_params(cluster);
-    cluster.start_device(device_params{});
+    cluster.start_device(DeviceParams{});
 
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
 
@@ -918,10 +918,10 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
  * to 0x0 in several DRAM cores, then reading them back and verifying.
  */
 TEST(SiliconDriverWH, DMA1) {
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     Cluster cluster;
 
-    cluster.start_device(device_params{});
+    cluster.start_device(DeviceParams{});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -968,11 +968,11 @@ TEST(SiliconDriverWH, DMA1) {
  * where the write is done using MMIO instead of DMA.
  */
 TEST(SiliconDriverWH, DMA2) {
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(device_params{});
+    cluster.start_device(DeviceParams{});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();

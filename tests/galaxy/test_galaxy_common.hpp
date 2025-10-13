@@ -24,10 +24,10 @@ using namespace tt::umd;
 struct tt_multichip_core_addr {
     tt_multichip_core_addr() : core{}, chip{}, addr{} {}
 
-    tt_multichip_core_addr(chip_id_t chip, CoreCoord core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
+    tt_multichip_core_addr(ChipId chip, CoreCoord core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
 
     CoreCoord core;
-    chip_id_t chip;
+    ChipId chip;
     std::uint64_t addr;
 
     std::string str() const { return fmt::format("(chip={},core={},addr=0x{:x})", chip, core.str(), addr); }

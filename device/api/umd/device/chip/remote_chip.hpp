@@ -24,12 +24,12 @@ public:
      */
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
-        eth_coord_t target_eth_coord,
+        EthCoord target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
         std::string sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
-        eth_coord_t target_eth_coord,
+        EthCoord target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
         SocDescriptor soc_descriptor);
 

@@ -142,8 +142,8 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
     // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
     // connections.
-    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<chip_id_t, chip_id_t> chips_with_pcie = cluster_desc->get_chips_with_mmio();
+    std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<ChipId, ChipId> chips_with_pcie = cluster_desc->get_chips_with_mmio();
     auto eth_connections = cluster_desc->get_ethernet_connections();
 
     if (all_chips.empty()) {
@@ -151,7 +151,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     }
     // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
     // The first cluster will open the first chip only, and the second cluster will open the rest of them.
-    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
+    ChipId first_chip_only = chips_with_pcie.begin()->first;
     std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {first_chip_only},
         .cluster_descriptor = cluster_desc.get(),
@@ -161,7 +161,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     EXPECT_EQ(chips1.size(), 1);
     EXPECT_EQ(*chips1.begin(), first_chip_only);
 
-    std::unordered_set<chip_id_t> other_chips;
+    std::unordered_set<ChipId> other_chips;
     for (auto chip : all_chips) {
         // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
         // first local chip.
@@ -373,7 +373,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster->start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -382,7 +382,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     static const uint32_t num_loops = 100;
 
-    for (const chip_id_t chip : cluster->get_target_device_ids()) {
+    for (const ChipId chip : cluster->get_target_device_ids()) {
         // Just make sure to skip L1_BARRIER_BASE
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses
@@ -417,7 +417,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
+    for (ChipId chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
 
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
@@ -479,7 +479,7 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
 TEST(TestCluster, TestClusterAICLKControl) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    auto get_expected_clock_val = [&cluster](chip_id_t chip_id, bool busy) {
+    auto get_expected_clock_val = [&cluster](ChipId chip_id, bool busy) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
         if (arch == tt::ARCH::WORMHOLE_B0) {
             return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
@@ -783,7 +783,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     }
 
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
-                                                       chip_id_t chip_id) -> std::optional<std::array<uint32_t, 14>> {
+                                                       ChipId chip_id) -> std::optional<std::array<uint32_t, 14>> {
         switch (cluster->get_cluster_description()->get_arch(chip_id)) {
             case tt::ARCH::WORMHOLE_B0:
                 return std::make_optional(wh_brisc_configuration_program);
@@ -896,9 +896,9 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     if (options.chip_type == SIMULATION) {
-        device_params device_params;
-        device_params.init_device = true;
-        cluster->start_device(device_params);
+        DeviceParams DeviceParams;
+        DeviceParams.init_device = true;
+        cluster->start_device(DeviceParams);
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;

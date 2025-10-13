@@ -37,7 +37,7 @@ public:
 
     virtual bool is_mmio_capable() const = 0;
 
-    void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
+    void set_barrier_address_params(const BarrierAddressParams& BarrierAddressParams_);
 
     const ChipInfo& get_chip_info();
 
@@ -118,8 +118,8 @@ public:
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
-    device_dram_address_params dram_address_params;
-    device_l1_address_params l1_address_params;
+    DeviceDramAddressParams dram_address_params;
+    DeviceL1AddressParams l1_address_params;
 
     // TODO: To be removed once we properly refactor usage of NOC1 coords.
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;

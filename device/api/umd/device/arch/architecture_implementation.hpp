@@ -86,10 +86,10 @@ public:
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
 
-    virtual device_l1_address_params get_l1_address_params() const = 0;
-    virtual driver_host_address_params get_host_address_params() const = 0;
-    virtual driver_eth_interface_params get_eth_interface_params() const = 0;
-    virtual driver_noc_params get_noc_params() const = 0;
+    virtual DeviceL1AddressParams get_l1_address_params() const = 0;
+    virtual DriverHostAddressParams get_host_address_params() const = 0;
+    virtual DriverEthInterfaceParams get_eth_interface_params() const = 0;
+    virtual DriverNocParams get_noc_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 

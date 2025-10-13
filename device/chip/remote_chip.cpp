@@ -22,7 +22,7 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
-    eth_coord_t target_eth_coord,
+    EthCoord target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     std::string sdesc_path) {
     auto remote_communication = RemoteCommunication::create_remote_communication(
@@ -45,7 +45,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
-    eth_coord_t target_eth_coord,
+    EthCoord target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
     auto remote_communication = RemoteCommunication::create_remote_communication(

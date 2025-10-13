@@ -246,7 +246,7 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
     }
 
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
-    hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
     TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
@@ -578,7 +578,7 @@ int LocalChip::test_setup_interface() {
 void LocalChip::init_pcie_iatus() {
     // TODO: this should go away soon; KMD knows how to do this at page pinning time.
     for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
-        hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+        HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
         size_t region_size = hugepage_map.mapping_size;
 
         if (!hugepage_map.mapping) {

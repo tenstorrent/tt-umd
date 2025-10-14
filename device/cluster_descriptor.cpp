@@ -1223,7 +1223,7 @@ std::unordered_set<chip_id_t> ClusterDescriptor::get_board_chips(const uint64_t 
     throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }
 
-void ClusterDescriptor::verify_cluster_descriptor_info() {
+void ClusterDescriptor::verify_board_info_for_chips() {
     for (const chip_id_t chip : all_chips) {
         if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
             log_warning(LogUMD, "Chip {} does not have a board ID assigned.", chip);
@@ -1243,7 +1243,9 @@ void ClusterDescriptor::verify_cluster_descriptor_info() {
                 board_type_to_string(board_type));
         }
     }
+}
 
+void ClusterDescriptor::verify_same_architecture() {
     const std::unordered_set<chip_id_t> &chips = get_all_chips();
     if (!chips.empty()) {
         tt::ARCH arch = get_arch(*chips.begin());
@@ -1256,6 +1258,20 @@ void ClusterDescriptor::verify_cluster_descriptor_info() {
             TT_THROW("Chips with differing architectures detected. This is unsupported.");
         }
     }
+}
+
+void ClusterDescriptor::verify_harvesting_information() {
+    for (const chip_id_t chip : all_chips) {
+        HarvestingMasks harvesting_masks = get_harvesting_masks(chip);
+    }
+}
+
+void ClusterDescriptor::verify_cluster_descriptor_info() {
+    verify_board_info_for_chips();
+
+    verify_same_architecture();
+
+    verify_harvesting_information();
 }
 
 uint8_t ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {

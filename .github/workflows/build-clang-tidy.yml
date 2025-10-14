@@ -72,13 +72,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install clang-tidy
-        run: |
-          echo "Installing clang-tidy..."
-          apt-get update
-          apt-get install -y clang-tidy-17
-          clang-tidy-17 --version
-
       - name: Configure CMake with clang-tidy
         run: |
           echo "Configuring CMake with clang-tidy enabled..."

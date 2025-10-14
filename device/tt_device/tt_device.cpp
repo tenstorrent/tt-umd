@@ -333,7 +333,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         return;
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
     while (size > 0) {

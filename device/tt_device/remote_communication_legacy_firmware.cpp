@@ -13,6 +13,7 @@
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "utils.hpp"
 
 extern bool umd_use_noc1;
 
@@ -95,7 +96,6 @@ RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
 
 void RemoteCommunicationLegacyFirmware::read_non_mmio(
     tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes, const uint64_t timeout_ms) {
-    // std::cout << "read non mmio started" << std::endl;
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -158,7 +158,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     auto start = std::chrono::steady_clock::now();
     while (offset < size_in_bytes) {
-        // std::cout << "checking for full" << std::endl;
         while (full) {
             local_tt_device_->read_from_device(
                 erisc_q_rptr.data(),
@@ -168,7 +167,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
         }
-        // std::cout << "check for full done" << std::endl;
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
         if ((core_src + offset) & 0x1F) {  // address not 32-byte aligned
@@ -250,37 +248,27 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         // 5. set response flags
         // So we have to wait for wrptr to advance, then wait for flags to be nonzero, then read data.
         do {
-            // std::cout << "looping here 1" << std::endl;
             local_tt_device_->read_from_device(
                 erisc_resp_q_wptr.data(),
                 remote_transfer_ethernet_core,
                 eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 DATA_WORD_SIZE);
 
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                throw std::runtime_error("Timeout waiting for Ethernet core service remote IO request.");
-            }
+            tt::umd::utils::check_timeout(
+                start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
         tt_driver_atomics::lfence();
         uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
         std::vector<std::uint32_t> erisc_resp_flags = std::vector<uint32_t>(1);
         do {
-            // std::cout << "looping here 2" << std::endl;
             local_tt_device_->read_from_device(
                 erisc_resp_flags.data(),
                 remote_transfer_ethernet_core,
                 eth_interface_params.response_routing_cmd_queue_base + flags_offset,
                 DATA_WORD_SIZE);
 
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                throw std::runtime_error("Timeout waiting for Ethernet core service remote IO request.");
-            }
+            tt::umd::utils::check_timeout(
+                start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_flags[0] == 0);
 
         if (erisc_resp_flags[0] == resp_flags) {
@@ -335,8 +323,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
         offset += block_size;
     }
-
-    // std::cout << "read non mmio finished" << std::endl;
 }
 
 /*
@@ -353,7 +339,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     bool broadcast,
     std::vector<int> broadcast_header,
     const uint32_t timeout_ms) {
-    // std::cout << "write to non mmio" << std::endl;
     flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;
@@ -419,11 +404,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
 
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                throw std::runtime_error("Timeout waiting for Ethernet core service remote IO request.");
-            }
+            tt::umd::utils::check_timeout(
+                start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         }
         // full = true;
         //  set full only if this command will make the q full.
@@ -567,21 +549,12 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
 
-        {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                throw std::runtime_error("Timeout waiting for Ethernet core service remote IO request.");
-            }
-        }
+        tt::umd::utils::check_timeout(
+            start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
     }
-
-    // std::cout << "write to non mmio finished" << std::endl;
 }
 
 void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t timeout_ms) {
-    // std::cout << "wait for non mmio flush" << std::endl;
     if (flush_non_mmio_) {
         TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
@@ -603,11 +576,8 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t t
                         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                         eth_interface_params.remote_update_ptr_size_bytes * 2);
 
-                    auto now = std::chrono::steady_clock::now();
-                    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
-                    if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                        throw std::runtime_error("Timeout waiting for Ethernet core service remote IO request flush.");
-                    }
+                    tt::umd::utils::check_timeout(
+                        start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
@@ -616,17 +586,13 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t t
                     local_tt_device_->read_from_device(
                         erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8);
 
-                    auto now = std::chrono::steady_clock::now();
-                    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
-                    if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                        throw std::runtime_error("Timeout waiting for Ethernet core service remote IO request flush.");
-                    }
+                    tt::umd::utils::check_timeout(
+                        start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }
         }
         flush_non_mmio_ = false;
     }
-    // std::cout << "wait for non mmio flush finished" << std::endl;
 }
 
 }  // namespace tt::umd

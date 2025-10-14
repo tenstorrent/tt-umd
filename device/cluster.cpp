@@ -494,7 +494,6 @@ Cluster::Cluster(ClusterOptions options) {
             options.perform_harvesting,
             simulated_harvesting_masks);
 
-        // std::cout << "add chip" << std::endl;
         add_chip(
             chip_id,
             options.chip_type,
@@ -505,7 +504,6 @@ Cluster::Cluster(ClusterOptions options) {
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device,
                 options.simulator_directory));
-        // std::cout << "add chip ended" << std::endl;
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);

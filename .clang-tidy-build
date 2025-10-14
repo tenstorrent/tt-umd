@@ -6,5 +6,6 @@ Checks: >
     cppcoreguidelines-use-enum-class,
     cppcoreguidelines-pro-type-cstyle-cast
 
+HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
 WarningsAsErrors: '*'
 FormatStyle: 'file'

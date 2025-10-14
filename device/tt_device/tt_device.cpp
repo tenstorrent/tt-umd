@@ -302,6 +302,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 
     if (num_bytes >= sizeof(std::uint32_t)) {
+        // TODO: looks like there is potential for undefined behavior here.
         detect_hang_read(*reinterpret_cast<std::uint32_t *>(dest));
     }
 }

@@ -84,7 +84,7 @@ void write_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t port_status) {
             .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
             .y;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->write_to_device(&port_status, eth_core, 0x1200 + (channel * 4), sizeof(uint32_t));
+    tt_device->write_to_device(&port_status, eth_core, 0x1104, sizeof(uint32_t));
 }
 
 void TopologyDiscovery::get_connected_chips() {
@@ -140,7 +140,7 @@ void TopologyDiscovery::get_connected_chips() {
                         .y;
                 if ((current_chip_asic_id == 87028789983326273 && (channel >= 8 && channel <= 11) ) ||
                     (current_chip_asic_id == 159086384021254209 && (channel >= 4 && channel <= 7))) {
-                    write_port_status(chip.get(), eth_core, 0); // Set to ETH_UNKNOWN
+                    write_port_status(chip.get(), eth_core, 0); // Set to LINK_TRAIN_TRAINING
                 }
             }
         }
@@ -182,10 +182,11 @@ void TopologyDiscovery::discover_remote_chips() {
         }
 
         uint32_t channel = 0;
+        constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t port_status = read_port_status(chip, eth_core);
-
-            if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+            uint32_t training_status = read_training_status(chip, eth_core);
+            if (training_status != LINK_TRAIN_SUCCESS) {
+                std::cout << "Training status: " << training_status << std::endl;
                 if (std::find(intermesh_eth_links.begin(), intermesh_eth_links.end(), channel) ==
                     intermesh_eth_links.end()) {
                     channel++;

@@ -418,7 +418,7 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
 
     uint32_t new_heartbeat_val = heartbeat_val;
-    while (new_heartbeat_val != heartbeat_val) {
+    while (new_heartbeat_val == heartbeat_val) {
         read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -428,8 +428,8 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
             break;
         }
     }
-
     uint32_t port_status = read_port_status(eth_core);
+
     start = std::chrono::system_clock::now();
     while (port_status == ETH_UNKNOWN) {
         port_status = read_port_status(eth_core);

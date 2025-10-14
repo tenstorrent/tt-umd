@@ -428,7 +428,7 @@ Cluster::Cluster(ClusterOptions options) {
                 options.sdesc_path,
                 options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
                 options.io_device_type,
-                true);
+                false);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.

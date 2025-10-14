@@ -33,6 +33,8 @@ protected:
 
     uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) override;
 
+    uint32_t read_training_status(Chip* chip, tt_xy_pair eth_core) override;
+
     uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) override;
 
     uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;

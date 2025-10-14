@@ -129,6 +129,10 @@ tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pai
         "bug.");
 }
 
+uint32_t TopologyDiscoveryBlackhole::read_training_status(Chip* chip, tt_xy_pair eth_core) {
+    return 0;
+}
+
 uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);

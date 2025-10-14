@@ -90,6 +90,8 @@ protected:
     // eth_core should be in NoC 0 coordinates..
     virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) = 0;
 
+    virtual uint32_t read_training_status(Chip* chip, tt_xy_pair eth_core) = 0;
+
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.

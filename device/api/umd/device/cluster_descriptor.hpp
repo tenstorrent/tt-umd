@@ -264,6 +264,12 @@ private:
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;
 
+    void verify_board_info_for_chips();
+
+    void verify_same_architecture();
+
+    void verify_harvesting_information();
+
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;
     // TODO: unify uint64_t with ChipUID

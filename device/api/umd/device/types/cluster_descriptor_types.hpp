@@ -253,6 +253,59 @@ struct HarvestingMasks {
             .pcie_harvesting_mask = this->pcie_harvesting_mask | other.pcie_harvesting_mask,
             .l2cpu_harvesting_mask = this->l2cpu_harvesting_mask | other.l2cpu_harvesting_mask};
     }
+
+    static uint32_t get_expected_number_of_tensix_harvested_units(BoardType board_type) {
+        switch (board_type) {
+            case BoardType::N150:
+                return 1;
+            case BoardType::N300:
+            case BoardType::P100:
+                return 2;
+            case BoardType::GALAXY:
+            case BoardType::P150:
+            case BoardType::P300:
+            case BoardType::UBB:
+            case BoardType::UBB_BLACKHOLE:
+                return 0;
+            default:
+                return 0;
+        }
+    }
+
+    static uint32_t get_expected_number_of_dram_harvested_units(BoardType board_type) {
+        switch (board_type) {
+            case BoardType::N150:
+            case BoardType::GALAXY:
+            case BoardType::N300:
+            case BoardType::P150:
+            case BoardType::P300:
+            case BoardType::UBB:
+            case BoardType::UBB_BLACKHOLE:
+                return 0;
+            case BoardType::P100:
+                return 1;
+            default:
+                return 0;
+        }
+    }
+
+    static uint32_t get_expected_number_of_eth_harvested_units(BoardType board_type) {
+        switch (board_type) {
+            case BoardType::N150:
+            case BoardType::GALAXY:
+            case BoardType::N300:
+            case BoardType::UBB:
+            case BoardType::UBB_BLACKHOLE:
+                return 0;
+            case BoardType::P100:
+                return 14;
+            case BoardType::P150:
+            case BoardType::P300:
+                return 2;
+            default:
+                return 0;
+        }
+    }
 };
 
 struct ChipInfo {

@@ -313,6 +313,10 @@ Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {
 }
 
 uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
+    // HACK: don't bother with any of that ETH business below.
+    // Just return the unique ASIC ID that firmware provides.
+    return chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(TelemetryTag::UNIQUE_ASIC_ID);
+#if 0
     // This function should return a unique ID for the chip. At the moment we are going to use mangled board ID
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
     // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
@@ -331,6 +335,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
     }
 
     return chip->get_tt_device()->get_board_id();
+#endif
 }
 
 void TopologyDiscovery::patch_eth_connections() {}

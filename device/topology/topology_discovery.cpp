@@ -138,10 +138,10 @@ void TopologyDiscovery::get_connected_chips() {
                     chip->get_soc_descriptor()
                         .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
                         .y;
-                if ((current_chip_asic_id == 87028789983326273 && (channel >= 8 && channel <= 11) ) ||
-                    (current_chip_asic_id == 159086384021254209 && (channel >= 4 && channel <= 7))) {
+                // if ((current_chip_asic_id == 87028789983326273 && (channel >= 8 && channel <= 11) ) ||
+                //     (current_chip_asic_id == 159086384021254209 && (channel >= 4 && channel <= 7))) {
                     write_port_status(chip.get(), eth_core, 0); // Set to LINK_TRAIN_TRAINING
-                }
+                // }
             }
         }
     }

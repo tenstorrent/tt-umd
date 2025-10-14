@@ -363,7 +363,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             LogUMD,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,
-            (void *)mappings.mapping_array[i].mapping_base,
+            reinterpret_cast<void *>(mappings.mapping_array[i].mapping_base),
             mappings.mapping_array[i].mapping_size);
     }
 
@@ -741,8 +741,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
     try {
         uint64_t iova = map_for_dma(dma_buf_mapping, dma_buf_alloc_size);
 
-        dma_buffer.buffer = (uint8_t *)dma_buf_mapping;
-        dma_buffer.completion = (uint8_t *)dma_buf_mapping + dma_buf_size;
+        dma_buffer.buffer = static_cast<uint8_t *>(dma_buf_mapping);
+        dma_buffer.completion = static_cast<uint8_t *>(dma_buf_mapping) + dma_buf_size;
         dma_buffer.buffer_pa = iova;
         dma_buffer.completion_pa = iova + dma_buf_size;
         dma_buffer.size = dma_buf_size;
@@ -783,8 +783,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
         } else {
             log_debug(
                 LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
-            dma_buffer.buffer = (uint8_t *)buffer;
-            dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
+            dma_buffer.buffer = static_cast<uint8_t *>(buffer);
+            dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
             dma_buffer.buffer_pa = dma_buf.out.physical_address;
             dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
             dma_buffer.size = dma_buf_size;

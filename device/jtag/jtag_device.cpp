@@ -20,7 +20,7 @@ constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
 /* static */ std::filesystem::path JtagDevice::jtag_library_path =
-    std::filesystem::path("./build/lib/libtt_umd_jtag.so");
+    std::filesystem::path("./tt-umd/build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices) :
@@ -127,7 +127,7 @@ void JtagDevice::select_device(uint8_t chip_id) {
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
     select_device(chip_id);
-    return DeviceFamilyToArch.at((DeviceFamily)jtag->get_device_family());
+    return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
 
 int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {

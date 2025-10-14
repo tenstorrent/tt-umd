@@ -15,7 +15,7 @@
 
 typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
 
-static const std::unordered_map<DeviceFamily, tt::ARCH> DeviceFamilyToArch = {
+inline const std::unordered_map<DeviceFamily, tt::ARCH> device_family_to_arch = {
     {DeviceFamily::DEVICE_FAMILY_WORMHOLE, tt::ARCH::WORMHOLE_B0},
     {DeviceFamily::DEVICE_FAMILY_BLACKHOLE, tt::ARCH::BLACKHOLE},
     {DeviceFamily::DEVICE_FAMILY_UNKNOWN, tt::ARCH::Invalid}};

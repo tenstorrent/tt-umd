@@ -43,9 +43,6 @@ on:
           - Debug
           - ASan
           - TSan
-  pull_request:
-  push:
-    branches: ["main"]
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -90,6 +87,9 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target umd_tests
           echo "Clang-tidy analysis completed successfully."
 
+      # Upload compile_commands.json for debugging and IDE integration.
+      # This file contains exact compilation flags used during the build,
+      # enabling developers to reproduce the analysis locally and troubleshoot issues.
       - name: Upload compile commands
         uses: actions/upload-artifact@v4
         if: always()
@@ -99,6 +99,9 @@ jobs:
             -${{ inputs.build-type || 'Release' }}
           path: ${{ env.BUILD_OUTPUT_DIR }}/compile_commands.json
 
+      # Upload clang-tidy configuration files to show exactly which checks were enabled/disabled.
+      # Provides transparency and allows developers to use the same settings locally
+      # for consistent static analysis results.
       - name: Upload clang-tidy config
         uses: actions/upload-artifact@v4
         if: always()

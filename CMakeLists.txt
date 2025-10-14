@@ -41,7 +41,7 @@ project(
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 # Add a configurable option to enable/disable clang-tidy
-option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" OFF)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
 
 # Find clang-tidy executable if the option is enabled
 if(ENABLE_CLANG_TIDY)

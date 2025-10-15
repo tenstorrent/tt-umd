@@ -41,10 +41,10 @@ void Chip::set_default_params(ARCH arch) {
     dram_address_params = {0u};
 }
 
-void Chip::set_barrier_address_params(const BarrierAddressParams& BarrierAddressParams_) {
-    l1_address_params.tensix_l1_barrier_base = BarrierAddressParams_.tensix_l1_barrier_base;
-    l1_address_params.eth_l1_barrier_base = BarrierAddressParams_.eth_l1_barrier_base;
-    dram_address_params.DRAM_BARRIER_BASE = BarrierAddressParams_.dram_barrier_base;
+void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
+    l1_address_params.tensix_l1_barrier_base = barrier_address_params.tensix_l1_barrier_base;
+    l1_address_params.eth_l1_barrier_base = barrier_address_params.eth_l1_barrier_base;
+    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params.dram_barrier_base;
 }
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }

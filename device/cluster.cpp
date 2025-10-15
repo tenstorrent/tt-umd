@@ -1129,9 +1129,9 @@ tt_version Cluster::get_ethernet_fw_version() const {
     return eth_fw_version;
 }
 
-void Cluster::set_barrier_address_params(const BarrierAddressParams& BarrierAddressParams_) {
+void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {
-        chip->set_barrier_address_params(BarrierAddressParams_);
+        chip->set_barrier_address_params(barrier_address_params);
     }
 }
 

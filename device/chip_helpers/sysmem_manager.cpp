@@ -56,7 +56,7 @@ void SysmemManager::unpin_or_unmap_sysmem() {
         munmap(iommu_mapping, iommu_mapping_size);
         iommu_mapping = nullptr;
     } else {
-        for (const auto &HugepageMapping : HugepageMapping_per_channel) {
+        for (const auto &HugepageMapping : hugepage_mapping_per_channel) {
             if (HugepageMapping.physical_address &&
                 tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
                 // This will unmap the hugepage if it was mapped through kmd.
@@ -67,7 +67,7 @@ void SysmemManager::unpin_or_unmap_sysmem() {
             }
         }
     }
-    HugepageMapping_per_channel.clear();
+    hugepage_mapping_per_channel.clear();
 }
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
@@ -151,7 +151,7 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
 
     bool success = true;
 
-    HugepageMapping_per_channel.resize(num_host_mem_channels);
+    hugepage_mapping_per_channel.resize(num_host_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < num_host_mem_channels; ch++) {
@@ -212,7 +212,7 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
                 ch);
         }
 
-        HugepageMapping_per_channel[ch] = {mapping, hugepage_size, 0};
+        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, 0};
     }
 
     return success;
@@ -224,9 +224,9 @@ bool SysmemManager::pin_or_map_hugepages() {
     bool success = true;
 
     // Support for more than 1GB host memory accessible per device, via channels.
-    for (int ch = 0; ch < HugepageMapping_per_channel.size(); ch++) {
-        void *mapping = HugepageMapping_per_channel.at(ch).mapping;
-        size_t hugepage_size = HugepageMapping_per_channel.at(ch).mapping_size;
+    for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
+        void *mapping = hugepage_mapping_per_channel.at(ch).mapping;
+        size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
         size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
@@ -266,7 +266,7 @@ bool SysmemManager::pin_or_map_hugepages() {
             continue;
         }
 
-        HugepageMapping_per_channel.at(ch).physical_address = physical_address;
+        hugepage_mapping_per_channel.at(ch).physical_address = physical_address;
 
         log_debug(
             LogUMD,
@@ -313,7 +313,7 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
             strerror(errno));
     }
 
-    HugepageMapping_per_channel.resize(num_fake_mem_channels);
+    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
@@ -321,7 +321,7 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
         size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : HUGEPAGE_REGION_SIZE;
-        HugepageMapping_per_channel[ch] = {fake_mapping, actual_size, 0};
+        hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
     }
 
     return true;
@@ -353,21 +353,21 @@ bool SysmemManager::pin_or_map_iommu() {
 
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
-    for (size_t ch = 0; ch < HugepageMapping_per_channel.size(); ch++) {
+    for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;
-        HugepageMapping_per_channel.at(ch).physical_address = device_io_address;
+        hugepage_mapping_per_channel.at(ch).physical_address = device_io_address;
     }
 
     return true;
 }
 
-size_t SysmemManager::get_num_host_mem_channels() const { return HugepageMapping_per_channel.size(); }
+size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
 
 HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
-    if (HugepageMapping_per_channel.size() <= channel) {
+    if (hugepage_mapping_per_channel.size() <= channel) {
         return {nullptr, 0, 0};
     } else {
-        return HugepageMapping_per_channel[channel];
+        return hugepage_mapping_per_channel[channel];
     }
 }
 

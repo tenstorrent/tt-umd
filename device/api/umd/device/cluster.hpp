@@ -188,9 +188,9 @@ public:
      * eth L1, and DRAM. Barrier addresses are used when calling l1_membar, dram_membar and wait_for_non_mmio_flush.
      * These need to be setup only for the synchronisation purposes between the host and the device.
      *
-     * @param BarrierAddressParams_  All the barrier parameters required by UMD
+     * @param barrier_address_params  All the barrier parameters required by UMD
      */
-    void set_barrier_address_params(const BarrierAddressParams& BarrierAddressParams_);
+    void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.

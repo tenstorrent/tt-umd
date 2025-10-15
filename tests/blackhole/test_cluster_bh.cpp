@@ -715,7 +715,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(DeviceParams{});  // no special parameters
+    cluster.start_device({});  // no special parameters
 
     const ChipId mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
@@ -769,7 +769,7 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     });
 
     set_barrier_params(cluster);
-    cluster.start_device(DeviceParams{});  // no special parameters
+    cluster.start_device({});  // no special parameters
 
     const ChipId mmio_chip_id = 0;
     const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);

@@ -70,7 +70,7 @@ private:
     TTDevice* tt_device_;
     const uint64_t pcie_base_;
 
-    std::vector<HugepageMapping> HugepageMapping_per_channel;
+    std::vector<HugepageMapping> hugepage_mapping_per_channel;
     void* iommu_mapping = nullptr;
     size_t iommu_mapping_size = 0;
 

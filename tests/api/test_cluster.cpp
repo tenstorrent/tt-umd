@@ -896,9 +896,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     if (options.chip_type == SIMULATION) {
-        DeviceParams DeviceParams;
-        DeviceParams.init_device = true;
-        cluster->start_device(DeviceParams);
+        cluster->start_device({.init_device = true});
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;

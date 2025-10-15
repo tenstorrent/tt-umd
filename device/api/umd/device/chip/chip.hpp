@@ -37,7 +37,7 @@ public:
 
     virtual bool is_mmio_capable() const = 0;
 
-    void set_barrier_address_params(const BarrierAddressParams& BarrierAddressParams_);
+    void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
 
     const ChipInfo& get_chip_info();
 

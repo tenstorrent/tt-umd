@@ -755,7 +755,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(DeviceParams{});  // no special parameters
+    cluster.start_device({});  // no special parameters
 
     const ChipId mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
@@ -816,7 +816,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     });
 
     set_barrier_params(cluster);
-    cluster.start_device(DeviceParams{});  // no special parameters
+    cluster.start_device({});  // no special parameters
 
     const ChipId mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
@@ -874,7 +874,7 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     const CoreCoord ARC_CORE = cluster.get_soc_descriptor(0).get_cores(CoreType::ARC).at(0);
 
     set_barrier_params(cluster);
-    cluster.start_device(DeviceParams{});
+    cluster.start_device({});
 
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
 
@@ -921,7 +921,7 @@ TEST(SiliconDriverWH, DMA1) {
     const ChipId chip = 0;
     Cluster cluster;
 
-    cluster.start_device(DeviceParams{});
+    cluster.start_device({});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -972,7 +972,7 @@ TEST(SiliconDriverWH, DMA2) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(DeviceParams{});
+    cluster.start_device({});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();

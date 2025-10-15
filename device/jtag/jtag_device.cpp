@@ -297,6 +297,15 @@ int JtagDevice::get_device_id(uint8_t chip_id) const {
     return jlink_devices[chip_id];
 }
 
+int JtagDevice::get_device_index_from_unique_id(uint32_t unique_id) const {
+    for (size_t i = 0; i < jlink_devices.size(); i++) {
+        if (jlink_devices[i] == unique_id) {
+            return static_cast<int>(i);
+        }
+    }
+    TT_THROW("JtagDevice::get_device_index_from_unique_id: Device with unique_id {} doesn't exist.", unique_id);
+}
+
 std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const {
     std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
     if (potential_devices.empty()) {

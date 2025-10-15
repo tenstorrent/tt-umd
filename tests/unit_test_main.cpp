@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "gtest_initializer.hpp"
 
 int main(int argc, char **argv) {

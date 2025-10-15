@@ -85,4 +85,6 @@ void TlbHandle::free_tlb() noexcept {
     }
 }
 
+int TlbHandle::get_tlb_id() const { return tlb_id; }
+
 }  // namespace tt::umd

@@ -257,7 +257,18 @@ uint64_t BlackholeTTDevice::get_arc_noc_base_address() const {
 bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
 
 bool BlackholeTTDevice::is_hardware_hung() {
-    throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+
+    // TODO: I am commented that out because we end up in this code path if we
+    // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
+    // it doesn't necessarily mean the hardware is hung. It's possible to write
+    // 0xffffffff to device memory and reading it back should not trigger an
+    // exception. In my case, the hardware was not hung but the 0xffffffff was
+    // related to a failure which was obscured by the exception. For now,
+    // just return false.  -- @joelsmithTT, Oct 1 2025
+
+    log_warning(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
+    return false;
 }
 
 }  // namespace tt::umd

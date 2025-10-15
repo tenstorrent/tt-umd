@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -59,4 +60,29 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
+// This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
+// active.
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
+
+static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
+    const std::optional<std::string> env_var_value = tt::umd::utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+    return target_devices.empty() && env_var_value.has_value()
+               ? tt::umd::utils::get_unordered_set_from_string(env_var_value.value())
+                     .value_or(std::unordered_set<int>{})
+               : target_devices;
+}
+
+static void check_timeout(
+    const std::chrono::steady_clock::time_point start_ms, const uint64_t timeout_ms, const std::string& error_msg) {
+    if (timeout_ms == 0) {
+        return;
+    }
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch() - start_ms.time_since_epoch())
+            .count();
+    if (elapsed_ms > timeout_ms) {
+        throw std::runtime_error(error_msg);
+    }
+}
 }  // namespace tt::umd::utils

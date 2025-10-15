@@ -143,18 +143,24 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
 // For now, it runs sequentially just to test the functionality.
 TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     std::vector<std::unique_ptr<Cluster>> clusters;
+    std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
         clusters.emplace_back(std::make_unique<Cluster>());
-    }
-    for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Setup risc cores for cluster " << i << std::endl;
         test_utils::setup_risc_cores_on_cluster(clusters[i].get());
-        std::cout << "Starting cluster " << i << std::endl;
-        clusters[i]->start_device({});
-        std::cout << "Running IO for cluster " << i << std::endl;
-        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
-        std::cout << "Stopping cluster " << i << std::endl;
-        clusters[i]->close_device();
+    }
+    for (int i = 0; i < NUM_PARALLEL; i++) {
+        threads.push_back(std::thread([&, i] {
+            std::cout << "Starting cluster " << i << std::endl;
+            clusters[i]->start_device({});
+            std::cout << "Running IO for cluster " << i << std::endl;
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
+            std::cout << "Stopping cluster " << i << std::endl;
+            clusters[i]->close_device();
+        }));
+    }
+    for (auto& th : threads) {
+        th.join();
     }
 }
 

@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
@@ -884,6 +885,50 @@ INSTANTIATE_TEST_SUITE_P(
     AllTriscNcriscCoreCombinations,
     ClusterAssertDeassertRiscsTest,
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
+
+TEST(TestCluster, StartDeviceWithValidRiscProgram) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    constexpr uint64_t write_address = 0x1000;
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    test_utils::setup_risc_cores_on_cluster(cluster.get());
+
+    cluster->start_device({});
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        cluster->write_to_device(data.data(), data_size, chip_id, any_core, write_address);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+    }
+
+    // Now read back the data.
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        cluster->read_from_device(readback_data.data(), chip_id, any_core, write_address, data_size);
+
+        ASSERT_EQ(data, readback_data);
+    }
+
+    cluster->close_device();
+}
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();

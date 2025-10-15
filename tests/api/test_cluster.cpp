@@ -4,6 +4,7 @@
 
 // This file holds Cluster specific API examples.
 
+#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
 
@@ -17,7 +18,6 @@
 #include <string>
 #include <vector>
 
-#include "fmt/xchar.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"

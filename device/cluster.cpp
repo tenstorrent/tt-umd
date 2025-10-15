@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -60,7 +61,6 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
-#include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
 

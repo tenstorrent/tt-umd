@@ -5,6 +5,8 @@
 #include "umd/device/soc_descriptor.hpp"
 
 #include <assert.h>
+#include <fmt/core.h>
+#include <yaml-cpp/yaml.h>
 
 #include <fstream>
 #include <iostream>
@@ -13,12 +15,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
-#include "fmt/core.h"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "utils.hpp"
-#include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"
 

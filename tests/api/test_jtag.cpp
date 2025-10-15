@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <memory>
+#include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "gtest/gtest.h"
-#include "tt-logger/tt-logger.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/jtag/jtag.hpp"

@@ -13,7 +13,7 @@ RemoteCommunicationLiteFabric::RemoteCommunicationLiteFabric(TTDevice* local_tt_
 }
 
 void RemoteCommunicationLiteFabric::read_non_mmio(
-    tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes) {
+    tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes, const uint64_t timeout_ms) {
     tt_xy_pair eth_core = get_remote_transfer_ethernet_core();
     CoreCoord core_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::NOC0);
     host_interface.read(dest, size_in_bytes, core_coord, target_core, core_src);
@@ -25,7 +25,8 @@ void RemoteCommunicationLiteFabric::write_to_non_mmio(
     uint64_t core_dest,
     uint32_t size_in_bytes,
     bool broadcast,
-    std::vector<int> broadcast_header) {
+    std::vector<int> broadcast_header,
+    const uint32_t timeout_ms) {
     // hacking this to be void* from const void*
     // TODO(pjanevski): support const void* properly
     tt_xy_pair eth_core = get_remote_transfer_ethernet_core();
@@ -33,7 +34,7 @@ void RemoteCommunicationLiteFabric::write_to_non_mmio(
     host_interface.write((void*)src, size_in_bytes, core_coord, target_core, core_dest);
 }
 
-void RemoteCommunicationLiteFabric::wait_for_non_mmio_flush() {
+void RemoteCommunicationLiteFabric::wait_for_non_mmio_flush(const uint32_t timeout_ms) {
     // TODO(pjanevski): implement this.
 }
 

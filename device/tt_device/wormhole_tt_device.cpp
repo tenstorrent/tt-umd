@@ -49,6 +49,7 @@ WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implem
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
+    log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -408,11 +409,17 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     uint32_t time_taken_port = 0;
     auto start = std::chrono::system_clock::now();
     uint32_t heartbeat_val;
-    read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+
+    tt_xy_pair actual_eth_core = eth_core;
+    if (umd_use_noc1) {
+        actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
+    }
+
+    read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
 
     uint32_t new_heartbeat_val = heartbeat_val;
     while (new_heartbeat_val != heartbeat_val) {
-        read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+        read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_heartbeat = duration.count();
@@ -446,8 +453,14 @@ uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {
     uint32_t channel = std::distance(
         wormhole::ETH_CORES_NOC0.begin(),
         std::find(wormhole::ETH_CORES_NOC0.begin(), wormhole::ETH_CORES_NOC0.end(), eth_core));
+
     uint32_t port_status;
-    read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
+    read_from_device(
+        &port_status,
+        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
+                     : eth_core,
+        eth_addresses.eth_conn_info + (channel * 4),
+        sizeof(uint32_t));
     return port_status;
 }
 

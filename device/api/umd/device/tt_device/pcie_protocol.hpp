@@ -39,7 +39,6 @@ public:
 
     void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
 
-private:
     void write_tlb_reg(
         uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
 
@@ -55,6 +54,7 @@ private:
 
     bool is_hardware_hung();
 
+private:
     LockManager lock_manager_;
     PCIDevice* pci_device_;
     architecture_implementation& architecture_implementation_;

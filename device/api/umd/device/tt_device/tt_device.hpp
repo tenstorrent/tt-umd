@@ -19,6 +19,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/pcie_protocol.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -66,7 +67,7 @@ public:
     tt::ARCH get_arch();
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
+    bool is_hardware_hung();
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
@@ -347,6 +348,8 @@ private:
     std::mutex tt_device_io_lock;
 
     std::unique_ptr<DeviceProtocol> device_protocol = nullptr;
+
+    PcieProtocol *pcie_protocol = nullptr;
 };
 
 }  // namespace tt::umd

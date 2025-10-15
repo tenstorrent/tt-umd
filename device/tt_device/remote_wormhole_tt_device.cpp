@@ -55,8 +55,4 @@ void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
     remote_communication_->get_local_device()->detect_hang_read(data_read);
 }
 
-bool RemoteWormholeTTDevice::is_hardware_hung() {
-    return remote_communication_->get_local_device()->is_hardware_hung();
-}
-
 }  // namespace tt::umd

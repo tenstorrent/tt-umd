@@ -205,9 +205,6 @@ dynamic_tlb PcieProtocol::set_dynamic_tlb(
     std::uint64_t address,
     bool multicast,
     std::uint64_t ordering) {
-    // if (communication_device_type_ == IODeviceType::JTAG) {
-    //     TT_THROW("set_dynamic_tlb is not applicable for JTAG communication type.");
-    // }
     if (multicast) {
         std::tie(start, end) = architecture_implementation_.multicast_workaround(start, end);
     }
@@ -283,13 +280,20 @@ void PcieProtocol::detect_hang_read(std::uint32_t data_read) {
 }
 
 bool PcieProtocol::is_hardware_hung() {
-    volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
-                                (architecture_implementation_.get_arc_axi_apb_peripheral_offset() +
-                                 architecture_implementation_.get_arc_reset_scratch_offset() + 6 * 4) -
-                                pci_device_->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
+    auto arch = architecture_implementation_.get_architecture();
+    switch (arch) {
+        case ARCH::WORMHOLE_B0: {
+            volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
+                                        (architecture_implementation_.get_arc_axi_apb_peripheral_offset() +
+                                         architecture_implementation_.get_arc_reset_scratch_offset() + 6 * 4) -
+                                        pci_device_->bar0_uc_offset;
+            std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
 
-    return (scratch_data == HANG_READ_VALUE);
+            return (scratch_data == HANG_READ_VALUE);
+        }
+        default:
+            throw std::runtime_error(fmt::format("Hardware hang detection is not supported on {}.", arch_to_str(arch)));
+    }
 }
 
 }  // namespace tt::umd

@@ -37,7 +37,8 @@ TTDevice::TTDevice(
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()),
-    device_protocol(std::make_unique<PcieProtocol>(pci_device_.get(), *architecture_impl_)) {
+    device_protocol(std::make_unique<PcieProtocol>(pci_device_.get(), *architecture_impl_)),
+    pcie_protocol(dynamic_cast<PcieProtocol *>(device_protocol.get())) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
 }
 
@@ -118,18 +119,20 @@ std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
+bool TTDevice::is_hardware_hung() {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
+    return pcie_protocol->is_hardware_hung();
+}
+
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         // Jtag protocol uses different communication paths from pci therefore
         // there's no need to check hang which is in this case pci-specific.
         return;
     }
-    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        std::uint32_t scratch_data =
-            *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
-
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
-    }
+    pcie_protocol->detect_hang_read(data_read);
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc
@@ -169,136 +172,28 @@ void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_byt
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("memcpy_to_device is not applicable for JTAG communication type.");
     }
-    typedef std::uint32_t copy_t;
-
-    // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
-    // first partial word.
-    volatile copy_t *dp;
-
-    std::uintptr_t dest_addr = reinterpret_cast<std::uintptr_t>(dest);
-    unsigned int dest_misalignment = dest_addr % sizeof(copy_t);
-
-    if (dest_misalignment != 0) {
-        // Read-modify-write for the first dest element.
-        dp = reinterpret_cast<copy_t *>(dest_addr - dest_misalignment);
-
-        copy_t tmp = *dp;
-
-        auto leading_len = std::min(sizeof(tmp) - dest_misalignment, num_bytes);
-
-        std::memcpy(reinterpret_cast<char *>(&tmp) + dest_misalignment, src, leading_len);
-        num_bytes -= leading_len;
-        src = static_cast<const char *>(src) + leading_len;
-
-        *dp++ = tmp;
-
-    } else {
-        dp = static_cast<copy_t *>(dest);
-    }
-
-    // Copy the destination-aligned middle.
-    const copy_t *sp = static_cast<const copy_t *>(src);
-    std::size_t num_words = num_bytes / sizeof(copy_t);
-
-    for (std::size_t i = 0; i < num_words; i++) {
-        *dp++ = *sp++;
-    }
-
-    // Finally copy any sub-word trailer, again RMW on the destination.
-    auto trailing_len = num_bytes % sizeof(copy_t);
-    if (trailing_len != 0) {
-        copy_t tmp = *dp;
-
-        std::memcpy(&tmp, sp, trailing_len);
-
-        *dp++ = tmp;
-    }
+    pcie_protocol->memcpy_to_device(dest, src, num_bytes);
 }
 
 void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("memcpy_from_device is not applicable for JTAG communication type.");
     }
-    typedef std::uint32_t copy_t;
-
-    // Start by aligning the source (device) pointer.
-    const volatile copy_t *sp;
-
-    std::uintptr_t src_addr = reinterpret_cast<std::uintptr_t>(src);
-    unsigned int src_misalignment = src_addr % sizeof(copy_t);
-
-    if (src_misalignment != 0) {
-        sp = reinterpret_cast<copy_t *>(src_addr - src_misalignment);
-
-        copy_t tmp = *sp++;
-
-        auto leading_len = std::min(sizeof(tmp) - src_misalignment, num_bytes);
-        std::memcpy(dest, reinterpret_cast<char *>(&tmp) + src_misalignment, leading_len);
-        num_bytes -= leading_len;
-        dest = static_cast<char *>(dest) + leading_len;
-
-    } else {
-        sp = static_cast<const volatile copy_t *>(src);
-    }
-
-    // Copy the source-aligned middle.
-    copy_t *dp = static_cast<copy_t *>(dest);
-    std::size_t num_words = num_bytes / sizeof(copy_t);
-
-    for (std::size_t i = 0; i < num_words; i++) {
-        *dp++ = *sp++;
-    }
-
-    // Finally copy any sub-word trailer.
-    auto trailing_len = num_bytes % sizeof(copy_t);
-    if (trailing_len != 0) {
-        copy_t tmp = *sp;
-        std::memcpy(dp, &tmp, trailing_len);
-    }
+    pcie_protocol->memcpy_from_device(dest, src, num_bytes);
 }
 
 void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("write_block is not applicable for JTAG communication type.");
     }
-    void *dest = nullptr;
-    if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
-        byte_addr -= BAR0_BH_SIZE;
-        dest = reinterpret_cast<uint8_t *>(pci_device_->bar4_wc) + byte_addr;
-    } else {
-        dest = pci_device_->get_register_address<uint8_t>(byte_addr);
-    }
-
-    const void *src = reinterpret_cast<const void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device(dest, src, num_bytes);
-    } else {
-        memcpy(dest, src, num_bytes);
-    }
+    pcie_protocol->write_block(byte_addr, num_bytes, buffer_addr);
 }
 
 void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("read_block is not applicable for JTAG communication type.");
     }
-    void *src = nullptr;
-    if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
-        byte_addr -= BAR0_BH_SIZE;
-        src = reinterpret_cast<uint8_t *>(pci_device_->bar4_wc) + byte_addr;
-    } else {
-        src = pci_device_->get_register_address<uint8_t>(byte_addr);
-    }
-
-    void *dest = reinterpret_cast<void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(dest, src, num_bytes);
-    } else {
-        memcpy(dest, src, num_bytes);
-    }
-
-    if (num_bytes >= sizeof(std::uint32_t)) {
-        detect_hang_read(*reinterpret_cast<std::uint32_t *>(dest));
-    }
+    pcie_protocol->read_block(byte_addr, num_bytes, buffer_addr);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -318,22 +213,7 @@ void TTDevice::write_tlb_reg(
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("write_tlb_reg is not applicable for JTAG communication type.");
     }
-
-    volatile uint64_t *dest_qw = pci_device_->get_register_address<uint64_t>(byte_addr);
-    volatile uint32_t *dest_extra_dw = pci_device_->get_register_address<uint32_t>(byte_addr + 8);
-#if defined(__ARM_ARCH) || defined(__riscv)
-    // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
-    // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory
-    // accesses. Insert an explicit full memory barrier for ARM. Do the same for RISC-V.
-    tt_driver_atomics::mfence();
-#endif
-    *dest_qw = value_lower;
-    if (tlb_cfg_reg_size > 8) {
-        uint32_t *p_value_upper = reinterpret_cast<uint32_t *>(&value_upper);
-        *dest_extra_dw = p_value_upper[0];
-    }
-    tt_driver_atomics::mfence();  // Otherwise subsequent WC loads move earlier than the above UC store to the TLB
-                                  // register.
+    pcie_protocol->write_tlb_reg(byte_addr, value_lower, value_upper, tlb_cfg_reg_size);
 }
 
 // Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
@@ -347,63 +227,8 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("set_dynamic_tlb is not applicable for JTAG communication type.");
     }
-    if (multicast) {
-        std::tie(start, end) = architecture_impl_->multicast_workaround(start, end);
-    }
 
-    log_trace(
-        LogUMD,
-        "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, "
-        "multicast "
-        "= {}, ordering = {}",
-        tlb_index,
-        start.x,
-        start.y,
-        end.x,
-        end.y,
-        address,
-        multicast,
-        (int)ordering);
-
-    tlb_configuration tlb_config = architecture_impl_->get_tlb_configuration(tlb_index);
-    std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_impl_->get_tlb_cfg_reg_size_bytes();
-    uint64_t tlb_address = address / tlb_config.size;
-    uint32_t local_address = address % tlb_config.size;
-    uint64_t tlb_base = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
-    uint32_t tlb_cfg_reg = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
-
-    std::pair<std::uint64_t, std::uint64_t> tlb_reg_config =
-        tlb_data{
-            .local_offset = tlb_address,
-            .x_end = static_cast<uint64_t>(end.x),
-            .y_end = static_cast<uint64_t>(end.y),
-            .x_start = static_cast<uint64_t>(start.x),
-            .y_start = static_cast<uint64_t>(start.y),
-            .noc_sel = umd_use_noc1 ? 1U : 0,
-            .mcast = multicast,
-            .ordering = ordering,
-            // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
-            // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to
-            // be the same TLB. Dynamic vc should not have this issue. There might be a perf impact with using
-            // dynamic vc.
-            .static_vc = (arch == tt::ARCH::BLACKHOLE) ? false : true,
-        }
-            .apply_offset(tlb_config.offset);
-
-    log_trace(
-        LogUMD,
-        "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
-        "tlb_cfg_reg: 0x{:x} to core ({},{})",
-        tlb_index,
-        tlb_config.index_offset,
-        tlb_config.size / (1024 * 1024),
-        tlb_base,
-        tlb_cfg_reg,
-        end.x,
-        end.y);
-    write_tlb_reg(tlb_cfg_reg, tlb_reg_config.first, tlb_reg_config.second, TLB_CFG_REG_SIZE_BYTES);
-
-    return {tlb_base + local_address, tlb_config.size - local_address};
+    return pcie_protocol->set_dynamic_tlb(tlb_index, start, end, address, multicast, ordering);
 }
 
 dynamic_tlb TTDevice::set_dynamic_tlb(
@@ -411,7 +236,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("set_dynamic_tlb is not applicable for JTAG communication type.");
     }
-    return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, ordering);
+    return pcie_protocol->set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, ordering);
 }
 
 dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
@@ -420,7 +245,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
         TT_THROW("set_dynamic_tlb_broadcast is not applicable for JTAG communication type.");
     }
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
-    return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
+    return pcie_protocol->set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

@@ -230,8 +230,4 @@ uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole:
 
 bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
 
-bool BlackholeTTDevice::is_hardware_hung() {
-    throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
-}
-
 }  // namespace tt::umd

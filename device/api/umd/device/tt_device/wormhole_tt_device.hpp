@@ -63,8 +63,6 @@ private:
 
     void post_init_hook() override;
 
-    bool is_hardware_hung() override;
-
     struct EthAddresses {
         uint32_t masked_version;
 

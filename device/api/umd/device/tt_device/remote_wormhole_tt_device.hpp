@@ -32,12 +32,6 @@ public:
      */
     void detect_hang_read(std::uint32_t data_read) override;
 
-    /*
-     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
-     * so hang detection is done via the local TTDevice used by RemoteCommunication.
-     */
-    bool is_hardware_hung() override;
-
 private:
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 

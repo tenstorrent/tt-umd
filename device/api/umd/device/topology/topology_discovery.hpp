@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "umd/device/chip/chip.hpp"
@@ -20,6 +21,10 @@ class ClusterDescriptor;
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        std::unordered_set<chip_id_t> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
         std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",

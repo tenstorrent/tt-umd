@@ -761,6 +761,12 @@ TEST(TestCluster, SocDescriptorSerialize) {
     }
 }
 
+TEST(TestCluster, GetEthernetFirmware) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    EXPECT_NO_THROW(cluster->get_ethernet_fw_version());
+}
+
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

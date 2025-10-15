@@ -916,18 +916,6 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
     }
 
     cluster->close_device();
-    // auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    // std::vector<uint8_t> zero_data(tensix_l1_size, 0);
-    // for (auto chip_id : cluster->get_target_device_ids()) {
-    //     const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-
-    //     std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
-
-    //     for (const CoreCoord& tensix_core : tensix_cores) {
-    //         // Zero out L1.
-    //         cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
-    //     }
-    // }
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

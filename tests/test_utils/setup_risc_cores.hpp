@@ -30,10 +30,6 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
             return;
     }
 
-    constexpr TensixSoftResetOptions brisc_core{TensixSoftResetOptions::BRISC};
-
-    constexpr TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET};
-
     for (auto& chip_id : cluster->get_target_device_ids()) {
         for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
             auto chip = cluster->get_chip(chip_id);

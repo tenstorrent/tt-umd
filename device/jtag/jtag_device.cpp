@@ -19,15 +19,8 @@ constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
-typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
-
-static const std::unordered_map<DeviceFamily, tt::ARCH> DeviceFamilyToArch = {
-    {DeviceFamily::DEVICE_FAMILY_BLACKHOLE, tt::ARCH::BLACKHOLE},
-    {DeviceFamily::DEVICE_FAMILY_WORMHOLE, tt::ARCH::WORMHOLE_B0},
-    {DeviceFamily::DEVICE_FAMILY_UNKNOWN, tt::ARCH::Invalid}};
-
 /* static */ std::filesystem::path JtagDevice::jtag_library_path =
-    std::filesystem::path("./build/lib/libtt_umd_umd_jtag.so");
+    std::filesystem::path("./build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices) :

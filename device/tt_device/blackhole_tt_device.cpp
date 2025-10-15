@@ -116,7 +116,6 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
             read_regs(addr, 1, &niu_cfg);
         }
     }
-    std::cout << "NIUCFG: " << niu_cfg << std::endl;
     return ((niu_cfg >> 14) & 0x1) != 0;
 }
 

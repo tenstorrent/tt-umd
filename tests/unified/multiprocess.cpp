@@ -55,7 +55,9 @@ static void test_read_write_all_tensix_cores_impl(
             readback_vec.clear();
         }
 
-        address += 0x28;  // Increment by actual data size (40 bytes = 0x28)
+        // Increment for 32 bytes, so there is an overlap of data of 8 bytes, so the thread
+        // synchornization is verified.
+        address += 0x20;
 
         if (enable_alignment && address % 4 != 0) {
             address = align_to_4_bytes(address);

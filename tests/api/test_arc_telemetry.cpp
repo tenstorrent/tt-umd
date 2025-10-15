@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "gtest/gtest.h"
-#include "tt-logger/tt-logger.hpp"
+#include <gtest/gtest.h>
+
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/types/telemetry.hpp"
 

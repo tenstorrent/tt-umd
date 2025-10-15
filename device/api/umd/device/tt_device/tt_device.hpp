@@ -65,7 +65,6 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
-
     std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();

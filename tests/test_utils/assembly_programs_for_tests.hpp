@@ -8,6 +8,11 @@
 #include <cstdint>
 
 /*
+See GENERATE_ASSEMBLY_FOR_TESTS.md for a step-by-step tutorial on generating and inspecting these binaries (open the .md
+in your IDE or on GitHub for details).
+*/
+
+/*
 godbolt link example:
     - https://godbolt.org/z/qne95Tso7
 

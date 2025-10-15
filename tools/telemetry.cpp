@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/types/telemetry.hpp"
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include <chrono>
 #include <cxxopts.hpp>
 #include <fstream>
@@ -16,8 +19,6 @@
 #include <vector>
 
 #include "common.hpp"
-#include "fmt/core.h"
-#include "fmt/format.h"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"

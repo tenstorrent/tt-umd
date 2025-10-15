@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <thread>
 
-#include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

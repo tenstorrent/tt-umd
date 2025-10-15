@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 
+#include "device_protocol.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -18,6 +19,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/pcie_protocol.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -32,11 +34,6 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // abstraction for IO.
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
-
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
 
 class ArcMessenger;
 class ArcTelemetryReader;
@@ -70,7 +67,7 @@ public:
     tt::ARCH get_arch();
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
+    bool is_hardware_hung();
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
@@ -349,6 +346,10 @@ private:
     TlbWindow *get_cached_tlb_window(tlb_data config);
 
     std::mutex tt_device_io_lock;
+
+    std::unique_ptr<DeviceProtocol> device_protocol = nullptr;
+
+    PcieProtocol *pcie_protocol = nullptr;
 };
 
 }  // namespace tt::umd

@@ -17,9 +17,7 @@ using namespace tt::umd;
 
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
-
-// Helper function to align address to 4-byte boundary
-static uint32_t align_to_4_bytes(uint32_t address) { return (address + 3) & ~3; }
+static constexpr int NUM_OF_BYTES_RESERVED = 128;
 
 // Core implementation for testing IO in parallel threads.
 // Partitions L1 memory between threads to avoid address overlaps.
@@ -39,9 +37,6 @@ static void test_read_write_all_tensix_cores_impl(
     readback_vec.reserve(vector_to_write.size());
 
     uint32_t address = reserved_size + chunk_size * thread_id;
-    if (enable_alignment && address % 4 != 0) {
-        address = align_to_4_bytes(address);
-    }
     const uint32_t start_address = address;
     const uint32_t address_next_thread = reserved_size + chunk_size * (thread_id + 1);
 
@@ -58,10 +53,6 @@ static void test_read_write_all_tensix_cores_impl(
         // Increment for 32 bytes, so there is an overlap of data of 8 bytes, so the thread
         // synchornization is verified.
         address += 0x20;
-
-        if (enable_alignment && address % 4 != 0) {
-            address = align_to_4_bytes(address);
-        }
 
         // If we get into the bucket of the next thread, return to start address of this thread's bucket.
         // If we are inside other bucket can't guarantee the order of read/writes.
@@ -80,9 +71,9 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, 0, false);
 }
 
-// Same intention as test_read_write_all_tensix_cores, but without modifying first 100 bytes
-void test_read_write_all_tensix_cores_with_reserved_first_100_bytes(Cluster* cluster, int thread_id) {
-    test_read_write_all_tensix_cores_impl(cluster, thread_id, 100, true);
+// Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes
+void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
+    test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
 
 // Single process opens multiple clusters but uses them sequentially.
@@ -161,7 +152,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
         std::cout << "Starting cluster " << i << std::endl;
         clusters[i]->start_device({});
         std::cout << "Running IO for cluster " << i << std::endl;
-        test_read_write_all_tensix_cores(clusters[i].get(), i);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
         std::cout << "Stopping cluster " << i << std::endl;
         clusters[i]->close_device();
     }

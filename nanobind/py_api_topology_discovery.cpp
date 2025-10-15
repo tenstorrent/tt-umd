@@ -13,6 +13,7 @@
 
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 
@@ -36,10 +37,13 @@ void bind_topology_discovery(nb::module_ &m) {
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",
-            [](std::unordered_set<chip_id_t> pci_target_devices = {}, std::string sdesc_path = "") {
+            [](std::unordered_set<chip_id_t> target_devices = {},
+               std::string sdesc_path = "",
+               IODeviceType device_type = IODeviceType::PCIe) {
                 return TopologyDiscovery::create_cluster_descriptor(
-                    std::move(pci_target_devices), std::move(sdesc_path));
+                    std::move(target_devices), std::move(sdesc_path), device_type);
             },
-            nb::arg("pci_target_devices") = std::unordered_set<chip_id_t>{},
-            nb::arg("sdesc_path") = "");
+            nb::arg("target_devices") = std::unordered_set<chip_id_t>{},
+            nb::arg("sdesc_path") = "",
+            nb::arg("device_type") = IODeviceType::PCIe);
 }

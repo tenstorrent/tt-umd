@@ -65,7 +65,11 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
     std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
-    return TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, device_type)->create_ethernet_map();
+    auto td = TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, device_type);
+    if (td == nullptr) {
+        return std::make_unique<ClusterDescriptor>();
+    }
+    return td->create_ethernet_map();
 }
 
 TopologyDiscovery::TopologyDiscovery(

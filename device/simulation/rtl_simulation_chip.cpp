@@ -181,18 +181,54 @@ void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selecte
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
-    // Note that the simulator currently only supports soft reset control for all DMs on Quasar, you can't
-    // control them individually. This is just a current API limitation, it is possible to add the support
-    // for finer grained control in the future if needed.
-    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
-    } else {
+    if (arch_name == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL_NEO_DMS) {
+            // Reset all DM cores
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
+            return;
+        }
+        // Check if this is a request per individual DM core reset
+        if ((selected_riscs & RiscType::DM0) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 0));
+        }
+        if ((selected_riscs & RiscType::DM1) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 1));
+        }
+        if ((selected_riscs & RiscType::DM2) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 2));
+        }
+        if ((selected_riscs & RiscType::DM3) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 3));
+        }
+        if ((selected_riscs & RiscType::DM4) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 4));
+        }
+        if ((selected_riscs & RiscType::DM5) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 5));
+        }
+        if ((selected_riscs & RiscType::DM6) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 6));
+        }
+        if ((selected_riscs & RiscType::DM7) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 7));
+        }
+    }
+
+    if (arch_name != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
         // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
-        // always call this command as if reset for all was requested, unless NEO_DMS_RESET was specifically selected.
+        // always call this command as if reset for all was requested.
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translate_core));
     }
@@ -203,10 +239,49 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // See the comment in assert_risc_reset for more details.
-    if (arch_name == tt::ARCH::QUASAR && selected_riscs == RiscType::ALL_NEO_DMS) {
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
-    } else {
+    if (arch_name == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL_NEO_DMS) {
+            // Reset all DM cores
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
+            return;
+        }
+        // Check if this is a request per individual DM core reset
+        if ((selected_riscs & RiscType::DM0) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 0));
+        }
+        if ((selected_riscs & RiscType::DM1) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 1));
+        }
+        if ((selected_riscs & RiscType::DM2) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 2));
+        }
+        if ((selected_riscs & RiscType::DM3) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 3));
+        }
+        if ((selected_riscs & RiscType::DM4) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 4));
+        }
+        if ((selected_riscs & RiscType::DM5) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 5));
+        }
+        if ((selected_riscs & RiscType::DM6) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 6));
+        }
+        if ((selected_riscs & RiscType::DM7) != RiscType::NONE) {
+            send_command_to_simulation_host(
+                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 7));
+        }
+    }
+
+    if (arch_name != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translate_core));

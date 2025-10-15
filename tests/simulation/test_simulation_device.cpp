@@ -98,4 +98,8 @@ TEST_F(SimulationDeviceFixture, SimpleApiTest) {
     device->assert_risc_reset(core, RiscType::ALL_NEO_DMS);
     device->deassert_risc_reset(core, RiscType::BRISC, true);
     device->deassert_risc_reset(core, RiscType::ALL_NEO_DMS, true);
+    
+    RiscType example_dm_cores = RiscType::DM0 | RiscType::DM1 | RiscType::DM7;
+    device->assert_risc_reset(core, example_dm_cores);
+    device->deassert_risc_reset(core, example_dm_cores, true);
 }

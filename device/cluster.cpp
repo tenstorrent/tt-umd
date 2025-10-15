@@ -289,11 +289,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto mmio_id = cluster_desc->get_chips_with_mmio().at(chip_id);
         auto chip = LocalChip::create(
-            (cluster_desc->io_device_type == IODeviceType::JTAG
-                 ? JtagDevice::create()->get_device_index_from_unique_id(mmio_id)
-                 : mmio_id),
+            (cluster_desc->get_chips_with_mmio().at(chip_id)),
             soc_desc,
             num_host_mem_channels,
             cluster_desc->io_device_type);

@@ -84,7 +84,6 @@ public:
     std::optional<uint32_t> read_id(uint8_t chip_id);
     std::optional<uint8_t> get_current_device_idx() const;
     int get_device_id(uint8_t chip_id) const;
-    int get_device_index_from_unique_id(uint32_t unique_id) const;
 
     bool is_hardware_hung(uint8_t chip_id);
     static std::filesystem::path jtag_library_path;

@@ -251,7 +251,7 @@ public:
      * - Initialize iATUs for PCIe devices
      * - Initialize ethernet queues for remote chips.
      *
-     * @param DeviceParams Object specifying initialization configuration.
+     * @param device_params Object specifying initialization configuration.
      */
     void start_device(const DeviceParams& DeviceParams);
 

@@ -271,14 +271,6 @@ public:
     void set_power_state(DevicePowerState state);
 
     /**
-     * Broadcast deassert BRISC soft Tensix Reset to the entire device.
-     * This function needs to be called after start_device.
-     * It writes to TENSIX register SOFT_RESET, the address of
-     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
-     */
-    void deassert_risc_reset();
-
-    /**
      * Send a BRISC soft deassert reset signal to a single tensix core.
      * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
      *
@@ -290,13 +282,6 @@ public:
         const chip_id_t chip,
         const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-
-    /**
-     * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
-     * It writes to TENSIX register SOFT_RESET, the address of
-     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
-     */
-    void assert_risc_reset();
 
     /**
      * Send a BRISC soft assert reset signal to a single tensix core.
@@ -669,8 +654,6 @@ public:
 
 private:
     // Helper functions
-    // Broadcast
-    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
 
     // Communication Functions

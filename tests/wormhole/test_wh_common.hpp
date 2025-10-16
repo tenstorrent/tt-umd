@@ -60,8 +60,6 @@ protected:
         device_params default_params;
         cluster->start_device(default_params);
 
-        cluster->deassert_risc_reset();
-
         cluster->wait_for_non_mmio_flush();
     }
 

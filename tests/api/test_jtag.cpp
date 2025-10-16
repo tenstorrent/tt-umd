@@ -86,35 +86,6 @@ protected:
 std::vector<ApiJtagDeviceTest::DeviceData> ApiJtagDeviceTest::device_data_;
 bool ApiJtagDeviceTest::setup_successful_ = false;
 
-TEST(GLUPAV_TEST, glupi_test) {
-    auto device = JtagDevice::create();
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "PCI device enumeration failed. Cannot run JTAG Translated Coords Test.";
-    }
-    auto pci_tt_device = TTDevice::create(pci_device_ids[0], IODeviceType::PCIe);
-    if (!pci_tt_device) {
-        TT_THROW("Failed to create PCI TT device.");
-    }
-    pci_tt_device->init_tt_device();
-    auto soc_descriptor = tt_SocDescriptor(pci_tt_device->get_arch(), pci_tt_device->get_chip_info());
-    tt_xy_pair core = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-    tt_xy_pair arc_core = soc_descriptor.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
-
-    device->write32(0, core.x, core.y, 0x524, 0x12312312);
-    uint32_t value;
-
-    device->read(0, &value, arc_core.x, arc_core.y, 0x800301D0, sizeof(uint32_t));
-    uint32_t value2;
-    pci_tt_device->read_from_device(&value2, pci_tt_device->get_arc_core(), 0x800301D0, sizeof(uint32_t));
-    // 0x80050100
-    std::cout << value << std::endl;
-
-    // auto value = device->read32(0, 2, 0, 0x512);
-
-    // ASSERT_TRUE(value.has_value());
-}
-
 TEST_F(ApiJtagDeviceTest, JTagIOBasic) {
     uint64_t address = 0x0;
 

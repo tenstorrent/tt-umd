@@ -347,4 +347,8 @@ bool TopologyDiscoveryWormhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_
     return (status & link_connected_mask) == link_connected_mask;
 }
 
+uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
+    return chip->get_tt_device()->get_board_id();
+}
+
 }  // namespace tt::umd

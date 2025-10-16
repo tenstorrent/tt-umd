@@ -5,6 +5,8 @@
  */
 
 #pragma once
+#include <fmt/core.h>
+
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
@@ -16,8 +18,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "fmt/core.h"
-#include "types/tensix_soft_reset_options.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -25,6 +25,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -449,11 +450,6 @@ public:
         const std::set<chip_id_t>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude);
-
-    /**
-     * This API allows you to write directly to device memory that is addressable by a static TLB.
-     */
-    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
 
     /**
      * Provide fast write access to a statically-mapped TLB.

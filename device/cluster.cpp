@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -61,7 +62,7 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
-#include "yaml-cpp/yaml.h"
+#include "utils.hpp"
 
 extern bool umd_use_noc1;
 
@@ -295,7 +296,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc);
+        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -305,16 +306,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         auto chip = LocalChip::create(
-            (cluster_desc->io_device_type == IODeviceType::JTAG ? chip_id
-                                                                : cluster_desc->get_chips_with_mmio().at(chip_id)),
+            (cluster_desc->get_chips_with_mmio().at(chip_id)),
             soc_desc,
             num_host_mem_channels,
             cluster_desc->io_device_type);
 
-        // Currrently remote transfer is only supported by PCIe.
-        // TODO: implement remote transfer for JTAG comm.
-        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0 &&
-            cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }
@@ -476,6 +473,18 @@ Cluster::Cluster(ClusterOptions options) {
         // this Cluster.
         cluster_desc =
             ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
+#ifdef TT_UMD_BUILD_SIMULATION
+    } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
+        // Filter devices only when a cluster descriptor is passed for simulation.
+        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
+        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        if (!visible_devices.empty()) {
+            cluster_desc =
+                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
+        } else {
+            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+        }
+#endif
     } else {
         // If no target devices are passed, we can use the full cluster.
         // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
@@ -563,11 +572,6 @@ void Cluster::deassert_risc_reset(
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
-
-std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
-    int device_id) {
-    return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
-}
 
 Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);

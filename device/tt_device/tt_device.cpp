@@ -43,9 +43,8 @@ TTDevice::TTDevice(
     uint8_t jlink_id,
     std::unique_ptr<architecture_implementation> architecture_impl) :
     jtag_device_(jtag_device),
-    jlink_id_(jlink_id),
     communication_device_type_(IODeviceType::JTAG),
-    communication_device_id_(jtag_device_->get_device_id(jlink_id_)),
+    communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
@@ -96,10 +95,19 @@ std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
+            // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
+            // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
+            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
+                return std::unique_ptr<RemoteWormholeTTDevice>(
+                    new RemoteWormholeTTDevice(std::move(remote_communication), target_chip, IODeviceType::JTAG));
+            }
             return std::unique_ptr<RemoteWormholeTTDevice>(
                 new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
         }
         case tt::ARCH::BLACKHOLE: {
+            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
+                TT_THROW("Remote TTDevice creation over JTAG is not yet supported for Blackhole architecture.");
+            }
             return std::unique_ptr<RemoteBlackholeTTDevice>(
                 new RemoteBlackholeTTDevice(std::move(remote_communication)));
         }
@@ -111,6 +119,8 @@ std::unique_ptr<TTDevice> TTDevice::create(
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
+
+std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
@@ -293,13 +303,14 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 
     if (num_bytes >= sizeof(std::uint32_t)) {
+        // TODO: looks like there is potential for undefined behavior here.
         detect_hang_read(*reinterpret_cast<std::uint32_t *>(dest));
     }
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
@@ -318,7 +329,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(jlink_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
@@ -607,4 +618,13 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
+TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window =
+            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        return cached_tlb_window.get();
+    }
+    cached_tlb_window->configure(config);
+    return cached_tlb_window.get();
+}
 }  // namespace tt::umd

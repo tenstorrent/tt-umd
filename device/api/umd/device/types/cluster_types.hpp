@@ -6,11 +6,12 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <cassert>
 #include <ostream>
 #include <vector>
 
-#include "fmt/core.h"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

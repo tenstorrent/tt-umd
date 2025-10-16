@@ -10,16 +10,17 @@
 
 #include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
-#include "umd/device/simulation/tt_simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) {
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimulationChip>(simulator_directory, soc_descriptor);
+        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id);
     } else {
-        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor);
+        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id);
     }
 }
 
@@ -28,11 +29,12 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
                                                  : (simulator_path / "soc_descriptor.yaml");
 }
 
-SimulationChip::SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
+SimulationChip::SimulationChip(
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) :
     Chip(soc_descriptor), simulator_directory_(simulator_directory) {
-    soc_descriptor_per_chip.emplace(0, soc_descriptor);
+    soc_descriptor_per_chip.emplace(chip_id, soc_descriptor);
     arch_name = soc_descriptor.arch;
-    target_devices_in_cluster = {0};
+    target_devices_in_cluster = {chip_id};
 
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory_);
@@ -58,10 +60,6 @@ void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord
 
 void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
-}
-
-std::function<void(uint32_t, uint32_t, const uint8_t*)> SimulationChip::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error("SimulationChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
 void SimulationChip::wait_for_non_mmio_flush() {}

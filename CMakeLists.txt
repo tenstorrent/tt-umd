@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
+option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
+set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
+
 include(cmake/compilers.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -33,6 +36,8 @@ project(
     LANGUAGES
         CXX
 )
+
+message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 CHECK_COMPILERS()

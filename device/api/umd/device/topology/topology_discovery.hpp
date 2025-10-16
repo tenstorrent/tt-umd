@@ -98,8 +98,6 @@ protected:
 
     virtual void init_topology_discovery();
 
-    void init_local_devices();
-
     virtual bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) = 0;
 
     virtual bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) = 0;

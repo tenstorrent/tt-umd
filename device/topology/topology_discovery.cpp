@@ -67,33 +67,12 @@ TopologyDiscovery::TopologyDiscovery(
     target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
-    // TODO: Remove init_local_devices() once the root cause of the failure in TTDevice's init_tt_device method after
-    // reset is understood. Currently, an exception occurs in the telemetry messenger despite successful ARC
-    // initialization. Note: The issue remains even when wait_arc_post_reset is used instead of wait_arc_core_start
-    // before initializing the telemetry messenger, and all local devices call init_tt_device within
-    // init_topology_discovery.
-    init_local_devices();
     init_topology_discovery();
     cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_connected_chips();
     discover_remote_chips();
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
-}
-
-void TopologyDiscovery::init_local_devices() {
-    auto pci_device_ids = PCIDevice::enumerate_devices();
-
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-
-    for (auto& pci_device_id : pci_device_ids) {
-        auto tt_device = TTDevice::create(pci_device_id);
-        if (!tt_device->wait_arc_post_reset(300'000)) {
-            log_error(tt::LogUMD, "Local TTDevice ARC core initialization failed for PCI id {}", pci_device_id);
-            throw std::runtime_error(fmt::format(
-                "Topology discovery aborted: failed to initialize local TTDevice for PCI id {}.", pci_device_id));
-        }
-    }
 }
 
 void TopologyDiscovery::init_topology_discovery() {}

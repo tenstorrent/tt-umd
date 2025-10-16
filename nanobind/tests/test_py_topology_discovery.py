@@ -18,3 +18,21 @@ class TestTopologyDiscovery(unittest.TestCase):
         
         for chip in cluster_descriptor.get_all_chips():
             print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)}")
+    
+    def test_cluster_descriptor_with_device_type(self):
+        # Test with explicit PCIe device type (default)
+        cluster_descriptor_pcie = tt_umd.TopologyDiscovery.create_cluster_descriptor(
+            target_devices=set(),
+            sdesc_path="",
+            device_type=tt_umd.IODeviceType.PCIe
+        )
+        print("PCIe cluster descriptor created with", len(cluster_descriptor_pcie.get_all_chips()), "chips")
+        
+        # Test with JTAG device type
+        # Note: This may not find devices if JTAG is not available
+        cluster_descriptor_jtag = tt_umd.TopologyDiscovery.create_cluster_descriptor(
+            target_devices=set(),
+            sdesc_path="",
+            device_type=tt_umd.IODeviceType.JTAG
+        )
+        print("JTAG cluster descriptor created with", len(cluster_descriptor_jtag.get_all_chips()), "chips")

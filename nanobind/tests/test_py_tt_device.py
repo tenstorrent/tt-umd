@@ -39,4 +39,17 @@ class TestTTDevice(unittest.TestCase):
                 
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")
+    
+    def test_tt_device_with_device_type(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        # Test with explicit PCIe device type (default)
+        for dev_id in dev_ids:
+            dev = tt_umd.TTDevice.create(dev_id, tt_umd.IODeviceType.PCIe)
+            dev.init_tt_device()
+            print(f"TTDevice id {dev_id} created with PCIe device type, arch: {dev.get_arch()}")
         

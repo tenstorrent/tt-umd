@@ -26,7 +26,7 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
+    int physical_device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type, bool disable_wait_on_eth_core_training) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
@@ -59,11 +59,12 @@ std::unique_ptr<LocalChip> LocalChip::create(
         std::move(tlb_manager),
         std::move(sysmem_manager),
         std::move(remote_communication),
-        num_host_mem_channels));
+        num_host_mem_channels,
+        disable_wait_on_eth_core_training));
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
+    int physical_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type, bool disable_wait_on_eth_core_training) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
@@ -90,7 +91,8 @@ std::unique_ptr<LocalChip> LocalChip::create(
         std::move(tlb_manager),
         std::move(sysmem_manager),
         std::move(remote_communication),
-        num_host_mem_channels));
+        num_host_mem_channels,
+        disable_wait_on_eth_core_training));
 }
 
 LocalChip::LocalChip(
@@ -99,7 +101,8 @@ LocalChip::LocalChip(
     std::unique_ptr<TLBManager> tlb_manager,
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
-    int num_host_mem_channels) :
+    int num_host_mem_channels,
+    bool disable_wait_on_eth_core_training) :
     Chip(tt_device->get_chip_info(), soc_descriptor),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
@@ -108,7 +111,7 @@ LocalChip::LocalChip(
     if (tlb_manager_ != nullptr) {
         initialize_tlb_manager();
     }
-    wait_chip_to_be_ready();
+    wait_chip_to_be_ready(disable_wait_on_eth_core_training);
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();
     }

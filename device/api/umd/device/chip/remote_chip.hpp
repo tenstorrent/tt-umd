@@ -26,12 +26,14 @@ public:
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
-        std::string sdesc_path = "");
+        std::string sdesc_path = "",
+        bool disable_wait_on_eth_core_training = false);
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
-        SocDescriptor soc_descriptor);
+        SocDescriptor soc_descriptor,
+        bool disable_wait_on_eth_core_training = false);
 
     bool is_mmio_capable() const override;
 
@@ -67,7 +69,7 @@ public:
     int get_numa_node() override;
 
 private:
-    RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, bool disable_wait_on_eth_core_training);
 
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;

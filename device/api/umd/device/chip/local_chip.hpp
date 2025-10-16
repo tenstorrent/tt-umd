@@ -24,12 +24,14 @@ public:
         int physical_device_id,
         std::string sdesc_path = "",
         int num_host_mem_channels = 0,
-        IODeviceType device_type = IODeviceType::PCIe);
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool disable_wait_on_eth_core_training = false);
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
         SocDescriptor soc_descriptor,
         int num_host_mem_channels = 0,
-        IODeviceType device_type = IODeviceType::PCIe);
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool disable_wait_on_eth_core_training = false);
 
     ~LocalChip();
 
@@ -81,7 +83,8 @@ private:
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
         std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+        int num_host_mem_channels,
+        bool disable_wait_on_eth_core_training);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

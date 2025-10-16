@@ -22,13 +22,13 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path, bool break_ports) :
-    TopologyDiscovery(pci_target_devices, sdesc_path, IODeviceType::PCIe, break_ports) {}
+    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path, bool disable_wait_on_eth_core_training) :
+    TopologyDiscovery(pci_target_devices, sdesc_path, IODeviceType::PCIe, disable_wait_on_eth_core_training) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
-    std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels, bool disable_wait_on_eth_core_training) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    return RemoteChip::create(dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, sdesc_path);
+    return RemoteChip::create(dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, sdesc_path, disable_wait_on_eth_core_training);
 }
 
 std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }

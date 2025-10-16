@@ -110,6 +110,8 @@ struct ClusterOptions {
      * This determines how the cluster will communicate with the underlying hardware.
      */
     IODeviceType io_device_type = IODeviceType::PCIe;
+
+    bool disable_wait_on_eth_core_training = false;
 };
 
 /**
@@ -150,7 +152,7 @@ public:
         std::string sdesc_path = "",
         std::unordered_set<chip_id_t> target_devices = {},
         IODeviceType device_type = IODeviceType::PCIe,
-        bool break_ports = false);
+        bool disable_wait_on_eth_core_training = false);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.

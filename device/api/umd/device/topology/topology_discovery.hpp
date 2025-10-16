@@ -24,12 +24,12 @@ public:
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe,
-        bool break_ports = false);
+        bool disable_wait_on_eth_core_training = false);
     TopologyDiscovery(
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe,
-        bool break_ports = false);
+        bool disable_wait_on_eth_core_training = false);
     virtual ~TopologyDiscovery() = default;
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
@@ -96,7 +96,7 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels, bool disable_wait_on_eth_core_training) = 0;
 
     Chip* get_chip(const uint64_t asic_id);
 
@@ -152,7 +152,7 @@ protected:
 
     bool is_running_on_6u = false;
 
-    bool break_ports_ = false;
+    bool disable_wait_on_eth_core_training = false;
 };
 
 }  // namespace tt::umd

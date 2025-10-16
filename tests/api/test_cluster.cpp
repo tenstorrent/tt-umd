@@ -188,6 +188,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 
     // 1. Simplest constructor. Creates Cluster with all the chips available.
     umd_cluster = std::make_unique<Cluster>();
+    auto cluster_desc =  Cluster::create_cluster_descriptor();
     bool chips_available = !umd_cluster->get_target_device_ids().empty();
     umd_cluster = nullptr;
 
@@ -218,7 +219,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
+    // std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .cluster_descriptor = cluster_desc.get(),
     });

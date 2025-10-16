@@ -24,7 +24,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool break_ports) {
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool disable_wait_on_eth_core_training) {
     tt::ARCH current_arch = ARCH::Invalid;
 
     switch (device_type) {
@@ -54,17 +54,17 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
 
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type, break_ports).create_ethernet_map();
+            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type, disable_wait_on_eth_core_training).create_ethernet_map();
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path, break_ports).create_ethernet_map();
+            return TopologyDiscoveryBlackhole(target_devices, sdesc_path, disable_wait_on_eth_core_training).create_ethernet_map();
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool break_ports) :
-    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type), break_ports_(break_ports) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool disable_wait_on_eth_core_training) :
+    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type), disable_wait_on_eth_core_training(disable_wait_on_eth_core_training) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
@@ -76,16 +76,6 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
-
-void write_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t port_status) {
-    // Purposely set the links status as UNKOWN or UNCONNECTED
-    uint32_t channel =
-        chip->get_soc_descriptor()
-            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
-            .y;
-    TTDevice* tt_device = chip->get_tt_device();
-    tt_device->write_to_device(&port_status, eth_core, 0x1104, sizeof(uint32_t));
-}
 
 void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
@@ -104,7 +94,7 @@ void TopologyDiscovery::get_connected_chips() {
             TT_THROW("Unsupported device type.");
     }
     for (auto& device_id : device_ids) {
-        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type);
+        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type, disable_wait_on_eth_core_training);
 
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
@@ -127,24 +117,6 @@ void TopologyDiscovery::get_connected_chips() {
             device_id,
             asic_id);
     }
-    if (break_ports_) {
-        std::cout << "Breaking ports" << std::endl;
-        // Take down all ethernet links between two chips (from a SW POV)
-        for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
-            std::vector<CoreCoord> eth_cores =
-                chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-            for (const CoreCoord& eth_core : eth_cores) {
-                uint32_t channel =
-                    chip->get_soc_descriptor()
-                        .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
-                        .y;
-                // if ((current_chip_asic_id == 87028789983326273 && (channel >= 8 && channel <= 11) ) ||
-                //     (current_chip_asic_id == 159086384021254209 && (channel >= 4 && channel <= 7))) {
-                    write_port_status(chip.get(), eth_core, 0); // Set to LINK_TRAIN_TRAINING
-                // }
-            }
-        }
-    }
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -164,7 +136,9 @@ void TopologyDiscovery::discover_remote_chips() {
             }
         }
     }
-    std::cout << "Chips to discover: " << chips_to_discover.size() << std::endl;
+
+    constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -182,11 +156,18 @@ void TopologyDiscovery::discover_remote_chips() {
         }
 
         uint32_t channel = 0;
-        constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t training_status = read_training_status(chip, eth_core);
             if (training_status != LINK_TRAIN_SUCCESS) {
-                std::cout << "Training status: " << training_status << std::endl;
+                // Link is not trained and can hence not be discovered
+                continue;
+            }
+
+            if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+                // Special handling for cross host links on WH N300 systems.
+                // These links are treated separately from the other ethernet links
+                // on an N300 based system, since they need to be hidden from software
+                // not using UMD.
                 if (std::find(intermesh_eth_links.begin(), intermesh_eth_links.end(), channel) ==
                     intermesh_eth_links.end()) {
                     channel++;
@@ -222,7 +203,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
                 std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
-                    eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
+                    eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id), disable_wait_on_eth_core_training);
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());

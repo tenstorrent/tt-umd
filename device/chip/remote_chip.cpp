@@ -24,7 +24,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
-    std::string sdesc_path) {
+    std::string sdesc_path,
+    bool disable_wait_on_eth_core_training) {
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
@@ -40,14 +41,15 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
     return std::unique_ptr<tt::umd::RemoteChip>(
-        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device), disable_wait_on_eth_core_training));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
-    SocDescriptor soc_descriptor) {
+    SocDescriptor soc_descriptor,
+    bool disable_wait_on_eth_core_training) {
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
@@ -57,11 +59,11 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
-        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device), disable_wait_on_eth_core_training));
 }
 
 RemoteChip::RemoteChip(
-    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
+    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, bool disable_wait_on_eth_core_training) :
     Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
@@ -80,7 +82,7 @@ RemoteChip::RemoteChip(
             dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
     }
     tt_device_ = std::move(remote_tt_device);
-    wait_chip_to_be_ready();
+    wait_chip_to_be_ready(disable_wait_on_eth_core_training);
 }
 
 bool RemoteChip::is_mmio_capable() const { return false; }

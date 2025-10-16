@@ -125,7 +125,7 @@ public:
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
 protected:
-    void wait_chip_to_be_ready();
+    void wait_chip_to_be_ready(bool disable_wait_on_eth_core_training);
 
     virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
 

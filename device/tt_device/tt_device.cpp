@@ -96,10 +96,19 @@ std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
+            // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
+            // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
+            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
+                return std::unique_ptr<RemoteWormholeTTDevice>(
+                    new RemoteWormholeTTDevice(std::move(remote_communication), target_chip, IODeviceType::JTAG));
+            }
             return std::unique_ptr<RemoteWormholeTTDevice>(
                 new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
         }
         case tt::ARCH::BLACKHOLE: {
+            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
+                TT_THROW("Remote TTDevice creation over JTAG is not yet supported for Blackhole architecture.");
+            }
             return std::unique_ptr<RemoteBlackholeTTDevice>(
                 new RemoteBlackholeTTDevice(std::move(remote_communication)));
         }
@@ -111,6 +120,8 @@ std::unique_ptr<TTDevice> TTDevice::create(
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
+
+std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
@@ -293,6 +304,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 
     if (num_bytes >= sizeof(std::uint32_t)) {
+        // TODO: looks like there is potential for undefined behavior here.
         detect_hang_read(*reinterpret_cast<std::uint32_t *>(dest));
     }
 }

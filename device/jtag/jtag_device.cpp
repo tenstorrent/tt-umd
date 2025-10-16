@@ -19,7 +19,8 @@ constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
-/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/libtt_jtag.so");
+/* static */ std::filesystem::path JtagDevice::jtag_library_path =
+    std::filesystem::path("./build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices) :
@@ -31,12 +32,6 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     for (int jlink_id : visible_devices) {
         uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
-            continue;
-        }
-        uint32_t id = jtag->read_id();
-        if (id != WORMHOLE_ID) {
-            log_warning(tt::LogUMD, "Only supporting WORMHOLE for now");
-            jtag->close_jlink();
             continue;
         }
 
@@ -131,20 +126,8 @@ void JtagDevice::select_device(uint8_t chip_id) {
 }
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
-    auto arch_id = read_id(chip_id);
-
-    if (!arch_id) {
-        log_warning(tt::LogUMD, "Failed to read JTAG architecture for chip_id {}", chip_id);
-        return tt::ARCH::Invalid;
-    }
-
-    uint32_t id = *arch_id;
-    switch (id) {
-        case WORMHOLE_ID:
-            return tt::ARCH::WORMHOLE_B0;
-        default:
-            return tt::ARCH::Invalid;
-    }
+    select_device(chip_id);
+    return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
 
 int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {

@@ -8,6 +8,11 @@
 #include <cstdint>
 
 /*
+See GENERATE_ASSEMBLY_FOR_TESTS.md for a step-by-step tutorial on generating and inspecting these binaries (open the .md
+in your IDE or on GitHub for details).
+*/
+
+/*
 godbolt link example:
     - https://godbolt.org/z/qne95Tso7
 
@@ -139,3 +144,59 @@ inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
     0x22e7ac23,  // sw     a4,568(a5)       ; *(a5 + 568) = a4 (0x50000)
     0x0000006f   // jal    zero, 0          ; infinite loop
 };
+
+/*
+This program is architecture-agnostic and configures all RISC cores to execute an infinite loop
+at the same address (0x34 = 52 bytes from start of L1).
+
+The first instruction (lui a5, <base>) sets the architecture-specific base address:
+  - Wormhole (WH):  a5 = 0xFFEF'0000  (instruction: 0xffef07b7)
+  - Blackhole (BH): a5 = 0xFFB1'2000  (instruction: 0xffb127b7)
+
+All subsequent register offsets are calculated relative to this base address.
+
+pseudo-source code:
+    int main() {
+        static constexpr unsigned int TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFEF'0000 + 4*161};
+        static constexpr unsigned int NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFEF'0000 + 4*163};
+        unsigned int* trisc_overrride_enable_reg_addr = (unsigned int*)TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en;
+        unsigned int* ncrisc_overrride_enable_reg_addr = (unsigned int*)NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en;
+        *trisc_overrride_enable_reg_addr = 7;
+        *ncrisc_overrride_enable_reg_addr = 1;
+
+        static constexpr unsigned int TRISC_RESET_PC_SEC0_PC {0xFFEF'0000 + 4*158};
+        static constexpr unsigned int TRISC_RESET_PC_SEC1_PC {0xFFEF'0000 + 4*159};
+        static constexpr unsigned int TRISC_RESET_PC_SEC2_PC {0xFFEF'0000 + 4*160};
+        static constexpr unsigned int NCRISC_RESET_PC_PC {0xFFEF'0000 + 4*162};
+        unsigned int* trisc0_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC0_PC;
+        unsigned int* trisc1_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC1_PC;
+        unsigned int* trisc2_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC2_PC;
+        unsigned int* ncrisc_code_start_reg_addr = (unsigned int*)NCRISC_RESET_PC_PC;
+
+        *trisc0_code_start_reg_addr = 0x34;
+        *trisc1_code_start_reg_addr = 0x34;
+        *trisc2_code_start_reg_addr = 0x34;
+        *ncrisc_code_start_reg_addr = 0x34;
+
+        while (true);
+    }
+*/
+inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
+    // First instruction is architecture-specific and added at runtime:
+    // Wormhole: 0xffef07b7 (lui a5, 0xffef0)  |  Blackhole: 0xffb127b7 (lui a5, 0xffb12)
+    0x00700713,  // li a4, 7
+    0x28e7a223,  // sw a4, 644(a5)
+    0x00100713,  // li a4, 1
+    0x28e7a623,  // sw a4, 652(a5)
+    0x00078713,  // mv a4, a5
+    0x02c00793,  // li a5, 52
+    0x26f72c23,  // sw a5, 632(a4)
+    0x26f72e23,  // sw a5, 636(a4)
+    0x28f72023,  // sw a5, 640(a4)
+    0x28f72423,  // sw a5, 648(a4)
+    0x0000006f   // j .L2 (jump back to itself - infinite loop)
+};
+
+// Architecture-specific first instructions for brisc_configuration_program_default
+inline constexpr uint32_t WORMHOLE_BRISC_BASE_INSTRUCTION = 0xffef07b7;   // lui a5, 0xffef0
+inline constexpr uint32_t BLACKHOLE_BRISC_BASE_INSTRUCTION = 0xffb127b7;  // lui a5, 0xffb12

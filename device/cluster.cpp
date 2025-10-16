@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -60,7 +61,6 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
-#include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
 
@@ -296,10 +296,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             num_host_mem_channels,
             cluster_desc->io_device_type);
 
-        // Currrently remote transfer is only supported by PCIe.
-        // TODO: implement remote transfer for JTAG comm.
-        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0 &&
-            cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }

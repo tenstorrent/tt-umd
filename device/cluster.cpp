@@ -1030,6 +1030,10 @@ void Cluster::deassert_resets_and_set_power_state() {
 }
 
 void Cluster::verify_eth_fw() {
+    if (all_chip_ids_.empty()) {
+        log_debug(LogUMD, "No chips in cluster, skipped verification of ethernet FW version.");
+        return;
+    }
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
         for (const auto& chip : all_chip_ids_) {
             uint32_t fw_version;
@@ -1043,10 +1047,6 @@ void Cluster::verify_eth_fw() {
             eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        if (all_chip_ids_.empty()) {
-            log_debug(LogUMD, "No chips in cluster, skipped verification of ethernet FW version.");
-            return;
-        }
         const chip_id_t chip = *all_chip_ids_.begin();
         if (get_soc_descriptor(chip).get_cores(CoreType::ETH).empty()) {
             log_debug(
@@ -1055,15 +1055,18 @@ void Cluster::verify_eth_fw() {
         }
         static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
         static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
-        static constexpr uint64_t eth_fw_patch_addr = 0x7CFCC;
+        static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
 
         const CoreCoord eth_core = get_soc_descriptor(chip).get_cores(CoreType::ETH).at(0);
 
-        read_from_device(&eth_fw_version.major, chip, eth_core, eth_fw_major_addr, sizeof(uint32_t));
-        read_from_device(&eth_fw_version.minor, chip, eth_core, eth_fw_minor_addr, sizeof(uint32_t));
-        read_from_device(&eth_fw_version.patch, chip, eth_core, eth_fw_patch_addr, sizeof(uint32_t));
-    } else {
-        TT_ASSERT(false, "Unsupported architecture for ethernet FW version verification.");
+        uint8_t major = 0;
+        uint8_t minor = 0;
+        uint8_t patch = 0;
+        read_from_device(&major, chip, eth_core, eth_fw_major_addr, sizeof(uint8_t));
+        read_from_device(&minor, chip, eth_core, eth_fw_minor_addr, sizeof(uint8_t));
+        read_from_device(&patch, chip, eth_core, eth_fw_patch_addr, sizeof(uint8_t));
+
+        eth_fw_version = tt_version(major, minor, patch);
     }
 }
 

@@ -260,7 +260,7 @@ uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(Chip* chip, t
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
 void TopologyDiscoveryWormhole::init_topology_discovery() {
-    int device_id = 0;
+    std::vector<int> device_ids;
     switch (io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
@@ -274,18 +274,22 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
             break;
         }
         case IODeviceType::PCIe: {
-            std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+            auto pci_device_ids = PCIDevice::enumerate_devices();
             if (pci_device_ids.empty()) {
                 return;
             }
-            device_id = pci_device_ids[0];
+            device_ids = pci_device_ids;
             break;
         }
         default:
             TT_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+    for(auto& device_id : device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        tt_device->wait_arc_post_reset(300'000);
+    }
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =

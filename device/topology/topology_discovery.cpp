@@ -5,6 +5,7 @@
  */
 #include "umd/device/topology/topology_discovery.hpp"
 
+#include <memory>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
 
@@ -23,7 +24,7 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
+std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
     tt::ARCH current_arch = ARCH::Invalid;
 
@@ -31,15 +32,19 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info(target_devices);
             if (pci_devices_info.empty()) {
-                return std::make_unique<tt_ClusterDescriptor>();
+                return nullptr;
             }
             current_arch = pci_devices_info.begin()->second.get_arch();
             break;
         }
         case IODeviceType::JTAG: {
+            if (current_arch == tt::ARCH::BLACKHOLE) {
+                TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
+            }
+
             auto jtag_device = JtagDevice::create();
             if (!jtag_device->get_device_cnt()) {
-                return std::make_unique<tt_ClusterDescriptor>();
+                return nullptr;
             }
             current_arch = jtag_device->get_jtag_arch(0);
             break;
@@ -48,18 +53,23 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
             TT_THROW("Unsupported device type for topology discovery");
     }
 
-    if (current_arch == tt::ARCH::BLACKHOLE && device_type == IODeviceType::JTAG) {
-        TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
-    }
-
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
+            return std::make_unique<TopologyDiscoveryWormhole>(target_devices, sdesc_path, device_type);
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
+            return std::make_unique<TopologyDiscoveryBlackhole>(target_devices, sdesc_path);
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
+}
+
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    auto td = TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, device_type);
+    if (td == nullptr) {
+        return std::make_unique<ClusterDescriptor>();
+    }
+    return td->create_ethernet_map();
 }
 
 TopologyDiscovery::TopologyDiscovery(

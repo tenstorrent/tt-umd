@@ -26,7 +26,6 @@ BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
-    jlink_id_ = jlink_id;
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
@@ -210,7 +209,7 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (get_communication_device_type() == IODeviceType::JTAG) {
         *((uint32_t *)mem_ptr) =
-            jtag_device_->read32_axi(jlink_id_, get_arc_noc_base_address() + arc_addr_offset).value();
+            jtag_device_->read32_axi(communication_device_id_, get_arc_noc_base_address() + arc_addr_offset).value();
         return;
     }
     read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);

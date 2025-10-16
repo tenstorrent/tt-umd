@@ -74,7 +74,6 @@ static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>
                : target_devices;
 }
 
-<<<<<<< HEAD
 template <typename... Args>
 inline std::string convert_to_space_separated_string(Args&&... args) {
     return fmt::format("{}", fmt::join({fmt::to_string(std::forward<Args>(args))...}, " "));
@@ -86,7 +85,6 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
-=======
 static void check_timeout(
     const std::chrono::steady_clock::time_point start_ms, const uint64_t timeout_ms, const std::string& error_msg) {
     if (timeout_ms == 0) {
@@ -100,5 +98,5 @@ static void check_timeout(
         throw std::runtime_error(error_msg);
     }
 }
->>>>>>> main
+
 }  // namespace tt::umd::utils

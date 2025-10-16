@@ -21,6 +21,17 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RtlSimulationChip>(), "RtlSimulationChip must be non-abstract.");
 
+// Vector of DM RiscType values for iteration
+static const std::vector<RiscType> RISC_TYPES_DMS = {
+    RiscType::DM0,
+    RiscType::DM1,
+    RiscType::DM2,
+    RiscType::DM3,
+    RiscType::DM4,
+    RiscType::DM5,
+    RiscType::DM6,
+    RiscType::DM7};
+
 inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
@@ -189,37 +200,11 @@ void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selecte
             return;
         }
         // Check if this is a request per individual DM core reset
-        if ((selected_riscs & RiscType::DM0) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 0));
-        }
-        if ((selected_riscs & RiscType::DM1) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 1));
-        }
-        if ((selected_riscs & RiscType::DM2) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 2));
-        }
-        if ((selected_riscs & RiscType::DM3) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 3));
-        }
-        if ((selected_riscs & RiscType::DM4) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 4));
-        }
-        if ((selected_riscs & RiscType::DM5) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 5));
-        }
-        if ((selected_riscs & RiscType::DM6) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 6));
-        }
-        if ((selected_riscs & RiscType::DM7) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, 7));
+        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
+            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
+                send_command_to_simulation_host(
+                    host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, translate_core, i));
+            }
         }
     }
 
@@ -247,37 +232,11 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
             return;
         }
         // Check if this is a request per individual DM core reset
-        if ((selected_riscs & RiscType::DM0) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 0));
-        }
-        if ((selected_riscs & RiscType::DM1) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 1));
-        }
-        if ((selected_riscs & RiscType::DM2) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 2));
-        }
-        if ((selected_riscs & RiscType::DM3) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 3));
-        }
-        if ((selected_riscs & RiscType::DM4) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 4));
-        }
-        if ((selected_riscs & RiscType::DM5) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 5));
-        }
-        if ((selected_riscs & RiscType::DM6) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 6));
-        }
-        if ((selected_riscs & RiscType::DM7) != RiscType::NONE) {
-            send_command_to_simulation_host(
-                host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, 7));
+        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
+            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
+                send_command_to_simulation_host(
+                    host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, translate_core, i));
+            }
         }
     }
 

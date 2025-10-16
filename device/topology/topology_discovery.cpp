@@ -48,15 +48,11 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
             TT_THROW("Unsupported device type for topology discovery");
     }
 
-    if (current_arch == tt::ARCH::BLACKHOLE && device_type == IODeviceType::JTAG) {
-        TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
-    }
-
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
             return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
+            return TopologyDiscoveryBlackhole(target_devices, sdesc_path, device_type).create_ethernet_map();
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }

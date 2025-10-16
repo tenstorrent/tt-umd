@@ -15,7 +15,8 @@ public:
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType device_type = IODeviceType::PCIe,
-        bool disable_wait_on_eth_core_training = false);
+        bool disable_wait_on_eth_core_training = false,
+        bool break_ports = false);
 
 protected:
     struct EthAddresses {

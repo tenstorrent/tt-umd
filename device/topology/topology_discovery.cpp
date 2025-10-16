@@ -24,7 +24,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool disable_wait_on_eth_core_training) {
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool disable_wait_on_eth_core_training, bool break_ports) {
     tt::ARCH current_arch = ARCH::Invalid;
 
     switch (device_type) {
@@ -54,17 +54,17 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
 
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type, disable_wait_on_eth_core_training).create_ethernet_map();
+            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type, disable_wait_on_eth_core_training, break_ports).create_ethernet_map();
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path, disable_wait_on_eth_core_training).create_ethernet_map();
+            return TopologyDiscoveryBlackhole(target_devices, sdesc_path, disable_wait_on_eth_core_training, break_ports).create_ethernet_map();
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool disable_wait_on_eth_core_training) :
-    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type), disable_wait_on_eth_core_training(disable_wait_on_eth_core_training) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type, bool disable_wait_on_eth_core_training, bool break_ports) :
+    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type), disable_wait_on_eth_core_training(disable_wait_on_eth_core_training), break_ports_(break_ports) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
@@ -76,6 +76,16 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
+
+void write_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t port_status) {
+    // Purposely set the links status as UNKOWN or UNCONNECTED
+    uint32_t channel =
+        chip->get_soc_descriptor()
+            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+            .y;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->write_to_device(&port_status, eth_core, 0x1104, sizeof(uint32_t));
+}
 
 void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
@@ -117,6 +127,20 @@ void TopologyDiscovery::get_connected_chips() {
             device_id,
             asic_id);
     }
+    if (break_ports_) {
+        for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
+            std::vector<CoreCoord> eth_cores =
+                chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+            for (const CoreCoord& eth_core : eth_cores) {
+                uint32_t channel =
+                    chip->get_soc_descriptor()
+                        .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+                        .y;
+                
+                    write_port_status(chip.get(), eth_core, 0); // Set to LINK_TRAIN_TRAINING
+            }
+        }
+    }
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -157,13 +181,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t training_status = read_training_status(chip, eth_core);
-            if (training_status != LINK_TRAIN_SUCCESS) {
-                // Link is not trained and can hence not be discovered
+            if (chip->get_chip_info().board_type == BoardType::UBB and read_training_status(chip, eth_core) != LINK_TRAIN_SUCCESS) {
+                // UBB Specific Handling: Link is not trained and can hence not be discovered
                 continue;
-            }
-
-            if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+            } else if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
                 // Special handling for cross host links on WH N300 systems.
                 // These links are treated separately from the other ethernet links
                 // on an N300 based system, since they need to be hidden from software
@@ -186,7 +207,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 if (chip->get_chip_info().board_type == BoardType::P150) {
                     ethernet_connections_to_remote_devices.push_back(
                         {{current_chip_asic_id, channel},
-                         {remote_asic_id, get_logical_remote_eth_channel(chip, eth_core)}});
+                        {remote_asic_id, get_logical_remote_eth_channel(chip, eth_core)}});
                 } else {
                     ethernet_connections_to_remote_devices.push_back(
                         {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});

@@ -15,8 +15,8 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type, bool disable_wait_on_eth_core_training) :
-    TopologyDiscovery(target_devices, sdesc_path, device_type, disable_wait_on_eth_core_training) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type, bool disable_wait_on_eth_core_training, bool break_ports) :
+    TopologyDiscovery(target_devices, sdesc_path, device_type, disable_wait_on_eth_core_training, break_ports) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -164,10 +164,6 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair
 
 uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair eth_core) {
     uint32_t training_status;
-    uint32_t channel =
-        chip->get_soc_descriptor()
-            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
-            .y;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
     return training_status; 

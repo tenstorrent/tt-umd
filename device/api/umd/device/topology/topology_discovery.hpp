@@ -24,12 +24,14 @@ public:
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe,
-        bool disable_wait_on_eth_core_training = false);
+        bool disable_wait_on_eth_core_training = false,
+        bool break_ports = false);
     TopologyDiscovery(
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe,
-        bool disable_wait_on_eth_core_training = false);
+        bool disable_wait_on_eth_core_training = false,
+        bool break_ports = false);
     virtual ~TopologyDiscovery() = default;
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
@@ -153,6 +155,8 @@ protected:
     bool is_running_on_6u = false;
 
     bool disable_wait_on_eth_core_training = false;
+
+    bool break_ports_ = false;
 };
 
 }  // namespace tt::umd

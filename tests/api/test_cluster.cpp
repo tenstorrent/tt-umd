@@ -544,6 +544,51 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
     EXPECT_NE(write_test_data, read_test_data);
 }
 
+TEST(TestCluster, GalaxyWarmResetScratch) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (!is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Only galaxy test configuration.";
+    }
+
+    auto arch = cluster->get_cluster_description()->get_arch();
+    if (arch != tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP() << "Only test Wormhole architecture for Galaxy UBB reset.";
+    }
+
+    static constexpr uint32_t write_test_data = 0xDEADBEEF;
+
+    for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
+        auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        tt_device->bar_write32(
+            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+                tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+            write_test_data);
+    }
+
+    WarmReset::ubb_warm_reset();
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+
+    for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
+        auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+        auto read_test_data = tt_device->bar_read32(
+            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+
+        EXPECT_NE(write_test_data, read_test_data);
+        EXPECT_EQ(DEFAULT_VALUE_IN_SCRATCH_REGISTER, read_test_data);
+    }
+}
+
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

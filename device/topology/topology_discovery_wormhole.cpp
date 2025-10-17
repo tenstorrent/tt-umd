@@ -288,7 +288,9 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     for(auto& device_id : device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
         tt_device->wait_arc_post_reset(300'000);
+        tt_device->init_tt_device();
     }
+    
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;

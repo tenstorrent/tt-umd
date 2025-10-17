@@ -15,7 +15,8 @@ public:
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType device_type = IODeviceType::PCIe,
-        bool break_ports = false);
+        bool break_ports = false,
+        bool disable_wait_on_eth_core_training = false);
 
 protected:
     struct EthAddresses {
@@ -67,7 +68,7 @@ protected:
     bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels, bool disable_wait_on_eth_core_training) override;
 
     bool is_using_eth_coords() override;
 

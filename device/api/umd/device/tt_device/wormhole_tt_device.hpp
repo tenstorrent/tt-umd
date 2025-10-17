@@ -86,6 +86,7 @@ private:
 
     static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
     uint32_t read_port_status(tt_xy_pair eth_core);
+    uint32_t read_training_status(tt_xy_pair eth_core);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

@@ -15,8 +15,8 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type, bool break_ports) :
-    TopologyDiscovery(target_devices, sdesc_path, device_type, break_ports) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type, bool break_ports, bool disable_wait_on_eth_core_training) :
+    TopologyDiscovery(target_devices, sdesc_path, device_type, break_ports, disable_wait_on_eth_core_training) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -164,10 +164,6 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair
 
 uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair eth_core) {
     uint32_t training_status;
-    uint32_t channel =
-        chip->get_soc_descriptor()
-            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
-            .y;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
     return training_status; 
@@ -244,14 +240,14 @@ std::optional<eth_coord_t> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip*
 }
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
-    std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels, bool disable_wait_on_eth_core_training) {
     if (is_running_on_6u) {
         return nullptr;
     }
     eth_coord_t remote_chip_eth_coord = eth_coord.has_value() ? eth_coord.value() : eth_coord_t{0, 0, 0, 0};
 
     return RemoteChip::create(
-        dynamic_cast<LocalChip*>(gateway_chip), remote_chip_eth_coord, gateway_eth_channels, sdesc_path);
+        dynamic_cast<LocalChip*>(gateway_chip), remote_chip_eth_coord, gateway_eth_channels, sdesc_path, disable_wait_on_eth_core_training);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {

@@ -418,7 +418,7 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
 
     uint32_t new_heartbeat_val = heartbeat_val;
-    while (new_heartbeat_val == heartbeat_val) {
+    while (new_heartbeat_val != heartbeat_val) {
         read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -431,17 +431,26 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     uint32_t port_status = read_port_status(eth_core);
 
     start = std::chrono::system_clock::now();
-    while (port_status == ETH_UNKNOWN) {
-        port_status = read_port_status(eth_core);
+    bool is_ubb = get_board_type() == BoardType::UBB;
+    constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
+
+    auto is_training_complete = [&]() {
+        return is_ubb ? (read_training_status(eth_core) == LINK_TRAIN_SUCCESS)
+                      : (read_port_status(eth_core) != ETH_UNKNOWN);
+    };
+
+    while (!is_training_complete()) {
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration.count();
         if (time_taken_port > timeout_ms) {
-            if (get_board_type() != BoardType::UBB) {
+            if (is_ubb) {
+                break;
+            } else {
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
+                break;
             }
-            break;
         }
     }
     return time_taken_heartbeat + time_taken_port;
@@ -462,6 +471,17 @@ uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {
         eth_addresses.eth_conn_info + (channel * 4),
         sizeof(uint32_t));
     return port_status;
+}
+
+uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+    uint32_t training_status;
+    read_from_device(
+        &training_status,
+        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
+                     : eth_core,
+        0x1104,
+        sizeof(uint32_t));
+    return training_status;
 }
 
 WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_t eth_fw_version) {

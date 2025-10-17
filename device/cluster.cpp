@@ -273,7 +273,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const std::filesystem::path& simulator_directory) {
+    const std::filesystem::path& simulator_directory,
+    bool disable_wait_on_eth_core_training) {
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
@@ -289,12 +290,14 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+        std::cout << "Creating local chip " << disable_wait_on_eth_core_training << std::endl;
         auto chip = LocalChip::create(
             (cluster_desc->io_device_type == IODeviceType::JTAG ? chip_id
                                                                 : cluster_desc->get_chips_with_mmio().at(chip_id)),
             soc_desc,
             num_host_mem_channels,
-            cluster_desc->io_device_type);
+            cluster_desc->io_device_type,
+            disable_wait_on_eth_core_training);
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
@@ -309,7 +312,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             local_chip,
             cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
-            soc_desc);
+            soc_desc,
+            disable_wait_on_eth_core_training);
     }
 }
 
@@ -428,7 +432,8 @@ Cluster::Cluster(ClusterOptions options) {
                 options.sdesc_path,
                 options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
                 options.io_device_type,
-                false);
+                true,
+                options.disable_wait_on_eth_core_training);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -494,7 +499,7 @@ Cluster::Cluster(ClusterOptions options) {
             cluster_desc.get(),
             options.perform_harvesting,
             simulated_harvesting_masks);
-
+        std::cout << "Adding chip " << chip_id << " " << options.disable_wait_on_eth_core_training << std::endl;
         add_chip(
             chip_id,
             options.chip_type,
@@ -504,7 +509,8 @@ Cluster::Cluster(ClusterOptions options) {
                 cluster_desc.get(),
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device,
-                options.simulator_directory));
+                options.simulator_directory,
+                options.disable_wait_on_eth_core_training));
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
@@ -1138,9 +1144,8 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type, bool break_ports) {
-    std::cout << "Creating cluster descriptor" << std::endl;
-    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type, break_ports);
+    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type, bool break_ports, bool disable_wait_on_eth_core_training) {
+    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type, break_ports, disable_wait_on_eth_core_training);
 }
 
 }  // namespace tt::umd

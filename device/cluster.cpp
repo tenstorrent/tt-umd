@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -60,7 +61,6 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
-#include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
 
@@ -252,9 +252,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             remote_chip_ids_);
         verify_fw_bundle_version();
         log_device_summary();
-        if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            verify_eth_fw();
-        }
+        verify_eth_fw();
         if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
             verify_sysmem_initialized();
         }
@@ -290,8 +288,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         auto chip = LocalChip::create(
-            (cluster_desc->io_device_type == IODeviceType::JTAG ? chip_id
-                                                                : cluster_desc->get_chips_with_mmio().at(chip_id)),
+            (cluster_desc->get_chips_with_mmio().at(chip_id)),
             soc_desc,
             num_host_mem_channels,
             cluster_desc->io_device_type);
@@ -1031,16 +1028,43 @@ void Cluster::deassert_resets_and_set_power_state() {
 }
 
 void Cluster::verify_eth_fw() {
-    for (const auto& chip : all_chip_ids_) {
-        uint32_t fw_version;
-        std::vector<uint32_t> fw_versions;
-        for (const CoreCoord eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH)) {
-            read_from_device(
-                &fw_version, chip, eth_core, get_chip(chip)->l1_address_params.fw_version_addr, sizeof(uint32_t));
-            fw_versions.push_back(fw_version);
+    if (all_chip_ids_.empty()) {
+        log_debug(LogUMD, "No chips in cluster, skipped verification of ethernet FW version.");
+        return;
+    }
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        for (const auto& chip : all_chip_ids_) {
+            uint32_t fw_version;
+            std::vector<uint32_t> fw_versions;
+            for (const CoreCoord eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH)) {
+                read_from_device(
+                    &fw_version, chip, eth_core, get_chip(chip)->l1_address_params.fw_version_addr, sizeof(uint32_t));
+                fw_versions.push_back(fw_version);
+            }
+            verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
+            eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
         }
-        verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-        eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
+    } else if (arch_name == tt::ARCH::BLACKHOLE) {
+        const chip_id_t chip = *all_chip_ids_.begin();
+        if (get_soc_descriptor(chip).get_cores(CoreType::ETH).empty()) {
+            log_debug(
+                LogUMD, "No ethernet cores found on device {}, skipped verification of ethernet FW version.", chip);
+            return;
+        }
+        static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
+        static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
+        static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
+
+        const CoreCoord eth_core = get_soc_descriptor(chip).get_cores(CoreType::ETH).at(0);
+
+        uint8_t major = 0;
+        uint8_t minor = 0;
+        uint8_t patch = 0;
+        read_from_device(&major, chip, eth_core, eth_fw_major_addr, sizeof(uint8_t));
+        read_from_device(&minor, chip, eth_core, eth_fw_minor_addr, sizeof(uint8_t));
+        read_from_device(&patch, chip, eth_core, eth_fw_patch_addr, sizeof(uint8_t));
+
+        eth_fw_version = tt_version(major, minor, patch);
     }
 }
 
@@ -1122,7 +1146,6 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
 }
 
 tt_version Cluster::get_ethernet_fw_version() const {
-    TT_ASSERT(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
     TT_ASSERT(
         eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
         "Device must be started before querying Ethernet FW version.");

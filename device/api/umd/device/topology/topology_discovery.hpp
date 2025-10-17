@@ -65,6 +65,8 @@ protected:
 
     uint64_t get_asic_id(Chip* chip);
 
+    virtual uint64_t get_unconnected_chip_id(Chip* chip) = 0;
+
     virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip) = 0;
 
     virtual std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;

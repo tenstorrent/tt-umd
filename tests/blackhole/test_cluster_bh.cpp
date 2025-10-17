@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <thread>
 
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
-#include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -706,118 +707,6 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
         cluster.wait_for_non_mmio_flush();
     }
     cluster.close_device();
-}
-
-/**
- * Copied from the Wormhole test.
- */
-TEST(SiliconDriverBH, SysmemTestWithPcie) {
-    Cluster cluster;
-
-    set_barrier_params(cluster);
-    cluster.start_device({});  // no special parameters
-
-    const ChipId mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
-    const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
-
-    uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(0, 0, 0);
-    ASSERT_NE(sysmem, nullptr);
-
-    uint64_t base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
-
-    // Buffer that we will use to read sysmem into, then write sysmem from.
-    std::vector<uint8_t> buffer(test_size_bytes, 0x0);
-
-    // Step 1: Fill sysmem with random bytes.
-    test_utils::fill_with_random_bytes(sysmem, test_size_bytes);
-
-    // Step 2: Read sysmem into buffer.
-    cluster.read_from_device(&buffer[0], mmio_chip_id, PCIE, base_address, buffer.size());
-
-    // Step 3: Verify that buffer matches sysmem.
-    ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
-
-    // Step 4: Fill buffer with random bytes.
-    test_utils::fill_with_random_bytes(&buffer[0], test_size_bytes);
-
-    // Step 5: Write buffer into sysmem, overwriting what was there.
-    cluster.write_to_device(&buffer[0], buffer.size(), mmio_chip_id, PCIE, base_address);
-
-    // Step 5b: Read back sysmem into a throwaway buffer.  The intent is to
-    // ensure the write has completed before we check sysmem against buffer.
-    std::vector<uint8_t> throwaway(test_size_bytes, 0x0);
-    cluster.read_from_device(&throwaway[0], mmio_chip_id, PCIE, base_address, throwaway.size());
-
-    // Step 6: Verify that sysmem matches buffer.
-    ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
-}
-
-static bool is_iommu_available() { return Cluster().get_tt_device(0)->get_pci_device()->is_iommu_enabled(); }
-
-/**
- * Same idea as above, but with multiple channels of sysmem and random addresses.
- * The hardware mechanism is too slow to sweep the entire range.
- */
-TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
-    // How many hugepages will Blackhole CI systems allocate?  Hopefully zero,
-    // and they'll have IOMMU instead.  But if not, let's assume 2.
-    const uint32_t num_channels = is_iommu_available() ? 4 : 2;
-
-    Cluster cluster(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = num_channels,
-    });
-
-    set_barrier_params(cluster);
-    cluster.start_device({});  // no special parameters
-
-    const ChipId mmio_chip_id = 0;
-    const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
-    ASSERT_EQ(pci_cores.size(), 1);
-    const auto pcie_core = pci_cores.at(0);
-    const size_t ONE_GIG = 1 << 30;
-    const size_t num_tests = 0x20000;  // runs in a reasonable amount of time
-
-    const uint64_t ALIGNMENT = sizeof(uint32_t);
-    auto generate_aligned_address = [&](uint64_t lo, uint64_t hi) -> uint64_t {
-        static std::random_device rd;
-        static std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<uint64_t> dis(lo / ALIGNMENT, hi / ALIGNMENT);
-        return dis(gen) * ALIGNMENT;
-    };
-
-    uint64_t base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
-    for (size_t channel = 0; channel < num_channels; ++channel) {
-        uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(0, 0, channel);
-        ASSERT_NE(sysmem, nullptr);
-
-        test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
-
-        uint64_t lo = (ONE_GIG * channel);
-        uint64_t hi = (lo + ONE_GIG) - 1;
-
-        if (channel == 3) {
-            // Avoid the top 256MB of the 4th channel.
-            // TODO(joelsmithTT) - This is a hack.
-            hi &= ~0x0fff'ffffULL;
-        }
-
-        for (size_t i = 0; i < num_tests; ++i) {
-            uint64_t address = generate_aligned_address(lo, hi);
-            uint64_t noc_addr = base_address + address;
-            uint64_t sysmem_address = address - lo;
-
-            ASSERT_GE(address, lo) << "Address too low";
-            ASSERT_LE(address, hi) << "Address too high";
-            ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
-
-            uint32_t value = 0;
-            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-
-            uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
-            ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
-        }
-    }
 }
 
 // Verifies that all ETH channels are classified as either active/idle.

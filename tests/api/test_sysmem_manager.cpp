@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <gtest/gtest.h>
 #include <sys/mman.h>
 
-#include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 

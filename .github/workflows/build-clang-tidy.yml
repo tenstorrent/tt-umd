@@ -43,6 +43,9 @@ on:
           - Debug
           - ASan
           - TSan
+  pull_request:
+  push:
+    branches: ["main"]
 
 env:
   BUILD_OUTPUT_DIR: ./build

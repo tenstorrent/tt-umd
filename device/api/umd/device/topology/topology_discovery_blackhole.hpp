@@ -63,6 +63,9 @@ protected:
     void initialize_remote_communication(Chip* chip) override;
 
     void init_topology_discovery() override;
+
+    void verify_eth_version_local(Chip* chip) override;
+    void verify_eth_version_remote(Chip* chip) override;
 };
 
 }  // namespace tt::umd

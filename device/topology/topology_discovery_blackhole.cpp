@@ -306,14 +306,15 @@ void TopologyDiscoveryBlackhole::verify_eth_version_local(Chip* chip) {
 
         if (!first_eth_fw_version.has_value()) {
             log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.to_string());
-            log_debug(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+            log_debug(
+                LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
             first_eth_fw_version = eth_fw_version;
-            if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
-                TT_THROW("ETH FW major version is newer than UMD supported version");
+            if (BH_ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
+                TT_THROW("ETH FW major version is older than UMD supported version");
             }
 
-            if (ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
-                TT_THROW("ETH FW minor version is newer than UMD supported version");
+            if (BH_ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
+                TT_THROW("ETH FW minor version is older than UMD supported version");
             }
         }
 

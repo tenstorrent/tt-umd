@@ -224,6 +224,8 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
+static constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
+
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;

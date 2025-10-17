@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <cstdint>
+#include <filesystem>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "filesystem"
-#include "gtest/gtest.h"
 #include "tests/galaxy/test_galaxy_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"

@@ -5,10 +5,10 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <tt-logger/tt-logger.hpp>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "tt-logger/tt-logger.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 

@@ -3,8 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <gtest/gtest.h>
+
 #include "common/microbenchmark_utils.hpp"
-#include "gtest/gtest.h"
 
 using namespace tt;
 using namespace tt::umd;

@@ -111,39 +111,50 @@ void RobustMutex::initialize() {
     // multithread_mutex_ for all different RobustMutex instances which can affect perf of these operations, but that is
     // fine since this is executed rarely, only on initialization and only once after booting the system. Regarding
     // flock perf, this happens only when initializing the mutex, so it is not a big deal.
-    // The critical_section object will get destroyed at the end of this function or when an exception is thrown, so the
+    // The critical_section object will get destroyed at the end of this block or when an exception is thrown, so the
     // critical section will be released automatically.
-    CriticalSectionScopeGuard critical_section(shm_fd_, &multithread_mutex_, mutex_name_);
+    {
+        CriticalSectionScopeGuard critical_section(shm_fd_, &multithread_mutex_, mutex_name_);
 
-    // Resize file if needed.
-    bool file_was_resized = resize_shm_file();
+        // Resize file if needed.
+        bool file_was_resized = resize_shm_file();
 
-    // We now open the mutex in the shared memory file.
-    open_pthread_mutex();
+        // We now open the mutex in the shared memory file.
+        open_pthread_mutex();
 
-    // Report warning in case:
-    //  - File was not resized, but the initialized flag is wrong.
-    //  - File was resized, but the initialized flag is correct (this is a bit unexpected, but theoretically possible).
-    if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG && !file_was_resized) {
-        log_warning(
-            tt::LogUMD,
-            "The file was already of correct size, but the initialized flag is wrong. This could "
-            "be due to previously failed initialization, or some other external factor. Mutex name: {}",
-            mutex_name_);
+        // Report warning in case:
+        //  - File was not resized, but the initialized flag is wrong.
+        //  - File was resized, but the initialized flag is correct (this is a bit unexpected, but theoretically
+        //  possible).
+        if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG && !file_was_resized) {
+            log_warning(
+                tt::LogUMD,
+                "The file was already of correct size, but the initialized flag is wrong. This could "
+                "be due to previously failed initialization, or some other external factor. Mutex name: {}",
+                mutex_name_);
+        }
+        if (mutex_wrapper_ptr_->initialized == INITIALIZED_FLAG && file_was_resized) {
+            log_warning(
+                tt::LogUMD,
+                "The file was resized, but the initialized flag is correct. This is an unexpected "
+                "case, the mutex might fail. Mutex name: {}",
+                mutex_name_);
+        }
+
+        // Initialize the mutex if it wasn't properly initialized before.
+        if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG) {
+            // We need to initialize the mutex here, since it is the first time it is being used.
+            initialize_pthread_mutex_first_use();
+        }
+    }  // CriticalSectionScopeGuard destructor is called here, releasing the flock and mutex
+
+    // Close the file descriptor after mapping is complete.
+    // The mapped memory will remain valid even after closing the fd.
+    // This helps avoid hitting file descriptor limits on systems with many chips.
+    if (close(shm_fd_) != 0) {
+        log_warning(tt::LogUMD, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
-    if (mutex_wrapper_ptr_->initialized == INITIALIZED_FLAG && file_was_resized) {
-        log_warning(
-            tt::LogUMD,
-            "The file was resized, but the initialized flag is correct. This is an unexpected "
-            "case, the mutex might fail. Mutex name: {}",
-            mutex_name_);
-    }
-
-    // Initialize the mutex if it wasn't properly initialized before.
-    if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG) {
-        // We need to initialize the mutex here, since it is the first time it is being used.
-        initialize_pthread_mutex_first_use();
-    }
+    shm_fd_ = -1;
 }
 
 void RobustMutex::open_shm_file() {
@@ -252,7 +263,9 @@ void RobustMutex::close_mutex() noexcept {
         mutex_wrapper_ptr_ = nullptr;
     }
     if (shm_fd_ != -1) {
-        // Close shared memory file.
+        // Close shared memory file descriptor if it's still open.
+        // Note: In normal operation, this fd is closed at the end of initialize(),
+        // but we still handle cleanup here for safety (e.g., if initialization failed partway through).
         if (close(shm_fd_) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
             log_warning(tt::LogUMD, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));

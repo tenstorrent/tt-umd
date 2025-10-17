@@ -5,6 +5,8 @@
  */
 
 #pragma once
+#include <fmt/core.h>
+
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
@@ -16,8 +18,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "fmt/core.h"
-#include "types/tensix_soft_reset_options.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -25,6 +25,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {

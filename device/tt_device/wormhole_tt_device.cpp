@@ -373,7 +373,7 @@ void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, si
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
-            jlink_id_,
+            communication_device_id_,
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0].x,
             wormhole::ARC_CORES_NOC0[0].y,
@@ -391,7 +391,7 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
-            jlink_id_,
+            communication_device_id_,
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0].x,
             wormhole::ARC_CORES_NOC0[0].y,

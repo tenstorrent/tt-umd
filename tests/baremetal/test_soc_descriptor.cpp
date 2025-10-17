@@ -3,7 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

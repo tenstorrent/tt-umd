@@ -1091,6 +1091,8 @@ std::string ClusterDescriptor::serialize() const {
     }
     out << YAML::EndSeq;
 
+    out << YAML::Key << "io_device_type" << YAML::Value << DeviceTypeToString.at(io_device_type);
+
     out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
     std::set<chip_id_t> all_chips_map = std::set<chip_id_t>(all_chips.begin(), all_chips.end());
     for (const int &chip : all_chips_map) {

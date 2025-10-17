@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <hwloc.h>
 #include <unistd.h>
 
 #include <map>
@@ -14,7 +15,6 @@
 #include <thread>
 #include <vector>
 
-#include "hwloc.h"
 #include "umd/device/types/cluster_descriptor_types.hpp"  // For chip_id_t
 
 namespace tt::cpuset {

@@ -4,6 +4,7 @@
 
 // This file holds Chip specific API examples.
 
+#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -11,7 +12,6 @@
 #include <string>
 #include <vector>
 
-#include "fmt/xchar.h"
 #include "tests/test_utils/fetch_local_files.hpp"
 
 // TODO: change to tt_cluster

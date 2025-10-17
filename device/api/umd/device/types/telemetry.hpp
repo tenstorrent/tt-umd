@@ -51,6 +51,8 @@ enum TelemetryTag : uint8_t {
     PCIE_USAGE = 38,
     NUMBER_OF_TAGS = 39,
     ASIC_LOCATION = 52,
+    ASIC_ID_HIGH = 61,
+    ASIC_ID_LOW = 62,
     AICLK_LIMIT_MAX = 63,
 };
 

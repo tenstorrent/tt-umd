@@ -6,11 +6,11 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <filesystem>
 #include <iostream>
 #include <string>
-
-#include "fmt/core.h"
 
 namespace test_utils {
 

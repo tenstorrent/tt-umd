@@ -6,12 +6,12 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <sstream>
 #include <string>
 #include <tuple>
-
-#include "fmt/format.h"
 
 namespace tt::umd {
 

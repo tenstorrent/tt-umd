@@ -110,9 +110,14 @@ if(ENABLE_CLANG_TIDY)
         set(CMAKE_C_CLANG_TIDY
             "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
         )
-        # Avoid compiler launcher (e.g., ccache) when invoking clang-tidy wrapper to prevent 'no such file or directory' errors
-        set(CMAKE_CXX_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
-        set(CMAKE_C_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
+        # Avoid compiler launcher (e.g., ccache) under this directory when tidy wrapper runs
+        # This clears the --launcher=... used by CMake's rule, fixing 'no such file or directory' from env-inlined launchers
+        set_property(
+            DIRECTORY
+            PROPERTY
+                RULE_LAUNCH_COMPILE
+                    ""
+        )
     endif()
 endif()
 

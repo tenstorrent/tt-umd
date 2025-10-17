@@ -1093,7 +1093,6 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) c
 }
 
 semver_t Cluster::get_ethernet_fw_version() const {
-    TT_ASSERT(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
     TT_ASSERT(eth_fw_version.has_value(), "Device must be started before querying Ethernet FW version.");
     return eth_fw_version.value();
 }

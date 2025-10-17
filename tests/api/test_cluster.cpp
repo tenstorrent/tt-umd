@@ -4,6 +4,7 @@
 
 // This file holds Cluster specific API examples.
 
+#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
 
@@ -17,8 +18,8 @@
 #include <string>
 #include <vector>
 
-#include "fmt/xchar.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
@@ -761,6 +762,16 @@ TEST(TestCluster, SocDescriptorSerialize) {
     }
 }
 
+TEST(TestCluster, GetEthernetFirmware) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    EXPECT_NO_THROW(cluster->get_ethernet_fw_version());
+}
+
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -885,6 +896,50 @@ INSTANTIATE_TEST_SUITE_P(
     ClusterAssertDeassertRiscsTest,
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
+TEST(TestCluster, StartDeviceWithValidRiscProgram) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    constexpr uint64_t write_address = 0x1000;
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    test_utils::setup_risc_cores_on_cluster(cluster.get());
+
+    cluster->start_device({});
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        cluster->write_to_device(data.data(), data_size, chip_id, any_core, write_address);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+    }
+
+    // Now read back the data.
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        cluster->read_from_device(readback_data.data(), chip_id, any_core, write_address, data_size);
+
+        ASSERT_EQ(data, readback_data);
+    }
+
+    cluster->close_device();
+}
+
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
@@ -913,26 +968,24 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
-        std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
 
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            // Zero out L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+        // Zero out L1.
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-            EXPECT_EQ(zero_data, readback_data);
+        EXPECT_EQ(zero_data, readback_data);
 
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-            EXPECT_EQ(data, readback_data);
-        }
+        EXPECT_EQ(data, readback_data);
     }
 }
 

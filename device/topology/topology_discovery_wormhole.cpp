@@ -400,4 +400,8 @@ void TopologyDiscoveryWormhole::verify_eth_version_remote(Chip* chip) {
     }
 }
 
+uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
+    return chip->get_tt_device()->get_board_id();
+}
+
 }  // namespace tt::umd

@@ -337,7 +337,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
         return get_local_asic_id(chip, eth_core);
     }
 
-    return chip->get_tt_device()->get_board_id();
+    return get_unconnected_chip_id(chip);
 }
 
 void TopologyDiscovery::patch_eth_connections() {}

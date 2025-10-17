@@ -1,7 +1,7 @@
 # Check if this is being built as a standalone project by running cmake from this dir
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # This is a root project build from install artifacts
-    cmake_minimum_required(VERSION 3.16)
+    cmake_minimum_required(VERSION 3.27)
     project(tt_umd_tools)
 
     message(STATUS "Building tools as standalone project from UMD install artifacts")
@@ -23,6 +23,10 @@ target_link_libraries(telemetry PRIVATE tools_common)
 set_target_properties(
     telemetry
     PROPERTIES
+        CXX_COMPILER_LAUNCHER
+            ""
+        C_COMPILER_LAUNCHER
+            ""
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/tools/umd/
         OUTPUT_NAME
@@ -34,6 +38,10 @@ target_link_libraries(topology PRIVATE tools_common)
 set_target_properties(
     topology
     PROPERTIES
+        CXX_COMPILER_LAUNCHER
+            ""
+        C_COMPILER_LAUNCHER
+            ""
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/tools/umd/
         OUTPUT_NAME
@@ -45,6 +53,10 @@ target_link_libraries(harvesting PRIVATE tools_common)
 set_target_properties(
     harvesting
     PROPERTIES
+        CXX_COMPILER_LAUNCHER
+            ""
+        C_COMPILER_LAUNCHER
+            ""
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/tools/umd/
         OUTPUT_NAME
@@ -56,6 +68,10 @@ target_link_libraries(system_health PRIVATE tools_common)
 set_target_properties(
     system_health
     PROPERTIES
+        CXX_COMPILER_LAUNCHER
+            ""
+        C_COMPILER_LAUNCHER
+            ""
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/tools/umd/
         OUTPUT_NAME

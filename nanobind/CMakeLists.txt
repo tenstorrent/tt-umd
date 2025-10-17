@@ -1,7 +1,7 @@
 # Check if this is being built as a standalone project by running cmake from this dir
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # This is a root project build from install artifacts
-    cmake_minimum_required(VERSION 3.16)
+    cmake_minimum_required(VERSION 3.27)
     project(tt_umd_nanobind)
 
     message(STATUS "Building nanobind as standalone project from UMD install artifacts")
@@ -25,6 +25,28 @@ set_target_properties(
         OUTPUT_NAME
             "tt_umd" # Name of the Python module
 )
+
+# Do not run clang-tidy on the Python module (pulls third-party sources via CPM)
+set_target_properties(
+    nanobind_tt_umd
+    PROPERTIES
+        CXX_CLANG_TIDY
+            ""
+        C_CLANG_TIDY
+            ""
+)
+
+# Also disable clang-tidy for the underlying third-party static lib if present
+if(TARGET nanobind-static)
+    set_target_properties(
+        nanobind-static
+        PROPERTIES
+            CXX_CLANG_TIDY
+                ""
+            C_CLANG_TIDY
+                ""
+    )
+endif()
 
 # The problem that RPATH is solving is the following:
 # Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.

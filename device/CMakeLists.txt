@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.27)
 
 set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
@@ -45,6 +45,15 @@ add_custom_target(generate_lite_fabric_embed ALL DEPENDS ${LITE_FABRIC_EMBED})
 
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
+
+set_target_properties(
+    device
+    PROPERTIES
+        CXX_COMPILER_LAUNCHER
+            ""
+        C_COMPILER_LAUNCHER
+            ""
+)
 
 add_dependencies(device generate_lite_fabric_embed)
 
@@ -119,6 +128,17 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
+    )
+    # Skip static analysis (clang-tidy) on simulator sources
+    set_property(
+        SOURCE
+            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/simulation_chip.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/tt_sim_chip.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/rtl_simulation_chip.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/simulation_host.cpp
+        PROPERTY
+            SKIP_LINTING
+                ON
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()

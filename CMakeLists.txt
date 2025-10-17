@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.27)
 
 option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
 set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
@@ -8,7 +8,7 @@ include(cmake/compilers.cmake)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.27)
 
 if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
     message(STATUS "Setting C and C++ compiler from environment variables")
@@ -92,6 +92,30 @@ if(TT_UMD_ENABLE_LOGGING)
 endif()
 
 add_subdirectory(third_party)
+
+# Configure clang-tidy AFTER third_party so dependencies are not linted
+option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+if(ENABLE_CLANG_TIDY)
+    find_program(
+        CLANG_TIDY_EXE
+        NAMES
+            clang-tidy
+            clang-tidy-17
+    )
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
+        set(CMAKE_C_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
+        # If used as a subproject, clear compiler launchers to avoid passing a launcher to the tidy wrapper
+        if(NOT PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+            set(CMAKE_CXX_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
+            set(CMAKE_C_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
+        endif()
+    endif()
+endif()
 
 # Enable all warnings and treat them as errors
 # Ignore unused variables and functions since there is no harm.

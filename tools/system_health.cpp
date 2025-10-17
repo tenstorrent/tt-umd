@@ -37,7 +37,7 @@ const std::unordered_map<ConnectorType, LinkingBoardType> linking_board_types = 
     {ConnectorType::LK3, LinkingBoardType::B},
 };
 
-UbbId get_ubb_id(Cluster* cluster, const chip_id_t chip_id, const unsigned long unique_chip_id) {
+UbbId get_ubb_id(Cluster* cluster, const ChipId chip_id, const unsigned long unique_chip_id) {
     const auto& tray_bus_ids = ubb_bus_ids.at(cluster->get_soc_descriptor(chip_id).arch);
     const auto bus_id = cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus;
     auto tray_bus_id_it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(), bus_id & 0xF0);
@@ -52,7 +52,7 @@ UbbId get_ubb_id(Cluster* cluster, const chip_id_t chip_id, const unsigned long 
 bool check_if_external_cable_is_used(
     ClusterDescriptor* cluster_descriptor,
     const BoardType board_type,
-    const chip_id_t chip_id,
+    const ChipId chip_id,
     const unsigned long unique_chip_id,
     const int chan) {
     if (board_type == BoardType::UBB) {
@@ -80,7 +80,7 @@ bool check_if_external_cable_is_used(
 }
 
 ConnectorType get_connector_type(
-    Cluster* cluster, BoardType board_type, chip_id_t chip_id, const unsigned long unique_chip_id, uint32_t chan) {
+    Cluster* cluster, BoardType board_type, ChipId chip_id, const unsigned long unique_chip_id, uint32_t chan) {
     if (check_if_external_cable_is_used(
             cluster->get_cluster_description(), board_type, chip_id, unique_chip_id, chan)) {
         return ConnectorType::EXTERNAL;
@@ -101,13 +101,13 @@ ConnectorType get_connector_type(
     }
 }
 
-std::string get_ubb_id_str(Cluster* cluster, chip_id_t chip_id, const unsigned long unique_chip_id) {
+std::string get_ubb_id_str(Cluster* cluster, ChipId chip_id, const unsigned long unique_chip_id) {
     auto ubb_id = get_ubb_id(cluster, chip_id, unique_chip_id);
     return "Tray: " + std::to_string(ubb_id.tray_id) + " N" + std::to_string(ubb_id.asic_id);
 }
 
 std::string get_connector_str(
-    Cluster* cluster, chip_id_t chip_id, const unsigned long unique_chip_id, uint32_t channel, BoardType board_type) {
+    Cluster* cluster, ChipId chip_id, const unsigned long unique_chip_id, uint32_t channel, BoardType board_type) {
     auto connector = get_connector_type(cluster, board_type, chip_id, unique_chip_id, channel);
     std::stringstream str;
     str << "(";

@@ -30,7 +30,7 @@ static void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_i
 }
 
 static void read_data_from_device(
-    Cluster& cluster, std::vector<uint32_t>& vec, chip_id_t chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
+    Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
     size_buffer_to_capacity(vec, size);
     cluster.read_from_device(vec.data(), chip_id, core, addr, size);
 }

@@ -258,7 +258,7 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (chip_id_t chip : cluster->get_target_mmio_device_ids()) {
+    for (ChipId chip : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip);
 
         CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];

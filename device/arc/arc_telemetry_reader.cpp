@@ -27,15 +27,15 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
             int compare_fw_bundles_result =
                 semver_t::compare_firmware_bundle(fw_bundle_version, new_telemetry_fw_bundle);
             if (compare_fw_bundles_result >= 0) {
-                log_info(tt::LogUMD, "Creating new-style telemetry reader.");
+                log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
                 return std::make_unique<WormholeArcTelemetryReader>(tt_device);
             }
 
-            log_info(tt::LogUMD, "Creating old-style telemetry reader.");
+            log_debug(tt::LogUMD, "Creating old-style telemetry reader.");
             return std::make_unique<SmBusArcTelemetryReader>(tt_device);
         }
         case tt::ARCH::BLACKHOLE:
-            log_info(tt::LogUMD, "Creating new-style telemetry reader.");
+            log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
             return std::make_unique<BlackholeArcTelemetryReader>(tt_device);
         default:
             throw std::runtime_error("Unsupported architecture for creating Arc telemetry reader.");

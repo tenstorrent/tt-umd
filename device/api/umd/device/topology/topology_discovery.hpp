@@ -21,11 +21,11 @@ class ClusterDescriptor;
 class TopologyDiscovery {
 public:
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<chip_id_t> target_devices = {},
+        std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
     TopologyDiscovery(
-        std::unordered_set<chip_id_t> target_devices = {},
+        std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
     virtual ~TopologyDiscovery() = default;
@@ -67,9 +67,9 @@ protected:
 
     virtual uint64_t get_unconnected_chip_id(Chip* chip) = 0;
 
-    virtual std::optional<eth_coord_t> get_local_eth_coord(Chip* chip) = 0;
+    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip) = 0;
 
-    virtual std::optional<eth_coord_t> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
 
     // local_eth_core should be in NoC 0 coordinates.
     virtual tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) = 0;
@@ -94,7 +94,7 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
 
     Chip* get_chip(const uint64_t asic_id);
 
@@ -125,7 +125,7 @@ protected:
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 
-    std::unordered_map<uint64_t, eth_coord_t> eth_coords;
+    std::unordered_map<uint64_t, EthCoord> eth_coords;
 
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>> ethernet_connections;
 
@@ -134,7 +134,7 @@ protected:
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
 
-    std::unordered_set<chip_id_t> target_devices = {};
+    std::unordered_set<ChipId> target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;

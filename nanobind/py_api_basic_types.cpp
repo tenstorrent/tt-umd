@@ -13,10 +13,11 @@
 
 namespace nb = nanobind;
 
+using namespace tt;
 using namespace tt::umd;
 
 void bind_basic_types(nb::module_ &m) {
-    nb::class_<eth_coord_t>(m, "EthCoord")
+    nb::class_<EthCoord>(m, "EthCoord")
         .def(nb::init<>())
         .def(
             nb::init<int, int, int, int, int>(),
@@ -25,11 +26,11 @@ void bind_basic_types(nb::module_ &m) {
             nb::arg("y"),
             nb::arg("rack"),
             nb::arg("shelf"))
-        .def_rw("cluster_id", &eth_coord_t::cluster_id)
-        .def_rw("x", &eth_coord_t::x)
-        .def_rw("y", &eth_coord_t::y)
-        .def_rw("rack", &eth_coord_t::rack)
-        .def_rw("shelf", &eth_coord_t::shelf);
+        .def_rw("cluster_id", &EthCoord::cluster_id)
+        .def_rw("x", &EthCoord::x)
+        .def_rw("y", &EthCoord::y)
+        .def_rw("rack", &EthCoord::rack)
+        .def_rw("shelf", &EthCoord::shelf);
 
     nb::class_<tt::xy_pair>(m, "tt_xy_pair")
         .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))

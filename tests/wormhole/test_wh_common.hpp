@@ -57,7 +57,7 @@ protected:
 
         set_barrier_params(*cluster);
 
-        device_params default_params;
+        DeviceParams default_params;
         cluster->start_device(default_params);
 
         cluster->deassert_risc_reset();

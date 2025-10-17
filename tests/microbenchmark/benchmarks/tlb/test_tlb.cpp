@@ -10,7 +10,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-constexpr chip_id_t chip = 0;
+constexpr ChipId chip = 0;
 constexpr size_t one_kb = 1 << 10;
 constexpr size_t one_mb = 1 << 20;
 constexpr size_t one_gb = 1ULL << 30;

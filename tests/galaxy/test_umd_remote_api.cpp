@@ -23,7 +23,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -122,7 +122,7 @@ void run_data_mover_test(
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -234,7 +234,7 @@ void run_data_broadcast_test(
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test

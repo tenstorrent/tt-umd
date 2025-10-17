@@ -299,9 +299,9 @@ void TopologyDiscoveryBlackhole::verify_eth_version_local(Chip* chip) {
         uint8_t minor = 0;
         uint8_t patch = 0;
 
-        chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint32_t));
-        chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint32_t));
-        chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint32_t));
+        chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint8_t));
+        chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint8_t));
+        chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint8_t));
         semver_t eth_fw_version = semver_t(major, minor, patch);
 
         if (!first_eth_fw_version.has_value()) {
@@ -339,9 +339,9 @@ void TopologyDiscoveryBlackhole::verify_eth_version_remote(Chip* chip) {
         uint8_t minor = 0;
         uint8_t patch = 0;
 
-        chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint32_t));
-        chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint32_t));
-        chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint32_t));
+        chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint8_t));
+        chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint8_t));
+        chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint8_t));
         semver_t eth_fw_version = semver_t(major, minor, patch);
 
         if (eth_fw_version != first_eth_fw_version) {

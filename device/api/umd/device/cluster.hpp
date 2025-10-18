@@ -18,7 +18,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "umd/device/api/umd/device/utils/semver.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -28,6 +27,7 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 

@@ -129,6 +129,9 @@ jobs:
       - name: Build wheel
         shell: bash
         run: |
+          echo "Cleaning up wheel directory in case of previous build..."
+          rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
+          mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate

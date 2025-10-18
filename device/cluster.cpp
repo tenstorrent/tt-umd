@@ -433,7 +433,7 @@ Cluster::Cluster(ClusterOptions options) {
             if (options.chip_type == ChipType::SIMULATION) {
                 if (options.sdesc_path.empty()) {
                     options.sdesc_path =
-                        SimulationDevice::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
                 }
                 arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
             }

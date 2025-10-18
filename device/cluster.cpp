@@ -74,8 +74,8 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 #include <iomanip>
 #include <thread>
 
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -433,7 +433,7 @@ Cluster::Cluster(ClusterOptions options) {
             if (options.chip_type == ChipType::SIMULATION) {
                 if (options.sdesc_path.empty()) {
                     options.sdesc_path =
-                        SimulationDevice::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
                 }
                 arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
             }
@@ -1045,7 +1045,7 @@ void Cluster::verify_eth_fw() {
             eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        const chip_id_t chip = *all_chip_ids_.begin();
+        const ChipId chip = *all_chip_ids_.begin();
         if (get_soc_descriptor(chip).get_cores(CoreType::ETH).empty()) {
             log_debug(
                 LogUMD, "No ethernet cores found on device {}, skipped verification of ethernet FW version.", chip);

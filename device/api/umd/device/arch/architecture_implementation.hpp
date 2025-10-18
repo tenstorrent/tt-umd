@@ -12,7 +12,6 @@
 #include <tuple>
 #include <vector>
 
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"

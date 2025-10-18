@@ -16,7 +16,7 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 /* Sizes:
  * Distribution (including min/max)

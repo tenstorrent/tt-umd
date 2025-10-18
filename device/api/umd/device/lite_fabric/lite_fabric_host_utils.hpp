@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "umd/device/lite_fabric/lite_fabric.hpp"
-#include "umd/device/types/xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

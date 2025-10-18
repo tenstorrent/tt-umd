@@ -589,7 +589,7 @@ TEST(TestCluster, WarmReset) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
@@ -916,7 +916,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
     }
 
     for (auto chip_id : cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -927,7 +927,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
 
     // Now read back the data.
     for (auto chip_id : cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 

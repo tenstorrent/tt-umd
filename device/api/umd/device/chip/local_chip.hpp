@@ -76,7 +76,7 @@ public:
 
 private:
     LocalChip(
-        tt_SocDescriptor soc_descriptor,
+        SocDescriptor soc_descriptor,
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,

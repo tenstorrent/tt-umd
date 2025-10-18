@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/jtag/jtag_device.h"
+#include "umd/device/jtag/jtag_device.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -10,7 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/jtag/jtag.h"
+#include "umd/device/jtag/jtag.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 

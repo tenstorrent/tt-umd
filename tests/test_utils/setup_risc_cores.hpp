@@ -5,7 +5,7 @@
 #pragma once
 
 #include "assembly_programs_for_tests.hpp"
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 

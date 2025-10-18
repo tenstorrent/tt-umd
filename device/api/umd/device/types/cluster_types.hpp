@@ -183,39 +183,6 @@ struct DriverEthInterfaceParams {
     std::uint32_t cmd_broadcast = 0;
 };
 
-struct tt_version {
-    std::uint16_t major = 0xffff;
-    std::uint8_t minor = 0xff;
-    std::uint8_t patch = 0xff;
-
-    tt_version() {}
-
-    tt_version(std::uint16_t major_, std::uint8_t minor_, std::uint8_t patch_) {
-        major = major_;
-        minor = minor_;
-        patch = patch_;
-    }
-
-    tt_version(std::uint32_t version) {
-        major = (version >> 16) & 0xff;
-        minor = (version >> 12) & 0xf;
-        patch = version & 0xfff;
-    }
-
-    std::string str() const { return fmt::format("{}.{}.{}", major, minor, patch); }
-};
-
-constexpr inline bool operator==(const tt_version& a, const tt_version& b) {
-    return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
-}
-
-constexpr inline bool operator>=(const tt_version& a, const tt_version& b) {
-    bool fw_major_greater = a.major > b.major;
-    bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
-    bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
-    return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
-}
-
 struct HugepageMapping {
     void* mapping = nullptr;
     size_t mapping_size = 0;
@@ -225,7 +192,6 @@ struct HugepageMapping {
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.
-using tt::umd::tt_version;
 using barrier_address_params = tt::umd::BarrierAddressParams;
 using device_params = tt::umd::DeviceParams;
 using tt_device_params = tt::umd::DeviceParams;

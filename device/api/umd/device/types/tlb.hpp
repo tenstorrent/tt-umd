@@ -63,6 +63,3 @@ enum TlbMapping : uint8_t {
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using TLB_DATA = tt::umd::tlb_data;

@@ -309,10 +309,4 @@ private:
     // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
     std::unordered_map<ChipId, uint16_t> chip_to_bus_id = {};
 };
-
-using tt_ClusterDescriptor = ClusterDescriptor;
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::ClusterDescriptor;
-using tt::umd::tt_ClusterDescriptor;

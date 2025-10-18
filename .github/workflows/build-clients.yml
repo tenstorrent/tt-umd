@@ -160,6 +160,7 @@ jobs:
           export TT_METAL_RUNTIME_ROOT=$(pwd)
           export PYTHONPATH=$(pwd)
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
+          echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh --build-programming-examples
           cd ../

@@ -1045,7 +1045,7 @@ void Cluster::verify_eth_fw() {
             eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        const chip_id_t chip = *all_chip_ids_.begin();
+        const ChipId chip = *all_chip_ids_.begin();
         if (get_soc_descriptor(chip).get_cores(CoreType::ETH).empty()) {
             log_debug(
                 LogUMD, "No ethernet cores found on device {}, skipped verification of ethernet FW version.", chip);

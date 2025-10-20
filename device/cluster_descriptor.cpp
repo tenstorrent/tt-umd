@@ -496,7 +496,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_arch.insert({logical_id, arch});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
-        // Populate a deterministic unique ASIC ID for mock/simulator clusters so downstream code relying on it functions correctly.
+        // Populate a deterministic unique ASIC ID for mock/simulator clusters so downstream code relying on it
+        // functions correctly.
         static constexpr uint64_t kSimUniqueIdBase = 0x5AA5000000000000ULL;
         desc->chip_unique_ids.insert({logical_id, kSimUniqueIdBase + static_cast<uint64_t>(logical_id)});
         // Provide placeholder PCI bus IDs to align with host motherboard mappings when running tests that expect

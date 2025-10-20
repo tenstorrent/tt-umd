@@ -34,6 +34,9 @@ public:
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
     virtual ~TopologyDiscovery() = default;
+
+    void discover();
+
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
 protected:

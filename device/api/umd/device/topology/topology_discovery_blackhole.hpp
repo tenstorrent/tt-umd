@@ -11,8 +11,7 @@ namespace tt::umd {
 
 class TopologyDiscoveryBlackhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryBlackhole(
-        std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
+    TopologyDiscoveryBlackhole(std::unordered_set<ChipId> pci_target_devices = {}, const std::string& sdesc_path = "");
 
 protected:
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
@@ -27,9 +26,9 @@ protected:
 
     uint64_t get_unconnected_chip_id(Chip* chip) override;
 
-    std::optional<eth_coord_t> get_local_eth_coord(Chip* chip) override;
+    std::optional<EthCoord> get_local_eth_coord(Chip* chip) override;
 
-    std::optional<eth_coord_t> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
+    std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
 
     tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) override;
 
@@ -56,7 +55,7 @@ protected:
     bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     void patch_eth_connections() override;
 

@@ -20,7 +20,7 @@ public:
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
-        TTDevice* local_tt_device, eth_coord_t target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
 
     // Target core should be in translated coords.
     // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should

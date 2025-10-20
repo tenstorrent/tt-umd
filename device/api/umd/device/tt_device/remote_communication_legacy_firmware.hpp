@@ -17,7 +17,7 @@ class SysmemManager;
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
     RemoteCommunicationLegacyFirmware(
-        TTDevice* local_tt_device, eth_coord_t target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
 
     void read_non_mmio(
         tt_xy_pair target_core,
@@ -38,7 +38,7 @@ public:
     void wait_for_non_mmio_flush(const uint32_t timeout_ms = 5000) override;
 
 private:
-    eth_coord_t target_chip;
+    EthCoord target_chip;
 };
 
 }  // namespace tt::umd

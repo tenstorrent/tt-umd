@@ -39,7 +39,7 @@ public:
     void unpin_or_unmap_sysmem();
 
     size_t get_num_host_mem_channels() const;
-    hugepage_mapping get_hugepage_mapping(size_t channel) const;
+    HugepageMapping get_hugepage_mapping(size_t channel) const;
 
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(size_t sysmem_buffer_size, const bool map_to_noc = false);
 
@@ -70,7 +70,7 @@ private:
     TTDevice* tt_device_;
     const uint64_t pcie_base_;
 
-    std::vector<hugepage_mapping> hugepage_mapping_per_channel;
+    std::vector<HugepageMapping> hugepage_mapping_per_channel;
     void* iommu_mapping = nullptr;
     size_t iommu_mapping_size = 0;
 

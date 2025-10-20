@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-#include "umd/device/types/cluster_descriptor_types.hpp"  // For chip_id_t
+#include "umd/device/types/cluster_descriptor_types.hpp"  // For ChipId
 
 namespace tt::cpuset {
 //! Utility functions for various backend paramsf
@@ -28,7 +28,7 @@ public:
     void operator=(cpuset_allocator const &) = delete;
 
     // Bind an already allocated memory region to particular numa nodes
-    static bool bind_area_to_memory_nodeset(chip_id_t physical_device_id, const void *addr, size_t len) {
+    static bool bind_area_to_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len) {
         auto &instance = cpuset_allocator::get();
         return instance.bind_area_memory_nodeset(physical_device_id, addr, len);
     }
@@ -53,7 +53,7 @@ private:
 
     int TENSTORRENT_VENDOR_ID = 0x1e52;
 
-    bool bind_area_memory_nodeset(chip_id_t physical_device_id, const void *addr, size_t len);
+    bool bind_area_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len);
     int _get_num_tt_pci_devices();
     int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);
 
@@ -67,8 +67,8 @@ private:
 
     // Helper Functions
     std::string get_pci_bus_id(hwloc_obj_t pci_device_obj);
-    int get_package_id_from_device(hwloc_obj_t pci_device_obj, chip_id_t physical_device_id);
-    hwloc_nodeset_t get_numa_nodeset_from_device(hwloc_obj_t pci_device_obj, chip_id_t physical_device_id);
+    int get_package_id_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id);
+    hwloc_nodeset_t get_numa_nodeset_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id);
 
     // Debug Functions
     void print_hwloc_cpuset(hwloc_obj_t &obj);
@@ -86,8 +86,8 @@ private:
     std::map<int, std::string> m_physical_device_id_to_pci_bus_id_map;  // Debug/Info
     std::map<std::pair<uint16_t, uint16_t>, int> m_num_tt_device_by_pci_device_id_map;
 
-    std::map<chip_id_t, std::vector<hwloc_cpuset_t>> m_physical_device_id_to_cpusets_map;
-    std::map<chip_id_t, int> m_physical_device_id_to_package_id_map;
+    std::map<ChipId, std::vector<hwloc_cpuset_t>> m_physical_device_id_to_cpusets_map;
+    std::map<ChipId, int> m_physical_device_id_to_package_id_map;
 
     bool m_enable_cpuset_allocator = true;  // Enable feature, otherwise do nothing.
     int m_num_packages = 0;
@@ -100,10 +100,10 @@ private:
     std::map<int, int> m_package_id_to_num_ccx_per_ccd_map;
 
     // Memory Binding
-    std::map<chip_id_t, hwloc_nodeset_t> m_physical_device_id_to_numa_nodeset_map;
+    std::map<ChipId, hwloc_nodeset_t> m_physical_device_id_to_numa_nodeset_map;
 
     // Helper for some dynamic multi-threading.
-    std::map<chip_id_t, int> m_num_cpu_cores_allocated_per_tt_device;
+    std::map<ChipId, int> m_num_cpu_cores_allocated_per_tt_device;
 };
 
 template <typename T>

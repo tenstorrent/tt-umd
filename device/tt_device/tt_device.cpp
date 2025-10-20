@@ -92,7 +92,7 @@ void TTDevice::init_tt_device() {
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(
-    std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
+    std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.

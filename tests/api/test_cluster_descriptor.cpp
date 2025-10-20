@@ -12,11 +12,12 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
-int count_connections(const std::unordered_map<
-                      chip_id_t,
-                      std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
+int count_connections(
+    const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
+        connections) {
     size_t count = 0;
     for (const auto& [_, channels] : connections) {
         count += channels.size();
@@ -36,13 +37,13 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
         std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
-        std::unordered_set<chip_id_t> pci_chips_set;
+        std::unordered_set<ChipId> pci_chips_set;
         for (auto [pci_device_number, _] : pci_device_infos) {
             pci_chips_set.insert(pci_device_number);
         }
 
-        std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio = cluster_desc->get_chips_with_mmio();
-        std::unordered_set<chip_id_t> cluster_chips_set;
+        std::unordered_map<ChipId, ChipId> chips_with_mmio = cluster_desc->get_chips_with_mmio();
+        std::unordered_set<ChipId> cluster_chips_set;
         for (auto [_, pci_device_number] : chips_with_mmio) {
             cluster_chips_set.insert(pci_device_number);
         }
@@ -63,11 +64,11 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
-    std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
-    std::unordered_set<chip_id_t> local_chips;
-    std::unordered_set<chip_id_t> remote_chips;
+    std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
+    std::unordered_map<ChipId, ChipId> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
+    std::unordered_set<ChipId> local_chips;
+    std::unordered_set<ChipId> remote_chips;
 
     for (auto chip_id : all_chips) {
         if (cluster_desc->is_chip_mmio_capable(chip_id)) {
@@ -80,7 +81,7 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
-    std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
+    std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
         cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
@@ -117,7 +118,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
             if (!has_active_link) {
                 continue;
             }
-            std::tuple<chip_id_t, ethernet_channel_t> remote_chip_and_channel =
+            std::tuple<ChipId, EthernetChannel> remote_chip_and_channel =
                 cluster_desc->get_chip_and_channel_of_remote_ethernet_core(chip, eth_chan);
             std::cout << "Chip " << chip << " channel " << eth_chan << " has remote chip "
                       << std::get<0>(remote_chip_and_channel) << " channel " << std::get<1>(remote_chip_and_channel)
@@ -163,7 +164,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
 TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
-    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
+    std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         eth_connections = cluster_desc->get_ethernet_connections();
     // Check that all ethernet connections are bidirectional.
     for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {

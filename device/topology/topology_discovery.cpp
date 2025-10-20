@@ -26,7 +26,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
     tt::ARCH current_arch = ARCH::Invalid;
 
     switch (device_type) {
@@ -65,7 +65,7 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
+    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
     target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
@@ -195,7 +195,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
-                std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
+                std::optional<EthCoord> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
@@ -220,8 +220,8 @@ void TopologyDiscovery::discover_remote_chips() {
 }
 
 void TopologyDiscovery::fill_cluster_descriptor_info() {
-    std::map<uint64_t, chip_id_t> asic_id_to_chip_id;
-    chip_id_t chip_id = 0;
+    std::map<uint64_t, ChipId> asic_id_to_chip_id;
+    ChipId chip_id = 0;
     for (const auto& [current_chip_asic_id, chip] : chips) {
         if (chip->is_mmio_capable()) {
             asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
@@ -243,7 +243,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     for (const auto& [current_chip_asic_id, chip] : chips) {
-        chip_id_t current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
+        ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         cluster_desc->all_chips.insert(current_chip_id);
         cluster_desc->chip_arch.insert({current_chip_id, chip->get_tt_device()->get_arch()});
 
@@ -265,7 +265,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {
-                eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
+                EthCoord eth_coord = eth_coords.at(current_chip_asic_id);
                 cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
                 cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
                     current_chip_id;
@@ -276,8 +276,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
-        chip_id_t local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
-        chip_id_t remote_chip_id = asic_id_to_chip_id.at(ethernet_connection_remote.first);
+        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
+        ChipId remote_chip_id = asic_id_to_chip_id.at(ethernet_connection_remote.first);
         cluster_desc->ethernet_connections[local_chip_id][ethernet_connection_logical.second] = {
             remote_chip_id, ethernet_connection_remote.second};
         cluster_desc->ethernet_connections[remote_chip_id][ethernet_connection_remote.second] = {
@@ -285,14 +285,14 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections_to_remote_devices) {
-        chip_id_t local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
+        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
         cluster_desc->ethernet_connections_to_remote_devices[local_chip_id][ethernet_connection_logical.second] = {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
     }
 
     const uint32_t num_eth_channels = chips.begin()->second->get_soc_descriptor().get_cores(CoreType::ETH).size();
     for (auto [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_chip) {
-        chip_id_t current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
+        ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);
         }

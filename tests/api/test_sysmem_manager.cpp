@@ -63,7 +63,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -126,7 +126,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -189,7 +189,7 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -224,7 +224,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 

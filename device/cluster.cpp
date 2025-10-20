@@ -99,12 +99,12 @@ struct remote_update_ptr_t {
     uint32_t pad[3];
 };
 
-const SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
+const SocDescriptor& Cluster::get_soc_descriptor(ChipId chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
 void Cluster::verify_sysmem_initialized() {
-    for (const chip_id_t& chip_id : local_chip_ids_) {
+    for (const ChipId& chip_id : local_chip_ids_) {
         bool hugepages_initialized =
             (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
         // Large writes to remote chips require hugepages to be initialized.
@@ -151,7 +151,7 @@ void Cluster::log_pci_device_summary() {
     bool all_devices_same_iommu_state = true;
     auto iommu_state_str = [](bool enabled) { return enabled ? "enabled" : "disabled"; };
 
-    for (chip_id_t chip_id : local_chip_ids_) {
+    for (ChipId chip_id : local_chip_ids_) {
         auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
         if (!pci_device) {
             continue;
@@ -244,7 +244,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
-        for (chip_id_t local_chip_id : local_chip_ids_) {
+        for (ChipId local_chip_id : local_chip_ids_) {
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
         log_info(
@@ -284,7 +284,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-    chip_id_t chip_id,
+    ChipId chip_id,
     const ChipType& chip_type,
     ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
@@ -317,7 +317,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         return chip;
     } else {
-        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
         const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
@@ -330,7 +330,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
 SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path,
-    chip_id_t chip_id,
+    ChipId chip_id,
     ChipType chip_type,
     ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
@@ -376,7 +376,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
     }
 }
 
-void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
+void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
     TT_ASSERT(
         chips_.find(chip_id) == chips_.end(),
         "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
@@ -392,7 +392,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
 }
 
 HarvestingMasks Cluster::get_harvesting_masks(
-    chip_id_t chip_id,
+    ChipId chip_id,
     ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
@@ -525,7 +525,7 @@ Cluster::Cluster(ClusterOptions options) {
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
-    chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
     // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
     // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
     // and set the active ethernet cores for them.
@@ -538,42 +538,42 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
-std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
+std::set<ChipId> Cluster::get_target_device_ids() { return all_chip_ids_; }
 
-std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
+std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
 
-std::set<chip_id_t> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
+std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
 void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
 
 void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
 
 void Cluster::deassert_risc_reset_at_core(
-    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
-    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
-RiscType Cluster::get_risc_reset_state(const chip_id_t chip, const CoreCoord core) {
+RiscType Cluster::get_risc_reset_state(const ChipId chip, const CoreCoord core) {
     return get_chip(chip)->get_risc_reset_state(core);
 }
 
-void Cluster::assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type) {
+void Cluster::assert_risc_reset(const ChipId chip, const CoreCoord core, const RiscType risc_type) {
     get_chip(chip)->assert_risc_reset(core, risc_type);
 }
 
 void Cluster::deassert_risc_reset(
-    const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
+    const ChipId chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
     get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
+Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
@@ -592,14 +592,14 @@ Cluster::~Cluster() {
     cluster_desc.reset();
 }
 
-tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
+tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
@@ -609,13 +609,13 @@ void Cluster::configure_tlb(
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
 }
 
-void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
-    hugepage_mapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
+void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
+    HugepageMapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     if (hugepage_map.mapping != nullptr) {
         return static_cast<std::byte*>(hugepage_map.mapping) + offset;
     } else {
@@ -623,32 +623,32 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
     }
 }
 
-TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
+TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     auto tt_device = get_chip(device_id)->get_tt_device();
     TT_ASSERT(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }
 
-TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const { return get_chip(device_id)->get_tlb_manager(); }
+TLBManager* Cluster::get_tlb_manager(ChipId device_id) const { return get_chip(device_id)->get_tlb_manager(); }
 
-Chip* Cluster::get_chip(chip_id_t device_id) const {
+Chip* Cluster::get_chip(ChipId device_id) const {
     auto chip_it = chips_.find(device_id);
     TT_ASSERT(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
     return chip_it->second.get();
 }
 
-LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
+LocalChip* Cluster::get_local_chip(ChipId device_id) const {
     TT_ASSERT(local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
     return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
-RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
+RemoteChip* Cluster::get_remote_chip(ChipId device_id) const {
     TT_ASSERT(
         remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
 }
 
-void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
+void Cluster::wait_for_non_mmio_flush(const ChipId chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
 
 void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {
@@ -656,20 +656,20 @@ void Cluster::wait_for_non_mmio_flush() {
     }
 }
 
-std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ethernet_broadcast_headers(
-    const std::set<chip_id_t>& chips_to_exclude) {
+std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet_broadcast_headers(
+    const std::set<ChipId>& chips_to_exclude) {
     // Generate headers for Ethernet Broadcast (WH) only. Each header corresponds to a unique broadcast "grid".
     if (bcast_header_cache.find(chips_to_exclude) == bcast_header_cache.end()) {
         bcast_header_cache[chips_to_exclude] = {};
-        std::unordered_map<chip_id_t, std::unordered_map<chip_id_t, std::vector<int>>>
+        std::unordered_map<ChipId, std::unordered_map<ChipId, std::vector<int>>>
             broadcast_mask_for_target_chips_per_group = {};
-        std::map<std::vector<int>, std::tuple<chip_id_t, std::vector<int>>> broadcast_header_union_per_group = {};
-        chip_id_t first_mmio_chip = *(get_target_mmio_device_ids().begin());
+        std::map<std::vector<int>, std::tuple<ChipId, std::vector<int>>> broadcast_header_union_per_group = {};
+        ChipId first_mmio_chip = *(get_target_mmio_device_ids().begin());
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
                 // Get shelf local physical chip id included in broadcast
-                chip_id_t physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
-                eth_coord_t eth_coords = cluster_desc->get_chip_locations().at(chip);
+                ChipId physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
+                EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
                 // Rack word to be set in header
                 uint32_t rack_word = eth_coords.rack >> 2;
                 // Rack byte to be set in header
@@ -679,7 +679,7 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 // set connected to host through its closest MMIO chip For the first shelf, pass broadcasts to specific
                 // chips through their closest MMIO chip All other shelves are fully connected galaxy grids. These are
                 // connected to all MMIO devices. Use any (or the first) MMIO device in the list.
-                chip_id_t closest_mmio_chip = 0;
+                ChipId closest_mmio_chip = 0;
                 if (eth_coords.rack == 0 && eth_coords.shelf == 0) {
                     // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its
                     // own MMIO counterpart.
@@ -730,7 +730,7 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
         }
         // Get all broadcast headers per MMIO group
         for (const auto& header : broadcast_header_union_per_group) {
-            chip_id_t mmio_chip = std::get<0>(header.second);
+            ChipId mmio_chip = std::get<0>(header.second);
             if (bcast_header_cache[chips_to_exclude].find(mmio_chip) == bcast_header_cache[chips_to_exclude].end()) {
                 bcast_header_cache[chips_to_exclude].insert({mmio_chip, {}});
             }
@@ -780,13 +780,13 @@ void Cluster::ethernet_broadcast_write(
     const void* mem_ptr,
     uint32_t size_in_bytes,
     uint64_t address,
-    const std::set<chip_id_t>& chips_to_exclude,
+    const std::set<ChipId>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported
-        std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers =
+        std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
             get_ethernet_broadcast_headers(chips_to_exclude);
         // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
         // broadcast headers on future/
@@ -828,7 +828,7 @@ void Cluster::broadcast_write_to_cluster(
     const void* mem_ptr,
     uint32_t size_in_bytes,
     uint64_t address,
-    const std::set<chip_id_t>& chips_to_exclude,
+    const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
@@ -932,49 +932,48 @@ void Cluster::broadcast_write_to_cluster(
 }
 
 void Cluster::write_to_sysmem(
-    const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
+    const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, ChipId src_device_id) {
     get_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
+void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id) {
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
+void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
+void Cluster::dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->dram_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
+void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels) {
     get_chip(chip)->dram_membar(channels);
 }
 
-void Cluster::write_to_device(
-    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+void Cluster::write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::write_to_device_reg(
-    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
-void Cluster::dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
+void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
-void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
+void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
-void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 
-void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
     get_chip(chip)->read_from_device_reg(core, mem_ptr, addr, size);
 }
 
@@ -1005,7 +1004,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    std::set<chip_id_t> chips_to_exclude = {};
+    std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;
     std::set<uint32_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
@@ -1037,7 +1036,7 @@ void Cluster::deassert_resets_and_set_power_state() {
 
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        for (const chip_id_t& chip : all_chip_ids_) {
+        for (const ChipId& chip : all_chip_ids_) {
             get_chip(chip)->enable_ethernet_queue(30);
         }
     }
@@ -1079,7 +1078,7 @@ std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
     return chips_.at(device_id)->get_numa_node();
 }
 
-std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
+std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
     // TODO: Should probably be lowered to TTDevice.
     tt::ARCH arch = get_soc_descriptor(chip_id).arch;
     if (arch == tt::ARCH::WORMHOLE_B0) {
@@ -1097,14 +1096,14 @@ semver_t Cluster::get_ethernet_fw_version() const {
     return eth_fw_version.value();
 }
 
-void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
+void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {
-        chip->set_barrier_address_params(barrier_address_params_);
+        chip->set_barrier_address_params(barrier_address_params);
     }
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type) {
+    std::string sdesc_path, std::unordered_set<ChipId> target_devices, IODeviceType device_type) {
     return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
 }
 

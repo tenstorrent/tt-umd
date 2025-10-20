@@ -384,10 +384,13 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     }
 
     if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        // HACK: suppress the warning.
+#if 0
         log_warning(
             LogUMD,
             "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) write.",
             get_tt_device()->get_communication_device_id());
+#endif
         write_to_device(core, src, addr, size);
         return;
     }
@@ -425,10 +428,13 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     }
 
     if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        // HACK: suppress the warning.
+#if 0
         log_warning(
             LogUMD,
             "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) read.",
             get_tt_device()->get_communication_device_id());
+#endif
         read_from_device(core, dst, addr, size);
         return;
     }

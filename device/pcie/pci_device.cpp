@@ -500,7 +500,18 @@ PCIDevice::PCIDevice(int pci_device_number) :
         }
     }
 
+    // HACK: Don't do this at all. The IO code paths should fall back on MMIO,
+    // this is safe because this buffer isn't used at all for Blackhole so the
+    // code above knows what to do without it.
+#if 0
     allocate_pcie_dma_buffer();
+#endif
+    // Just to be explicit...
+    dma_buffer.buffer = nullptr;
+    dma_buffer.completion = nullptr;
+    dma_buffer.size = 0;
+    dma_buffer.buffer_pa = 0;
+    dma_buffer.completion_pa = 0;
 }
 
 PCIDevice::~PCIDevice() {

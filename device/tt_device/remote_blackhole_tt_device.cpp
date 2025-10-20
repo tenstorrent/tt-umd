@@ -38,6 +38,6 @@ bool RemoteBlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
 }
 
 // ARC tile access over AXI is not supported for remote devices.
-bool BlackholeTTDevice::is_arc_available_over_axi() { return false; }
+bool RemoteBlackholeTTDevice::is_arc_available_over_axi() { return false; }
 
 }  // namespace tt::umd

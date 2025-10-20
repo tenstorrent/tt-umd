@@ -254,6 +254,11 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     cluster->write_to_device(
         data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value());
 
+    // Perform a read so we're sure that the write object has been flushed to the device.
+    std::vector<uint8_t> readback(one_mb, 0);
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
+    EXPECT_EQ(readback, data_write);
+
     for (uint32_t i = 0; i < one_mb; ++i) {
         EXPECT_EQ(sysmem_data[i], data_write[i])
             << "Mismatch at index " << i << ": expected " << static_cast<int>(data_write[i]) << ", got "

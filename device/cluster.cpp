@@ -1042,7 +1042,7 @@ void Cluster::verify_eth_fw() {
                 fw_versions.push_back(fw_version);
             }
             verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-            eth_fw_version = fw_versions.empty() ? tt::umd::semver_t() : tt::umd::semver_t((fw_versions.at(0)));
+            eth_fw_version = fw_versions.empty() ? semver_t() : semver_t((fw_versions.at(0)));
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         const chip_id_t chip = *all_chip_ids_.begin();
@@ -1064,7 +1064,7 @@ void Cluster::verify_eth_fw() {
         read_from_device(&minor, chip, eth_core, eth_fw_minor_addr, sizeof(uint8_t));
         read_from_device(&patch, chip, eth_core, eth_fw_patch_addr, sizeof(uint8_t));
 
-        eth_fw_version = tt::umd::semver_t(major, minor, patch);
+        eth_fw_version = semver_t(major, minor, patch);
     }
 }
 
@@ -1076,7 +1076,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
             device_id);
         return;
     }
-    tt::umd::semver_t sw(sw_version), fw_first_eth_core(fw_versions.at(0));
+    semver_t sw(sw_version), fw_first_eth_core(fw_versions.at(0));
     log_info(
         LogUMD,
         "Software version {}, Ethernet FW version {} (Device {})",
@@ -1084,18 +1084,18 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
         fw_first_eth_core.str(),
         device_id);
     for (std::uint32_t& fw_version : fw_versions) {
-        tt::umd::semver_t fw(fw_version);
+        semver_t fw(fw_version);
         TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
         TT_ASSERT(sw.major <= fw.major, "SW/FW major version number out of sync");
         TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-    use_ethernet_broadcast &= fw_first_eth_core >= tt::umd::semver_t(6, 5, 0);
+    use_ethernet_broadcast &= fw_first_eth_core >= semver_t(6, 5, 0);
     // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
     // Temporarily enable this feature for 6.7.241 as well for testing.
     use_translated_coords_for_eth_broadcast &=
-        (fw_first_eth_core >= tt::umd::semver_t(6, 8, 0) || fw_first_eth_core == tt::umd::semver_t(6, 7, 241)) &&
+        (fw_first_eth_core >= semver_t(6, 8, 0) || fw_first_eth_core == semver_t(6, 7, 241)) &&
         get_soc_descriptor(device_id).noc_translation_enabled;
 }
 
@@ -1145,7 +1145,7 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-tt::umd::semver_t Cluster::get_ethernet_fw_version() const {
+semver_t Cluster::get_ethernet_fw_version() const {
     TT_ASSERT(
         eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
         "Device must be started before querying Ethernet FW version.");

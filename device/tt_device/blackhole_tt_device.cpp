@@ -283,7 +283,7 @@ bool BlackholeTTDevice::is_hardware_hung() {
 }
 
 int BlackholeTTDevice::get_pcie_x_coordinate() {
-    // Extract the x-coordinate from the register using the lower 6 bits
+    // Extract the x-coordinate from the register using the lower 6 bits.
     return bar_read32(get_architecture_implementation()->get_read_checking_offset()) & 0x3F;
 }
 

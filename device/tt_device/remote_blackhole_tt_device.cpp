@@ -37,7 +37,7 @@ bool RemoteBlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
 }
 
-// ARC tile accessibility over AXI is not possible for remote devices
+// ARC tile accessibility over AXI is not possible for remote devices.
 bool BlackholeTTDevice::is_arc_available_over_axi() { return false; }
 
 }  // namespace tt::umd

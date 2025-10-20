@@ -25,13 +25,23 @@ public:
     uint64_t minor;
     uint64_t patch;
 
+    semver_t() {} // To initialize empty constructor.
+
     semver_t(uint64_t major, uint64_t minor, uint64_t patch) {
         this->major = major;
         this->minor = minor;
         this->patch = patch;
     }
 
+    semver_t(std::uint32_t version){
+        major = (version >> 16) & 0xff;
+        minor = (version >> 12) & 0xf;
+        patch = version & 0xfff;
+    }
+
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
+
+    std::string str() const { return fmt::format("{}.{}.{}", major, minor, patch); }
 
     bool operator<(const semver_t& other) const {
         return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);

@@ -24,6 +24,7 @@ semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {
 
 semver_t get_firmware_version_util(TTDevice* tt_device) {
     static constexpr uint32_t TENSTORRENT_VENDOR_ID = 0x1E52;
+    uint32_t device_id = {};
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
             std::make_unique<SmBusArcTelemetryReader>(tt_device);
@@ -45,6 +46,10 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
+        log_warning(
+            tt::LogUMD,
+            fmt::format(
+                "Didn't find valid telemetry data, found {:#x} instead of {:#x}", device_id, TENSTORRENT_VENDOR_ID));
         log_warning(tt::LogUMD, "Didn't find valid firmware bundle version after 250ms");
         return fw_version_from_telemetry(
             smbus_telemetry_reader->read_entry(tt::umd::wormhole::TelemetryTag::FW_BUNDLE_VERSION));

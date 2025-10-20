@@ -101,7 +101,4 @@ protected:
 
     std::filesystem::path simulator_directory_;
 };
-
-// TODO: To be removed once clients are updated.
-using SimulationDevice = SimulationChip;
 }  // namespace tt::umd

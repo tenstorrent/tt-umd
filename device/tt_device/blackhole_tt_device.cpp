@@ -210,7 +210,7 @@ void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, s
             sizeof(uint32_t));
         return;
     }
-    if (!arc_available_over_axi_)  {
+    if (!arc_available_over_axi_) {
         read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
         return;
     }

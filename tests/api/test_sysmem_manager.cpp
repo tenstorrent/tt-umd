@@ -256,6 +256,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     // Perform a read so we're sure that the write object has been flushed to the device.
     std::vector<uint8_t> readback(one_mb, 0);
+    // Read back from sysmem buffer using NOC address.
     cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
     EXPECT_EQ(readback, data_write);
 
@@ -264,12 +265,6 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
             << "Mismatch at index " << i << ": expected " << static_cast<int>(data_write[i]) << ", got "
             << static_cast<int>(sysmem_data[i]);
     }
-
-    std::vector<uint8_t> readback(one_mb, 0);
-    // Read back from sysmem buffer using NOC address.
-    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
-
-    EXPECT_EQ(readback, data_write);
 
     // If we map another buffer it is expected to have a higher NOC address.
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);

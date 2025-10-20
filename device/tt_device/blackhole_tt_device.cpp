@@ -23,9 +23,6 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-    // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
-    // x = 2: ARC not accessible, x = 11: ARC accessible
-    arc_available_over_axi_ = (get_pcie_x_coordinate() == 11) ? true : false;
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -210,7 +207,7 @@ void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, s
             sizeof(uint32_t));
         return;
     }
-    if (!arc_available_over_axi_) {
+    if (!is_arc_available_over_axi()) {
         read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -232,7 +229,7 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
             sizeof(uint32_t));
         return;
     }
-    if (!arc_available_over_axi_) {
+    if (!is_arc_available_over_axi()) {
         write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -289,5 +286,9 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
     // Extract the x-coordinate from the register using the lower 6 bits
     return bar_read32(get_architecture_implementation()->get_read_checking_offset()) & 0x3F;
 }
+
+// ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
+// x = 2: ARC not accessible, x = 11: ARC accessible
+bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
 
 }  // namespace tt::umd

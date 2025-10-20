@@ -11,8 +11,6 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
@@ -39,12 +37,14 @@ public:
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
+    std::map<uint64_t, std::unique_ptr<Chip>> get_all_chips();
+
 protected:
     void get_connected_chips();
 
     void discover_remote_chips();
 
-    void fill_cluster_descriptor_info();
+    std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -140,8 +140,6 @@ protected:
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
         ethernet_connections_to_remote_devices;
 
-    std::unique_ptr<ClusterDescriptor> cluster_desc;
-
     std::unordered_set<ChipId> target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
@@ -157,6 +155,8 @@ protected:
     const IODeviceType io_device_type;
 
     bool is_running_on_6u = false;
+
+    bool discovered = false;
 };
 
 }  // namespace tt::umd

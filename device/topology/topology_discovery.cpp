@@ -13,12 +13,8 @@
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
 
@@ -78,15 +74,17 @@ TopologyDiscovery::TopologyDiscovery(
     target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
 
 void TopologyDiscovery::discover() {
+    discovered = true;
     init_topology_discovery();
     get_connected_chips();
     discover_remote_chips();
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
-    cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
-    fill_cluster_descriptor_info();
-    return std::move(cluster_desc);
+    if (!discovered) {
+        discover();
+    }
+    return fill_cluster_descriptor_info();
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
@@ -227,7 +225,8 @@ void TopologyDiscovery::discover_remote_chips() {
     patch_eth_connections();
 }
 
-void TopologyDiscovery::fill_cluster_descriptor_info() {
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
+    std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
     std::map<uint64_t, ChipId> asic_id_to_chip_id;
     ChipId chip_id = 0;
     for (const auto& [current_chip_asic_id, chip] : chips) {
@@ -317,6 +316,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
     cluster_desc->verify_cluster_descriptor_info();
+    return cluster_desc;
 }
 
 Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {
@@ -350,5 +350,17 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
+
+std::map<uint64_t, std::unique_ptr<Chip>> TopologyDiscovery::get_all_chips() {
+    chips_to_discover.clear();
+    eth_coords.clear();
+    ethernet_connections.clear();
+    ethernet_connections_to_remote_devices.clear();
+    board_ids.clear();
+    active_eth_channels_per_chip.clear();
+    remote_asic_id_to_mmio_chip_id.clear();
+    discovered = false;
+    return std::move(chips);
+}
 
 }  // namespace tt::umd

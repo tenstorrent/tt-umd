@@ -23,21 +23,24 @@ semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {
 }
 
 semver_t get_firmware_version_util(TTDevice* tt_device) {
-    static constexpr uint32_t DEVICE_ID = 0x401E1E52;
+    static constexpr uint32_t TENSTORRENT_VENDOR_ID = 0x1E52;
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
             std::make_unique<SmBusArcTelemetryReader>(tt_device);
 
-        // Polling DEVICE_ID ensures SMBus telemetry is ready and returning valid data.
-        // If a valid DEVICE_ID is not detected within 250ms, a warning is logged and the curent value of
+        // Polling TelemetryTag::DEVICE_ID ensures SMBus telemetry is ready and returning valid data.
+        // If a valid TelemetryTag::DEVICE_ID is not detected within 250ms, a warning is logged and the curent value of
         // FW_BUNDLE_VERSION is returned.
         auto start = std::chrono::steady_clock::now();
         auto timeout_duration = std::chrono::milliseconds(250);
         while (std::chrono::steady_clock::now() - start < timeout_duration) {
             auto device_id = smbus_telemetry_reader->read_entry(tt::umd::wormhole::TelemetryTag::DEVICE_ID);
+            // Only the lower 16 bits of TelemetryTag::DEVICE_ID are meaningful.
+            // We use a bitmask (0xFFFF) to extract these lower two bytes and ignore any higher bits.
+            device_id &= 0xFFFF;
             auto fw_version = fw_version_from_telemetry(
                 smbus_telemetry_reader->read_entry(tt::umd::wormhole::TelemetryTag::FW_BUNDLE_VERSION));
-            if (device_id == DEVICE_ID) {
+            if (device_id == TENSTORRENT_VENDOR_ID) {
                 return fw_version;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));

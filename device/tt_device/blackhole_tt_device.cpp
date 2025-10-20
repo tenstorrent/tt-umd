@@ -10,6 +10,7 @@
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
@@ -22,6 +23,9 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
+    // x = 2: ARC not accessible, x = 11: ARC accessible
+    arc_available_over_axi_ = (get_pcie_x_coordinate() == 11) ? true : false;
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -193,21 +197,21 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 }
 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (get_board_type() == BoardType::P100) {
-        read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
-        return;
-    }
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
-            jlink_id_,
+            communication_device_id_,
             mem_ptr,
             blackhole::ARC_CORES_NOC0[0].x,
             blackhole::ARC_CORES_NOC0[0].y,
             blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
             sizeof(uint32_t));
+        return;
+    }
+    if (!arc_available_over_axi_)  {
+        read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -215,21 +219,21 @@ void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, s
 };
 
 void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (get_board_type() == BoardType::P100) {
-        write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
-        return;
-    }
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
-            jlink_id_,
+            communication_device_id_,
             mem_ptr,
             blackhole::ARC_CORES_NOC0[0].x,
             blackhole::ARC_CORES_NOC0[0].y,
             blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
             sizeof(uint32_t));
+        return;
+    }
+    if (!arc_available_over_axi_) {
+        write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
@@ -279,6 +283,11 @@ bool BlackholeTTDevice::is_hardware_hung() {
 
     log_warning(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
     return false;
+}
+
+int BlackholeTTDevice::get_pcie_x_coordinate() {
+    // Extract the x-coordinate from the register using the lower 6 bits
+    return bar_read32(get_architecture_implementation()->get_read_checking_offset()) & 0x3F;
 }
 
 }  // namespace tt::umd

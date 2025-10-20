@@ -53,10 +53,14 @@ protected:
     bool is_hardware_hung() override;
 
 private:
+    int get_pcie_x_coordinate();
+
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;
+
+    bool arc_available_over_axi_ {false};
 };
 
 }  // namespace tt::umd

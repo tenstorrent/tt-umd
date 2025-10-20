@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

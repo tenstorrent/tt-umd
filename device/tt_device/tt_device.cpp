@@ -3,9 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <future>
+#include <iostream>
 #include <memory>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -172,9 +176,9 @@ void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
 }
 
 void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("memcpy_to_device is not applicable for JTAG communication type.");
-    }
+    // if (communication_device_type_ == IODeviceType::JTAG) {
+    //     TT_THROW("memcpy_to_device is not applicable for JTAG communication type.");
+    // }
     typedef std::uint32_t copy_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
@@ -222,9 +226,9 @@ void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_byt
 }
 
 void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("memcpy_from_device is not applicable for JTAG communication type.");
-    }
+    // if (communication_device_type_ == IODeviceType::JTAG) {
+    //     TT_THROW("memcpy_from_device is not applicable for JTAG communication type.");
+    // }
     typedef std::uint32_t copy_t;
 
     // Start by aligning the source (device) pointer.
@@ -264,9 +268,9 @@ void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_b
 }
 
 void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("write_block is not applicable for JTAG communication type.");
-    }
+    // if (communication_device_type_ == IODeviceType::JTAG) {
+    //     TT_THROW("write_block is not applicable for JTAG communication type.");
+    // }
     void *dest = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -277,9 +281,21 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device(dest, src, num_bytes);
+        auto future = std::async(std::launch::async, TTDevice::memcpy_to_device, dest, src, num_bytes);
+
+        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        }
+
+        // memcpy_to_device(dest, src, num_bytes);
     } else {
-        memcpy(dest, src, num_bytes);
+        auto future = std::async(std::launch::async, memcpy, dest, src, num_bytes);
+
+        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        }
+
+        // memcpy(dest, src, num_bytes);
     }
 }
 
@@ -296,10 +312,23 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
+
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(dest, src, num_bytes);
+        auto future = std::async(std::launch::async, TTDevice::memcpy_from_device, dest, src, num_bytes);
+
+        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        }
+
+        // memcpy_from_device(dest, src, num_bytes);
     } else {
-        memcpy(dest, src, num_bytes);
+        auto future = std::async(std::launch::async, memcpy, dest, src, num_bytes);
+
+        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        }
+
+        // memcpy(dest, src, num_bytes);
     }
 
     if (num_bytes >= sizeof(std::uint32_t)) {

@@ -52,18 +52,18 @@ void SysmemManager::unpin_or_unmap_sysmem() {
     sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
-        // It also means that hugepage_mappings are faked, so don't unmap them.
+        // It also means that HugepageMappings are faked, so don't unmap them.
         munmap(iommu_mapping, iommu_mapping_size);
         iommu_mapping = nullptr;
     } else {
-        for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
-            if (hugepage_mapping.physical_address &&
+        for (const auto &HugepageMapping : hugepage_mapping_per_channel) {
+            if (HugepageMapping.physical_address &&
                 tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
                 // This will unmap the hugepage if it was mapped through kmd.
-                tt_device_->get_pci_device()->unmap_for_dma(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+                tt_device_->get_pci_device()->unmap_for_dma(HugepageMapping.mapping, HugepageMapping.mapping_size);
             }
-            if (hugepage_mapping.mapping) {
-                munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+            if (HugepageMapping.mapping) {
+                munmap(HugepageMapping.mapping, HugepageMapping.mapping_size);
             }
         }
     }
@@ -71,7 +71,7 @@ void SysmemManager::unpin_or_unmap_sysmem() {
 }
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
-    hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
+    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
         "write_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
@@ -97,7 +97,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
-    hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
+    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
         "read_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
@@ -363,7 +363,7 @@ bool SysmemManager::pin_or_map_iommu() {
 
 size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
 
-hugepage_mapping SysmemManager::get_hugepage_mapping(size_t channel) const {
+HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
     if (hugepage_mapping_per_channel.size() <= channel) {
         return {nullptr, 0, 0};
     } else {

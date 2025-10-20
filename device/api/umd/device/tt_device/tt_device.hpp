@@ -53,7 +53,7 @@ public:
      */
     static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+        std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip);
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
@@ -65,6 +65,7 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
+    std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
 
@@ -306,7 +307,6 @@ public:
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
-    uint8_t jlink_id_;
     IODeviceType communication_device_type_;
     int communication_device_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

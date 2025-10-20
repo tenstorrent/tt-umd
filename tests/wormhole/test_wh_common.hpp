@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <gtest/gtest.h>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/l1_address_map.h"
 
@@ -56,7 +57,7 @@ protected:
 
         set_barrier_params(*cluster);
 
-        device_params default_params;
+        DeviceParams default_params;
         cluster->start_device(default_params);
 
         cluster->deassert_risc_reset();

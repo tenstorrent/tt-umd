@@ -7,6 +7,7 @@
 #include <fmt/ranges.h>
 
 #include <cstdint>
+#include <fstream>
 #include <random>
 #include <string>
 #include <vector>
@@ -29,7 +30,7 @@ static void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_i
 }
 
 static void read_data_from_device(
-    Cluster& cluster, std::vector<uint32_t>& vec, chip_id_t chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
+    Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
     size_buffer_to_capacity(vec, size);
     cluster.read_from_device(vec.data(), chip_id, core, addr, size);
 }
@@ -48,6 +49,19 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
 
 inline std::string convert_to_comma_separated_string(const std::unordered_set<int>& devices) {
     return fmt::format("{}", fmt::join(devices, ","));
+}
+
+inline bool is_iommu_available() { return Cluster().get_tt_device(0)->get_pci_device()->is_iommu_enabled(); }
+
+inline bool is_virtual_machine() {
+    std::ifstream cpuinfo("/proc/cpuinfo");
+    std::string line;
+    while (std::getline(cpuinfo, line)) {
+        if (line.find("flags") != std::string::npos && line.find("hypervisor") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }  // namespace test_utils

@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -22,7 +23,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    chip_id_t mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
+    ChipId mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
     LocalChip* local_chip = cluster->get_local_chip(mmio_chip_id);
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
@@ -42,8 +43,8 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
         active_eth_cores.push_back(tt_xy_pair(noc0_eth_core.x, noc0_eth_core.y));
     }
 
-    for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
-        eth_coord_t remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EthCoord remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
 
         std::unique_ptr<RemoteCommunicationLegacyFirmware> remote_comm =
             std::make_unique<RemoteCommunicationLegacyFirmware>(

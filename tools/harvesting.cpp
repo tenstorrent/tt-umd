@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
     };
 
-    auto print_cores = [&](chip_id_t chip, CoreType core_type) {
+    auto print_cores = [&](ChipId chip, CoreType core_type) {
         std::string core_type_str = to_str(core_type);
         std::cout << "Printing cores of type " << core_type_str << std::endl;
         const SocDescriptor& soc_desc = cluster->get_chip(chip)->get_soc_descriptor();
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    for (chip_id_t chip : cluster->get_target_device_ids()) {
+    for (ChipId chip : cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
         HarvestingMasks harvesting_masks = cluster->get_cluster_description()->get_harvesting_masks(chip);
 

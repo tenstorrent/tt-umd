@@ -6,15 +6,16 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <set>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "fmt/core.h"
 #include "umd/device/cluster.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 
@@ -24,10 +25,10 @@ using namespace tt::umd;
 struct tt_multichip_core_addr {
     tt_multichip_core_addr() : core{}, chip{}, addr{} {}
 
-    tt_multichip_core_addr(chip_id_t chip, CoreCoord core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
+    tt_multichip_core_addr(ChipId chip, CoreCoord core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
 
     CoreCoord core;
-    chip_id_t chip;
+    ChipId chip;
     std::uint64_t addr;
 
     std::string str() const { return fmt::format("(chip={},core={},addr=0x{:x})", chip, core.str(), addr); }

@@ -29,7 +29,7 @@ std::pair<double, double> perf_read_write(
     const size_t buf_size,
     const uint32_t num_iterations,
     Cluster* cluster,
-    const chip_id_t chip,
+    const ChipId chip,
     const CoreCoord core,
     const uint32_t address = 0);
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/jtag/jtag_device.h"
+#include "umd/device/jtag/jtag_device.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -10,7 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/jtag/jtag.h"
+#include "umd/device/jtag/jtag.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 
@@ -32,12 +32,6 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     for (int jlink_id : visible_devices) {
         uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
-            continue;
-        }
-        uint32_t id = jtag->read_id();
-        if (id != WORMHOLE_ID) {
-            log_warning(tt::LogUMD, "Only supporting WORMHOLE for now");
-            jtag->close_jlink();
             continue;
         }
 
@@ -132,20 +126,8 @@ void JtagDevice::select_device(uint8_t chip_id) {
 }
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
-    auto arch_id = read_id(chip_id);
-
-    if (!arch_id) {
-        log_warning(tt::LogUMD, "Failed to read JTAG architecture for chip_id {}", chip_id);
-        return tt::ARCH::Invalid;
-    }
-
-    uint32_t id = *arch_id;
-    switch (id) {
-        case WORMHOLE_ID:
-            return tt::ARCH::WORMHOLE_B0;
-        default:
-            return tt::ARCH::Invalid;
-    }
+    select_device(chip_id);
+    return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
 
 int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {

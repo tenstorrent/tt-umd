@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <fmt/core.h>
 #include <fmt/ostream.h>
 #include <spdlog/spdlog.h>
 #include <stdlib.h>
@@ -14,7 +15,6 @@
 #include <sstream>
 
 #include "backtrace.hpp"
-#include "fmt/core.h"
 
 namespace tt {
 template <typename A, typename B>

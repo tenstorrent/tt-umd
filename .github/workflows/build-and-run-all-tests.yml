@@ -75,8 +75,8 @@ jobs:
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable, timeout: 45},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable, timeout: 45},
           {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
           {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
           # bh-gh-07 is a P300 runner.
@@ -91,7 +91,7 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
-      timeout: ${{ fromJSON(inputs.timeout) }}
+      timeout: ${{ matrix.test-group.timeout || fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
       log-params: |

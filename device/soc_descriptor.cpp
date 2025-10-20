@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
@@ -18,6 +19,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
 // #include "l1_address_map.h"
@@ -448,6 +450,18 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     load_from_yaml(device_descriptor_yaml);
 
     create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
+}
+
+CoreCoord SocDescriptor::get_first_core_for_channel(int channel, CoreType core_type, CoordSystem coord_system) const {
+    switch (core_type) {
+        case CoreType::DRAM:
+            return get_dram_core_for_channel(channel, 0, coord_system);
+        case CoreType::ETH:
+            return get_eth_core_for_channel(channel, coord_system);
+        default:
+            throw std::runtime_error("Core type does not have multiple channels.");
+    }
+    return CoreCoord();
 }
 
 int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }

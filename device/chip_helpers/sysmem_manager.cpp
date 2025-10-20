@@ -32,6 +32,10 @@ SysmemManager::SysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_chan
         num_host_mem_channels <= 4,
         "Only 4 host memory channels are supported per device, but {} requested.",
         num_host_mem_channels);
+
+    // NOTE FOR SG2042 - to use P550 hacks, you'll need to coerce this code to
+    // take the IOMMU path here. Here's a compilation error so this is findable.
+    <><><><><>
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
         init_iommu(num_host_mem_channels);
     } else {

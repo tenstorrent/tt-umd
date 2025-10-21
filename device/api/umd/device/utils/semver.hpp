@@ -24,14 +24,37 @@ public:
     uint64_t major;
     uint64_t minor;
     uint64_t patch;
+    uint64_t pre_release;
 
-    semver_t(uint64_t major, uint64_t minor, uint64_t patch) {
+    semver_t() {}
+
+    semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) {
         this->major = major;
         this->minor = minor;
         this->patch = patch;
+        if (this->pre_release == 01) {
+            std::string pre_release = "rc.1";
+        }
+    }
+
+    static semver_t fb(std::uint32_t version){
+        uint64_t major = (version >> 24) & 0xFF;
+        uint64_t minor = (version >> 16) & 0xFF;
+        uint64_t patch = (version >> 8) & 0xFF;
+        uint64_t pre_release = version & 0xFF;
+        return semver_t(major, minor, patch, pre_release);
+    }
+
+    static semver_t eth(std::uint32_t version) {
+        uint64_t major = (version >> 16) & 0xff;
+        uint64_t minor = (version >> 12) & 0xf;
+        uint64_t patch = version & 0xfff;
+        return semver_t(major, minor, patch);
     }
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
+
+    std::string str() const { return fmt::format("{}.{}.{}", major, minor, patch); }
 
     bool operator<(const semver_t& other) const {
         return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);
@@ -80,6 +103,7 @@ private:
         uint64_t major = 0;
         uint64_t minor = 0;
         uint64_t patch = 0;
+        uint64_t pre_release = 0;
 
         if (std::getline(iss, token, '.')) {
             major = std::stoull(token);
@@ -92,7 +116,22 @@ private:
                 }
             }
         }
-        return semver_t(major, minor, patch);
+
+        if (std::getline(iss, token, '.')) {
+            if(!token.empty()) {
+                if (token == "rc") {
+                    pre_release == 01;
+                }
+                else {
+                    size_t dot_pos = token.find('.');
+                    if (dot_pos != std::string::npos) {
+                        pre_release = std::stoull(token.substr(dot_pos + 1));
+                    }
+                }
+            }
+        }
+
+        return semver_t(major, minor, patch, pre_release);
     }
 };
 

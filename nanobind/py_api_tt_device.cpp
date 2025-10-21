@@ -10,6 +10,8 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -89,6 +91,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"));
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
+
+    // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed
+    nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
+        .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
+        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
+        .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
     m.def(
         "create_remote_wormhole_tt_device",

@@ -16,12 +16,16 @@ class TestWarmReset(unittest.TestCase):
         dev = tt_umd.TTDevice.create(0)
         dev.init_tt_device()
         
-        # Get board type/architecture
+        # Get board type and architecture
+        board_type = dev.get_board_type()
         arch = dev.get_arch()
+        print(f"Device board type: {board_type}")
         print(f"Device architecture: {arch}")
         
         # Check if it's UBB (Unified Board Bundle) and call appropriate warm reset
-        if arch == tt_umd.ARCH.UBB:
+        if board_type == tt_umd.BoardType.UBB_WORMHOLE:
+            print("UBB_WORMHOLE board detected, executing UBB warm reset...")
             tt_umd.WarmReset.ubb_warm_reset(timeout_s=60)  # Uncomment to actually reset
         else:
+            print(f"Non-UBB board detected (type: {board_type}), executing standard warm reset...")
             tt_umd.WarmReset.warm_reset(dev_ids)  # Uncomment to actually reset

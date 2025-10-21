@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/vector.h>
 
 #include "umd/device/warm_reset.hpp"
 

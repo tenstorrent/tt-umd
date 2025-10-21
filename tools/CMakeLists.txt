@@ -62,6 +62,17 @@ set_target_properties(
             system_health
 )
 
+add_executable(start_device start_device.cpp)
+target_link_libraries(start_device PRIVATE tools_common)
+set_target_properties(
+    start_device
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            start_device
+)
+
 add_custom_target(
     umd_tools
     DEPENDS

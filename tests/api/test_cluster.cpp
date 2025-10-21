@@ -1240,3 +1240,42 @@ TEST(TestCluster, SysmemReadWrite) {
         }
     }
 }
+
+TEST(TestCluster, RegReadWrite) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+
+    std::vector<uint8_t> zeros(64, 0);
+
+    cluster->write_to_device(zeros.data(), zeros.size(), 0, tensix_core, 0);
+
+    std::vector<uint8_t> readback_vec(64, 1);
+    cluster->read_from_device(readback_vec.data(), 0, tensix_core, 0, readback_vec.size());
+
+    EXPECT_EQ(zeros, readback_vec);
+
+    uint32_t write_reg_value_4 = 4;
+    uint32_t write_reg_value_8 = 8;
+    uint32_t readback_reg_value_4 = 0;
+    uint64_t readback_reg_value_8 = 0;
+
+    cluster->write_to_device_reg(&write_reg_value_4, sizeof(write_reg_value_4), 0, tensix_core, 4);
+    cluster->read_from_device_reg(&readback_reg_value_4, 0, tensix_core, 4, sizeof(readback_reg_value_4));
+    EXPECT_EQ(write_reg_value_4, readback_reg_value_4);
+
+    cluster->write_to_device_reg(&write_reg_value_8, sizeof(write_reg_value_8), 0, tensix_core, 8);
+    cluster->read_from_device_reg(&readback_reg_value_8, 0, tensix_core, 8, sizeof(readback_reg_value_8));
+    EXPECT_EQ(write_reg_value_8, readback_reg_value_8);
+
+    readback_reg_value_4 = 0;
+    cluster->read_from_device_reg(&readback_reg_value_4, 0, tensix_core, 4, sizeof(readback_reg_value_4));
+    EXPECT_EQ(write_reg_value_4, readback_reg_value_4);
+
+    readback_reg_value_8 = 0;
+    cluster->read_from_device_reg(&readback_reg_value_8, 0, tensix_core, 8, sizeof(readback_reg_value_8));
+    EXPECT_EQ(write_reg_value_8, readback_reg_value_8);
+}

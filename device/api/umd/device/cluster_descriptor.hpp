@@ -258,6 +258,9 @@ private:
     void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
 
+    // Centralize mock/simulator-only default values that are not coming from YAML
+    void fill_mock_hardcoded_data(ChipId logical_id);
+
     // Verify for some common mistakes.
     void verify_cluster_descriptor_info();
 

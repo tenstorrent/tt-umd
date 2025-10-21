@@ -7,6 +7,7 @@
 #include <nanobind/stl/map.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -120,6 +121,12 @@ void bind_telemetry(nb::module_ &m) {
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+
+    // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed
+    nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
+        .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
+        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
+        .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
         .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)

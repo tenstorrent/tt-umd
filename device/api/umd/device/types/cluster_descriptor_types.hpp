@@ -238,6 +238,39 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
 }
 
+static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_units_map = {
+    {BoardType::N150, 1},
+    {BoardType::N300, 2},
+    {BoardType::P100, 2},
+    {BoardType::P150, 0},
+    {BoardType::P300, 0},
+    {BoardType::GALAXY, 0},
+    {BoardType::UBB, 0},
+    {BoardType::UBB_BLACKHOLE, 0},
+};
+
+static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_units_map = {
+    {BoardType::N150, 0},
+    {BoardType::N300, 0},
+    {BoardType::P100, 1},
+    {BoardType::P150, 0},
+    {BoardType::P300, 0},
+    {BoardType::GALAXY, 0},
+    {BoardType::UBB, 0},
+    {BoardType::UBB_BLACKHOLE, 0},
+};
+
+static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_units_map = {
+    {BoardType::N150, 0},
+    {BoardType::N300, 0},
+    {BoardType::P100, 14},
+    {BoardType::P150, 2},
+    {BoardType::P300, 2},
+    {BoardType::GALAXY, 0},
+    {BoardType::UBB, 0},
+    {BoardType::UBB_BLACKHOLE, 0},
+};
+
 struct HarvestingMasks {
     size_t tensix_harvesting_mask = 0;
     size_t dram_harvesting_mask = 0;
@@ -252,59 +285,6 @@ struct HarvestingMasks {
             .eth_harvesting_mask = this->eth_harvesting_mask | other.eth_harvesting_mask,
             .pcie_harvesting_mask = this->pcie_harvesting_mask | other.pcie_harvesting_mask,
             .l2cpu_harvesting_mask = this->l2cpu_harvesting_mask | other.l2cpu_harvesting_mask};
-    }
-
-    static uint32_t get_expected_number_of_tensix_harvested_units(BoardType board_type) {
-        switch (board_type) {
-            case BoardType::N150:
-                return 1;
-            case BoardType::N300:
-            case BoardType::P100:
-                return 2;
-            case BoardType::GALAXY:
-            case BoardType::P150:
-            case BoardType::P300:
-            case BoardType::UBB:
-            case BoardType::UBB_BLACKHOLE:
-                return 0;
-            default:
-                return 0;
-        }
-    }
-
-    static uint32_t get_expected_number_of_dram_harvested_units(BoardType board_type) {
-        switch (board_type) {
-            case BoardType::N150:
-            case BoardType::GALAXY:
-            case BoardType::N300:
-            case BoardType::P150:
-            case BoardType::P300:
-            case BoardType::UBB:
-            case BoardType::UBB_BLACKHOLE:
-                return 0;
-            case BoardType::P100:
-                return 1;
-            default:
-                return 0;
-        }
-    }
-
-    static uint32_t get_expected_number_of_eth_harvested_units(BoardType board_type) {
-        switch (board_type) {
-            case BoardType::N150:
-            case BoardType::GALAXY:
-            case BoardType::N300:
-            case BoardType::UBB:
-            case BoardType::UBB_BLACKHOLE:
-                return 0;
-            case BoardType::P100:
-                return 14;
-            case BoardType::P150:
-            case BoardType::P300:
-                return 2;
-            default:
-                return 0;
-        }
     }
 };
 

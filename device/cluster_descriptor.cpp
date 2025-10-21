@@ -1271,7 +1271,10 @@ bool ClusterDescriptor::verify_harvesting_information() {
         const BoardType board_type = get_board_type(chip);
 
         uint32_t expected_tensix_harvested_units =
-            HarvestingMasks::get_expected_number_of_tensix_harvested_units(board_type);
+            expected_tensix_harvested_units_map.find(board_type) != expected_tensix_harvested_units_map.end()
+                ? expected_tensix_harvested_units_map.at(board_type)
+                : 0;
+
         uint32_t actual_tensix_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
@@ -1288,7 +1291,9 @@ bool ClusterDescriptor::verify_harvesting_information() {
         }
 
         uint32_t expected_dram_harvested_units =
-            HarvestingMasks::get_expected_number_of_dram_harvested_units(board_type);
+            expected_dram_harvested_units_map.find(board_type) != expected_dram_harvested_units_map.end()
+                ? expected_dram_harvested_units_map.at(board_type)
+                : 0;
         uint32_t actual_dram_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask);
 
@@ -1304,7 +1309,10 @@ bool ClusterDescriptor::verify_harvesting_information() {
             harvesting_info_good = false;
         }
 
-        uint32_t expected_eth_harvested_units = HarvestingMasks::get_expected_number_of_eth_harvested_units(board_type);
+        uint32_t expected_eth_harvested_units =
+            expected_eth_harvested_units_map.find(board_type) != expected_eth_harvested_units_map.end()
+                ? expected_eth_harvested_units_map.at(board_type)
+                : 0;
         uint32_t actual_eth_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 

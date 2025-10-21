@@ -36,9 +36,6 @@
 #include "umd/device/warm_reset.hpp"
 #include "utils.hpp"
 
-// TODO: obviously we need some other way to set this up
-#include "noc/noc_parameters.h"
-
 using namespace tt::umd;
 
 // These tests are intended to be run with the same code on all kinds of systems:

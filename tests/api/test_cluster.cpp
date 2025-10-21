@@ -768,6 +768,9 @@ TEST(TestCluster, GetEthernetFirmware) {
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
+    if (cluster->get_cluster_description()->get_board_type(0) == BoardType::P100) {
+        GTEST_SKIP() << "Skipping test for P100 board, as it doesn't have eth cores.";
+    }
 
     // BoardType P100 doesn't have eth cores.
     std::optional<tt::umd::tt_version> eth_version;

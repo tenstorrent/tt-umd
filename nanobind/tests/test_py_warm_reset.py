@@ -24,4 +24,4 @@ class TestWarmReset(unittest.TestCase):
         if arch == tt_umd.ARCH.UBB:
             tt_umd.WarmReset.ubb_warm_reset(timeout_s=60)  # Uncomment to actually reset
         else:
-            tt_umd.WarmReset.warm_reset()  # Uncomment to actually reset
+            tt_umd.WarmReset.warm_reset(dev_ids)  # Uncomment to actually reset

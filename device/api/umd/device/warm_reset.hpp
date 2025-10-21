@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "tt_device/tt_device.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace tt::umd {
 

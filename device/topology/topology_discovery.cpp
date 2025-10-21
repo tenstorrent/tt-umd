@@ -22,7 +22,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    std::unordered_set<ChipID> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
     tt::ARCH current_arch = ARCH::Invalid;
 
     switch (device_type) {
@@ -77,7 +77,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr
     std::unique_ptr<TopologyDiscovery> td =
         TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, io_device_type);
     if (td == nullptr) {
-        return std::make_pair(nullptr, std::move(chips));
+        return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(chips));
     }
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     return std::make_pair(std::move(cluster_desc), std::move(td->chips));

@@ -1145,11 +1145,11 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-tt_version Cluster::get_ethernet_fw_version() const {
-    TT_ASSERT(
-        eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
-        "Device must be started before querying Ethernet FW version.");
-    return eth_fw_version;
+std::optional<tt_version> Cluster::get_ethernet_fw_version() const {
+    if (eth_fw_version.major == 0xffff || eth_fw_version.minor == 0xff || eth_fw_version.patch == 0xff) {
+        return std::nullopt;
+    }
+    return std::make_optional(eth_fw_version);
 }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {

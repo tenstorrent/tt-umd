@@ -11,6 +11,7 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
@@ -20,7 +21,7 @@ class ClusterDescriptor;
 class TopologyDiscovery {
 public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
-        std::unordered_set<chip_id_t> target_devices = {},
+        std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
 
@@ -33,7 +34,7 @@ protected:
         IODeviceType io_device_type = IODeviceType::PCIe);
 
     static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
-        std::unordered_set<chip_id_t> target_devices = {},
+        std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
 

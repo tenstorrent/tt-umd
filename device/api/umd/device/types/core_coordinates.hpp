@@ -147,15 +147,6 @@ struct CoreCoord : public tt_xy_pair {
 
 }  // namespace tt
 
-// TODO: To be removed once clients switch to namespace usage.
-using tt::CoordSystem;
-using tt::CoreType;
-
-namespace tt::umd {
-using CoreType = tt::CoreType;
-using CoordSystem = tt::CoordSystem;
-}  // namespace tt::umd
-
 namespace std {
 template <>
 struct hash<tt::umd::CoreCoord> {

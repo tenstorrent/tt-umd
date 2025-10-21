@@ -11,8 +11,6 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"

@@ -8,6 +8,7 @@
 #include <memory>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
@@ -59,32 +60,27 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     }
 }
 
-std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
-    auto td = TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, device_type);
-    if (td == nullptr) {
-        return std::make_unique<ClusterDescriptor>();
-    }
-    td->discover();
-    return td->create_ethernet_map();
-}
-
 TopologyDiscovery::TopologyDiscovery(
     std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
     target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
 
-void TopologyDiscovery::discover() {
-    discovered = true;
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
     get_connected_chips();
     discover_remote_chips();
+    return fill_cluster_descriptor_info();
 }
 
-std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
-    if (!discovered) {
-        discover();
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> TopologyDiscovery::discover(
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType io_device_type) {
+    std::map<uint64_t, std::unique_ptr<Chip>> chips;
+    std::unique_ptr<TopologyDiscovery> td =
+        TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, io_device_type);
+    if (td == nullptr) {
+        return std::make_pair(nullptr, std::move(chips));
     }
-    return fill_cluster_descriptor_info();
+    std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
+    return std::make_pair(std::move(cluster_desc), std::move(td->chips));
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
@@ -350,17 +346,5 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
-
-std::map<uint64_t, std::unique_ptr<Chip>> TopologyDiscovery::get_all_chips() {
-    chips_to_discover.clear();
-    eth_coords.clear();
-    ethernet_connections.clear();
-    ethernet_connections_to_remote_devices.clear();
-    board_ids.clear();
-    active_eth_channels_per_chip.clear();
-    remote_asic_id_to_mmio_chip_id.clear();
-    discovered = false;
-    return std::move(chips);
-}
 
 }  // namespace tt::umd

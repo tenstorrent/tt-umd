@@ -19,27 +19,26 @@ class ClusterDescriptor;
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
         std::unordered_set<chip_id_t> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
-    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<ChipId> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType io_device_type = IODeviceType::PCIe);
+
+    virtual ~TopologyDiscovery() = default;
+
+protected:
     TopologyDiscovery(
         std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
-    virtual ~TopologyDiscovery() = default;
 
-    void discover();
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        std::unordered_set<chip_id_t> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
-    std::map<uint64_t, std::unique_ptr<Chip>> get_all_chips();
-
-protected:
     void get_connected_chips();
 
     void discover_remote_chips();
@@ -155,8 +154,6 @@ protected:
     const IODeviceType io_device_type;
 
     bool is_running_on_6u = false;
-
-    bool discovered = false;
 };
 
 }  // namespace tt::umd

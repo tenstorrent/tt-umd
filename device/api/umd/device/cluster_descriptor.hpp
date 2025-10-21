@@ -259,16 +259,16 @@ private:
     void fill_chips_grouped_by_closest_mmio();
 
     // Verify for some common mistakes.
-    void verify_cluster_descriptor_info();
+    bool verify_cluster_descriptor_info();
 
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;
 
-    void verify_board_info_for_chips();
+    bool verify_board_info_for_chips();
 
-    void verify_same_architecture();
+    bool verify_same_architecture();
 
-    void verify_harvesting_information();
+    bool verify_harvesting_information();
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;

@@ -1218,10 +1218,12 @@ std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t boa
     throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }
 
-void ClusterDescriptor::verify_board_info_for_chips() {
+bool ClusterDescriptor::verify_board_info_for_chips() {
+    bool board_info_good = true;
     for (const ChipId chip : all_chips) {
         if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
             log_warning(LogUMD, "Chip {} does not have a board ID assigned.", chip);
+            board_info_good = false;
         }
     }
 
@@ -1236,11 +1238,14 @@ void ClusterDescriptor::verify_board_info_for_chips() {
                 chips.size(),
                 number_chips_from_board,
                 board_type_to_string(board_type));
+            board_info_good = false;
         }
     }
+
+    return board_info_good;
 }
 
-void ClusterDescriptor::verify_same_architecture() {
+bool ClusterDescriptor::verify_same_architecture() {
     const std::unordered_set<ChipId> &chips = get_all_chips();
     if (!chips.empty()) {
         tt::ARCH arch = get_arch(*chips.begin());
@@ -1253,9 +1258,13 @@ void ClusterDescriptor::verify_same_architecture() {
             TT_THROW("Chips with differing architectures detected. This is unsupported.");
         }
     }
+
+    return true;
 }
 
-void ClusterDescriptor::verify_harvesting_information() {
+bool ClusterDescriptor::verify_harvesting_information() {
+    bool harvesting_info_good = true;
+
     for (const ChipId chip : all_chips) {
         HarvestingMasks harvesting_masks = get_harvesting_masks(chip);
 
@@ -1275,6 +1284,7 @@ void ClusterDescriptor::verify_harvesting_information() {
                 board_type_to_string(board_type),
                 expected_tensix_harvested_units,
                 actual_tensix_harvested_units);
+            harvesting_info_good = false;
         }
 
         uint32_t expected_dram_harvested_units =
@@ -1291,6 +1301,7 @@ void ClusterDescriptor::verify_harvesting_information() {
                 board_type_to_string(board_type),
                 expected_dram_harvested_units,
                 actual_dram_harvested_units);
+            harvesting_info_good = false;
         }
 
         uint32_t expected_eth_harvested_units = HarvestingMasks::get_expected_number_of_eth_harvested_units(board_type);
@@ -1306,16 +1317,23 @@ void ClusterDescriptor::verify_harvesting_information() {
                 board_type_to_string(board_type),
                 expected_eth_harvested_units,
                 actual_eth_harvested_units);
+            harvesting_info_good = false;
         }
     }
+
+    return harvesting_info_good;
 }
 
-void ClusterDescriptor::verify_cluster_descriptor_info() {
-    verify_board_info_for_chips();
+bool ClusterDescriptor::verify_cluster_descriptor_info() {
+    bool cluster_desc_info_good = true;
 
-    verify_same_architecture();
+    cluster_desc_info_good &= verify_board_info_for_chips();
 
-    verify_harvesting_information();
+    cluster_desc_info_good &= verify_same_architecture();
+
+    cluster_desc_info_good &= verify_harvesting_information();
+
+    return cluster_desc_info_good;
 }
 
 uint8_t ClusterDescriptor::get_asic_location(ChipId chip_id) const {

@@ -12,7 +12,7 @@ namespace tt::umd {
 
 class WarmReset {
 public:
-    static void warm_reset(std::vector<int> pci_device_ids, bool reset_m3 = false);
+    static void warm_reset(std::vector<int> pci_device_ids = {}, bool reset_m3 = false);
 
     static void ubb_warm_reset(uint64_t timeout_s = 100);
 

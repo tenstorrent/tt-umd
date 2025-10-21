@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "api/umd/device/tt_device/tt_device.hpp"
+#include "tt_device/tt_device.hpp"
 
 namespace tt::umd {
 

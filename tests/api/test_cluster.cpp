@@ -1249,33 +1249,72 @@ TEST(TestCluster, RegReadWrite) {
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
-    std::vector<uint8_t> zeros(64, 0);
+    const size_t l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zeros(l1_size, 0);
 
     cluster->write_to_device(zeros.data(), zeros.size(), 0, tensix_core, 0);
 
-    std::vector<uint8_t> readback_vec(64, 1);
+    std::vector<uint8_t> readback_vec(l1_size, 1);
     cluster->read_from_device(readback_vec.data(), 0, tensix_core, 0, readback_vec.size());
 
     EXPECT_EQ(zeros, readback_vec);
 
-    uint32_t write_reg_value_4 = 4;
-    uint32_t write_reg_value_8 = 8;
-    uint32_t readback_reg_value_4 = 0;
-    uint64_t readback_reg_value_8 = 0;
+    size_t addr = 0;
+    uint32_t value = 0;
+    while (addr < l1_size) {
+        cluster->write_to_device_reg(&value, sizeof(value), 0, tensix_core, addr);
 
-    cluster->write_to_device_reg(&write_reg_value_4, sizeof(write_reg_value_4), 0, tensix_core, 4);
-    cluster->read_from_device_reg(&readback_reg_value_4, 0, tensix_core, 4, sizeof(readback_reg_value_4));
-    EXPECT_EQ(write_reg_value_4, readback_reg_value_4);
+        if (addr + 4 < l1_size) {
+            // Write some garbage after the written register to ensure that
+            // readback only reads the intended register.
+            uint32_t write_value = 0xDEADBEEF;
+            cluster->write_to_device_reg(&write_value, sizeof(write_value), 0, tensix_core, addr + 4);
+        }
 
-    cluster->write_to_device_reg(&write_reg_value_8, sizeof(write_reg_value_8), 0, tensix_core, 8);
-    cluster->read_from_device_reg(&readback_reg_value_8, 0, tensix_core, 8, sizeof(readback_reg_value_8));
-    EXPECT_EQ(write_reg_value_8, readback_reg_value_8);
+        uint32_t readback_value = 0;
+        cluster->read_from_device_reg(&readback_value, 0, tensix_core, addr, sizeof(readback_value));
 
-    readback_reg_value_4 = 0;
-    cluster->read_from_device_reg(&readback_reg_value_4, 0, tensix_core, 4, sizeof(readback_reg_value_4));
-    EXPECT_EQ(write_reg_value_4, readback_reg_value_4);
+        EXPECT_EQ(value, readback_value);
 
-    readback_reg_value_8 = 0;
-    cluster->read_from_device_reg(&readback_reg_value_8, 0, tensix_core, 8, sizeof(readback_reg_value_8));
-    EXPECT_EQ(write_reg_value_8, readback_reg_value_8);
+        if (addr + 4 < l1_size) {
+            // Ensure that the garbage value is still there.
+            uint32_t readback = 0;
+            cluster->read_from_device_reg(&readback, 0, tensix_core, addr + 4, sizeof(readback));
+            EXPECT_EQ(0xDEADBEEF, readback);
+        }
+
+        value += 4;
+        addr += 4;
+    }
+}
+
+TEST(TestCluster, WriteDataReadReg) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+
+    const size_t l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint32_t> write_data_l1(l1_size / 4, 0);
+    for (size_t i = 0; i < l1_size / 4; i++) {
+        write_data_l1[i] = i;
+    }
+
+    cluster->write_to_device(write_data_l1.data(), write_data_l1.size() * sizeof(uint32_t), 0, tensix_core, 0);
+
+    std::vector<uint32_t> readback_vec(l1_size / 4, 0);
+    cluster->read_from_device(readback_vec.data(), 0, tensix_core, 0, readback_vec.size() * sizeof(uint32_t));
+
+    EXPECT_EQ(write_data_l1, readback_vec);
+
+    for (size_t i = 0; i < l1_size / 4; i++) {
+        uint32_t readback_value = 0;
+        cluster->read_from_device_reg(&readback_value, 0, tensix_core, i * 4, sizeof(readback_value));
+
+        EXPECT_EQ(write_data_l1[i], readback_value);
+    }
 }

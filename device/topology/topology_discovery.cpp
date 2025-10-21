@@ -22,7 +22,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
-    std::unordered_set<ChipID> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
     tt::ARCH current_arch = ARCH::Invalid;
 
     switch (device_type) {

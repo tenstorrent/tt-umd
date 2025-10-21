@@ -496,12 +496,28 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_arch.insert({logical_id, arch});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
+        desc->fill_mock_hardcoded_data(logical_id);
     }
     desc->fill_chips_grouped_by_closest_mmio();
 
     desc->verify_cluster_descriptor_info();
 
     return desc;
+}
+
+void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
+    // Populate a deterministic unique ASIC ID for mock/simulator clusters so downstream code relying on it
+    // functions correctly.
+    static constexpr uint64_t kSimUniqueIdBase = 0x5AA5000000000000ULL;
+    this->chip_unique_ids.insert({logical_id, kSimUniqueIdBase + static_cast<uint64_t>(logical_id)});
+
+    // Provide placeholder PCI bus IDs to align with host motherboard mappings when running tests that expect
+    // realistic bus/tray associations. Use a known X12DPG-QT6 ordering and repeat if more than 4 devices.
+    static const uint16_t kMockBusIds[4] = {0x00b1, 0x00ca, 0x0031, 0x004b};
+    this->chip_to_bus_id.insert({logical_id, kMockBusIds[logical_id % 4]});
+
+    // Provide a default ASIC location placeholder (0) for all chips; callers can override per-arch rules.
+    this->asic_locations.insert({logical_id, static_cast<uint8_t>(0)});
 }
 
 void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml) {

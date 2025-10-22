@@ -286,9 +286,7 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 
-// TODO: ETH FW version check incomplete for BH.
-// Waiting on SYS-1795 to publish ETH_FW_VERSION telemetry tag in Arc FW.
-void TopologyDiscoveryBlackhole::verify_eth_version_local(Chip* chip) {
+void TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
     std::vector<CoreCoord> eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
     for (const CoreCoord& eth_core : eth_cores) {
@@ -305,9 +303,9 @@ void TopologyDiscoveryBlackhole::verify_eth_version_local(Chip* chip) {
         semver_t eth_fw_version = semver_t(major, minor, patch);
 
         if (!first_eth_fw_version.has_value()) {
-            log_info(LogUMD, "Established cluster ETH FW version: {}.", eth_fw_version.to_string());
+            log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
             log_debug(
-                LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+                LogUMD, "UMD supported minimum ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
             first_eth_fw_version = eth_fw_version;
             if (BH_ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
                 TT_THROW("ETH FW major version is older than UMD supported version");
@@ -320,34 +318,8 @@ void TopologyDiscoveryBlackhole::verify_eth_version_local(Chip* chip) {
 
         if (eth_fw_version != first_eth_fw_version) {
             TT_THROW(
-                "ETH FW version mismatch for LocalChip {} ETH core {}, found: {}.",
+                "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
                 get_local_asic_id(chip, eth_core),
-                eth_core.str(),
-                eth_fw_version.to_string());
-        }
-    }
-}
-
-void TopologyDiscoveryBlackhole::verify_eth_version_remote(Chip* chip) {
-    std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    for (const CoreCoord& eth_core : eth_cores) {
-        static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
-        static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
-        static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
-        uint8_t major = 0;
-        uint8_t minor = 0;
-        uint8_t patch = 0;
-
-        chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint8_t));
-        chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint8_t));
-        chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint8_t));
-        semver_t eth_fw_version = semver_t(major, minor, patch);
-
-        if (eth_fw_version != first_eth_fw_version) {
-            TT_THROW(
-                "ETH FW version mismatch for RemoteChip ASIC ID {} ETH core {}, found: {}.",
-                get_remote_asic_id(chip, eth_core),
                 eth_core.str(),
                 eth_fw_version.to_string());
         }

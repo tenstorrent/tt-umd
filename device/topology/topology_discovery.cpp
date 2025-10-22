@@ -98,8 +98,6 @@ void TopologyDiscovery::get_connected_chips() {
     for (auto& device_id : device_ids) {
         std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type);
 
-        verify_eth_version_local(chip.get());
-
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
@@ -159,6 +157,8 @@ void TopologyDiscovery::discover_remote_chips() {
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
+            verify_eth_core_fw_version(chip, eth_core);
+
             uint32_t port_status = read_port_status(chip, eth_core);
 
             if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
@@ -198,8 +198,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
-
-                verify_eth_version_remote(remote_chip.get());
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
@@ -303,7 +301,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         }
     }
     cluster_desc->io_device_type = io_device_type;
-    cluster_desc->eth_fw_version = first_eth_fw_version.value_or(semver_t(0xFFFF, 0xFF, 0xFF));
+    cluster_desc->eth_fw_version = first_eth_fw_version;
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();
 

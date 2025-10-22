@@ -8,16 +8,14 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, IODeviceType device_type) :
-    TopologyDiscovery(target_devices, sdesc_path, device_type) {}
+TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :
+    TopologyDiscovery(options) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -241,7 +239,10 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
     EthCoord remote_chip_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
 
     return RemoteChip::create(
-        dynamic_cast<LocalChip*>(gateway_chip), remote_chip_eth_coord, gateway_eth_channels, sdesc_path);
+        dynamic_cast<LocalChip*>(gateway_chip),
+        remote_chip_eth_coord,
+        gateway_eth_channels,
+        options.soc_descriptor_path);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
@@ -262,7 +263,7 @@ bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u
 
 void TopologyDiscoveryWormhole::init_topology_discovery() {
     std::vector<int> device_ids;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
             if (!device_cnt) {
@@ -287,13 +288,13 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     }
 
     for (auto& device_id : device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->wait_arc_post_reset(300'000);
         tt_device->init_tt_device();
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], io_device_type);
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =

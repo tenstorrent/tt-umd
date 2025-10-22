@@ -52,6 +52,7 @@
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 #include "umd/device/topology/topology_utils.hpp"
@@ -1101,7 +1102,11 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<ChipId> target_devices, IODeviceType device_type) {
-    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
+    TopologyDiscoveryOptions options;
+    options.target_devices = std::move(target_devices);
+    options.soc_descriptor_path = sdesc_path;
+    options.io_device_type = device_type;
+    return TopologyDiscovery::create_cluster_descriptor(std::move(options));
 }
 
 }  // namespace tt::umd

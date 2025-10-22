@@ -11,7 +11,7 @@ namespace tt::umd {
 
 class TopologyDiscoveryBlackhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryBlackhole(std::unordered_set<ChipId> pci_target_devices = {}, const std::string& sdesc_path = "");
+    TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options);
 
 protected:
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;

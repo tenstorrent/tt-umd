@@ -18,17 +18,32 @@ namespace tt::umd {
 
 class ClusterDescriptor;
 
+struct TopologyDiscoveryOptions {
+    // Filter discovery by device. See ClusterOptions.
+    std::unordered_set<ChipId> target_devices = {};
+
+    // Path to custom SoC descriptor when creating chips. See ClusterOptions.
+    std::string soc_descriptor_path = "";
+
+    // I/O device type to use when discovering. See ClusterOptions.
+    IODeviceType io_device_type = IODeviceType::PCIe;
+
+    // Skip discovery of chips connected via Ethernet.
+    bool no_remote_discovery = false;
+
+    // Skip waiting for ETH training. TODO: Currently unimplemented.
+    bool no_wait_for_eth_training = false;
+
+    // Allow unsupported ETH firmware versions and do not fail when
+    // cores have different ETH firmware versions.
+    bool no_eth_firmware_strictness = false;
+};
+
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<ChipId> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType io_device_type = IODeviceType::PCIe);
-    TopologyDiscovery(
-        std::unordered_set<ChipId> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType io_device_type = IODeviceType::PCIe);
+    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(const TopologyDiscoveryOptions& options);
+    TopologyDiscovery(const TopologyDiscoveryOptions& options);
     virtual ~TopologyDiscovery() = default;
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
@@ -135,8 +150,6 @@ protected:
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
 
-    std::unordered_set<ChipId> target_devices = {};
-
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;
 
@@ -145,9 +158,7 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
 
-    const std::string sdesc_path;
-
-    const IODeviceType io_device_type;
+    TopologyDiscoveryOptions options;
 
     bool is_running_on_6u = false;
 

@@ -26,12 +26,12 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    const TopologyDiscoveryOptions& options) {
     tt::ARCH current_arch = ARCH::Invalid;
 
-    switch (device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            auto pci_devices_info = PCIDevice::enumerate_devices_info(target_devices);
+            auto pci_devices_info = PCIDevice::enumerate_devices_info(options.target_devices);
             if (pci_devices_info.empty()) {
                 return std::make_unique<ClusterDescriptor>();
             }
@@ -50,23 +50,21 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
             TT_THROW("Unsupported device type for topology discovery");
     }
 
-    if (current_arch == tt::ARCH::BLACKHOLE && device_type == IODeviceType::JTAG) {
+    if (current_arch == tt::ARCH::BLACKHOLE && options.io_device_type == IODeviceType::JTAG) {
         TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
     }
 
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
+            return TopologyDiscoveryWormhole(options).create_ethernet_map();
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
+            return TopologyDiscoveryBlackhole(options).create_ethernet_map();
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
-TopologyDiscovery::TopologyDiscovery(
-    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
-    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
+TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : options(options) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
@@ -81,13 +79,14 @@ void TopologyDiscovery::init_topology_discovery() {}
 
 void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            device_ids = PCIDevice::enumerate_devices(target_devices);
+            device_ids = PCIDevice::enumerate_devices(options.target_devices);
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path, target_devices)->get_device_cnt();
+            auto device_cnt =
+                JtagDevice::create(JtagDevice::jtag_library_path, options.target_devices)->get_device_cnt();
             device_ids = std::vector<int>(device_cnt);
             std::iota(device_ids.begin(), device_ids.end(), 0);
             break;
@@ -96,7 +95,8 @@ void TopologyDiscovery::get_connected_chips() {
             TT_THROW("Unsupported device type.");
     }
     for (auto& device_id : device_ids) {
-        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type);
+        std::unique_ptr<LocalChip> chip =
+            LocalChip::create(device_id, options.soc_descriptor_path, 0, options.io_device_type);
 
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
@@ -300,7 +300,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
-    cluster_desc->io_device_type = io_device_type;
+    cluster_desc->io_device_type = options.io_device_type;
     cluster_desc->eth_fw_version = first_eth_fw_version;
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();

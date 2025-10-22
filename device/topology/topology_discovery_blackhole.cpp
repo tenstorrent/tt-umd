@@ -13,6 +13,7 @@
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -21,14 +22,14 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    std::unordered_set<ChipId> pci_target_devices, const std::string& sdesc_path) :
-    TopologyDiscovery(pci_target_devices, sdesc_path) {}
+TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options) :
+    TopologyDiscovery(options) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
     std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    return RemoteChip::create(dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, sdesc_path);
+    return RemoteChip::create(
+        dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, options.soc_descriptor_path);
 }
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
@@ -257,7 +258,7 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
 
 void TopologyDiscoveryBlackhole::init_topology_discovery() {
     int device_id = 0;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
             if (!device_cnt) {
@@ -281,7 +282,7 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
             TT_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }

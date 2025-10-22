@@ -241,8 +241,9 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
         blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
-    uint32_t time_taken = 0;
+std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    auto time_taken = std::chrono::milliseconds(0);
 
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
@@ -255,12 +256,11 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken = duration.count();
-        if (time_taken > timeout_ms) {
+        if (duration > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms);
+            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
             break;
         }
     }

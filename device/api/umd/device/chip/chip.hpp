@@ -128,9 +128,9 @@ public:
 protected:
     void wait_chip_to_be_ready();
 
-    virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
+    virtual void wait_eth_cores_training(const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    virtual void wait_dram_cores_training(const uint32_t timeout_ms = 60000);
+    virtual void wait_dram_cores_training(const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void set_default_params(ARCH arch);
 

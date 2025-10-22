@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <set>
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
@@ -41,7 +42,8 @@ public:
 
     ChipInfo get_chip_info() override;
 
-    uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
+    std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     uint64_t get_arc_noc_base_address() const override;
 

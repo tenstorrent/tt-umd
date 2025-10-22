@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
@@ -14,6 +15,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "utils.hpp"
 
 extern bool umd_use_noc1;
 
@@ -399,11 +401,12 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
         wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
-    uint32_t time_taken_heartbeat = 0;
-    uint32_t time_taken_port = 0;
-    auto start = std::chrono::system_clock::now();
+    auto time_taken_heartbeat = std::chrono::milliseconds(0);
+    auto time_taken_port = std::chrono::milliseconds(0);
+    auto start = std::chrono::steady_clock::now();
     uint32_t heartbeat_val;
 
     tt_xy_pair actual_eth_core = eth_core;
@@ -416,26 +419,23 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     uint32_t new_heartbeat_val = heartbeat_val;
     while (new_heartbeat_val != heartbeat_val) {
         read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken_heartbeat = duration.count();
-        if (time_taken_heartbeat > timeout_ms) {
-            throw std::runtime_error(fmt::format("ETH training timed out after {} ms", timeout_ms));
-            break;
-        }
+        utils::check_timeout(start, timeout_ms, fmt::format("ETH training timed out after {} ms", timeout_ms));
     }
 
     uint32_t port_status = read_port_status(eth_core);
-    start = std::chrono::system_clock::now();
+    start = std::chrono::steady_clock::now();
     while (port_status == ETH_UNKNOWN) {
         port_status = read_port_status(eth_core);
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken_port = duration.count();
+        time_taken_port = duration;
         if (time_taken_port > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 throw std::runtime_error(fmt::format(
-                    "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
+                    "ETH training timed out after {} ms, on eth core {}, {}",
+                    timeout_ms.count(),
+                    eth_core.x,
+                    eth_core.y));
             }
             break;
         }

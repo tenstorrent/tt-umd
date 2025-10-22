@@ -241,9 +241,11 @@ public:
      * @param timeout_ms Timeout in ms.
      * @return Time taken in ms.
      */
-    virtual uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+    virtual std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
 
-    void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
+    void wait_dram_channel_training(
+        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void bar_write32(uint32_t addr, uint32_t data);
 

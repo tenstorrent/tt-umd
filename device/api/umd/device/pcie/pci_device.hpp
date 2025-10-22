@@ -17,9 +17,9 @@
 #include <vector>
 
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -314,6 +314,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::PCIDevice;

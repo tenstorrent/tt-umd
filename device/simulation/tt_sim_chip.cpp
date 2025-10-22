@@ -17,7 +17,7 @@
 #define DLSYM_FUNCTION(func_name)                                                    \
     pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
     if (!pfn_##func_name) {                                                          \
-        TT_THROW("Failed to find '%s' symbol: ", #func_name, dlerror());             \
+        TT_THROW("Failed to find symbol: ", #func_name, dlerror());                  \
     }
 
 namespace tt::umd {

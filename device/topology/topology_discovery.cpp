@@ -25,7 +25,7 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
     std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
     tt::ARCH current_arch = ARCH::Invalid;
 
@@ -33,7 +33,7 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info(target_devices);
             if (pci_devices_info.empty()) {
-                return std::make_unique<tt_ClusterDescriptor>();
+                return std::make_unique<ClusterDescriptor>();
             }
             current_arch = pci_devices_info.begin()->second.get_arch();
             break;
@@ -41,7 +41,7 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
         case IODeviceType::JTAG: {
             auto jtag_device = JtagDevice::create();
             if (!jtag_device->get_device_cnt()) {
-                return std::make_unique<tt_ClusterDescriptor>();
+                return std::make_unique<ClusterDescriptor>();
             }
             current_arch = jtag_device->get_jtag_arch(0);
             break;

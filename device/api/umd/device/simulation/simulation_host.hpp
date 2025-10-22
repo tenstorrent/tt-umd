@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 typedef struct nng_socket_s nng_socket;
 typedef struct nng_listener_s nng_listener;

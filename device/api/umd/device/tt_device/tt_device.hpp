@@ -6,9 +6,12 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <filesystem>
+#include <future>
 #include <memory>
 #include <string_view>
+#include <thread>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -347,7 +350,22 @@ private:
 
     TlbWindow *get_cached_tlb_window(tlb_data config);
 
+    void worker_loop();
+
     std::mutex tt_device_io_lock;
+
+    std::thread worker_thread;
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::atomic<bool> stop_flag;
+
+    // Job info
+    void *job_dest = nullptr;
+    const void *job_src = nullptr;
+    std::size_t job_size = 0;
+    bool job_ready = false;
+    std::promise<bool> job_completed_promise;
+    std::future<bool> job_future;
 };
 
 }  // namespace tt::umd

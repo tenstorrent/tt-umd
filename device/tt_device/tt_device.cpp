@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
-#include <future>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
@@ -40,6 +43,7 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
+    worker_thread = std::thread(&TTDevice::worker_loop, this);
 }
 
 TTDevice::TTDevice(
@@ -281,19 +285,74 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        auto future = std::async(std::launch::async, TTDevice::memcpy_to_device, dest, src, num_bytes);
+        // auto future = std::async(std::launch::async, TTDevice::memcpy_to_device, dest, src, num_bytes);
 
-        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        // if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+        //     throw std::runtime_error("Read operation timed out after 10 seconds.");
+        // }
+        std::promise<bool> job_promise;
+
+        {
+            std::lock_guard lock(mtx);
+            if (job_ready) {
+                // Already a job pending
+                throw std::runtime_error("Device busy");
+            }
+
+            // Set up the job
+            job_dest = dest;
+            job_src = src;
+            job_size = num_bytes;
+            job_future = job_promise.get_future();
+            job_ready = true;
+            job_completed_promise = std::move(job_promise);
+        }
+
+        cv.notify_one();  // wake worker
+
+        // Wait for completion with timeout
+        auto status = job_future.wait_for(std::chrono::milliseconds(5000));
+        if (status == std::future_status::ready) {
+            // return job_future.get();
+        } else {
+            throw std::runtime_error("Write operation timed out after 5 seconds.");
         }
 
         // memcpy_to_device(dest, src, num_bytes);
     } else {
-        auto future = std::async(std::launch::async, memcpy, dest, src, num_bytes);
+        std::promise<bool> job_promise;
 
-        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        {
+            std::lock_guard lock(mtx);
+            if (job_ready) {
+                // Already a job pending
+                throw std::runtime_error("Device busy");
+            }
+
+            // Set up the job
+            job_dest = dest;
+            job_src = src;
+            job_size = num_bytes;
+            job_future = job_promise.get_future();
+            job_ready = true;
+            job_completed_promise = std::move(job_promise);
         }
+
+        cv.notify_one();  // wake worker
+
+        // Wait for completion with timeout
+        auto status = job_future.wait_for(std::chrono::milliseconds(5000));
+        if (status == std::future_status::ready) {
+            // return job_future.get();
+        } else {
+            throw std::runtime_error("Write operation timed out after 5 seconds.");
+        }
+
+        // auto future = std::async(std::launch::async, memcpy, dest, src, num_bytes);
+
+        // if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+        //     throw std::runtime_error("Read operation timed out after 10 seconds.");
+        // }
 
         // memcpy(dest, src, num_bytes);
     }
@@ -314,19 +373,75 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     void *dest = reinterpret_cast<void *>(buffer_addr);
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        auto future = std::async(std::launch::async, TTDevice::memcpy_from_device, dest, src, num_bytes);
+        std::promise<bool> job_promise;
 
-        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        {
+            std::lock_guard lock(mtx);
+            if (job_ready) {
+                // Already a job pending
+                throw std::runtime_error("Device busy");
+            }
+
+            // Set up the job
+            job_dest = dest;
+            job_src = src;
+            job_size = num_bytes;
+            job_future = job_promise.get_future();
+            job_ready = true;
+            job_completed_promise = std::move(job_promise);
         }
+
+        cv.notify_one();  // wake worker
+
+        // Wait for completion with timeout
+        auto status = job_future.wait_for(std::chrono::milliseconds(5000));
+        if (status == std::future_status::ready) {
+            // return job_future.get();
+        } else {
+            throw std::runtime_error("Write operation timed out after 5 seconds.");
+        }
+
+        // auto future = std::async(std::launch::async, TTDevice::memcpy_from_device, dest, src, num_bytes);
+
+        // if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+        //     throw std::runtime_error("Read operation timed out after 10 seconds.");
+        // }
 
         // memcpy_from_device(dest, src, num_bytes);
     } else {
-        auto future = std::async(std::launch::async, memcpy, dest, src, num_bytes);
+        std::promise<bool> job_promise;
 
-        if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-            throw std::runtime_error("Read operation timed out after 10 seconds.");
+        {
+            std::lock_guard lock(mtx);
+            if (job_ready) {
+                // Already a job pending
+                throw std::runtime_error("Device busy");
+            }
+
+            // Set up the job
+            job_dest = dest;
+            job_src = src;
+            job_size = num_bytes;
+            job_future = job_promise.get_future();
+            job_ready = true;
+            job_completed_promise = std::move(job_promise);
         }
+
+        cv.notify_one();  // wake worker
+
+        // Wait for completion with timeout
+        auto status = job_future.wait_for(std::chrono::milliseconds(5000));
+        if (status == std::future_status::ready) {
+            // return job_future.get();
+        } else {
+            throw std::runtime_error("Write operation timed out after 5 seconds.");
+        }
+
+        // auto future = std::async(std::launch::async, memcpy, dest, src, num_bytes);
+
+        // if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+        //     throw std::runtime_error("Read operation timed out after 10 seconds.");
+        // }
 
         // memcpy(dest, src, num_bytes);
     }
@@ -567,6 +682,15 @@ TTDevice::~TTDevice() {
     // Therefore, they don't need to clear mutexes since they don't use them directly.
     // Moreover, if they would try to clear mutexes, it would cause errors since Remote TTDevice
     // didn't initialize its own PCIDevice which is needed to identify the right mutex.
+    {
+        std::lock_guard lock(mtx);
+        stop_flag = true;
+        job_ready = true;  // wake thread to exit
+    }
+    cv.notify_one();
+    if (worker_thread.joinable()) {
+        worker_thread.join();
+    }
     if (is_remote_tt_device) {
         return;
     }
@@ -656,4 +780,34 @@ TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     cached_tlb_window->configure(config);
     return cached_tlb_window.get();
 }
+
+void TTDevice::worker_loop() {
+    while (true) {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&]() { return job_ready || stop_flag; });
+
+        if (stop_flag) {
+            break;
+        }
+
+        // copy current job info
+        void *dest = job_dest;
+        const void *src = job_src;
+        std::size_t size = job_size;
+        auto promise = std::move(job_completed_promise);
+
+        job_ready = false;  // mark job consumed
+        lock.unlock();
+
+        // Perform the actual memcpy
+        bool result = true;
+        // TTDevice::memcpy_to_device(dest, src, size);
+        std::cout << "memcpy called in worker thread" << std::endl;
+        memcpy(dest, src, size);
+
+        // Signal completion
+        promise.set_value(result);
+    }
+}
+
 }  // namespace tt::umd

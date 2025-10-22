@@ -70,7 +70,9 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
     cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_connected_chips();
-    discover_remote_chips();
+    if (!options.no_remote_discovery) {
+        discover_remote_chips();
+    }
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
 }

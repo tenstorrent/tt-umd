@@ -357,35 +357,38 @@ bool TopologyDiscoveryWormhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_
 }
 
 void TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
-    std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    for (const CoreCoord& eth_core : eth_cores) {
-        uint32_t eth_fw_version_read;
-        chip->read_from_device(
-            eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+    uint32_t eth_fw_version_read;
+    chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
 
-        semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
+    semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
 
-        if (!first_eth_fw_version.has_value()) {
-            log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
-            log_debug(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
-            first_eth_fw_version = eth_fw_version;
-            if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
-                TT_THROW("ETH FW major version is older than UMD supported version");
-            }
-
-            if (ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
-                TT_THROW("ETH FW minor version is older than UMD supported version");
-            }
+    bool eth_fw_problem = false;
+    if (!first_eth_fw_version.has_value()) {
+        log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
+        log_debug(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        first_eth_fw_version = eth_fw_version;
+        if (ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
+            log_warning(LogUMD, "ETH FW major version is older than UMD supported version");
+            eth_fw_problem = true;
         }
 
-        if (eth_fw_version != first_eth_fw_version) {
-            TT_THROW(
-                "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
-                get_local_asic_id(chip, eth_core),
-                eth_core.str(),
-                eth_fw_version.to_string());
+        if (ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
+            log_warning(LogUMD, "ETH FW minor version is older than UMD supported version");
+            eth_fw_problem = true;
         }
+    }
+
+    if (eth_fw_version != first_eth_fw_version) {
+        log_warning(
+            LogUMD,
+            "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str(),
+            eth_fw_version.to_string());
+        eth_fw_problem = true;
+    }
+    if (eth_fw_problem && !options.no_eth_firmware_strictness) {
+        TT_THROW("Detected ETH FW compatilibity/consistency issue.");
     }
 }
 

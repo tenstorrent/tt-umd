@@ -20,37 +20,6 @@ target_include_directories(
         "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
 )
 
-# Download noc_parameters.h for tests
-# Generally avoid downloading files in cmake configure step
-# It can slow down reconfigures
-# Here we skip downloading repeatedly
-set(ARCHS
-    wormhole
-    blackhole
-)
-foreach(ARCH IN LISTS ARCHS)
-    set(HW_NOC_PARAMETERS_URL
-        "https://raw.githubusercontent.com/tenstorrent/tt-metal/refs/heads/main/tt_metal/hw/inc/tt-1xx/${ARCH}/noc/noc_parameters.h"
-    )
-    set(DESTINATION_DIR ${CMAKE_CURRENT_BINARY_DIR}/${ARCH}/noc)
-    file(MAKE_DIRECTORY ${DESTINATION_DIR})
-    get_filename_component(fileName ${HW_NOC_PARAMETERS_URL} NAME)
-    set(filePath ${DESTINATION_DIR}/${fileName})
-    if(NOT EXISTS ${filePath})
-        file(
-            DOWNLOAD
-                ${HW_NOC_PARAMETERS_URL}
-                ${filePath}
-            SHOW_PROGRESS
-            STATUS status
-        )
-        if(NOT status EQUAL 0)
-            message(FATAL_ERROR "Failed to download ${HW_NOC_PARAMETERS_URL}")
-        endif()
-    endif()
-    include_directories("${CMAKE_CURRENT_BINARY_DIR}/${ARCH}")
-endforeach()
-
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 endif()

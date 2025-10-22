@@ -11,6 +11,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace nb = nanobind;
 
@@ -40,6 +41,23 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("board_type", &ChipInfo::board_type)
         .def_rw("board_id", &ChipInfo::board_id)
         .def_rw("asic_location", &ChipInfo::asic_location);
+
+    nb::class_<tt::umd::semver_t>(m, "semver_t")
+        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
+        .def(nb::init<const std::string &>(), nb::arg("version_str"))
+        .def_rw("major", &tt::umd::semver_t::major)
+        .def_rw("minor", &tt::umd::semver_t::minor)
+        .def_rw("patch", &tt::umd::semver_t::patch)
+        .def("__str__", &tt::umd::semver_t::to_string)
+        .def("to_string", &tt::umd::semver_t::to_string)
+        .def("__eq__", &tt::umd::semver_t::operator==)
+        .def("__ne__", &tt::umd::semver_t::operator!=)
+        .def("__lt__", &tt::umd::semver_t::operator<)
+        .def("__le__", &tt::umd::semver_t::operator<=)
+        .def("__gt__", &tt::umd::semver_t::operator>)
+        .def("__ge__", &tt::umd::semver_t::operator>=)
+        .def_static(
+            "compare_firmware_bundle", &tt::umd::semver_t::compare_firmware_bundle, nb::arg("v1"), nb::arg("v2"));
 
     nb::class_<tt::xy_pair>(m, "tt_xy_pair")
         .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))

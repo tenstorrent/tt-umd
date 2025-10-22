@@ -11,6 +11,7 @@
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
@@ -72,6 +73,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::rv_policy::take_ownership)
         .def("init_tt_device", &TTDevice::init_tt_device)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
+        .def("get_arc_messenger", &TTDevice::get_arc_messenger, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
         .def("get_chip_info", &TTDevice::get_chip_info)
@@ -96,6 +98,9 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             nb::arg("core"),
             nb::arg("addr"))
+        .def("get_firmware_version", [](TTDevice &self) { return get_firmware_version_util(&self); })
+        .def("bar_read32", &TTDevice::bar_read32, nb::arg("addr"))
+        .def("bar_write32", &TTDevice::bar_write32, nb::arg("addr"), nb::arg("data"))
         .def(
             "noc_read32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {

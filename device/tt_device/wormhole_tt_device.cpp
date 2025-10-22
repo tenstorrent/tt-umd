@@ -563,9 +563,21 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
 
         uint32_t bar_read_arc_reset_scratch_status =
             bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+
+        read_from_arc(
+            &bar_read_arc_reset_scratch_status,
+            wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
+            sizeof(bar_read_arc_reset_scratch_status));
+
         uint32_t bar_read_arc_post_code = bar_read32(
             architecture_impl_->get_arc_axi_apb_peripheral_offset() +
             architecture_impl_->get_arc_reset_scratch_offset());
+
+        read_from_arc(
+            &bar_read_arc_post_code,
+            architecture_impl_->get_arc_reset_scratch_offset(),
+            sizeof(bar_read_arc_post_code));
+
         uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
 
         // Handle known error/status codes

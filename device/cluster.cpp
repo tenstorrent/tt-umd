@@ -1045,7 +1045,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     set_power_state(DevicePowerState::BUSY);
 }
 
-void Cluster::start_device(const device_params& device_params) {
+void Cluster::start_device(const DeviceParams& device_params) {
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -1091,10 +1091,7 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-semver_t Cluster::get_ethernet_fw_version() const {
-    TT_ASSERT(eth_fw_version.has_value(), "Device must be started before querying Ethernet FW version.");
-    return eth_fw_version.value();
-}
+std::optional<semver_t> Cluster::get_ethernet_fw_version() const { return eth_fw_version.value(); }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {

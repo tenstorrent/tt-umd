@@ -95,7 +95,11 @@ RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
  */
 
 void RemoteCommunicationLegacyFirmware::read_non_mmio(
-    tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes, const uint64_t timeout_ms) {
+    tt_xy_pair target_core,
+    void* dest,
+    uint64_t core_src,
+    uint32_t size_in_bytes,
+    const std::chrono::milliseconds timeout_ms) {
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -338,7 +342,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     uint32_t size_in_bytes,
     bool broadcast,
     std::vector<int> broadcast_header,
-    const uint32_t timeout_ms) {
+    const std::chrono::milliseconds timeout_ms) {
     flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;
@@ -554,7 +558,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     }
 }
 
-void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t timeout_ms) {
+void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {
     if (flush_non_mmio_) {
         TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 

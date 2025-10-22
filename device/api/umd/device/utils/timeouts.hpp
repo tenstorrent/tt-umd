@@ -20,5 +20,5 @@ inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::seconds(60);
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);
 
 inline constexpr auto UBB_WARM_RESET_TIMEOUT = std::chrono::seconds(100);
-inline constexpr auto BH_WARM_RESET_TIMEOUT = std::chrono::seconds(2);
+inline constexpr auto BH_WARM_RESET_TIMEOUT = std::chrono::milliseconds(2000);
 }  // namespace tt::umd::timeout

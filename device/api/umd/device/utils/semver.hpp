@@ -24,28 +24,31 @@ public:
     uint64_t major;
     uint64_t minor;
     uint64_t patch;
-    uint64_t pre_release;
+    std::string pre_release;
 
     semver_t() {}
+    semver_t(std::uint32_t version){
+        major = (version >> 16) & 0xff;
+        minor = (version >> 12) & 0xf;
+        patch = version & 0xfff;
+    }
 
-    semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) {
+    semver_t(uint64_t major, uint64_t minor, uint64_t patch, std::string pre_release = "") {
         this->major = major;
         this->minor = minor;
         this->patch = patch;
-        if (this->pre_release == 01) {
-            std::string pre_release = "rc.1";
-        }
+        this->pre_release = pre_release;
     }
 
-    static semver_t fb(std::uint32_t version){
+    static semver_t from_firmware_bundle_tag(std::uint32_t version){
         uint64_t major = (version >> 24) & 0xFF;
         uint64_t minor = (version >> 16) & 0xFF;
         uint64_t patch = (version >> 8) & 0xFF;
-        uint64_t pre_release = version & 0xFF;
+        std::string pre_release = std::to_string(version & 0xFF);
         return semver_t(major, minor, patch, pre_release);
     }
 
-    static semver_t eth(std::uint32_t version) {
+    static semver_t from_wormhole_eth_firmware_tag(std::uint32_t version) {
         uint64_t major = (version >> 16) & 0xff;
         uint64_t minor = (version >> 12) & 0xf;
         uint64_t patch = version & 0xfff;
@@ -54,16 +57,16 @@ public:
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
-    std::string str() const { return fmt::format("{}.{}.{}", major, minor, patch); }
+    std::string str() const { return fmt::format("{}.{}.{}{}", major, minor, patch, pre_release); }
 
     bool operator<(const semver_t& other) const {
-        return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);
+        return std::tie(major, minor, patch, pre_release) < std::tie(other.major, other.minor, other.patch, other.pre_release);
     }
 
     bool operator>(const semver_t& other) const { return other < *this; }
 
     bool operator==(const semver_t& other) const {
-        return std::tie(major, minor, patch) == std::tie(other.major, other.minor, other.patch);
+        return std::tie(major, minor, patch, pre_release) == std::tie(other.major, other.minor, other.patch, other.pre_release);
     }
 
     bool operator!=(const semver_t& other) const { return !(*this == other); }
@@ -72,7 +75,7 @@ public:
 
     bool operator>=(const semver_t& other) const { return !(*this < other); }
 
-    std::string to_string() const { return fmt::format("{}.{}.{}", major, minor, patch); }
+    std::string to_string() const { return fmt::format("{}.{}.{}{}", major, minor, patch, pre_release); }
 
     /*
      * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,
@@ -85,9 +88,9 @@ public:
         auto normalize = [](const semver_t& v) {
             // Major version 80 is treated as legacy, so smaller than everything else.
             if (v.major >= 80) {
-                return std::tuple<uint64_t, uint64_t, uint64_t>(0, v.minor, v.patch);
+                return std::tuple<uint64_t, uint64_t, uint64_t, std::string>(0, v.minor, v.patch, v.pre_release);
             }
-            return std::tuple<uint64_t, uint64_t, uint64_t>(v.major, v.minor, v.patch);
+            return std::tuple<uint64_t, uint64_t, uint64_t, std::string>(v.major, v.minor, v.patch, v.pre_release);
         };
 
         auto v1_normalized = normalize(v1);
@@ -103,7 +106,7 @@ private:
         uint64_t major = 0;
         uint64_t minor = 0;
         uint64_t patch = 0;
-        uint64_t pre_release = 0;
+        std::string pre_release = "";
 
         if (std::getline(iss, token, '.')) {
             major = std::stoull(token);
@@ -113,24 +116,18 @@ private:
 
                 if (std::getline(iss, token, '.')) {
                     patch = std::stoull(token);
-                }
-            }
-        }
 
-        if (std::getline(iss, token, '.')) {
-            if(!token.empty()) {
-                if (token == "rc") {
-                    pre_release == 01;
-                }
-                else {
-                    size_t dot_pos = token.find('.');
-                    if (dot_pos != std::string::npos) {
-                        pre_release = std::stoull(token.substr(dot_pos + 1));
+                    if (std::getline(iss, token, '.')) {
+                        if (token == "1") {
+                            pre_release = "-rc.1";
+                        }
+                        else {
+                            pre_release = "";
+                        }
                     }
                 }
             }
         }
-
         return semver_t(major, minor, patch, pre_release);
     }
 };

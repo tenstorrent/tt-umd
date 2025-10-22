@@ -13,6 +13,10 @@ void bind_cluster(nb::module_ &m);
 void bind_tt_device(nb::module_ &m);
 void bind_telemetry(nb::module_ &m);
 void bind_topology_discovery(nb::module_ &m);
+void bind_remote_communication(nb::module_ &m);
+void bind_soc_descriptor(nb::module_ &m);
+void bind_sysmem(nb::module_ &m);
+void bind_tlb_manager(nb::module_ &m);
 
 // Main module entry point.
 NB_MODULE(tt_umd, m) {
@@ -21,4 +25,8 @@ NB_MODULE(tt_umd, m) {
     bind_tt_device(m);
     bind_telemetry(m);
     bind_topology_discovery(m);
+    bind_remote_communication(m);
+    bind_soc_descriptor(m);
+    bind_sysmem(m);
+    bind_tlb_manager(m);
 }

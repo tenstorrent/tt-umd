@@ -74,7 +74,28 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
+        .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
+        .def_static("use_noc1", &TTDevice::use_noc1, nb::arg("use_noc1"))
+        .def(
+            "read_from_device",  // TODO: Check if python can allocate bytes directly to avoid copy. Then we can use
+                                 // .size() instead of size argument.
+            [](TTDevice &self, tt_xy_pair core, uint64_t addr, uint32_t size) -> nanobind::bytes {
+                std::vector<char> data(size);
+                self.read_from_device(data.data(), core, addr, size);
+                return nanobind::bytes(reinterpret_cast<const char *>(data.data()), size);
+            },
+            nb::arg("core"),
+            nb::arg("addr"),
+            nb::arg("size"))
+        .def(
+            "write_to_device",
+            [](TTDevice &self, nanobind::bytes data, tt_xy_pair core, uint64_t addr) {
+                self.write_to_device(data.data(), core, addr, static_cast<uint32_t>(data.size()));
+            },
+            nb::arg("data"),
+            nb::arg("core"),
+            nb::arg("addr"))
         .def(
             "noc_read32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {

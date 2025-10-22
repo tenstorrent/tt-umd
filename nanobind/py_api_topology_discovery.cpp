@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/set.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
@@ -29,6 +30,8 @@ void bind_topology_discovery(nb::module_ &m) {
         .def("get_chip_locations", &ClusterDescriptor::get_chip_locations)
         .def("get_chips_with_mmio", &ClusterDescriptor::get_chips_with_mmio)
         .def("get_active_eth_channels", &ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
+        .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids)
+        .def("serialize_to_file", &ClusterDescriptor::serialize_to_file, nb::arg("dest_file") = "")
         .def(
             "get_arch",
             static_cast<tt::ARCH (ClusterDescriptor::*)(ChipId) const>(&ClusterDescriptor::get_arch),
@@ -37,10 +40,13 @@ void bind_topology_discovery(nb::module_ &m) {
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",
-            [](std::unordered_set<ChipId> pci_target_devices = {}, std::string sdesc_path = "") {
+            [](std::unordered_set<ChipId> pci_target_devices = {},
+               std::string sdesc_path = "",
+               IODeviceType device_type = IODeviceType::PCIe) {
                 return TopologyDiscovery::create_cluster_descriptor(
-                    std::move(pci_target_devices), std::move(sdesc_path));
+                    std::move(pci_target_devices), std::move(sdesc_path), device_type);
             },
             nb::arg("pci_target_devices") = std::unordered_set<ChipId>{},
-            nb::arg("sdesc_path") = "");
+            nb::arg("sdesc_path") = "",
+            nb::arg("device_type") = IODeviceType::PCIe);
 }

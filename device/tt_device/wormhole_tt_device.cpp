@@ -41,7 +41,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
-    wait_arc_core_start(1000);
+    wait_arc_core_start();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -69,13 +69,11 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     ChipInfo chip_info = TTDevice::get_chip_info();
 
     std::vector<uint32_t> arc_msg_return_values = {0};
-    const uint32_t timeout_ms = 1000;
     uint32_t ret_code = get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
         arc_msg_return_values,
         0,
-        0,
-        timeout_ms);
+        0);
 
     if (ret_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
@@ -87,7 +85,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
+void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     uint32_t bar_read_initial = 0;
     read_from_arc(&bar_read_initial, wormhole::ARC_RESET_SCRATCH_OFFSET + 3 * 4, sizeof(uint32_t));
     //  TODO: figure out 325 and 500 constants meaning and put it in variable.
@@ -112,15 +110,13 @@ void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
 }
 
 uint32_t WormholeTTDevice::get_clock() {
-    const uint32_t timeouts_ms = 1000;
     // There is one return value from AICLK ARC message.
     std::vector<uint32_t> arc_msg_return_values = {0};
     auto exit_code = get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_get_aiclk(),
         arc_msg_return_values,
         0xFFFF,
-        0xFFFF,
-        timeouts_ms);
+        0xFFFF);
     if (exit_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get AICLK value with exit code {}", exit_code));
     }

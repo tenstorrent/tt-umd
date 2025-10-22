@@ -16,6 +16,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 extern bool umd_use_noc1;
 
@@ -99,7 +100,7 @@ void Chip::enable_ethernet_queue(int timeout_s) {
             throw std::runtime_error(
                 fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
         }
-        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
+        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
         }
     }
@@ -200,7 +201,7 @@ int Chip::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     std::vector<uint32_t> arc_msg_return_values;

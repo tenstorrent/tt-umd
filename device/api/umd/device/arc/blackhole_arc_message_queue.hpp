@@ -7,8 +7,7 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 using namespace tt::umd::blackhole;
 
@@ -52,15 +51,19 @@ public:
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
      */
     uint32_t send_message(
-        const ArcMessageType message_type, uint16_t arg0 = 0, uint16_t arg1 = 0, uint32_t timeout_ms = 1000);
+        const ArcMessageType message_type,
+        uint16_t arg0 = 0,
+        uint16_t arg1 = 0,
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT);
 
     static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
         TTDevice* tt_device, const size_t queue_index);
 
 private:
-    void push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, uint32_t timeout_ms);
+    void push_request(
+        std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, const std::chrono::milliseconds timeout_ms);
 
-    std::array<uint32_t, entry_len> pop_response(uint32_t timeout_ms);
+    std::array<uint32_t, entry_len> pop_response(const std::chrono::milliseconds timeout_ms);
 
     void read_words(uint32_t* data, size_t num_words, size_t offset);
 

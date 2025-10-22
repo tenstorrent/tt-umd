@@ -7,6 +7,7 @@
 #include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
+#include <chrono>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
@@ -17,6 +18,7 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -147,8 +149,8 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
+void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
         read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
@@ -158,12 +160,14 @@ void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
             return;
         }
 
-        auto end = std::chrono::system_clock::now();  // End time
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format(
-                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
-        }
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format(
+                "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                timeout_ms.count(),
+                arc_core.x,
+                arc_core.y));
     }
 }
 

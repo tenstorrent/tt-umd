@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string_view>
@@ -20,6 +21,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -231,7 +233,7 @@ public:
      * Must be called after init_tt_device() and before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
+    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.

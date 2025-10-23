@@ -260,16 +260,15 @@ TEST(ApiTTDeviceTest, TestTTDeviceIO) {
         tt_xy_pair tensix_core = {1, 2};
 
         for (int i = 0; i < 1000; i++) {
-            std::cout << "here" << std::endl;
             tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
             tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
             ASSERT_EQ(data_write0, data_read);
             data_read = std::vector<uint32_t>(data_write0.size(), 0);
 
             tt_device->write_to_device(data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
-            std::cout << "done write" << std::endl;
+
             tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
-            std::cout << "done read" << std::endl;
+
             ASSERT_EQ(data_write1, data_read);
             data_read = std::vector<uint32_t>(data_write0.size(), 0);
         }

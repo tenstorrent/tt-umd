@@ -802,7 +802,6 @@ void TTDevice::worker_loop() {
         // Perform the actual memcpy
         bool result = true;
         // TTDevice::memcpy_to_device(dest, src, size);
-        std::cout << "memcpy called in worker thread" << std::endl;
         memcpy(dest, src, size);
 
         // Signal completion

@@ -357,7 +357,7 @@ private:
     std::thread worker_thread;
     std::mutex mtx;
     std::condition_variable cv;
-    std::atomic<bool> stop_flag;
+    std::atomic<bool> stop_flag = false;
 
     // Job info
     void *job_dest = nullptr;

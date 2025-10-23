@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <unordered_set>
 
 #include "umd/device/soc_descriptor.hpp"
@@ -136,7 +137,10 @@ protected:
 
     uint32_t get_power_state_arc_msg(DevicePowerState state);
 
-    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 100);
+    void wait_for_aiclk_value(
+        TTDevice* tt_device,
+        DevicePowerState power_state,
+        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     ChipInfo chip_info_;
 

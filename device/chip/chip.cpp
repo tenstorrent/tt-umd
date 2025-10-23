@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/chip.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
@@ -257,8 +258,9 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
-void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
+void Chip::wait_for_aiclk_value(
+    TTDevice* tt_device, DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
     if (power_state == DevicePowerState::BUSY) {
         target_aiclk = tt_device->get_max_clock_freq();
@@ -267,9 +269,9 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_stat
     }
     uint32_t aiclk = tt_device->get_clock();
     while (aiclk != target_aiclk) {
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
+        if (duration.count() > timeout_ms.count()) {
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "

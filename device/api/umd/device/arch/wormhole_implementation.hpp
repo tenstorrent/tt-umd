@@ -265,7 +265,7 @@ inline constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 
 inline constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
-inline constexpr uint64_t NOC_ADDRESS_START = 0x800000000;
+inline constexpr uint64_t NOC_ADDRESS_START = 0x8'0000'0000;
 
 inline constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
 inline constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
@@ -349,7 +349,9 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(wormhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
+    uint32_t get_arc_csm_mailbox_offset() const override {
+        return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + wormhole::ARC_CSM_MAILBOX_OFFSET;
+    }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 

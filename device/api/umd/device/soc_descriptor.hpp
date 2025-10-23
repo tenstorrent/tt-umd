@@ -117,6 +117,11 @@ public:
     uint32_t get_num_eth_channels() const;
     uint32_t get_num_harvested_eth_channels() const;
 
+    CoreCoord get_first_core_for_channel(
+        int channel,
+        const CoreType core_type = CoreType::DRAM,
+        const CoordSystem coord_system = CoordSystem::NOC0) const;
+
     // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
     // would translate_coord_to do for a coord with LOGICAL coords.
     CoreCoord get_dram_core_for_channel(

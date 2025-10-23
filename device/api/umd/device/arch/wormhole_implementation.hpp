@@ -246,8 +246,8 @@ inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
-inline constexpr uint64_t ARC_APB_XBAR_ADDRESS_START = 0x8000'0000;
-inline constexpr uint32_t ARC_APB_XBAR_ADDRESS_END = 0x800F'FFFF;
+inline constexpr uint64_t ARC_APB_XBAR_ADDRESS_START = 0x80000000;
+inline constexpr uint32_t ARC_APB_XBAR_ADDRESS_END = 0x800FFFFF;
 
 inline constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
@@ -265,7 +265,7 @@ inline constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 
 inline constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
-inline constexpr uint64_t NOC_ADDRESS_START = 0x8'0000'0000;
+inline constexpr uint64_t NOC_ADDRESS_START = 0x800000000;
 
 inline constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
 inline constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;

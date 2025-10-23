@@ -85,6 +85,55 @@ cmake --build build --target package
 # Generates umd-dev-x.y.z-Linux.deb
 ```
 
+### Enabling Logging
+
+UMD uses a two-level logging system with compile-time and runtime controls.
+
+#### Compile-Time Logging Control
+
+By default, `log_debug` and `log_trace` statements are compiled out of release builds for performance. To include them in the binary:
+
+**Option 1: Enable logging explicitly**
+```bash
+cmake -B build -G Ninja -DTT_UMD_ENABLE_LOGGING=ON
+cmake --build build
+```
+
+**Option 2: Use Debug build type** (enables logging automatically)
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+```
+
+#### Runtime Logging Control
+
+At runtime, control the logging level using the `TT_LOGGER_LEVEL` environment variable:
+
+```bash
+export TT_LOGGER_LEVEL=debug  # Show debug and above
+export TT_LOGGER_LEVEL=trace  # Show all log messages (most verbose)
+export TT_LOGGER_LEVEL=info   # Default level
+```
+
+Available log levels (from most to least verbose):
+- `trace` - Most detailed logging, traces program execution
+- `debug` - Debugging information useful during development
+- `info` - General informational messages (default)
+- `warn` - Warning messages for potentially harmful situations
+- `error` - Error messages for serious problems
+- `critical` - Critical errors that may lead to program termination
+- `off` - Disables all logging
+
+**Example: Running with debug logging**
+```bash
+# Build with logging enabled
+cmake -B build -G Ninja -DTT_UMD_ENABLE_LOGGING=ON
+cmake --build build
+
+# Run with debug level
+TT_LOGGER_LEVEL=debug ./build/bin/your_program
+```
+
 # Integration
 UMD can be consumed by downstream projects in multiple ways.
 

@@ -81,11 +81,10 @@ private:
         uint64_t erisc_remote_eth_id_offset;
     };
 
-    static constexpr uint32_t ETH_UNKNOWN = 0;
-    static constexpr uint32_t ETH_UNCONNECTED = 1;
+    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
     static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
-    uint32_t read_port_status(tt_xy_pair eth_core);
+    uint32_t read_training_status(tt_xy_pair eth_core);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

@@ -95,9 +95,6 @@ protected:
     // ethernet channel for the remote chip on all board types).
     virtual uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
 
-    // eth_core should be in NoC 0 coordinates..
-    virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) = 0;
-
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.
@@ -108,9 +105,7 @@ protected:
 
     virtual void init_topology_discovery();
 
-    virtual bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) = 0;
-
-    virtual bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) = 0;
+    virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.

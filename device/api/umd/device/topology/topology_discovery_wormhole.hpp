@@ -51,7 +51,7 @@ protected:
 
     tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) override;
 
-    uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) override;
+    uint32_t read_training_status(Chip* chip, tt_xy_pair eth_core);
 
     uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) override;
 
@@ -72,13 +72,11 @@ protected:
 
     void init_topology_discovery() override;
 
-    bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) override;
-
-    bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
+    bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
 
     EthAddresses eth_addresses;
 
-    static const uint32_t ETH_UNKNOWN = 0;
-    static const uint32_t ETH_UNCONNECTED = 1;
+    static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
+    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 };
 }  // namespace tt::umd

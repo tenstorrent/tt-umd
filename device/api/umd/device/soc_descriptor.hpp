@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -100,7 +101,9 @@ public:
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<CoreCoord> get_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const CoreType core_type,
+        const CoordSystem coord_system = CoordSystem::NOC0,
+        std::optional<uint32_t> channel = std::nullopt) const;
     std::vector<CoreCoord> get_harvested_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
     std::vector<CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;
@@ -116,11 +119,6 @@ public:
 
     uint32_t get_num_eth_channels() const;
     uint32_t get_num_harvested_eth_channels() const;
-
-    CoreCoord get_first_core_for_channel(
-        int channel,
-        const CoreType core_type = CoreType::DRAM,
-        const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
     // would translate_coord_to do for a coord with LOGICAL coords.

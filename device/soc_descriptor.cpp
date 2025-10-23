@@ -4,7 +4,6 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
-#include <assert.h>
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
@@ -16,6 +15,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
+#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -452,18 +452,6 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
 }
 
-CoreCoord SocDescriptor::get_first_core_for_channel(int channel, CoreType core_type, CoordSystem coord_system) const {
-    switch (core_type) {
-        case CoreType::DRAM:
-            return get_dram_core_for_channel(channel, 0, coord_system);
-        case CoreType::ETH:
-            return get_eth_core_for_channel(channel, coord_system);
-        default:
-            throw std::runtime_error("Core type does not have multiple channels.");
-    }
-    return CoreCoord();
-}
-
 int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }
 
 CoreCoord SocDescriptor::get_dram_core_for_channel(
@@ -706,12 +694,27 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     return translated_cores;
 }
 
-std::vector<CoreCoord> SocDescriptor::get_cores(const CoreType core_type, const CoordSystem coord_system) const {
+std::vector<CoreCoord> SocDescriptor::get_cores(
+    const CoreType core_type, const CoordSystem coord_system, std::optional<uint32_t> channel) const {
     auto cores_map_it = cores_map.find(core_type);
-    if (coord_system != CoordSystem::NOC0) {
-        return translate_coordinates(cores_map_it->second, coord_system);
+    std::vector<CoreCoord> cores = cores_map_it->second;
+
+    // Filter cores by DRAM channel if specified
+    if (channel.has_value() && core_type == CoreType::DRAM) {
+        TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
+        std::vector<CoreCoord> filtered_cores;
+        for (const auto &core : cores) {
+            if (core.y == channel.value()) {
+                filtered_cores.push_back(core);
+            }
+        }
+        cores = filtered_cores;
     }
-    return cores_map_it->second;
+
+    if (coord_system != CoordSystem::NOC0) {
+        return translate_coordinates(cores, coord_system);
+    }
+    return cores;
 }
 
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(

@@ -422,10 +422,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
         utils::check_timeout(start, timeout_ms, fmt::format("ETH training timed out after {} ms", timeout_ms));
     }
 
-    uint32_t port_status = read_port_status(eth_core);
     start = std::chrono::steady_clock::now();
-    while (port_status == ETH_UNKNOWN) {
-        port_status = read_port_status(eth_core);
+    while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
@@ -445,19 +443,15 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
 
 uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
-uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {
-    uint32_t channel = std::distance(
-        wormhole::ETH_CORES_NOC0.begin(),
-        std::find(wormhole::ETH_CORES_NOC0.begin(), wormhole::ETH_CORES_NOC0.end(), eth_core));
-
-    uint32_t port_status;
+uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+    uint32_t training_status;
     read_from_device(
-        &port_status,
+        &training_status,
         umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
                      : eth_core,
-        eth_addresses.eth_conn_info + (channel * 4),
+        0x1104,
         sizeof(uint32_t));
-    return port_status;
+    return training_status;
 }
 
 WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_t eth_fw_version) {

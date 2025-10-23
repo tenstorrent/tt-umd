@@ -234,14 +234,15 @@ inline constexpr uint32_t GRID_SIZE_Y = 12;
 
 inline constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE8'0000;
-inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEF'FFFF;
+inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
+inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
-inline constexpr uint64_t ARC_CSM_XBAR_ADDRESS_START = 0x1000'0000;
-inline constexpr uint32_t ARC_CSM_XBAR_ADDRESS_END = 0x1007'FFFF;
+inline constexpr uint64_t ARC_CSM_XBAR_ADDRESS_START = 0x10000000;
+inline constexpr uint32_t ARC_CSM_XBAR_ADDRESS_END = 0x1007FFFF;
 
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
+inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;

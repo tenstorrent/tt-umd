@@ -541,9 +541,6 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    // DMA request address
-    constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
-
     auto start = std::chrono::system_clock::now();
     while (true) {
         auto now = std::chrono::system_clock::now();
@@ -553,24 +550,26 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
             return false;
         }
 
-        uint32_t bar_read_arc_reset_scratch_status =
-            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+        uint32_t bar_read_arc_reset_scratch_status;
 
-        read_from_arc(
+        read_from_arc_apb(
             &bar_read_arc_reset_scratch_status,
             wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
             sizeof(bar_read_arc_reset_scratch_status));
 
-        uint32_t bar_read_arc_post_code = bar_read32(
-            architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-            architecture_impl_->get_arc_reset_scratch_offset());
+        uint32_t bar_read_arc_post_code;
 
-        read_from_arc(
+        read_from_arc_apb(
             &bar_read_arc_post_code,
             architecture_impl_->get_arc_reset_scratch_offset(),
             sizeof(bar_read_arc_post_code));
 
-        uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
+        uint32_t bar_read_arc_csm_pcie_dma_request;
+
+        read_from_arc_csm(
+            &bar_read_arc_csm_pcie_dma_request,
+            wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
+            sizeof(bar_read_arc_csm_pcie_dma_request));
 
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {

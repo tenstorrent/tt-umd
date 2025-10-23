@@ -226,7 +226,7 @@ public:
      * Must be called after device reset and before init_tt_device().
      * This ensures the ARC core hardware is ready for further initialization.
      */
-    virtual bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) = 0;
+    virtual bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) = 0;
 
     /**
      * Waits for ARC core to be fully ready for communication.

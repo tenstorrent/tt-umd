@@ -33,7 +33,7 @@ void RemoteBlackholeTTDevice::wait_for_non_mmio_flush() { remote_communication_-
 
 RemoteCommunication* RemoteBlackholeTTDevice::get_remote_communication() { return remote_communication_.get(); }
 
-bool RemoteBlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
+bool RemoteBlackholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) {
     throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
 }
 

@@ -11,6 +11,7 @@
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -47,7 +48,7 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms) override;
+    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);

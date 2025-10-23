@@ -501,7 +501,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         erisc_remote_eth_id_offset};
 }
 
-bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
+bool WormholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) {
     // Status codes
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -528,12 +528,12 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     // DMA request address
     constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
 
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (true) {
-        auto now = std::chrono::system_clock::now();
+        auto now = std::chrono::steady_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
-            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms);
+        if (timeout_ms.count() != 0 && elapsed_ms > timeout_ms.count()) {
+            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms.count());
             return false;
         }
 

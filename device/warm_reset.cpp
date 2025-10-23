@@ -17,6 +17,7 @@
 #include "api/umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -110,7 +111,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
-        if (!tt_device->wait_arc_post_reset(300'000)) {
+        if (!tt_device->wait_arc_post_reset(timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
             log_warning(tt::LogUMD, "Reset failed for PCI id {} - ARC core init failed", i);
             continue;
         }

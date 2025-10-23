@@ -45,7 +45,7 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
+    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

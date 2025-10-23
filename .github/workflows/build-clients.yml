@@ -50,7 +50,7 @@ jobs:
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
-          ./build_metal.sh --build-all --enable-ccache --enable-profiler
+          ./build_metal.sh --build-all --enable-ccache
           cd ../
 
   build-tt-exalens:

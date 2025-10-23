@@ -348,7 +348,7 @@ bool TopologyDiscoveryWormhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_
     return (status & link_connected_mask) == link_connected_mask;
 }
 
-void TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
+bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
     uint32_t eth_fw_version_read;
     chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
 
@@ -379,9 +379,8 @@ void TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
-    if (eth_fw_problem && !options.no_eth_firmware_strictness) {
-        TT_THROW("Detected ETH FW compatilibity/consistency issue.");
-    }
+
+    return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {

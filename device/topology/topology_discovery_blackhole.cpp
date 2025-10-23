@@ -280,7 +280,7 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 
-void TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
+bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
     static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
     static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
     static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
@@ -310,16 +310,15 @@ void TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     }
 
     if (eth_fw_version != first_eth_fw_version) {
-        TT_THROW(
+        log_warning(
+            LogUMD,
             "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
             get_local_asic_id(chip, eth_core),
             eth_core.str(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
-    if (eth_fw_problem && !options.no_eth_firmware_strictness) {
-        TT_THROW("Detected ETH FW compatilibity/consistency issue.");
-    }
+    return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {

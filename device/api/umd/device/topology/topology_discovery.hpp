@@ -157,7 +157,7 @@ protected:
 
     bool is_running_on_6u = false;
 
-    virtual void verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) = 0;
+    virtual bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) = 0;
 
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.

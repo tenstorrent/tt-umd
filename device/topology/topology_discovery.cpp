@@ -116,8 +116,8 @@ void TopologyDiscovery::get_connected_chips() {
         log_debug(
             LogUMD,
             "Discovered {} chip with {} ID {} and asic ID {}",
-            DeviceTypeToString.at(io_device_type),
-            DeviceTypeToString.at(io_device_type),
+            DeviceTypeToString.at(options.io_device_type),
+            DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);
     }
@@ -153,7 +153,15 @@ void TopologyDiscovery::discover_remote_chips() {
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            verify_eth_core_fw_version(chip, eth_core);
+            if (!verify_eth_core_fw_version(chip, eth_core)) {
+                log_warning(
+                    LogUMD,
+                    "Skipping discovery from chip {} ETH core {}",
+                    get_local_asic_id(chip, eth_core),
+                    eth_core.str());
+                channel++;
+                continue;
+            }
 
             if (!is_eth_trained(chip, eth_core)) {
                 channel++;

@@ -5,14 +5,13 @@
  */
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
@@ -42,17 +41,23 @@ struct TopologyDiscoveryOptions {
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(const TopologyDiscoveryOptions& options);
-    TopologyDiscovery(const TopologyDiscoveryOptions& options);
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
+        const TopologyDiscoveryOptions& options);
+
     virtual ~TopologyDiscovery() = default;
-    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
 protected:
+    TopologyDiscovery(const TopologyDiscoveryOptions& options);
+
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
+
+    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
+
     void get_connected_chips();
 
     void discover_remote_chips();
 
-    void fill_cluster_descriptor_info();
+    std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -142,8 +147,6 @@ protected:
 
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
         ethernet_connections_to_remote_devices;
-
-    std::unique_ptr<ClusterDescriptor> cluster_desc;
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;

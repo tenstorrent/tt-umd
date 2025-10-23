@@ -41,7 +41,7 @@ void bind_topology_discovery(nb::module_& m) {
                 TopologyDiscoveryOptions options;
                 options.target_devices = std::move(pci_target_devices);
                 options.soc_descriptor_path = sdesc_path;
-                return TopologyDiscovery::create_cluster_descriptor(options);
+                return TopologyDiscovery::discover(options).first;
             },
             nb::arg("pci_target_devices") = std::unordered_set<ChipId>{},
             nb::arg("sdesc_path") = "");

@@ -1106,7 +1106,7 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     options.target_devices = std::move(target_devices);
     options.soc_descriptor_path = sdesc_path;
     options.io_device_type = device_type;
-    return TopologyDiscovery::create_cluster_descriptor(std::move(options));
+    return TopologyDiscovery::discover(std::move(options)).first;
 }
 
 }  // namespace tt::umd

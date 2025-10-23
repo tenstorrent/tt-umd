@@ -140,7 +140,6 @@ void TopologyDiscovery::discover_remote_chips() {
             }
         }
     }
-
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -152,29 +151,14 @@ void TopologyDiscovery::discover_remote_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
-        std::vector<uint32_t> intermesh_eth_links;
-        if (eth_cores.size() > 0) {
-            intermesh_eth_links = extract_intermesh_eth_links(chip, eth_cores.front());
-        }
-
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             verify_eth_core_fw_version(chip, eth_core);
 
-            uint32_t port_status = read_port_status(chip, eth_core);
-
-            if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
-                if (std::find(intermesh_eth_links.begin(), intermesh_eth_links.end(), channel) ==
-                    intermesh_eth_links.end()) {
-                    channel++;
-                    continue;
-                }
-                if (!is_intermesh_eth_link_trained(chip, eth_core)) {
-                    channel++;
-                    continue;
-                }
+            if (!is_eth_trained(chip, eth_core)) {
+                channel++;
+                continue;
             }
-
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
@@ -328,9 +312,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core);
-
-        if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+        if (!is_eth_trained(chip, eth_core)) {
             continue;
         }
 

@@ -52,14 +52,14 @@ void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_
     write_to_device(mem_ptr, get_arc_core(), get_arc_apb_noc_base_address() + arc_addr_offset, size);
 }
 
-void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > (wormhole::ARC_CSM_XBAR_ADDRESS_END - wormhole::ARC_CSM_XBAR_ADDRESS_START)) {
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     read_from_device(mem_ptr, get_arc_core(), get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
-void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > (wormhole::ARC_CSM_XBAR_ADDRESS_END - wormhole::ARC_CSM_XBAR_ADDRESS_START)) {
         throw std::runtime_error("Address is out of ARC CSM address range");
     }

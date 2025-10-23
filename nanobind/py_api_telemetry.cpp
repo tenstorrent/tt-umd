@@ -5,7 +5,11 @@
  */
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/vector.h>
 
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -119,7 +123,12 @@ void bind_telemetry(nb::module_ &m) {
 
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
-        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"))
+        .def_static(
+            "create_arc_telemetry_reader",
+            &ArcTelemetryReader::create_arc_telemetry_reader,
+            nb::arg("tt_device"),
+            nb::rv_policy::take_ownership);
 
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
         .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)
@@ -146,4 +155,27 @@ void bind_telemetry(nb::module_ &m) {
             "get_latest_supported_firmware_version",
             &FirmwareInfoProvider::get_latest_supported_firmware_version,
             nb::arg("arch"));
+
+    nb::class_<ArcMessenger>(m, "ArcMessenger")
+        .def(
+            "send_message",
+            [](ArcMessenger &self,
+               const uint32_t msg_code,
+               const uint16_t arg0,
+               const uint16_t arg1,
+               const uint32_t timeout_ms) {
+                std::vector<uint32_t> return_values = {0, 0};
+                auto result = self.send_message(msg_code, return_values, arg0, arg1, timeout_ms);
+                return std::make_tuple(result, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("arg0") = 0,
+            nb::arg("arg1") = 0,
+            nb::arg("timeout_ms") = 1000,
+            "Send ARC message with return values")
+        .def_static(
+            "create_arc_messenger",
+            &ArcMessenger::create_arc_messenger,
+            nb::arg("tt_device"),
+            nb::rv_policy::take_ownership);
 }

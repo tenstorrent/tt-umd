@@ -87,8 +87,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) { wait_arc_post_reset(timeout_ms); }
-
 uint32_t WormholeTTDevice::get_clock() {
     const uint32_t timeouts_ms = 1000;
     // There is one return value from AICLK ARC message.
@@ -525,7 +523,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         erisc_remote_eth_id_offset};
 }
 
-bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     // Status codes
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;

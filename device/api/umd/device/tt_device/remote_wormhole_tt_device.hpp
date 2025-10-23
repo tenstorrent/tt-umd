@@ -28,8 +28,6 @@ public:
 
     RemoteCommunication* get_remote_communication();
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
-
     /*
      * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
      * so hang detection is done via the local TTDevice used by RemoteCommunication.

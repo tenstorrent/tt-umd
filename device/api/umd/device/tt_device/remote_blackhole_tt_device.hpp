@@ -24,8 +24,6 @@ public:
 
     RemoteCommunication* get_remote_communication();
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
-
 protected:
     bool is_arc_available_over_axi() override;
 

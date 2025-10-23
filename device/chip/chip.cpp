@@ -89,17 +89,16 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
     }
 }
 
-void Chip::enable_ethernet_queue(int timeout_s) {
+void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     TT_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout_s);
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            throw std::runtime_error(fmt::format(
+                "Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count()));
         }
         if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;

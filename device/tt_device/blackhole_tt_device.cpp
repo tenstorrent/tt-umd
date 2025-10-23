@@ -251,10 +251,10 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
 
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky

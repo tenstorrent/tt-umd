@@ -113,7 +113,7 @@ uint32_t WormholeArcMessenger::send_message(
         }
 
         utils::check_timeout(
-            start, timeout_ms, fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
+            start, timeout_ms, fmt::format("Timed out after waiting {} ms for ARC to respond. Message code 0x{:x} with arguments 0x{:x} and 0x{:x}", timeout_ms, msg_code, arg0, arg1));
     }
 
     tt_device->detect_hang_read();

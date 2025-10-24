@@ -317,5 +317,8 @@ private:
 
     // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
     std::unordered_map<ChipId, uint16_t> chip_to_bus_id = {};
+
+    // Will have value only if there are ETH cores on chips in the cluster.
+    std::optional<semver_t> eth_fw_version;
 };
 }  // namespace tt::umd

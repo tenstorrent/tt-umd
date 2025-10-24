@@ -812,7 +812,7 @@ TEST(TestCluster, GetEthernetFirmware) {
     }
 
     // BoardType P100 doesn't have eth cores.
-    std::optional<tt::umd::tt_version> eth_version;
+    std::optional<semver_t> eth_version;
     EXPECT_NO_THROW(eth_version = cluster->get_ethernet_fw_version());
     if (cluster->get_cluster_description()->get_board_type(0) == BoardType::P100) {
         EXPECT_FALSE(eth_version.has_value());

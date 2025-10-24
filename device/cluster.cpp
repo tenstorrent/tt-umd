@@ -205,8 +205,7 @@ void Cluster::verify_fw_bundle_version() {
     if (compare_fw_bundle_with_latest == 1) {
         log_warning(
             LogUMD,
-            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
-            "features may not be supported.",
+            "New features from firmwareversion {} might not be supported. Latest fully supported version for {} architecture is {}.",
             fw_bundle_version.to_string(),
             latest_supported_fw_version.to_string(),
             arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));

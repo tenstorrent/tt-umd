@@ -71,7 +71,7 @@ uint32_t WormholeArcMessenger::send_message(
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms && timeout_ms != 0) {
-            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
+            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond. Message code 0x{:x} with arguments 0x{:x} and 0x{:x}", timeout_ms, msg_code, arg0, arg1));
         }
 
         tt_device->read_from_arc(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));

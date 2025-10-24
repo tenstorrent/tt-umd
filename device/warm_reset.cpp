@@ -48,6 +48,49 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     }
 }
 
+void WarmReset::warm_reset_new(bool reset_m3) {
+    // check driver version
+    semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
+
+    auto kmd_version = PCIDevice::read_kmd_version();
+    if (kmd_version < KMD_VERSION_WITH_NEW_RESET) {
+        return;
+    }
+
+    // check if it's aarch - skip
+
+    // silent/not silent - skip
+
+    // get pci bdf
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+
+    // save pci bdf
+    std::map<int, std::string> pci_bdfs;
+    for (auto& pci_device_info : pci_devices_info) {
+        pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
+    }
+
+    // IOCTL Reset PCIe Link
+    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::RESET_PCIE_LINK);
+
+    // IOCTL ASIC_DMC_RESET or ASIC_RESET
+    if (reset_m3) {
+        PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::ASIC_DMC_RESET);
+    } else {
+        PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::ASIC_RESET);
+    }
+
+    // Sleep post reset wait
+    // change this to be a parameter
+    static constexpr double M3_POST_RESET_WAIT = 20.0;
+    auto post_reset_wait = reset_m3 ? M3_POST_RESET_WAIT : std::max(2.0, 0.4 * pci_devices_info.size());
+    sleep(static_cast<int>(post_reset_wait));
+
+    // check for BDF to re-appear and then call post_reset ioctl
+    // IOCTL POST_RESET
+    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::POST_RESET);
+}
+
 void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
     PCIDevice::reset_device_ioctl(pci_device_ids_set, tt::umd::TenstorrentResetDevice::CONFIG_WRITE);

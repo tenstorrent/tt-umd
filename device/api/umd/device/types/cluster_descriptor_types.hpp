@@ -243,10 +243,10 @@ static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_u
     {BoardType::N300, 2},
     {BoardType::P100, 2},
     {BoardType::P150, 0},
-    {BoardType::P300, 0},
+    {BoardType::P300, 2},
     {BoardType::GALAXY, 0},
     {BoardType::UBB, 0},
-    {BoardType::UBB_BLACKHOLE, 0},
+    {BoardType::UBB_BLACKHOLE, 1},
 };
 
 static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_units_map = {
@@ -268,7 +268,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_unit
     {BoardType::P300, 2},
     {BoardType::GALAXY, 0},
     {BoardType::UBB, 0},
-    {BoardType::UBB_BLACKHOLE, 0},
+    {BoardType::UBB_BLACKHOLE, 2},
 };
 
 struct HarvestingMasks {

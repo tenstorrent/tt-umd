@@ -51,11 +51,9 @@ private:
      * TODO: In the future, either remove this constructor or refactor the class hierarchy to better support PCIe use
      * case.
      */
-    RemoteWormholeTTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type);
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication);
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

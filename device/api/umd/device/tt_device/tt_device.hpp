@@ -52,8 +52,7 @@ public:
      * Jtag support can be enabled.
      */
     static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(

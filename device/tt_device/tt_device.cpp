@@ -91,8 +91,7 @@ void TTDevice::init_tt_device() {
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
-    std::unique_ptr<RemoteCommunication> remote_communication) {
+std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
@@ -101,8 +100,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
                 return std::unique_ptr<RemoteWormholeTTDevice>(
                     new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(
-                new RemoteWormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {

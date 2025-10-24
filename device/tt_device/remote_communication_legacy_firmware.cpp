@@ -366,9 +366,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     // Broadcast requires block writes to host dram
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks
     use_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
-    TT_ASSERT(
-        !(broadcast && sysmem_manager_ == nullptr),
-        "Broadcasts not available without system memory.");
+    TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     //

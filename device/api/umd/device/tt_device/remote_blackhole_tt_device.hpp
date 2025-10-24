@@ -33,7 +33,7 @@ private:
     RemoteBlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
     friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip);
+        std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

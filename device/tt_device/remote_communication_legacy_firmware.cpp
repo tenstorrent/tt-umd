@@ -148,8 +148,8 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     bool use_dram;
     uint32_t max_block_size;
 
-    use_dram = size_in_bytes > 1024;
-    TT_ASSERT(!(use_dram && sysmem_manager_ == nullptr), "Large transfers not available without system memory.");
+    use_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr;
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     uint32_t offset = 0;
@@ -364,10 +364,11 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     uint32_t max_block_size;
 
     // Broadcast requires block writes to host dram
-    use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    use_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
     TT_ASSERT(
-        !(use_dram && sysmem_manager_ == nullptr),
-        "Large transfers and broadcasts not available without system memory.");
+        !(broadcast && sysmem_manager_ == nullptr),
+        "Broadcasts not available without system memory.");
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     //

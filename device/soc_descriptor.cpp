@@ -4,20 +4,22 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
-#include <assert.h>
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
+#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
 // #include "l1_address_map.h"
@@ -692,12 +694,27 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     return translated_cores;
 }
 
-std::vector<CoreCoord> SocDescriptor::get_cores(const CoreType core_type, const CoordSystem coord_system) const {
+std::vector<CoreCoord> SocDescriptor::get_cores(
+    const CoreType core_type, const CoordSystem coord_system, std::optional<uint32_t> channel) const {
     auto cores_map_it = cores_map.find(core_type);
-    if (coord_system != CoordSystem::NOC0) {
-        return translate_coordinates(cores_map_it->second, coord_system);
+    std::vector<CoreCoord> cores = cores_map_it->second;
+
+    // Filter cores by DRAM channel if specified
+    if (channel.has_value() && core_type == CoreType::DRAM) {
+        TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
+        std::vector<CoreCoord> filtered_cores;
+        for (const auto &core : cores) {
+            if (core.y == channel.value()) {
+                filtered_cores.push_back(core);
+            }
+        }
+        cores = filtered_cores;
     }
-    return cores_map_it->second;
+
+    if (coord_system != CoordSystem::NOC0) {
+        return translate_coordinates(cores, coord_system);
+    }
+    return cores;
 }
 
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(

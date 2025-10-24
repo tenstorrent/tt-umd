@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -100,7 +101,9 @@ public:
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<CoreCoord> get_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const CoreType core_type,
+        const CoordSystem coord_system = CoordSystem::NOC0,
+        std::optional<uint32_t> channel = std::nullopt) const;
     std::vector<CoreCoord> get_harvested_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
     std::vector<CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;

@@ -182,13 +182,8 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
     return ((board_id << 5) | (asic_location & 0x1F));
 }
 
-bool TopologyDiscoveryBlackhole::is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) {
-    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UNUSED;
-}
-
-bool TopologyDiscoveryBlackhole::is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) {
-    uint32_t port_status = read_port_status(chip, eth_core);
-    return port_status == blackhole::port_status_e::PORT_UNKNOWN || port_status == blackhole::port_status_e::PORT_DOWN;
+bool TopologyDiscoveryBlackhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_core) {
+    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UP;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {
@@ -239,9 +234,7 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
     std::unordered_map<uint64_t, std::vector<CoreCoord>> remote_asic_ids_to_eth_cores;
 
     for (const auto& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core);
-
-        if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+        if (!is_eth_trained(chip, eth_core)) {
             continue;
         }
 

@@ -7,6 +7,7 @@
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -31,7 +32,7 @@ public:
         std::vector<uint32_t>& return_values,
         uint16_t arg0 = 0,
         uint16_t arg1 = 0,
-        uint32_t timeout_ms = 1000) override;
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT) override;
 
 private:
     std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue = nullptr;

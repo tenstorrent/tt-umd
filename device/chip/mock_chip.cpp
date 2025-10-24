@@ -49,7 +49,7 @@ int MockChip::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     // This designates success for the ARC enable eth queue message.

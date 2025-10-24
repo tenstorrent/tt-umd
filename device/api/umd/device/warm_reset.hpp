@@ -6,22 +6,23 @@
 
 #pragma once
 
-#include "api/umd/device/tt_device/tt_device.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace tt::umd {
 
 class WarmReset {
 public:
-    static void warm_reset(bool reset_m3 = false);
+    static void warm_reset(std::vector<int> pci_device_ids = {}, bool reset_m3 = false);
 
     static void ubb_warm_reset(uint64_t timeout_s = 100);
 
 private:
     static constexpr int POST_RESET_WAIT = 2;
 
-    static void warm_reset_blackhole();
+    static void warm_reset_blackhole(std::vector<int> pci_device_ids);
 
-    static void warm_reset_wormhole(bool reset_m3);
+    static void warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3);
 
     static void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 

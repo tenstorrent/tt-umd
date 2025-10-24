@@ -38,3 +38,20 @@ class TestTelemetry(unittest.TestCase):
                 tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
                 print(f"Telemetry reading for remote chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
 
+    def test_smbus_telemetry(self):
+        """Test SMBUS telemetry reader on wormhole devices"""
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        dev = tt_umd.TTDevice.create(dev_ids[0])
+        dev.init_tt_device()
+        
+        # Only test SMBUS telemetry on wormhole devices
+        if dev.get_arch() == tt_umd.ARCH.WORMHOLE_B0:
+            smbus_reader = tt_umd.SmBusArcTelemetryReader(dev)
+            if smbus_reader.is_entry_available(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE):
+                temp = smbus_reader.read_entry(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
+                print(f"SMBUS telemetry ASIC temperature: {temp}")
+

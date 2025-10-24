@@ -23,29 +23,32 @@ namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-void WarmReset::warm_reset(bool reset_m3) {
+void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
+    // If pci_device_ids is empty, enumerate all devices
+    if (pci_device_ids.empty()) {
+        pci_device_ids = PCIDevice::enumerate_devices();
+    }
+
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
     log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            warm_reset_wormhole(reset_m3);
+            warm_reset_wormhole(pci_device_ids, reset_m3);
             return;
         case ARCH::BLACKHOLE:
             if (reset_m3) {
                 log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
             }
-            warm_reset_blackhole();
+            warm_reset_blackhole(pci_device_ids);
             return;
         default:
             return;
     }
 }
 
-void WarmReset::warm_reset_blackhole() {
+void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
     PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
-
-    auto pci_device_ids = PCIDevice::enumerate_devices();
 
     std::map<int, bool> reset_bits;
 
@@ -95,15 +98,13 @@ void WarmReset::warm_reset_blackhole() {
     PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
 }
 
-void WarmReset::warm_reset_wormhole(bool reset_m3) {
+void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3) {
     bool reset_ok = true;
     static constexpr uint16_t default_arg_value = 0xFFFF;
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
     PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
-
-    auto pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     tt_devices.reserve(pci_device_ids.size());

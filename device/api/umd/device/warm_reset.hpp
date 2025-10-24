@@ -23,6 +23,8 @@ private:
 
     static void warm_reset_wormhole(bool reset_m3);
 
+    static void warm_reset_new(bool reset_m3);
+
     static void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 
     static void ubb_wait_for_driver_load(uint64_t timeout_s);

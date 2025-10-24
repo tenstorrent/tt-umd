@@ -110,7 +110,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
-        if (!tt_device->wait_arc_post_reset(300'000)) {
+        if (!tt_device->wait_arc_core_start(300'000)) {
             log_warning(tt::LogUMD, "Reset failed for PCI id {} - ARC core init failed", i);
             continue;
         }

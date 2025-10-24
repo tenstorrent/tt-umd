@@ -17,7 +17,7 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
+    bool wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
 
     uint32_t get_clock() override;
 
@@ -44,8 +44,6 @@ public:
     ChipInfo get_chip_info() override;
 
     uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
-
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

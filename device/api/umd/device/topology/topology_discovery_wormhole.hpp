@@ -18,6 +18,7 @@ protected:
         uint32_t masked_version;
 
         uint64_t eth_param_table;
+        uint64_t routing_firmware_state;
         uint64_t node_info;
         uint64_t eth_conn_info;
         uint64_t results_buf;
@@ -58,10 +59,6 @@ protected:
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
-    std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) override;
-
-    bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
-
     std::unique_ptr<RemoteChip> create_remote_chip(
         std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
@@ -70,6 +67,8 @@ protected:
     void init_topology_discovery() override;
 
     bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
+
+    void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) override;
 
     EthAddresses eth_addresses;
 

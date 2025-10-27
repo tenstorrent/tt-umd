@@ -134,6 +134,8 @@ public:
     // to get the information to form cluster of chips, or just use base TTDevice functions.
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device_reg(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
      * Read function that will send read message to the ARC core.

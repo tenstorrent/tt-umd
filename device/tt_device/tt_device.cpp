@@ -315,7 +315,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
+    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
         auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
@@ -333,6 +333,45 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         return;
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
+    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+
+    while (size > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        write_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
+void TTDevice::read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        return;
+    }
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO_REG, get_pci_device()->get_device_num());
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
+    while (size > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        read_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
+void TTDevice::write_to_device_reg(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        return;
+    }
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO_REG, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
@@ -606,13 +645,13 @@ uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->g
 
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;
-    read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    read_from_device_reg(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
 
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
-    write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    write_to_device_reg(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 

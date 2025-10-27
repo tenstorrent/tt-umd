@@ -33,6 +33,15 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
+    
+    // check driver version
+    semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
+
+    auto kmd_version = PCIDevice::read_kmd_version();
+    if (kmd_version >= KMD_VERSION_WITH_NEW_RESET) {
+        warm_reset_new(reset_m3);
+        return;
+    }
 
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
@@ -103,14 +112,6 @@ int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
 }
 
 void WarmReset::warm_reset_new(bool reset_m3) {
-    // check driver version
-    semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
-
-    auto kmd_version = PCIDevice::read_kmd_version();
-    if (kmd_version < KMD_VERSION_WITH_NEW_RESET) {
-        return;
-    }
-
     // check if it's aarch - skip
 
     // silent/not silent - skip

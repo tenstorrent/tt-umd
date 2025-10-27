@@ -15,6 +15,7 @@
 #include <memory>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
@@ -33,13 +34,13 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
-    
+
     // check driver version
     semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
 
     auto kmd_version = PCIDevice::read_kmd_version();
     if (kmd_version >= KMD_VERSION_WITH_NEW_RESET) {
-        warm_reset_new(reset_m3);
+        warm_reset_new(pci_device_ids, reset_m3);
         return;
     }
 
@@ -111,13 +112,14 @@ int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
     return interface_id;
 }
 
-void WarmReset::warm_reset_new(bool reset_m3) {
+void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
     // check if it's aarch - skip
 
     // silent/not silent - skip
 
+    std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     // get pci bdf
-    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+    auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
 
     // save pci bdf
     std::map<int, std::string> pci_bdfs;

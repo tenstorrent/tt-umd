@@ -255,8 +255,8 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 TEST(ApiTTDeviceTest, SPIReadWrite) {
     auto [cluster_desc, _] = TopologyDiscovery::discover();
 
-    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> tt_devices;
-    for (chip_id_t chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+    std::unordered_map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
+    for (ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         std::cout << "Testing device " << chip_id << " local: " << cluster_desc->is_chip_mmio_capable(chip_id)
                   << std::endl;
 
@@ -267,7 +267,7 @@ TEST(ApiTTDeviceTest, SPIReadWrite) {
             tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(tt_device);
         } else {
-            chip_id_t closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+            ChipId closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
             std::unique_ptr<TTDevice>& local_tt_device = tt_devices.at(closest_mmio_chip_id);
 
             SocDescriptor local_soc_descriptor =
@@ -277,14 +277,14 @@ TEST(ApiTTDeviceTest, SPIReadWrite) {
                 local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
             remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
-            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
+            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication), target_chip);
             remote_tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(remote_tt_device);
         }
 
         auto& tt_device = tt_devices.at(chip_id);
 
-        std::cout << "\n=== Testing device " << device_id << " (remote: " << tt_device->is_remote()
+        std::cout << "\n=== Testing device " << chip_id << " (remote: " << tt_device->is_remote()
                   << ") ===" << std::endl;
 
         // Test SPI read functionality
@@ -309,7 +309,7 @@ TEST(ApiTTDeviceTest, SPIReadWrite) {
                 break;
             }
         }
-        EXPECT_TRUE(has_data) << "SPI read should return non-zero board info data for device " << device_id;
+        EXPECT_TRUE(has_data) << "SPI read should return non-zero board info data for device " << chip_id;
 
         // Test read-modify-write on spare/scratch area
         uint32_t spare_addr = 0x20134;  // Wormhole spare area
@@ -339,7 +339,7 @@ TEST(ApiTTDeviceTest, SPIReadWrite) {
                   << std::setw(2) << (int)verify_value[1] << std::setw(2) << (int)verify_value[0] << std::endl;
 
         // Verify read-after-write
-        EXPECT_EQ(new_value, verify_value) << "SPI write verification failed for device " << device_id;
+        EXPECT_EQ(new_value, verify_value) << "SPI write verification failed for device " << chip_id;
 
         // Read wider area to check SPI handling of different sizes
         std::vector<uint8_t> wide_value(8, 0);
@@ -352,8 +352,8 @@ TEST(ApiTTDeviceTest, SPIReadWrite) {
 
         // Verify first 2 bytes match our written value
         EXPECT_EQ(wide_value[0], new_value[0])
-            << "First byte of wide read doesn't match written value for device " << device_id;
+            << "First byte of wide read doesn't match written value for device " << chip_id;
         EXPECT_EQ(wide_value[1], new_value[1])
-            << "Second byte of wide read doesn't match written value for device " << device_id;
+            << "Second byte of wide read doesn't match written value for device " << chip_id;
     }
 }

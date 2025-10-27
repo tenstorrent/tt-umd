@@ -556,7 +556,7 @@ bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
         if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
             log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms);
             fmt::print(
-                "NoAccess error, status: 0x{:08x}, post_code: 0x{:08x}\n",
+                "Post reset wait for ARC error, status: 0x{:08x}, post_code: 0x{:08x}\n",
                 bar_read_arc_reset_scratch_status,
                 bar_read_arc_post_code);
             return false;

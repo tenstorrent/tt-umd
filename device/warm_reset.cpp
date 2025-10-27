@@ -48,7 +48,8 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
 }
 
 void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
-    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
+    std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
 
     std::map<int, bool> reset_bits;
 
@@ -95,7 +96,7 @@ void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
     if (all_reset_bits_set) {
         log_info(tt::LogUMD, "Reset succesfully completed.");
     }
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 }
 
 void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3) {
@@ -104,7 +105,8 @@ void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
+    std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     tt_devices.reserve(pci_device_ids.size());
@@ -148,7 +150,7 @@ void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());
 
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
         refclk_current.emplace_back(tt_device->get_refclk_counter());

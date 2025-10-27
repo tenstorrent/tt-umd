@@ -5,13 +5,13 @@
  */
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
@@ -20,23 +20,31 @@ class ClusterDescriptor;
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<chip_id_t> target_devices = {},
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
+        std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
-    TopologyDiscovery(
-        std::unordered_set<chip_id_t> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType io_device_type = IODeviceType::PCIe);
+
     virtual ~TopologyDiscovery() = default;
-    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
 protected:
+    TopologyDiscovery(
+        std::unordered_set<ChipId> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
+
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        std::unordered_set<ChipId> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
+
+    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
+
     void get_connected_chips();
 
     void discover_remote_chips();
 
-    void fill_cluster_descriptor_info();
+    std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -65,9 +73,11 @@ protected:
 
     uint64_t get_asic_id(Chip* chip);
 
-    virtual std::optional<eth_coord_t> get_local_eth_coord(Chip* chip) = 0;
+    virtual uint64_t get_unconnected_chip_id(Chip* chip) = 0;
 
-    virtual std::optional<eth_coord_t> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip) = 0;
+
+    virtual std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
 
     // local_eth_core should be in NoC 0 coordinates.
     virtual tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) = 0;
@@ -85,22 +95,17 @@ protected:
     // ethernet channel for the remote chip on all board types).
     virtual uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
 
-    // eth_core should be in NoC 0 coordinates..
-    virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) = 0;
-
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
 
     Chip* get_chip(const uint64_t asic_id);
 
     virtual void init_topology_discovery();
 
-    virtual bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) = 0;
-
-    virtual bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) = 0;
+    virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -123,16 +128,14 @@ protected:
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 
-    std::unordered_map<uint64_t, eth_coord_t> eth_coords;
+    std::unordered_map<uint64_t, EthCoord> eth_coords;
 
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>> ethernet_connections;
 
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
         ethernet_connections_to_remote_devices;
 
-    std::unique_ptr<ClusterDescriptor> cluster_desc;
-
-    std::unordered_set<chip_id_t> target_devices = {};
+    std::unordered_set<ChipId> target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;

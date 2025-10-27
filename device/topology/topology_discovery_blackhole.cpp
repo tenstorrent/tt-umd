@@ -22,18 +22,18 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
+    std::unordered_set<ChipId> pci_target_devices, const std::string& sdesc_path) :
     TopologyDiscovery(pci_target_devices, sdesc_path) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
-    std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     return RemoteChip::create(dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, sdesc_path);
 }
 
-std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
 
-std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) {
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) {
     return std::nullopt;
 }
 
@@ -166,10 +166,17 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, 
     uint8_t remote_logical_eth_id;
     chip->get_tt_device()->read_from_device(
         &remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
-    // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
-    // the first 4 ethernet channels (these channels are using SerDes for PCIe)
-    // These channels are visible to UMD, and are thus accounted for in this API.
-    return remote_logical_eth_id + 4;
+
+    auto fw_bundle_version = chip->get_tt_device()->get_firmware_version();
+
+    if (fw_bundle_version >= semver_t(18, 12, 0)) {
+        return remote_logical_eth_id;
+    } else {
+        // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
+        // the first 4 ethernet channels (these channels are using SerDes for PCIe)
+        // These channels are visible to UMD, and are thus accounted for in this API.
+        return remote_logical_eth_id + 4;
+    }
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
@@ -182,13 +189,8 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
     return ((board_id << 5) | (asic_location & 0x1F));
 }
 
-bool TopologyDiscoveryBlackhole::is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) {
-    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UNUSED;
-}
-
-bool TopologyDiscoveryBlackhole::is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) {
-    uint32_t port_status = read_port_status(chip, eth_core);
-    return port_status == blackhole::port_status_e::PORT_UNKNOWN || port_status == blackhole::port_status_e::PORT_DOWN;
+bool TopologyDiscoveryBlackhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_core) {
+    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UP;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {
@@ -239,9 +241,7 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
     std::unordered_map<uint64_t, std::vector<CoreCoord>> remote_asic_ids_to_eth_cores;
 
     for (const auto& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core);
-
-        if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+        if (!is_eth_trained(chip, eth_core)) {
             continue;
         }
 
@@ -284,6 +284,13 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
+}
+
+uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
+    uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
+    return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
 }  // namespace tt::umd

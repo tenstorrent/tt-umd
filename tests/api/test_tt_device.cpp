@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <gtest/gtest.h>
+
 #include <cstring>
 #include <iomanip>
 #include <thread>
 #include <unordered_map>
 
 #include "device/api/umd/device/warm_reset.hpp"
-#include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -171,7 +172,7 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
     tt_device->init_tt_device();
 
-    tt_SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
+    SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
 
     tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -224,7 +225,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         pattern_buf[i] = (uint8_t)(i % 256);
     }
 
-    for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
         TTDevice* remote_tt_device = cluster->get_chip(remote_chip_id)->get_tt_device();
 
         std::vector<CoreCoord> tensix_cores =

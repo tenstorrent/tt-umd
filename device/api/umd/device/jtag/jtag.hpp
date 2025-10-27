@@ -44,11 +44,11 @@ public:
     void close_jlink();
     uint32_t read_id_raw();
     uint32_t read_id();
+    uint32_t get_device_family();
 
 private:
     static DlHandle handle;
     std::unordered_map<std::string, void*> func_map;
-    std::mutex mtx;
 
     void* load_function(const char* name);
     void openLibrary(const std::string& filePath, int flags = RTLD_LAZY);

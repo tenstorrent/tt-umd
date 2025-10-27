@@ -3,8 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <gtest/gtest.h>
+
 #include "common/microbenchmark_utils.hpp"
-#include "gtest/gtest.h"
 
 using namespace tt;
 using namespace tt::umd;
@@ -41,9 +42,9 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
         GTEST_SKIP() << "No ETH connected devices found in the cluster, skipping benchmark.";
     }
 
-    const chip_id_t chip = *cluster->get_target_remote_device_ids().begin();
+    const ChipId chip = *cluster->get_target_remote_device_ids().begin();
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
-    cluster->start_device(device_params{});
+    cluster->start_device({});
 
     const std::vector<std::string> headers = {
         "Size (MB)",
@@ -86,9 +87,9 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
         GTEST_SKIP() << "No ETH connected devices found in the cluster, skipping benchmark.";
     }
 
-    const chip_id_t chip = *cluster->get_target_remote_device_ids().begin();
+    const ChipId chip = *cluster->get_target_remote_device_ids().begin();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
-    cluster->start_device(device_params{});
+    cluster->start_device({});
 
     const std::vector<std::string> headers = {
         "Size (MB)",
@@ -130,9 +131,9 @@ TEST(MicrobenchmarkEthernetIO, Eth) {
     if (cluster->get_target_remote_device_ids().empty()) {
         GTEST_SKIP() << "No ETH connected devices found in the cluster, skipping benchmark.";
     }
-    const chip_id_t chip = *cluster->get_target_remote_device_ids().begin();
+    const ChipId chip = *cluster->get_target_remote_device_ids().begin();
     const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
-    cluster->start_device(device_params{});
+    cluster->start_device({});
 
     const std::vector<std::string> headers = {
         "Size (KB)",

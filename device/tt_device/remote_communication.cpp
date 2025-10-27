@@ -24,7 +24,7 @@ RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManage
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, eth_coord_t target_chip, SysmemManager* sysmem_manager) {
+    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) {
     switch (local_tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);

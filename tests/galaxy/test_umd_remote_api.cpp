@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <filesystem>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
 
-#include "gtest/gtest.h"
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -22,7 +23,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -121,7 +122,7 @@ void run_data_mover_test(
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -233,7 +234,7 @@ void run_data_broadcast_test(
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test

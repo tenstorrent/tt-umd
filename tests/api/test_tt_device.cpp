@@ -252,7 +252,8 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
 // This test can be destructive, and should not normally run.
 // Make sure to only run it on hardware which has recovery support.
-TEST(ApiTTDeviceTest, SPIReadWrite) {
+// The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests
+TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
     auto [cluster_desc, _] = TopologyDiscovery::discover();
 
     std::unordered_map<ChipId, std::unique_ptr<TTDevice>> tt_devices;

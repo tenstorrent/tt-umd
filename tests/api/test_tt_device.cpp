@@ -295,7 +295,7 @@ TEST(ApiTTDeviceTest, SPIReadWrite) {
         // Test SPI read - should work on chips with ARC SPI support
         tt_device->spi_read(test_addr, read_data.data(), read_data.size());
 
-        std::cout << "read_data: ";
+        std::cout << "Read board info: ";
         for (uint8_t byte : read_data) {
             std::cout << std::dec << (int)byte << " ";
         }

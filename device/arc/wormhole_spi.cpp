@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -126,55 +125,43 @@ void WormholeSPI::init(uint32_t clock_div) {
     // std::cout << "clock_div: " << clock_div << std::endl;
     uint32_t reg;
     tt_device_->read_from_arc(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
-    // std::cout << std::hex << "init read: 0x" << reg << " from 0x" << GPIO2_PAD_TRIEN_CNTL << std::endl;
 
     reg |= 1 << 2;     // Enable tristate for SPI data in PAD
     reg &= ~(1 << 5);  // Disable tristate for SPI chip select PAD
     reg &= ~(1 << 6);  // Disable tristate for SPI clock PAD
     tt_device_->write_to_arc(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
-    // std::cout << std::hex << "init write: 0x" << reg << " to 0x" << GPIO2_PAD_TRIEN_CNTL << std::endl;
 
     uint32_t val = 0xffffffff;
     tt_device_->write_to_arc(&val, GPIO2_PAD_DRV_CNTL, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << GPIO2_PAD_DRV_CNTL << std::endl;
 
     // Enable RX for all SPI PADS
     tt_device_->read_from_arc(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
-    // std::cout << std::hex << "init read: 0x" << reg << " from 0x" << GPIO2_PAD_RXEN_CNTL << std::endl;
     reg |= 0x3f << 1;  // PADs 1 to 6 are used for SPI quad SCPH support
     tt_device_->write_to_arc(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
-    // std::cout << std::hex << "init write: 0x" << reg << " to 0x" << GPIO2_PAD_RXEN_CNTL << std::endl;
 
     val = SPI_CNTL_SPI_ENABLE;
     tt_device_->write_to_arc(&val, SPI_CNTL, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << SPI_CNTL << std::endl;
 
     val = SPI_SSIENR_DISABLE;
     tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << SPI_SSIENR << std::endl;
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
     tt_device_->write_to_arc(&val, SPI_CTRLR0, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << SPI_CTRLR0 << std::endl;
 
     val = 0;
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     val = spi_baudr_sckdv(clock_div);
     tt_device_->write_to_arc(&val, SPI_BAUDR, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << SPI_BAUDR << std::endl;
 
     val = SPI_SSIENR_ENABLE;
     tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
-    // std::cout << std::hex << "init write: 0x" << val << " to 0x" << SPI_SSIENR << std::endl;
 }
 
 void WormholeSPI::disable() {
     uint32_t val = SPI_CNTL_CLK_DISABLE | SPI_CNTL_SPI_DISABLE;
     tt_device_->write_to_arc(&val, SPI_CNTL, sizeof(val));
-    // std::cout << std::hex << "disable write: 0x" << val << " to 0x" << SPI_CNTL << std::endl;
 }
 
 uint8_t WormholeSPI::read_status(uint8_t register_addr) {
@@ -182,62 +169,37 @@ uint8_t WormholeSPI::read_status(uint8_t register_addr) {
 
     val = SPI_SSIENR_DISABLE;
     tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_SSIENR << std::endl;
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
     tt_device_->write_to_arc(&val, SPI_CTRLR0, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_CTRLR0 << std::endl;
 
     val = spi_ctrl1_ndf(0);
     tt_device_->write_to_arc(&val, SPI_CTRLR1, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_CTRLR1 << std::endl;
 
     val = SPI_SSIENR_ENABLE;
     tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_SSIENR << std::endl;
 
     val = spi_ser_slave_disable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Write status register to read
     val = register_addr;
     tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_DR << std::endl;
 
     val = spi_ser_slave_enable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Wait for data to be available
-    // uint32_t prev_val = 0;
-    // uint32_t count = 0;
-    // bool first_read = true;
     do {
         tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
-        // if (first_read || val != prev_val) {
-        //     if (!first_read) {
-        //         std::cout << std::hex << "read_status read: 0x" << prev_val << " from 0x" << SPI_SR
-        //                   << std::dec << " (x" << count << ")" << std::endl;
-        //     }
-        //     prev_val = val;
-        //     count = 1;
-        //     first_read = false;
-        // } else {
-        //     count++;
-        // }
     } while ((val & SPI_SR_RFNE) == 0);
-    // std::cout << std::hex << "read_status read: 0x" << val << " from 0x" << SPI_SR
-    //           << std::dec << " (x" << count << ")" << std::endl;
 
     tt_device_->read_from_arc(&val, SPI_DR, sizeof(val));
-    // std::cout << std::hex << "read_status read: 0x" << val << " from 0x" << SPI_DR << std::endl;
     uint8_t read_buf = val & 0xff;
 
     val = spi_ser_slave_disable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "read_status write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     return read_buf;
 }
@@ -248,81 +210,40 @@ void WormholeSPI::lock(uint8_t sections) {
     // Set slave address
     val = SPI_SSIENR_DISABLE;
     tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SSIENR << std::endl;
 
     val = SPI_CTRL0_TMOD_TRANSMIT_ONLY | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
     tt_device_->write_to_arc(&val, SPI_CTRLR0, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_CTRLR0 << std::endl;
 
     val = SPI_SSIENR_ENABLE;
     tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SSIENR << std::endl;
 
     val = spi_ser_slave_disable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Enable write
     val = SPI_WR_EN_CMD;
     tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_DR << std::endl;
 
     val = spi_ser_slave_enable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Wait for TX FIFO empty
-    // uint32_t prev_val = 0;
-    // uint32_t count = 0;
-    // bool first_read = true;
     do {
         tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
-        // if (first_read || val != prev_val) {
-        //     if (!first_read) {
-        //         std::cout << std::hex << "lock read: 0x" << prev_val << " from 0x" << SPI_SR
-        //                   << std::dec << " (x" << count << ")" << std::endl;
-        //     }
-        //     prev_val = val;
-        //     count = 1;
-        //     first_read = false;
-        // } else {
-        //     count++;
-        // }
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
-    // std::cout << std::hex << "lock read: 0x" << val << " from 0x" << SPI_SR
-    //           << std::dec << " (x" << count << ")" << std::endl;
 
     // Wait for not busy
-    // prev_val = 0;
-    // count = 0;
-    // first_read = true;
     do {
         tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
-        // if (first_read || val != prev_val) {
-        //     if (!first_read) {
-        //         std::cout << std::hex << "lock read: 0x" << prev_val << " from 0x" << SPI_SR
-        //                   << std::dec << " (x" << count << ")" << std::endl;
-        //     }
-        //     prev_val = val;
-        //     count = 1;
-        //     first_read = false;
-        // } else {
-        //     count++;
-        // }
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
-    // } while (false);
-    // std::cout << std::hex << "lock read: 0x" << val << " from 0x" << SPI_SR
-    //           << std::dec << " (x" << count << ")" << std::endl;
 
     val = spi_ser_slave_disable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Write sectors to lock
     val = SPI_WR_STATUS_CMD;
     tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_DR << std::endl;
 
     // Determine board type to figure out which SPI to use
     uint64_t board_id = tt_device_->get_board_id();
@@ -338,58 +259,22 @@ void WormholeSPI::lock(uint8_t sections) {
         val = (0x1 << 5) | ((static_cast<uint32_t>(sections) - 5) << 2);
     }
     tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_DR << std::endl;
 
     val = spi_ser_slave_enable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Wait for TX FIFO empty
-    // prev_val = 0;
-    // count = 0;
-    // first_read = true;
     do {
         tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
-        // if (first_read || val != prev_val) {
-        //     if (!first_read) {
-        //         std::cout << std::hex << "lock read: 0x" << prev_val << " from 0x" << SPI_SR
-        //                   << std::dec << " (x" << count << ")" << std::endl;
-        //     }
-        //     prev_val = val;
-        //     count = 1;
-        //     first_read = false;
-        // } else {
-        //     count++;
-        // }
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
-    // std::cout << std::hex << "lock read: 0x" << val << " from 0x" << SPI_SR
-    //           << std::dec << " (x" << count << ")" << std::endl;
 
     // Wait for not busy
-    // prev_val = 0;
-    // count = 0;
-    // first_read = true;
     do {
         tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
-        // if (first_read || val != prev_val) {
-        //     if (!first_read) {
-        //         std::cout << std::hex << "lock read: 0x" << prev_val << " from 0x" << SPI_SR
-        //                   << std::dec << " (x" << count << ")" << std::endl;
-        //     }
-        //     prev_val = val;
-        //     count = 1;
-        //     first_read = false;
-        // } else {
-        //     count++;
-        // }
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
-    // } while (false);
-    // std::cout << std::hex << "lock read: 0x" << val << " from 0x" << SPI_SR
-    //           << std::dec << " (x" << count << ")" << std::endl;
 
     val = spi_ser_slave_disable(0);
     tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
-    // std::cout << std::hex << "lock write: 0x" << val << " to 0x" << SPI_SER << std::endl;
 
     // Wait for lock operation to complete
     uint8_t status_val;
@@ -397,22 +282,7 @@ void WormholeSPI::lock(uint8_t sections) {
     uint32_t status_count = 0;
     bool first_status = true;
     while (((status_val = read_status(SPI_RD_STATUS_CMD)) & 0x1) == 0x1) {
-        // if (first_status || status_val != prev_status) {
-        //     if (!first_status) {
-        //         std::cout << "lock waiting: status=0x" << std::hex << static_cast<uint32_t>(prev_status)
-        //                   << std::dec << " (x" << status_count << ")" << std::endl;
-        //     }
-        //     prev_status = status_val;
-        //     status_count = 1;
-        //     first_status = false;
-        // } else {
-        //     status_count++;
-        // }
     }
-    // if (!first_status) {
-    //     std::cout << "lock waiting: status=0x" << std::hex << static_cast<uint32_t>(status_val)
-    //               << std::dec << " (x" << status_count << ")" << std::endl;
-    // }
 }
 
 void WormholeSPI::unlock() {

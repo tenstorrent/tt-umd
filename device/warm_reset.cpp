@@ -6,8 +6,12 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
+#include <fmt/color.h>
+#include <glob.h>
+
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <memory>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -53,6 +57,56 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     }
 }
 
+int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
+    // Print waiting message in blue
+    fmt::print(fg(fmt::color::blue), "Waiting for devices to reappear on pci bus...\n");
+
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout);
+    bool device_reappeared = false;
+    int interface_id = -1;
+
+    while (std::chrono::steady_clock::now() < deadline && !device_reappeared) {
+        // Use glob to find matching paths
+        glob_t glob_result;
+        std::string pattern = fmt::format("/sys/bus/pci/devices/{}/tenstorrent/tenstorrent!*", bdf);
+
+        int glob_status = glob(pattern.c_str(), GLOB_NOSORT, nullptr, &glob_result);
+
+        if (glob_status == 0 && glob_result.gl_pathc > 0) {
+            // Extract interface_id from the first match
+            std::string match_path = glob_result.gl_pathv[0];
+            std::filesystem::path path(match_path);
+            std::string filename = path.filename().string();
+
+            // Remove "tenstorrent!" prefix using find()
+            const std::string prefix = "tenstorrent!";
+            if (filename.find(prefix) == 0) {
+                std::string id_str = filename.substr(prefix.length());
+                interface_id = std::stoi(id_str);
+
+                // Check if device path exists
+                std::string dev_path = fmt::format("/dev/tenstorrent/{}", interface_id);
+                if (std::filesystem::exists(dev_path)) {
+                    device_reappeared = true;
+                }
+            }
+        }
+
+        globfree(&glob_result);
+
+        if (!device_reappeared) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    if (!device_reappeared) {
+        fmt::print(fg(fmt::color::red), "Timeout waiting for device at PCI index {} to reappear.\n", interface_id);
+        return -1;
+    }
+
+    return interface_id;
+}
+
 void WarmReset::warm_reset_new(bool reset_m3) {
     // check driver version
     semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
@@ -92,7 +146,15 @@ void WarmReset::warm_reset_new(bool reset_m3) {
     sleep(static_cast<int>(post_reset_wait));
 
     // check for BDF to re-appear and then call post_reset ioctl
-    // IOCTL POST_RESET
+    for (auto& pci_bdf : pci_bdfs) {
+        auto new_id = wait_for_device_to_reappear(pci_bdf.second);
+        if (new_id == -1) {
+            log_info(tt::LogUMD, "Reset failed.");
+            return;
+        }
+    }
+
+    // IOCTL POST_RESET - returns bool if the reset is succesful (not implemented)
     PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::POST_RESET);
 }
 

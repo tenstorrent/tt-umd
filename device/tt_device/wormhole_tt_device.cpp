@@ -548,22 +548,24 @@ bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
     auto start = std::chrono::system_clock::now();
+    uint32_t bar_read_arc_reset_scratch_status;
+    uint32_t bar_read_arc_post_code;
     while (true) {
         auto now = std::chrono::system_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
         if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
             log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms);
+            fmt::print(
+                "NoAccess error, status: 0x{:08x}, post_code: 0x{:08x}\n",
+                bar_read_arc_reset_scratch_status,
+                bar_read_arc_post_code);
             return false;
         }
-
-        uint32_t bar_read_arc_reset_scratch_status;
 
         read_from_arc_apb(
             &bar_read_arc_reset_scratch_status,
             wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
             sizeof(bar_read_arc_reset_scratch_status));
-
-        uint32_t bar_read_arc_post_code;
 
         read_from_arc_apb(
             &bar_read_arc_post_code,
@@ -580,10 +582,16 @@ bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_debug(LogUMD, "NoAccess error");
+                fmt::print(
+                    "NoAccess error, status: 0x{:08x}, post_code: 0x{:08x}\n",
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code);
                 return false;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_debug(LogUMD, "WatchdogTriggered error");
+                fmt::print(
+                    "WatchdogTriggered error, status: 0x{:08x}, post_code: 0x{:08x}\n",
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code);
                 return false;
             case STATUS_BOOT_INCOMPLETE_1:
             case STATUS_BOOT_INCOMPLETE_2:
@@ -595,12 +603,20 @@ bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
                 continue;
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
+                fmt::print(
+                    "ARC core start complete, status: 0x{:08x}, post_code: 0x{:08x}\n",
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code);
                 return true;
             case STATUS_OLD_POST_CODE: {
                 bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
                                 bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
                 if (pc_idle) {
+                    fmt::print(
+                        "ARC core start complete (old post code), status: 0x{:08x}, post_code: 0x{:08x}\n",
+                        bar_read_arc_reset_scratch_status,
+                        bar_read_arc_post_code);
                     return true;
                 }
                 log_debug(LogUMD, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
@@ -627,6 +643,10 @@ bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
         }
         // Message complete, response written into bar_read_arc_reset_scratch_status
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
+            fmt::print(
+                "ARC core start complete (message complete), status: 0x{:08x}, post_code: 0x{:08x}\n",
+                bar_read_arc_reset_scratch_status,
+                bar_read_arc_post_code);
             return true;
         }
     }

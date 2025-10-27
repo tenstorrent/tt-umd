@@ -258,11 +258,20 @@ private:
     void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
 
+    // Centralize mock/simulator-only default values that are not coming from YAML
+    void fill_mock_hardcoded_data(ChipId logical_id);
+
     // Verify for some common mistakes.
-    void verify_cluster_descriptor_info();
+    bool verify_cluster_descriptor_info();
 
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;
+
+    bool verify_board_info_for_chips();
+
+    bool verify_same_architecture();
+
+    bool verify_harvesting_information();
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;

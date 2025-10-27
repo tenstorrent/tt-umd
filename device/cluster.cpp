@@ -1160,7 +1160,7 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<ChipId> target_devices, IODeviceType device_type) {
-    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
+    return TopologyDiscovery::discover(target_devices, sdesc_path, device_type).first;
 }
 
 }  // namespace tt::umd

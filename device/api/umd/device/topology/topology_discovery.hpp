@@ -5,13 +5,13 @@
  */
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
@@ -20,23 +20,31 @@ class ClusterDescriptor;
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
         std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
+
+    virtual ~TopologyDiscovery() = default;
+
+protected:
     TopologyDiscovery(
         std::unordered_set<ChipId> target_devices = {},
         const std::string& sdesc_path = "",
         IODeviceType io_device_type = IODeviceType::PCIe);
-    virtual ~TopologyDiscovery() = default;
+
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        std::unordered_set<ChipId> target_devices = {},
+        const std::string& sdesc_path = "",
+        IODeviceType io_device_type = IODeviceType::PCIe);
+
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
-protected:
     void get_connected_chips();
 
     void discover_remote_chips();
 
-    void fill_cluster_descriptor_info();
+    std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -87,9 +95,6 @@ protected:
     // ethernet channel for the remote chip on all board types).
     virtual uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
 
-    // eth_core should be in NoC 0 coordinates..
-    virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) = 0;
-
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.
@@ -100,9 +105,7 @@ protected:
 
     virtual void init_topology_discovery();
 
-    virtual bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) = 0;
-
-    virtual bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) = 0;
+    virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -131,8 +134,6 @@ protected:
 
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
         ethernet_connections_to_remote_devices;
-
-    std::unique_ptr<ClusterDescriptor> cluster_desc;
 
     std::unordered_set<ChipId> target_devices = {};
 

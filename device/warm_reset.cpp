@@ -113,10 +113,6 @@ int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
 }
 
 void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
-    // check if it's aarch - skip
-
-    // silent/not silent - skip
-
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     // get pci bdf
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
@@ -128,13 +124,13 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
     }
 
     // IOCTL Reset PCIe Link
-    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::RESET_PCIE_LINK);
+    PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::RESET_PCIE_LINK);
 
     // IOCTL ASIC_DMC_RESET or ASIC_RESET
     if (reset_m3) {
-        PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::ASIC_DMC_RESET);
+        PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_DMC_RESET);
     } else {
-        PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::ASIC_RESET);
+        PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_RESET);
     }
 
     // Sleep post reset wait
@@ -153,7 +149,7 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
     }
 
     // IOCTL POST_RESET - returns bool if the reset is succesful (not implemented)
-    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::POST_RESET);
+    PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::POST_RESET);
 }
 
 void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {

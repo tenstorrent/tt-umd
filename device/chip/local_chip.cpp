@@ -311,18 +311,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         std::string fallback_tlb = "LARGE_WRITE_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-
-        while (size > 0) {
-            auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-                tlb_index, translated_core, l1_dest, tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-            uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-            tt_device_->write_block(mapped_address, transfer_size, buffer_addr);
-
-            size -= transfer_size;
-            l1_dest += transfer_size;
-            buffer_addr += transfer_size;
-        }
-        log_trace(LogUMD, "Write done Dynamic TLB with pid={}", (long)getpid());
+        tt_device_->write_to_device(src, translated_core, l1_dest, size);
     }
 }
 
@@ -363,18 +352,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_trace(LogUMD, "  dynamic tlb_index: {}", tlb_index);
-        while (size > 0) {
-            auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-                tlb_index, translated_core, l1_src, tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-            uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-            tt_device_->read_block(mapped_address, transfer_size, buffer_addr);
-
-            size -= transfer_size;
-            l1_src += transfer_size;
-            buffer_addr += transfer_size;
-        }
-        log_trace(LogUMD, "Read done Dynamic TLB with pid={}", (long)getpid());
+        tt_device_->read_from_device(dest, translated_core, l1_src, size);
     }
 }
 
@@ -459,51 +437,11 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    if (size % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Size must be a multiple of 4 bytes");
-    }
-
-    if (reg_dest % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Register address must be 4-byte aligned");
-    }
-
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, reg_dest, size);
-        return;
-    }
-
-    std::string fallback_tlb = "REG_TLB";
-    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogUMD, "  dynamic tlb_index: {}", tlb_index);
-
-    auto [mapped_address, tlb_size] =
-        tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_dest, tlb_data::Strict);
-    tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
+    tt_device_->write_to_device_reg(core, src, reg_dest, size);
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    if (size % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Size must be a multiple of 4 bytes");
-    }
-
-    if (reg_src % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Register address must be 4-byte aligned");
-    }
-
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, reg_src, size);
-        return;
-    }
-
-    std::string fallback_tlb = "REG_TLB";
-    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogUMD, "  dynamic tlb_index: {}", tlb_index);
-
-    auto [mapped_address, tlb_size] =
-        tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_src, tlb_data::Strict);
-    tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
+    tt_device_->read_from_device_reg(core, dest, reg_src, size);
 }
 
 void LocalChip::ethernet_broadcast_write(

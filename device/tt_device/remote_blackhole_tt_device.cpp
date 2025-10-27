@@ -21,6 +21,16 @@ void RemoteBlackholeTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair co
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
+void RemoteBlackholeTTDevice::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    verify_register_access(reg_dest, size);
+    write_to_device(src, core, reg_dest, size);
+}
+
+void RemoteBlackholeTTDevice::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    verify_register_access(reg_src, size);
+    read_from_device(dest, core, reg_src, size);
+}
+
 void RemoteBlackholeTTDevice::read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
     read_from_device(mem_ptr, get_arc_core(), get_arc_noc_base_address() + arc_addr_offset, size);
 }

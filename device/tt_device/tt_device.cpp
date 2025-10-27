@@ -57,9 +57,9 @@ TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_imp
 
 void TTDevice::init_tt_device() {
     pre_init_hook();
-    if (!wait_arc_core_start(1000)) {
+    if (!wait_arc_core_start(1500)) {
         throw std::runtime_error(
-            fmt::format("Timed out after waiting {} ms for arc core ({}, {}) to start", 1000, arc_core.x, arc_core.y));
+            fmt::format("Timed out after waiting {} ms for arc core ({}, {}) to start", 1500, arc_core.x, arc_core.y));
     }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);

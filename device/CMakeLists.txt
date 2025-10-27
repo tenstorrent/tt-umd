@@ -46,15 +46,6 @@ add_custom_target(generate_lite_fabric_embed ALL DEPENDS ${LITE_FABRIC_EMBED})
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
 
-set_target_properties(
-    device
-    PROPERTIES
-        CXX_COMPILER_LAUNCHER
-            ""
-        C_COMPILER_LAUNCHER
-            ""
-)
-
 add_dependencies(device generate_lite_fabric_embed)
 
 target_sources(

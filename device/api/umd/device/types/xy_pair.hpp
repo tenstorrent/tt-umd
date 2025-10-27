@@ -16,10 +16,10 @@ namespace tt {
 struct xy_pair {
     constexpr xy_pair() : x{}, y{} {}
 
-    constexpr xy_pair(std::size_t x, std::size_t y) : x(x), y(y) {}
+    constexpr xy_pair(uint8_t x, uint8_t y) : x(x), y(y) {}
 
-    std::size_t x;
-    std::size_t y;
+    uint8_t x;
+    uint8_t y;
 
     std::string str() const;
 };
@@ -37,7 +37,7 @@ struct cxy_pair : public xy_pair {
 
     cxy_pair(std::size_t ichip, xy_pair pair) : xy_pair(pair.x, pair.y), chip(ichip) {}
 
-    cxy_pair(std::size_t ichip, std::size_t x, std::size_t y) : xy_pair(x, y), chip(ichip) {}
+    cxy_pair(std::size_t ichip, uint8_t x, uint8_t y) : xy_pair(x, y), chip(ichip) {}
 
     std::size_t chip;
 

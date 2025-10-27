@@ -216,8 +216,7 @@ inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
 // MT: This is no longer valid for Blackhole. Review messages to ARC
 inline constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
-inline static constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
-
+inline constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET_AXI + 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET_AXI + 0x784C4;
 
@@ -249,7 +248,7 @@ inline constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 // ARC firmware interrupt address and value to write in order
 // to make an interrupt request.
 inline constexpr uint32_t ARC_FW_INT_ADDR = ARC_RESET_UNIT_OFFSET + 0x100;
-constexpr uint32_t ARC_FW_INT_VAL = 65536;
+inline constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 

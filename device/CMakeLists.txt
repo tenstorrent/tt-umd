@@ -107,6 +107,8 @@ target_sources(
         jtag/jtag_device.cpp
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp
+        arc/wormhole_spi.cpp
+        arc/blackhole_spi.cpp
         ${LITE_FABRIC_EMBED} # include generated embed file
 )
 

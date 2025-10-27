@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <cstring>
+#include <iomanip>
 #include <thread>
+#include <unordered_map>
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
@@ -10,6 +13,8 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
@@ -241,5 +246,113 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
             EXPECT_EQ(pattern_buf, readback_buf);
         }
+    }
+}
+
+// This test can be destructive, and should not normally run.
+// Make sure to only run it on hardware which has recovery support.
+TEST(ApiTTDeviceTest, SPIReadWrite) {
+    auto [cluster_desc, _] = TopologyDiscovery::discover();
+
+    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> tt_devices;
+    for (chip_id_t chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+        std::cout << "Testing device " << chip_id << " local: " << cluster_desc->is_chip_mmio_capable(chip_id)
+                  << std::endl;
+
+        // Create local or remote TTDevice instance for the chip.
+        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+            int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
+            auto tt_device = TTDevice::create(physical_device_id);
+            tt_device->init_tt_device();
+            tt_devices[chip_id] = std::move(tt_device);
+        } else {
+            chip_id_t closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+            std::unique_ptr<TTDevice>& local_tt_device = tt_devices.at(closest_mmio_chip_id);
+
+            SocDescriptor local_soc_descriptor =
+                SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
+            EthCoord target_chip = cluster_desc->get_chip_locations().at(chip_id);
+            auto remote_communication = RemoteCommunication::create_remote_communication(
+                local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
+            remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
+                cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
+            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
+            remote_tt_device->init_tt_device();
+            tt_devices[chip_id] = std::move(remote_tt_device);
+        }
+
+        auto& tt_device = tt_devices.at(chip_id);
+
+        std::cout << "\n=== Testing device " << device_id << " (remote: " << tt_device->is_remote()
+                  << ") ===" << std::endl;
+
+        // Test SPI read functionality
+        // Note: SPI addresses are chip-specific. Using a safe area for testing.
+        uint32_t test_addr = 0x20108;  // Board info address (safe to read)
+        std::vector<uint8_t> read_data(8, 0);
+
+        // Test SPI read - should work on chips with ARC SPI support
+        tt_device->spi_read(test_addr, read_data.data(), read_data.size());
+
+        std::cout << "read_data: ";
+        for (uint8_t byte : read_data) {
+            std::cout << std::dec << (int)byte << " ";
+        }
+        std::cout << std::endl;
+
+        // Verify we got some data (board info shouldn't be all zeros)
+        bool has_data = false;
+        for (uint8_t byte : read_data) {
+            if (byte != 0) {
+                has_data = true;
+                break;
+            }
+        }
+        EXPECT_TRUE(has_data) << "SPI read should return non-zero board info data for device " << device_id;
+
+        // Test read-modify-write on spare/scratch area
+        uint32_t spare_addr = 0x20134;  // Wormhole spare area
+
+        // Read current value
+        std::vector<uint8_t> original_value(2, 0);
+        tt_device->spi_read(spare_addr, original_value.data(), original_value.size());
+
+        std::cout << "Original value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
+                  << std::setw(2) << (int)original_value[1] << std::setw(2) << (int)original_value[0] << std::endl;
+
+        // Increment value (create a change)
+        std::vector<uint8_t> new_value = original_value;
+        new_value[0] = new_value[0] + 1;  // wrapping_add
+        if (new_value[0] == 0) {
+            new_value[1] = new_value[1] + 1;
+        }
+
+        // Write back incremented value
+        tt_device->spi_write(spare_addr, new_value.data(), new_value.size());
+
+        // Read back to verify
+        std::vector<uint8_t> verify_value(2, 0);
+        tt_device->spi_read(spare_addr, verify_value.data(), verify_value.size());
+
+        std::cout << "Updated value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
+                  << std::setw(2) << (int)verify_value[1] << std::setw(2) << (int)verify_value[0] << std::endl;
+
+        // Verify read-after-write
+        EXPECT_EQ(new_value, verify_value) << "SPI write verification failed for device " << device_id;
+
+        // Read wider area to check SPI handling of different sizes
+        std::vector<uint8_t> wide_value(8, 0);
+        tt_device->spi_read(spare_addr, wide_value.data(), wide_value.size());
+
+        uint64_t wide_value_u64 = 0;
+        std::memcpy(&wide_value_u64, wide_value.data(), sizeof(wide_value_u64));
+        std::cout << "Wide read at 0x" << std::hex << spare_addr << ": " << std::setfill('0') << std::setw(16)
+                  << wide_value_u64 << std::endl;
+
+        // Verify first 2 bytes match our written value
+        EXPECT_EQ(wide_value[0], new_value[0])
+            << "First byte of wide read doesn't match written value for device " << device_id;
+        EXPECT_EQ(wide_value[1], new_value[1])
+            << "Second byte of wide read doesn't match written value for device " << device_id;
     }
 }

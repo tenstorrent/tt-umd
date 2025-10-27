@@ -5,6 +5,7 @@
  */
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 
+#include <iomanip>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -52,6 +53,10 @@ uint32_t WormholeArcMessenger::send_message(
     tt_device->write_to_arc(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
     tt_device->write_to_arc(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
+    std::cout << std::hex << "arg " << std::setw(8) << fw_arg << " @ " << std::setw(8)
+              << wormhole::ARC_RESET_SCRATCH_RES0_OFFSET << " | ";
+    std::cout << std::hex << "msg " << std::setw(8) << msg_code << " @ " << std::setw(8)
+              << wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET << " | ";
     tt_device->wait_for_non_mmio_flush();
 
     uint32_t misc;
@@ -86,6 +91,13 @@ uint32_t WormholeArcMessenger::send_message(
             }
 
             exit_code = (status & 0xffff0000) >> 16;
+            std::cout << std::hex << "exit " << std::setw(8) << exit_code << " | ";
+            if (return_values.size() >= 1) {
+                std::cout << std::hex << "ret[0] " << std::setw(8) << return_values[0] << " | ";
+            }
+            if (return_values.size() >= 2) {
+                std::cout << std::hex << "ret[1] " << std::setw(8) << return_values[1] << " | ";
+            }
             break;
         } else if (status == HANG_READ_VALUE) {
             log_warning(LogUMD, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
@@ -93,6 +105,8 @@ uint32_t WormholeArcMessenger::send_message(
             break;
         }
     }
+
+    std::cout << std::endl;
 
     tt_device->detect_hang_read();
     return exit_code;

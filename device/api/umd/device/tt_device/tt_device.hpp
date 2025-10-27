@@ -12,6 +12,7 @@
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/spi.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -41,6 +42,7 @@ struct dynamic_tlb {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class SPI;
 
 class TTDevice {
 public:
@@ -303,6 +305,24 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    /**
+     * Read data from SPI flash memory.
+     *
+     * @param addr SPI address to read from
+     * @param data Buffer to store the read data
+     * @param size Number of bytes to read
+     */
+    void spi_read(uint32_t addr, uint8_t *data, size_t size);
+
+    /**
+     * Write data to SPI flash memory.
+     *
+     * @param addr SPI address to write to
+     * @param data Buffer containing data to write
+     * @param size Number of bytes to write
+     */
+    void spi_write(uint32_t addr, const uint8_t *data, size_t size);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -315,6 +335,7 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    std::unique_ptr<SPI> spi_ = nullptr;
 
     template <typename T>
     T *get_register_address(uint32_t register_offset);

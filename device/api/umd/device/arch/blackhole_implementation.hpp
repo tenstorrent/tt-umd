@@ -48,6 +48,9 @@ static constexpr auto TLB_4G_OFFSET = tlb_offsets{
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
+    GET_SPI_DUMP_ADDR = 0x29,
+    SPI_READ = 0x2A,
+    SPI_WRITE = 0x2B,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
     ARC_GO_SHORT_IDLE = 0x53,
@@ -212,9 +215,11 @@ static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x
 static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
 // MT: This is no longer valid for Blackhole. Review messages to ARC
-static constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
-static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET + 0x783C4;
-static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET + 0x784C4;
+static constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
+static constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
+
+static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET_AXI + 0x783C4;
+static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET_AXI + 0x784C4;
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
@@ -247,6 +252,7 @@ constexpr uint32_t ARC_FW_INT_VAL = 65536;
 constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
 static const uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
+static const uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 static const uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 static const uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 

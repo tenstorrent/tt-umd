@@ -92,6 +92,9 @@ static constexpr auto TLB_16M_OFFSET = tlb_offsets{
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
+    GET_SPI_DUMP_ADDR = 0x29,
+    SPI_READ = 0x2A,
+    SPI_WRITE = 0x2B,
     GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
@@ -237,6 +240,9 @@ static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
+static constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
+static constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
+
 static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x1FEF83C4;
 static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
 
@@ -307,6 +313,9 @@ static const uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 static const uint32_t SOFT_RESET_NCRISC = 1 << 18;
 static const uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
+static const uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
+static const uint32_t SPI_ROM_SIZE = 1 << 24;
+static const uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {

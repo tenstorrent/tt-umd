@@ -84,7 +84,29 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
-            nb::arg("addr"));
+            nb::arg("addr"))
+        .def(
+            "spi_read",
+            [](TTDevice &self, uint32_t addr, nb::bytes data) -> void {
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                // Note: This assumes the buffer is writable, which may not be safe
+                // Better implementation would require a proper buffer protocol
+                self.spi_read(addr, const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(data_ptr)), data_size);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Read data from SPI flash memory")
+        .def(
+            "spi_write",
+            [](TTDevice &self, uint32_t addr, nb::bytes data) -> void {
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.spi_write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write data to SPI flash memory");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

@@ -626,4 +626,19 @@ TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     cached_tlb_window->configure(config);
     return cached_tlb_window.get();
 }
+
+void TTDevice::spi_read(uint32_t addr, uint8_t *data, size_t size) {
+    if (!spi_) {
+        throw std::runtime_error("SPI not available for this device.");
+    }
+    spi_->read(addr, data, size);
+}
+
+void TTDevice::spi_write(uint32_t addr, const uint8_t *data, size_t size) {
+    if (!spi_) {
+        throw std::runtime_error("SPI not available for this device.");
+    }
+    spi_->write(addr, data, size);
+}
+
 }  // namespace tt::umd

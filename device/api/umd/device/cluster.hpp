@@ -611,9 +611,10 @@ public:
 
     /**
      * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
-     * Will return a bogus version if no remote chips are supported for the device.
      */
-    std::optional<semver_t> get_ethernet_fw_version() const;
+    std::optional<tt_version> get_ethernet_fw_version() const;
+    // TODO: Temporary hack to pass tt-metal build
+    std::optional<semver_t> get_ethernet_fw_version_semver_t() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 

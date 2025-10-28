@@ -239,10 +239,10 @@ inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
 // ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
-inline constexpr uint32_t ARC_CSM_NOC_XBAR_ADDRESS_START = 0x10000000;
-inline constexpr uint32_t ARC_CSM_NOC_XBAR_ADDRESS_END = 0x1007FFFF;
+inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_START = 0x10000000;
+inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 
-inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_ADDRESS_END - ARC_CSM_NOC_XBAR_ADDRESS_START;
+inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_OFFSET_END - ARC_CSM_NOC_XBAR_OFFSET_START;
 
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
@@ -252,10 +252,10 @@ inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
 // ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
-inline constexpr uint32_t ARC_APB_NOC_XBAR_ADDRESS_START = 0x80000000;
-inline constexpr uint32_t ARC_APB_NOC_XBAR_ADDRESS_END = 0x800FFFFF;
+inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_START = 0x80000000;
+inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_END = 0x800FFFFF;
 
-inline constexpr uint32_t ARC_APB_ADDRESS_RANGE = ARC_APB_NOC_XBAR_ADDRESS_END - ARC_APB_NOC_XBAR_ADDRESS_START;
+inline constexpr uint32_t ARC_APB_ADDRESS_RANGE = ARC_APB_NOC_XBAR_OFFSET_END - ARC_APB_NOC_XBAR_OFFSET_START;
 
 inline constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
@@ -266,7 +266,7 @@ inline constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 // ARC Reset Unit offset address (APB peripheral) - accessible via BAR0 or NOC
 // Usage examples with ARC_RESET_SCRATCH_STATUS_OFFSET:
 // - BAR0 access: ARC_APB_BAR0_XBAR_OFFSET_START + ARC_RESET_SCRATCH_STATUS_OFFSET
-// - NOC access:  ARC_NOC_ADDRESS_START + ARC_APB_NOC_XBAR_ADDRESS_START + ARC_RESET_SCRATCH_STATUS_OFFSET
+// - NOC access:  ARC_NOC_ADDRESS_START + ARC_APB_NOC_XBAR_OFFSET_START + ARC_RESET_SCRATCH_STATUS_OFFSET
 inline constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
 inline constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x60;
 inline constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x8;
@@ -434,11 +434,11 @@ public:
     uint32_t get_small_read_write_tlb() const override { return wormhole::MEM_SMALL_READ_WRITE_TLB; }
 
     uint64_t get_arc_apb_noc_base_address() const override {
-        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_APB_NOC_XBAR_ADDRESS_START;
+        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_APB_NOC_XBAR_OFFSET_START;
     }
 
     uint64_t get_arc_csm_noc_base_address() const override {
-        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_ADDRESS_START;
+        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START;
     }
 
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {

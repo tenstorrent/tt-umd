@@ -24,7 +24,7 @@
 
 namespace tt::umd {
 
-std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
+std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", static_cast<int>(xy.x), static_cast<int>(xy.y)); }
 
 tt_xy_pair format_node(std::string str) {
     int x_coord;
@@ -76,7 +76,7 @@ void SocDescriptor::write_coords(void *out, const CoreCoord &core) const {
 
     if (core.x < grid_size.x && core.y < grid_size.y) {
         auto coords = translate_coord_to(core, CoordSystem::NOC0);
-        *emitter << std::to_string(coords.x) + "-" + std::to_string(coords.y);
+        *emitter << std::to_string(static_cast<int>(coords.x)) + "-" + std::to_string(static_cast<int>(coords.y));
     }
 }
 
@@ -517,8 +517,8 @@ std::string SocDescriptor::serialize() const {
     out << YAML::BeginMap;
 
     out << YAML::Key << "grid" << YAML::Value << YAML::BeginMap;
-    out << YAML::Key << "x_size" << YAML::Value << grid_size.x;
-    out << YAML::Key << "y_size" << YAML::Value << grid_size.y;
+    out << YAML::Key << "x_size" << YAML::Value << static_cast<int>(grid_size.x);
+    out << YAML::Key << "y_size" << YAML::Value << static_cast<int>(grid_size.y);
     out << YAML::EndMap;
 
     out << YAML::Key << "arc" << YAML::Value << YAML::BeginSeq;

@@ -72,7 +72,8 @@ TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
         return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
     } else {
-        throw std::runtime_error(fmt::format("TLB window for core ({}, {}) not found.", core.x, core.y));
+        throw std::runtime_error(
+            fmt::format("TLB window for core ({}, {}) not found.", static_cast<int>(core.x), static_cast<int>(core.y)));
     }
 }
 

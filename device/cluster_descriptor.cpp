@@ -1035,8 +1035,8 @@ std::string ClusterDescriptor::serialize() const {
     std::map<ChipId, EthCoord> chip_locations_map =
         std::map<ChipId, EthCoord>(chip_locations.begin(), chip_locations.end());
     for (const auto &[chip_id, chip_location] : chip_locations_map) {
-        out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
-            << chip_location.rack << chip_location.shelf << YAML::EndSeq;
+        out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << static_cast<int>(chip_location.x)
+            << static_cast<int>(chip_location.y) << chip_location.rack << chip_location.shelf << YAML::EndSeq;
     }
     out << YAML::EndMap;
 

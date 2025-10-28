@@ -395,10 +395,10 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         "multicast "
         "= {}, ordering = {}",
         tlb_index,
-        start.x,
-        start.y,
-        end.x,
-        end.y,
+        static_cast<uint32_t>(start.x),
+        static_cast<uint32_t>(start.y),
+        static_cast<uint32_t>(end.x),
+        static_cast<uint32_t>(end.y),
         address,
         multicast,
         (int)ordering);
@@ -437,8 +437,8 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         tlb_config.size / (1024 * 1024),
         tlb_base,
         tlb_cfg_reg,
-        end.x,
-        end.y);
+        static_cast<uint32_t>(end.x),
+        static_cast<uint32_t>(end.y));
     write_tlb_reg(tlb_cfg_reg, tlb_reg_config.first, tlb_reg_config.second, TLB_CFG_REG_SIZE_BYTES);
 
     return {tlb_base + local_address, tlb_config.size - local_address};

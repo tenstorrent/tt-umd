@@ -474,7 +474,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
     }
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
+        std::vector<DramTrainingStatus> dram_training_status =
+            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
 
         if (dram_training_status.empty()) {
             log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
@@ -563,26 +564,6 @@ uint64_t TTDevice::get_refclk_counter() {
 }
 
 uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id(); }
-
-std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
-    if (!telemetry->is_entry_available(TelemetryTag::DDR_STATUS)) {
-        return {};
-    }
-
-    std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
-    // Format of the dram training status is as follows:
-    // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
-    // Lower of the two bits is for training error and higher of the two bits is for training status.
-    // Example: 0b 00 00 00 00 00 00 01 10
-    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
-    // errors. If some channel is harvested the bits are always going to be zero.
-    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-        dram_training_status.push_back(get_firmware_info_provider()->get_dram_training_status(dram_channel));
-    }
-
-    return dram_training_status;
-}
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 

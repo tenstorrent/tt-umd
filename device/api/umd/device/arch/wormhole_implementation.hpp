@@ -234,7 +234,7 @@ inline constexpr uint32_t GRID_SIZE_Y = 12;
 
 inline constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-// ARC CSM absolute addresses in BAR0 memory space
+// ARC CSM address mapping in BAR0 memory space
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
@@ -361,7 +361,7 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(wormhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_bar_mailbox_offset() const override {
+    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
         return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + wormhole::ARC_CSM_MAILBOX_OFFSET;
     }
 

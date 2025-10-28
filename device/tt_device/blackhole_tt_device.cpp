@@ -242,11 +242,11 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
 }
 
 void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM write not supported for Blackhole.");
+    throw std::runtime_error("CSM write not implemented for Blackhole.");
 }
 
 void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM read not supported for Blackhole.");
+    throw std::runtime_error("CSM read not implemented for Blackhole.");
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(

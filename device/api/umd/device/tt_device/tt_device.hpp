@@ -296,7 +296,7 @@ public:
 
     bool is_remote();
 
-    void init_tt_device();
+    void init_tt_device(const uint32_t timeout_ms = 5000);
 
     uint64_t get_refclk_counter();
 

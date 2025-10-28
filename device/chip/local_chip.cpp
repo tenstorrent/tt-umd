@@ -308,9 +308,6 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
         }
     } else {
-        std::string fallback_tlb = "LARGE_WRITE_TLB";
-        const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
         tt_device_->write_to_device(src, translated_core, l1_dest, size);
     }
 }
@@ -349,9 +346,6 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             tlb_description.tlb_offset,
             tlb_description.size);
     } else {
-        std::string fallback_tlb = "LARGE_READ_TLB";
-        const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
         tt_device_->read_from_device(dest, translated_core, l1_src, size);
     }
 }

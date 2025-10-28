@@ -15,7 +15,8 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     // It is important that this mutex is named the same as corresponding fallback_tlb, this is due to the same tlb
     // index being used. This will be changed once we have a cleaner way to allocate TLBs instead of hardcoding fallback
     // tlbs.
-    {MutexType::TT_DEVICE_IO, "REG_TLB"},
+    {MutexType::TT_DEVICE_IO_REG, "REG_TLB"},
+    {MutexType::TT_DEVICE_IO, "SMALL_READ_WRITE_TLB"},
     {MutexType::NON_MMIO, "NON_MMIO"},
     {MutexType::MEM_BARRIER, "MEM_BARRIER"},
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},

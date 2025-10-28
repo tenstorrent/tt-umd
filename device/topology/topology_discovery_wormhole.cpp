@@ -284,8 +284,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     for (auto& device_id : device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->wait_arc_core_start(300'000);
-        tt_device->init_tt_device();
+        tt_device->init_tt_device(300'000);
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], io_device_type);

@@ -248,7 +248,7 @@ public:
      * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual bool wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
+    virtual bool wait_arc_core_start(const uint32_t timeout_ms) = 0;
 
     /**
      * Waits for ETH core training to complete.

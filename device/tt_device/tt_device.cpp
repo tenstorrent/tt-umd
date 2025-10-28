@@ -36,6 +36,7 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO_REG, get_communication_device_id());
 }
 
 TTDevice::TTDevice(
@@ -48,6 +49,7 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO_REG, get_communication_device_id(), IODeviceType::JTAG);
 }
 
 TTDevice::TTDevice() {}

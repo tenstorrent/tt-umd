@@ -111,10 +111,8 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
+    name: Build umd manylinux wheel
     runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 
     steps:
       - uses: actions/checkout@v4
@@ -126,19 +124,18 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Build wheel
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build manylinux wheel
         shell: bash
         run: |
           echo "Cleaning up wheel directory in case of previous build..."
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
-          echo "Setting up virtual environment..."
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
-          echo "Compiling the code..."
-          pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
-          echo "Compile complete."
+          echo "Building manylinux wheel..."
+          python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Build complete."
 
       - name: Move python bindings tests in the same wheel folder
         run: |
@@ -148,5 +145,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # Note that wheel is built with hardcoded Release build type at the moment.
-          name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+          name: wheel-artifact-manylinux-${{ inputs.build-type }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}

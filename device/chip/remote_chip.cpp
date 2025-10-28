@@ -107,11 +107,11 @@ void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, u
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+    tt_device_->write_to_device_reg(src, translate_chip_coord_to_translated(core), reg_dest, size);
 }
 
 void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+    tt_device_->read_from_device_reg(dest, translate_chip_coord_to_translated(core), reg_src, size);
 }
 
 void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {

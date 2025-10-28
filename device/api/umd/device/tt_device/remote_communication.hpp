@@ -41,6 +41,22 @@ public:
         std::vector<int> broadcast_header = {},
         const uint32_t timeout_ms = 5000) = 0;
 
+    virtual void read_non_mmio_reg(
+        tt_xy_pair target_core,
+        void* dest,
+        uint64_t core_src,
+        uint32_t size_in_bytes,
+        const uint64_t timeout_ms = 5000) = 0;
+
+    virtual void write_to_non_mmio_reg(
+        tt_xy_pair target_core,
+        const void* src,
+        uint64_t core_dest,
+        uint32_t size_in_bytes,
+        bool broadcast = false,
+        std::vector<int> broadcast_header = {},
+        const uint32_t timeout_ms = 5000) = 0;
+
     virtual void wait_for_non_mmio_flush(const uint32_t timeout_ms = 5000) = 0;
 
     // Set the ethernet cores which can be used for remote communication on the assigned local chip.

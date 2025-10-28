@@ -360,7 +360,7 @@ void TTDevice::write_to_device_reg(tt_xy_pair core, const void *src, uint64_t re
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO_REG, get_pci_device()->get_device_num());
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
-    auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, reg_dest, tlb_data::Strict);
+    auto [mapped_address, _] = set_dynamic_tlb(tlb_index, core, reg_dest, tlb_data::Strict);
     write_regs(mapped_address, size / sizeof(uint32_t), src);
 }
 
@@ -375,7 +375,7 @@ void TTDevice::read_from_device_reg(tt_xy_pair core, void *dest, uint64_t reg_sr
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO_REG, get_pci_device()->get_device_num());
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
-    auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, reg_src, tlb_data::Strict);
+    auto [mapped_address, _] = set_dynamic_tlb(tlb_index, core, reg_src, tlb_data::Strict);
     read_regs(mapped_address, size / sizeof(uint32_t), dest);
 }
 

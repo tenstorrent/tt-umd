@@ -128,15 +128,19 @@ jobs:
 
       - name: Build wheel
         shell: bash
+        env:
+          # Ensure wheel is always built with Release configuration, not inheriting ASan/TSan builds
+          CMAKE_BUILD_TYPE: Release
         run: |
-          echo "Cleaning up wheel directory in case of previous build..."
+          echo "Cleaning up build and wheel directories to ensure clean Release build..."
+          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel
-          echo "Compiling the code..."
+          echo "Building wheel with Release configuration..."
           pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Compile complete."
 

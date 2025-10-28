@@ -431,11 +431,11 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    tt_device_->write_to_device_reg(core, src, reg_dest, size);
+    tt_device_->write_to_device_reg(translate_chip_coord_to_translated(core), src, reg_dest, size);
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    tt_device_->read_from_device_reg(core, dest, reg_src, size);
+    tt_device_->read_from_device_reg(translate_chip_coord_to_translated(core), dest, reg_src, size);
 }
 
 void LocalChip::ethernet_broadcast_write(

@@ -167,10 +167,17 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, 
     uint8_t remote_logical_eth_id;
     chip->get_tt_device()->read_from_device(
         &remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
-    // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
-    // the first 4 ethernet channels (these channels are using SerDes for PCIe)
-    // These channels are visible to UMD, and are thus accounted for in this API.
-    return remote_logical_eth_id + 4;
+
+    auto fw_bundle_version = chip->get_tt_device()->get_firmware_version();
+
+    if (fw_bundle_version >= semver_t(18, 12, 0)) {
+        return remote_logical_eth_id;
+    } else {
+        // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
+        // the first 4 ethernet channels (these channels are using SerDes for PCIe)
+        // These channels are visible to UMD, and are thus accounted for in this API.
+        return remote_logical_eth_id + 4;
+    }
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }

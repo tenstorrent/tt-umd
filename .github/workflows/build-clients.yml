@@ -8,7 +8,7 @@ on:
         description: 'The timeout for the job in minutes'
         type: number
         default: 90
-  pull_request:
+  # pull_request:
   push:
     branches: ["main"]
 

@@ -31,7 +31,7 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
-    return TTDevice::create(std::move(remote_communication), target_chip);
+    return TTDevice::create(std::move(remote_communication));
 }
 
 void bind_tt_device(nb::module_ &m) {

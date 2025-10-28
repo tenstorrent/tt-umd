@@ -411,7 +411,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0].x,
             wormhole::ARC_CORES_NOC0[0].y,
-            get_arc_csm_noc_base_address() + arc_addr_offset,
+            architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
             sizeof(uint32_t));
         return;
     }
@@ -429,7 +429,7 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0].x,
             wormhole::ARC_CORES_NOC0[0].y,
-            get_arc_csm_noc_base_address() + arc_addr_offset,
+            architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
             sizeof(uint32_t));
         return;
     }

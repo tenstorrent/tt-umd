@@ -93,7 +93,7 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     auto [cluster_desc, _] = TopologyDiscovery::discover();
 
     // Find a remote chip
-    ChipId remote_chip_id = -1;
+    std::optional<ChipId> remote_chip_id;
     for (ChipId chip_id : cluster_desc->get_all_chips()) {
         if (!cluster_desc->is_chip_mmio_capable(chip_id)) {
             remote_chip_id = chip_id;
@@ -101,17 +101,17 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
         }
     }
 
-    if (remote_chip_id == -1) {
+    if (!remote_chip_id.has_value()) {
         GTEST_SKIP() << "No remote chips found. Test requires at least one remote chip. Skipping test.";
     }
 
-    ChipId local_chip_id = cluster_desc->get_closest_mmio_capable_chip(remote_chip_id);
+    ChipId local_chip_id = cluster_desc->get_closest_mmio_capable_chip(*remote_chip_id);
     int physical_device_id = cluster_desc->get_chips_with_mmio().at(local_chip_id);
     std::unique_ptr<TTDevice> local_tt_device = TTDevice::create(physical_device_id);
     local_tt_device->init_tt_device();
 
     SocDescriptor local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
-    EthCoord target_chip = cluster_desc->get_chip_locations().at(remote_chip_id);
+    EthCoord target_chip = cluster_desc->get_chip_locations().at(*remote_chip_id);
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
     remote_communication->set_remote_transfer_ethernet_cores(
@@ -125,8 +125,8 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     tt_xy_pair tensix_core_xy = tt_xy_pair(tensix_core.x, tensix_core.y);
 
     // Test with 2048 bytes (2x the 1024 threshold)
-    const uint32_t test_size = 2048;
-    const uint64_t test_address = 0x100;
+    constexpr uint32_t test_size = 2048;
+    constexpr uint64_t test_address = 0x100;
 
     // First write only zeros.
     std::vector<uint32_t> data_to_write(test_size / sizeof(uint32_t), 0);

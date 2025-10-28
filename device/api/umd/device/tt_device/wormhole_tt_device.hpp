@@ -17,7 +17,7 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
+    bool wait_arc_core_start(const uint32_t timeout_ms) override;
 
     uint32_t get_clock() override;
 

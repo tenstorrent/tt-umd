@@ -147,6 +147,9 @@ public:
      * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
      * where the ARC is not available over AXI, hence in this situations, the NOC interface will be used even for local
      * chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -161,6 +164,9 @@ public:
      * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
      * configurations where the ARC is not available over AXI, hence in this situations, the NOC
      * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -175,6 +181,9 @@ public:
      * while the remote chip will use the NOC interface to read the data. Blackhole has board
      * configurations where the ARC is not available over AXI, hence in this situations, the NOC
      * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -189,6 +198,9 @@ public:
      * while the remote chip will use the NOC interface to write the data. Blackhole has board
      * configurations where the ARC is not available over AXI, hence in this situations, the NOC
      * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 

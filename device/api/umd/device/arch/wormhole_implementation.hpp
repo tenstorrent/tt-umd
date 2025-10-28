@@ -234,11 +234,11 @@ inline constexpr uint32_t GRID_SIZE_Y = 12;
 
 inline constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-// ARC CSM address mapping in BAR0 memory space
+// ARC CSM address mapping in BAR0 memory space.
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
-// ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
+// ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
 inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_START = 0x10000000;
 inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 
@@ -247,11 +247,11 @@ inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_OFFSET_END - 
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 
-// ARC APB absolute addresses in BAR0 memory space
+// ARC APB absolute addresses in BAR0 memory space.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
-// ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
+// ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_START = 0x80000000;
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_END = 0x800FFFFF;
 

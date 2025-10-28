@@ -138,6 +138,15 @@ uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth
     return port_status;
 }
 
+uint32_t TopologyDiscoveryBlackhole::read_link_up_status(Chip* chip, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    uint32_t link_up_status;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(&link_up_status, translated_eth_core, 0x7CE04, sizeof(link_up_status));
+    return link_up_status;
+}
+
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
@@ -190,7 +199,10 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_core) {
-    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UP;
+    if (read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UP) {
+        return read_link_up_status(chip, eth_core) == 1;
+    }
+    return false;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {

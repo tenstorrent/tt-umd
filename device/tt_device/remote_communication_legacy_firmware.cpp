@@ -145,12 +145,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool use_dram;
-    uint32_t max_block_size;
-
-    use_dram = size_in_bytes > 1024;
-    TT_ASSERT(!(use_dram && sysmem_manager_ == nullptr), "Large transfers not available without system memory.");
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
+    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr;
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    uint32_t max_block_size =
+        use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     uint32_t offset = 0;
     uint32_t block_size;
@@ -187,7 +185,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         uint32_t host_dram_block_addr = host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
         uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
-        if (use_dram && block_size > DATA_WORD_SIZE) {
+        if (use_host_dram && block_size > DATA_WORD_SIZE) {
             req_flags |= eth_interface_params.cmd_data_block_dram;
             resp_flags |= eth_interface_params.cmd_data_block_dram;
         }
@@ -202,7 +200,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
         new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
-        if (use_dram) {
+        if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
         local_tt_device_->write_to_device(
@@ -290,7 +288,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 }
             } else {
                 // Read 4 byte aligned block from device/sysmem
-                if (use_dram) {
+                if (use_host_dram) {
                     size_buffer_to_capacity(data_block, block_size);
                     sysmem_manager_->read_from_sysmem(
                         host_dram_channel, data_block.data(), host_dram_block_addr, block_size);
@@ -360,15 +358,13 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     uint32_t buffer_id = 0;
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
-    bool use_dram;
-    uint32_t max_block_size;
 
     // Broadcast requires block writes to host dram
-    use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
-    TT_ASSERT(
-        !(use_dram && sysmem_manager_ == nullptr),
-        "Large transfers and broadcasts not available without system memory.");
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
+    TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
+    uint32_t max_block_size =
+        use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
@@ -449,7 +445,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
         if (req_flags & eth_interface_params.cmd_data_block) {
             // Copy data to sysmem or device DRAM for Block mode
-            if (use_dram) {
+            if (use_host_dram) {
                 req_flags |= eth_interface_params.cmd_data_block_dram;
                 resp_flags |= eth_interface_params.cmd_data_block_dram;
                 size_buffer_to_capacity(data_block, block_size);
@@ -508,7 +504,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
         new_cmd->flags = req_flags;
         new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
-        if (use_dram) {
+        if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
         local_tt_device_->write_to_device(

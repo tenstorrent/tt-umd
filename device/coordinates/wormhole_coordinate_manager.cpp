@@ -117,7 +117,8 @@ void WormholeCoordinateManager::fill_arc_noc0_translated_mapping() {
 tt_xy_pair WormholeCoordinateManager::get_tensix_grid_size() const {
     return {
         tensix_grid_size.x,
-        tensix_grid_size.y - CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask)};
+        static_cast<uint8_t>(
+            tensix_grid_size.y - CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask))};
 }
 
 }  // namespace tt::umd

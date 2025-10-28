@@ -10,8 +10,10 @@
 
 namespace tt {
 
-std::string xy_pair::str() const { return fmt::format("(x={},y={})", x, y); }
+std::string xy_pair::str() const { return fmt::format("(x={},y={})", static_cast<int>(x), static_cast<int>(y)); }
 
-std::string cxy_pair::str() const { return fmt::format("(chip={},x={},y={})", chip, x, y); }
+std::string cxy_pair::str() const {
+    return fmt::format("(chip={},x={},y={})", chip, static_cast<int>(x), static_cast<int>(y));
+}
 
 }  // namespace tt

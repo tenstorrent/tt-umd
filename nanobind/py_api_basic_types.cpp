@@ -33,10 +33,12 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("shelf", &EthCoord::shelf);
 
     nb::class_<tt::xy_pair>(m, "tt_xy_pair")
-        .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))
+        .def(nb::init<uint8_t, uint8_t>(), nb::arg("x"), nb::arg("y"))
         .def_ro("x", &tt_xy_pair::x)
         .def_ro("y", &tt_xy_pair::y)
-        .def("__str__", [](const tt_xy_pair &pair) { return fmt::format("({}, {})", pair.x, pair.y); });
+        .def("__str__", [](const tt_xy_pair &pair) {
+            return fmt::format("({}, {})", static_cast<int>(pair.x), static_cast<int>(pair.y));
+        });
 
     nb::enum_<tt::ARCH>(m, "ARCH")
         .value("WORMHOLE_B0", tt::ARCH::WORMHOLE_B0)

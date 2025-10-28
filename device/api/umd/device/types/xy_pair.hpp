@@ -8,13 +8,21 @@
 
 #include <string>
 // TODO: To be removed once this is fixed in tt_metal
+#include <cstdint>
 #include <deque>
+#include <type_traits>
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {
 
 struct xy_pair {
     constexpr xy_pair() : x{}, y{} {}
+
+    template <
+        typename X,
+        typename Y,
+        typename std::enable_if<std::is_integral<X>::value && std::is_integral<Y>::value, int>::type = 0>
+    constexpr xy_pair(X ix, Y iy) : x(static_cast<uint8_t>(ix)), y(static_cast<uint8_t>(iy)) {}
 
     constexpr xy_pair(uint8_t x, uint8_t y) : x(x), y(y) {}
 

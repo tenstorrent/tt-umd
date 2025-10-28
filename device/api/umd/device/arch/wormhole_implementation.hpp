@@ -238,7 +238,7 @@ inline constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
-// ARC CSM addresses in NOC space - must be combined with ARC_ßNOC_ADDRESS_START
+// ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
 inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_START = 0x10000000;
 inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 

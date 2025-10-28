@@ -55,8 +55,6 @@ public:
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 
-    uint64_t get_arc_apb_noc_base_address() const;
-
     bool is_hardware_hung() override;
 
     virtual bool is_arc_available_over_axi();

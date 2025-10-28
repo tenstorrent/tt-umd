@@ -212,7 +212,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(mem_ptr, arc_core, get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -234,18 +234,13 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(mem_ptr, arc_core, get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
         blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-<<<<<<< HEAD
-std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
-    auto time_taken = std::chrono::milliseconds(0);
-=======
 void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     throw std::runtime_error("CSM write not supported for Blackhole.");
 }
@@ -254,9 +249,9 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
     throw std::runtime_error("CSM read not supported for Blackhole.");
 }
 
-uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
-    uint32_t time_taken = 0;
->>>>>>> 8ee23109 (Add csm and apb writes and remove generic arc API)
+std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    auto time_taken = std::chrono::milliseconds(0);
 
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
@@ -280,9 +275,7 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
     return time_taken;
 }
 
-uint64_t BlackholeTTDevice::get_arc_apb_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
-
-bool BlackholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) { return true; }
+bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
 
 bool BlackholeTTDevice::is_hardware_hung() {
     // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");

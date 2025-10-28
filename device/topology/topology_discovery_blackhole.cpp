@@ -305,13 +305,8 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
         log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
         log_debug(LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
         first_eth_fw_version = eth_fw_version;
-        if (BH_ERISC_FW_SUPPORTED_VERSION_MIN.major > eth_fw_version.major) {
-            log_warning(LogUMD, "ETH FW major version is older than UMD supported version");
-            eth_fw_problem = true;
-        }
-
-        if (BH_ERISC_FW_SUPPORTED_VERSION_MIN.minor > eth_fw_version.minor) {
-            log_warning(LogUMD, "ETH FW minor version is older than UMD supported version");
+        if (BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+            log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
     }

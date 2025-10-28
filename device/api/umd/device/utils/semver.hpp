@@ -35,7 +35,7 @@ public:
 
     /*
      * Create a semver_t from a 32-bit integer by unpacking the following bits:
-     * 0x00AABCC where A is major, B is minor and C is patch.
+     * 0x00AABCCC where A is major, B is minor and C is patch.
      */
     static semver_t from_eth_fw_tag(uint32_t version) {
         return semver_t((version >> 16) & 0xFF, (version >> 12) & 0xF, version & 0xFFF);

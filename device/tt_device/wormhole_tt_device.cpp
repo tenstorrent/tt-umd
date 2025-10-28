@@ -144,10 +144,10 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         TT_THROW("configure_iatu_region is redundant for JTAG communication type.");
     }
 
-    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 0 * 4, region_id_to_use);
+    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 1 * 4, dest_bar_lo);
+    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 2 * 4, dest_bar_hi);
+    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 3 * 4, region_size);
     arc_messenger_->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), 0, 0);
 
@@ -368,7 +368,7 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 }
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > (wormhole::ARC_APB_XBAR_ADDRESS_END - wormhole::ARC_APB_XBAR_ADDRESS_START)) {
+    if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
@@ -377,7 +377,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0].x,
             wormhole::ARC_CORES_NOC0[0].y,
-            get_arc_apb_noc_base_address() + arc_addr_offset,
+            architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
             sizeof(uint32_t));
         return;
     }
@@ -386,7 +386,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
 }
 
 void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > (wormhole::ARC_APB_XBAR_ADDRESS_END - wormhole::ARC_APB_XBAR_ADDRESS_START)) {
+    if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
@@ -395,7 +395,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0].x,
             wormhole::ARC_CORES_NOC0[0].y,
-            get_arc_apb_noc_base_address() + arc_addr_offset,
+            architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
             sizeof(uint32_t));
         return;
     }
@@ -404,7 +404,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
 }
 
 void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > (wormhole::ARC_CSM_XBAR_ADDRESS_END - wormhole::ARC_CSM_XBAR_ADDRESS_START)) {
+    if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
@@ -422,7 +422,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
 }
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > (wormhole::ARC_CSM_XBAR_ADDRESS_END - wormhole::ARC_CSM_XBAR_ADDRESS_START)) {
+    if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
@@ -479,14 +479,6 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
         }
     }
     return time_taken_heartbeat + time_taken_port;
-}
-
-uint64_t WormholeTTDevice::get_arc_apb_noc_base_address() const {
-    return wormhole::NOC_ADDRESS_START + wormhole::ARC_APB_XBAR_ADDRESS_START;
-}
-
-uint64_t WormholeTTDevice::get_arc_csm_noc_base_address() const {
-    return wormhole::NOC_ADDRESS_START + wormhole::ARC_CSM_XBAR_ADDRESS_START;
 }
 
 uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {

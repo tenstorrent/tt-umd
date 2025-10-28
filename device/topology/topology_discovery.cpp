@@ -5,25 +5,23 @@
  */
 #include "umd/device/topology/topology_discovery.hpp"
 
+#include <memory>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
+std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
     tt::ARCH current_arch = ARCH::Invalid;
 
@@ -31,15 +29,19 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info(target_devices);
             if (pci_devices_info.empty()) {
-                return std::make_unique<ClusterDescriptor>();
+                return nullptr;
             }
             current_arch = pci_devices_info.begin()->second.get_arch();
             break;
         }
         case IODeviceType::JTAG: {
+            if (current_arch == tt::ARCH::BLACKHOLE) {
+                TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
+            }
+
             auto jtag_device = JtagDevice::create();
             if (!jtag_device->get_device_cnt()) {
-                return std::make_unique<ClusterDescriptor>();
+                return nullptr;
             }
             current_arch = jtag_device->get_jtag_arch(0);
             break;
@@ -48,15 +50,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
             TT_THROW("Unsupported device type for topology discovery");
     }
 
-    if (current_arch == tt::ARCH::BLACKHOLE && device_type == IODeviceType::JTAG) {
-        TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
-    }
-
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
+            return std::make_unique<TopologyDiscoveryWormhole>(target_devices, sdesc_path, device_type);
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
+            return std::make_unique<TopologyDiscoveryBlackhole>(target_devices, sdesc_path);
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
@@ -68,11 +66,21 @@ TopologyDiscovery::TopologyDiscovery(
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
-    cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_connected_chips();
     discover_remote_chips();
-    fill_cluster_descriptor_info();
-    return std::move(cluster_desc);
+    return fill_cluster_descriptor_info();
+}
+
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> TopologyDiscovery::discover(
+    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, IODeviceType io_device_type) {
+    std::map<uint64_t, std::unique_ptr<Chip>> chips;
+    std::unique_ptr<TopologyDiscovery> td =
+        TopologyDiscovery::create_topology_discovery(target_devices, sdesc_path, io_device_type);
+    if (td == nullptr) {
+        return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(chips));
+    }
+    std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
+    return std::make_pair(std::move(cluster_desc), std::move(td->chips));
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
@@ -197,7 +205,8 @@ void TopologyDiscovery::discover_remote_chips() {
     patch_eth_connections();
 }
 
-void TopologyDiscovery::fill_cluster_descriptor_info() {
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
+    std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
     std::map<uint64_t, ChipId> asic_id_to_chip_id;
     ChipId chip_id = 0;
     for (const auto& [current_chip_asic_id, chip] : chips) {
@@ -287,6 +296,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
     cluster_desc->verify_cluster_descriptor_info();
+    return cluster_desc;
 }
 
 Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {

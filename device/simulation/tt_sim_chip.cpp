@@ -24,9 +24,11 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
 
-TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+TTSimChip::TTSimChip(
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ClusterDescriptor* cluster_desc, ChipId chip_id, std::unordered_map<ChipId, std::unique_ptr<Chip>> * chips_to_clock) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
+    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
+    chips_to_clock_(chips_to_clock) {
     if (!std::filesystem::exists(simulator_directory)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
@@ -57,11 +59,51 @@ TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescri
         TT_THROW("Failed to dlopen simulator library: ", dlerror());
     }
     DLSYM_FUNCTION(libttsim_init)
+    DLSYM_FUNCTION(libttsim_configure_eth_socket)
+    DLSYM_FUNCTION(libttsim_connect_eth_sockets)
     DLSYM_FUNCTION(libttsim_exit)
     DLSYM_FUNCTION(libttsim_pci_config_rd32)
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
+
+    std::filesystem::create_directories("/tmp/umd/tt_sim_chip");
+    auto get_remote_address = [](ChipId unique_chip_id, EthernetChannel channel, ChipId remote_chip_id, EthernetChannel remote_channel) -> std::tuple<std::string, bool> {
+        // TODO: We need to uniquify the directory per test to avoid collisions
+        // Currently this will only work for one test per host if there are connections with same identifiers.
+
+        // Create a deterministic ordering: smaller chip_id first, then smaller channel
+        bool is_server = (unique_chip_id < remote_chip_id) ||
+                        (unique_chip_id == remote_chip_id && channel < remote_channel);
+
+        if (is_server) {
+            return {fmt::format("/tmp/umd/tt_sim_chip/{}_{}_{}_{}", unique_chip_id, channel, remote_chip_id, remote_channel), true};
+        } else {
+            return {fmt::format("/tmp/umd/tt_sim_chip/{}_{}_{}_{}", remote_chip_id, remote_channel, unique_chip_id, channel), false};
+        }
+    };
+    if (cluster_desc->get_ethernet_connections().find(chip_id) != cluster_desc->get_ethernet_connections().end()) {
+        auto unique_chip_id = cluster_desc->get_chip_unique_ids().at(chip_id);
+        for (const auto& [channel, remote_chip_channel] : cluster_desc->get_ethernet_connections().at(chip_id)) {
+            auto remote_chip_id = cluster_desc->get_chip_unique_ids().at(std::get<0>(remote_chip_channel));
+            auto remote_channel = std::get<1>(remote_chip_channel);
+            auto [remote_address, is_server] = get_remote_address(unique_chip_id, channel, remote_chip_id, remote_channel);
+            pfn_libttsim_configure_eth_socket(channel, remote_address.c_str(), is_server);
+        }
+    }
+    if (cluster_desc->get_ethernet_connections_to_remote_devices().find(chip_id) != cluster_desc->get_ethernet_connections_to_remote_devices().end()) {
+        auto unique_chip_id = cluster_desc->get_chip_unique_ids().at(chip_id);
+        for (const auto& [channel, remote_chip_channel] : cluster_desc->get_ethernet_connections_to_remote_devices().at(chip_id)) {
+            auto remote_chip_id = std::get<0>(remote_chip_channel);
+            auto remote_channel = std::get<1>(remote_chip_channel);
+            auto [remote_address, is_server] = get_remote_address(unique_chip_id, channel, remote_chip_id, remote_channel);
+            pfn_libttsim_configure_eth_socket(channel, remote_address.c_str(), is_server);
+        }
+    }
+}
+
+bool TTSimChip::connect_eth_sockets() {
+    return pfn_libttsim_connect_eth_sockets();
 }
 
 TTSimChip::~TTSimChip() {
@@ -74,7 +116,7 @@ TTSimChip::~TTSimChip() {
 
 void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
-    pfn_libttsim_init();
+    pfn_libttsim_init(*this->target_devices_in_cluster.begin());
 
     // Read the PCI ID (first 32 bits of PCI config space)
     uint32_t pci_id = pfn_libttsim_pci_config_rd32(0, 0);
@@ -97,10 +139,21 @@ void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 }
 
 void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+    {
+        std::lock_guard<std::mutex> lock(device_lock);
+        tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+        pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, l1_src, dest, size);
+    }
+    for (uint32_t i = 0; i < 10; i++) {
+        for (const auto& [chip_id, chip] : *chips_to_clock_) {
+            static_cast<TTSimChip*>(chip.get())->clock(1);
+        }
+    }
+}
+
+void TTSimChip::clock(uint32_t clock) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, l1_src, dest, size);
-    pfn_libttsim_clock(10);
+    pfn_libttsim_clock(clock);
 }
 
 void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {

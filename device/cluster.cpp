@@ -61,6 +61,8 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 
 extern bool umd_use_noc1;
 
@@ -278,7 +280,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
+        return SimulationChip::create(simulator_directory, soc_desc, cluster_desc, chip_id, &chips_);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -502,7 +504,21 @@ Cluster::Cluster(ClusterOptions options) {
                 options.num_host_mem_ch_per_mmio_device,
                 options.simulator_directory));
     }
-
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (is_ttsim_simulation) {
+        bool initialized = false;
+        while (!initialized) {
+            initialized = true;
+            for (const auto& [chip_id, chip] : chips_) {
+                if (utils::is_multiproc_sim_enabled()) {
+                    initialized = static_cast<MultiProcessTTSimChip*>(chip.get())->connect_eth_sockets() && initialized;
+                } else {
+                    initialized = static_cast<TTSimChip*>(chip.get())->connect_eth_sockets() && initialized;
+                }
+            }
+        }
+    }
+#endif
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
 }
 

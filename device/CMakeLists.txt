@@ -136,6 +136,16 @@ if(TT_UMD_BUILD_SIMULATION)
     # Add include directories for simulation_obj
     target_include_directories(simulation_obj PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/api)
 
+    # Add necessary dependencies for simulation_obj
+    target_link_libraries(
+        simulation_obj
+        PRIVATE
+            umd::Common
+            fmt::fmt-header-only
+            spdlog::spdlog_header_only
+            tt-logger::tt-logger
+    )
+
     target_link_libraries(device PRIVATE simulation_obj)
 endif()
 

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string_view>
@@ -20,6 +21,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -223,14 +225,14 @@ public:
      * Must be called after device reset and before init_tt_device().
      * This ensures the ARC core hardware is ready for further initialization.
      */
-    virtual bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) = 0;
+    virtual bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) = 0;
 
     /**
      * Waits for ARC core to be fully ready for communication.
      * Must be called after init_tt_device() and before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
+    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -238,9 +240,11 @@ public:
      * @param timeout_ms Timeout in ms.
      * @return Time taken in ms.
      */
-    virtual uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+    virtual std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
 
-    void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
+    void wait_dram_channel_training(
+        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void bar_write32(uint32_t addr, uint32_t data);
 

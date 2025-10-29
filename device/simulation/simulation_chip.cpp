@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -17,13 +18,26 @@ namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
     const std::filesystem::path& simulator_directory,
-    const SocDescriptor& soc_descriptor,
-    ChipId chip_id,
-    size_t num_chips,
-    int num_host_mem_channels) {
+// <<<<<<< HEAD
+//     const SocDescriptor& soc_descriptor,
+//     ChipId chip_id,
+//     size_t num_chips,
+//     int num_host_mem_channels) {
+//     if (simulator_directory.extension() == ".so") {
+//         return std::make_unique<TTSimChip>(
+//             simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
+// =======
+    SocDescriptor soc_descriptor,
+    ClusterDescriptor* cluster_desc,
+    ChipId chip_id) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimChip>(
-            simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
+        if (utils::is_multiproc_sim_enabled()) {
+            return std::make_unique<MultiProcessTTSimChip>(simulator_directory, soc_descriptor, cluster_desc, chip_id);
+        } else {
+            return std::make_unique<TTSimChip>(
+                simulator_directory, soc_descriptor, cluster_desc, chip_id);
+        }
+// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
     }

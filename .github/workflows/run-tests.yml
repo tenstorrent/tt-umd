@@ -139,4 +139,11 @@ jobs:
           pip install tt_umd-*.whl --force-reinstall
           echo "Installation complete."
           echo "Running tests..."
-          .venv/bin/python -m pytest -s tests
+          LD_PRELOAD="$(
+          clang-17 -print-file-name=libasan.so
+          ) $(
+          clang-17 -print-file-name=libubsan.so
+          ) $(
+          clang-17 -print-file-name=libstdc++.so
+          )"
+          env LD_PRELOAD="$LD_PRELOAD" .venv/bin/python -m pytest -s tests

@@ -34,7 +34,7 @@ classifiers = [
 "Documentation" = "https://github.com/tenstorrent/tt-umd/blob/main/README.md"
 
 [tool.scikit-build]
-cmake.build-type = "Release"
+cmake.build-type = "ASan"
 build-dir = "build/"
 # Only build the Python-related targets
 cmake.targets = ["nanobind_tt_umd", "device"]

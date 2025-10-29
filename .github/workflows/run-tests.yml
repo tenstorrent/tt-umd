@@ -140,9 +140,9 @@ jobs:
           echo "Installation complete."
           echo "Running tests..."
           LD_PRELOAD="$(
-          clang-17 -print-file-name=libasan.so
+          clang-17 -print-file-name=libclang_rt.asan-x86_64.so
           ) $(
-          clang-17 -print-file-name=libubsan.so
+          clang-17 -print-file-name=libclang_rt.ubsan_standalone-x86_64.so
           ) $(
           clang-17 -print-file-name=libstdc++.so
           )"

@@ -14,10 +14,10 @@
 #include "assert.hpp"
 #include "umd/device/driver_atomics.hpp"
 
-#define DLSYM_FUNCTION(func_name)                                                    \
-    pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
-    if (!pfn_##func_name) {                                                          \
-        TT_THROW("Failed to find symbol: ", #func_name, dlerror());                  \
+#define DLSYM_FUNCTION(func_name)                                                                      \
+    pfn_##func_name = reinterpret_cast<decltype(pfn_##func_name)>(dlsym(libttsim_handle, #func_name)); \
+    if (!pfn_##func_name) {                                                                            \
+        TT_THROW("Failed to find symbol: ", #func_name, dlerror());                                    \
     }
 
 namespace tt::umd {

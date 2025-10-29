@@ -28,7 +28,7 @@ MultiProcessTTSimChip::MultiProcessTTSimChip(
     }
 
     // Create process manager
-    process_manager_ = std::make_unique<ProcessManager>(chip_id);
+    process_manager_ = std::make_unique<ProcessManager>(chip_id, soc_descriptor.worker_l1_size);
 
     // Start the child process
     process_manager_->start_child_process(simulator_directory, cluster_desc);

@@ -7,6 +7,7 @@
 #include "umd/device/simulation/process_manager.hpp"
 
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <cstring>
 #include <spawn.h>
@@ -20,36 +21,35 @@
 
 namespace tt::umd {
 
-ProcessManager::ProcessManager(ChipId chip_id)
-    : chip_id_(chip_id), child_running_(false), child_pid_(-1) {
+ProcessManager::ProcessManager(ChipId chip_id, uint32_t sock_size)
+    : chip_id_(chip_id), sock_size_(sock_size), child_running_(false), child_pid_(-1), parent_fd_(-1), child_fd_(-1) {
 }
 
 ProcessManager::~ProcessManager() {
     stop_child_process();
 }
 
-void ProcessManager::create_pipes() {
-    if (pipe(parent_to_child_pipe_) == -1) {
-        TT_THROW("Failed to create parent-to-child pipe: {}", strerror(errno));
+void ProcessManager::create_sockets() {
+    int fds[2];
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) {
+        TT_THROW("Failed to create socket pair: {}", strerror(errno));
     }
+    parent_fd_ = fds[1];
+    child_fd_ = fds[0];
 
-    if (pipe(child_to_parent_pipe_) == -1) {
-        close(parent_to_child_pipe_[0]);
-        close(parent_to_child_pipe_[1]);
-        TT_THROW("Failed to create child-to-parent pipe: {}", strerror(errno));
-    }
+    // Increase buffer sizes for better performance with larger messages
+    setsockopt(parent_fd_, SOL_SOCKET, SO_SNDBUF, &sock_size_, sizeof(sock_size_));
+    setsockopt(parent_fd_, SOL_SOCKET, SO_RCVBUF, &sock_size_, sizeof(sock_size_));
+    setsockopt(child_fd_, SOL_SOCKET, SO_SNDBUF, &sock_size_, sizeof(sock_size_));
+    setsockopt(child_fd_, SOL_SOCKET, SO_RCVBUF, &sock_size_, sizeof(sock_size_));
 }
 
-void ProcessManager::close_pipes() {
-    if (parent_to_child_pipe_[1] != -1) {
-        close(parent_to_child_pipe_[1]);
-        parent_to_child_pipe_[1] = -1;
+void ProcessManager::close_fd() {
+    if (parent_fd_ != -1) {
+        close(parent_fd_);
+        parent_fd_ = -1;
     }
-
-    if (child_to_parent_pipe_[0] != -1) {
-        close(child_to_parent_pipe_[0]);
-        child_to_parent_pipe_[0] = -1;
-    }
+    // Child fd is closed by the child process
 }
 
 void ProcessManager::start_child_process(const std::filesystem::path& simulator_directory,
@@ -59,7 +59,7 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
         return;
     }
 
-    create_pipes();
+    create_sockets();
 
     std::filesystem::path child_process_executable = simulator_directory.parent_path() / "child_process_tt_sim_chip";
 
@@ -70,11 +70,10 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
         // Note: Arguments must match the expected format in child_process.cpp main()
         std::vector<std::string> args = {
             child_process_executable,                      // argv[0] - executable path
-            std::to_string(parent_to_child_pipe_[0]),      // argv[1] - parent fd
-            std::to_string(child_to_parent_pipe_[1]),      // argv[2] - child fd
-            std::to_string(chip_id_),                      // argv[3] - chip ID
-            simulator_directory.string(),                  // argv[4] - simulator directory
-            cluster_desc_file.string()                     // argv[5] - cluster descriptor file (mock)
+            std::to_string(child_fd_),                     // argv[1] - comm fd
+            std::to_string(chip_id_),                      // argv[2] - chip ID
+            simulator_directory.string(),                  // argv[3] - simulator directory
+            cluster_desc_file.string()                     // argv[4] - cluster descriptor file (mock)
         };
 
         // Convert to char* array for posix_spawn
@@ -88,10 +87,8 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
         posix_spawn_file_actions_t file_actions;
         posix_spawn_file_actions_init(&file_actions);
 
-        // Close the write end of parent-to-child pipe in child process
-        posix_spawn_file_actions_addclose(&file_actions, parent_to_child_pipe_[1]);
-        // Close the read end of child-to-parent pipe in child process
-        posix_spawn_file_actions_addclose(&file_actions, child_to_parent_pipe_[0]);
+        // Close parent's end of the socket in child process
+        posix_spawn_file_actions_addclose(&file_actions, parent_fd_);
 
         // Spawn the child process
         int result = posix_spawn(&child_pid_, child_process_executable.c_str(), &file_actions,
@@ -100,39 +97,35 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
         posix_spawn_file_actions_destroy(&file_actions);
 
         if (result != 0) {
-            close(parent_to_child_pipe_[1]);
-            close(child_to_parent_pipe_[0]);
-            close_pipes();
+            close(child_fd_);
+            close_fd();
             TT_THROW("Failed to spawn child process: {}", strerror(result));
         }
     } else { // TODO: Deprecate this path
 
         child_pid_ = fork();
         if (child_pid_ == -1) {
-            close(parent_to_child_pipe_[1]);  // Close write end
-            close(child_to_parent_pipe_[0]);  // Close read end
-            close_pipes();
+            close(child_fd_);
+            close_fd();
             TT_THROW("Failed to fork child process: {}", strerror(errno));
         }
 
         if (child_pid_ == 0) {
             // Child process
-            close(parent_to_child_pipe_[1]);  // Close write end
-            close(child_to_parent_pipe_[0]);  // Close read end
+            close(parent_fd_);  // Close parent's end
 
-            // Execute the child process main function with pipe file descriptors
-            // This will be implemented in the ChildProcess class
-            extern int child_process_main(int parent_to_child_fd, int child_to_parent_fd, ChipId chip_id, const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc);
+            // Execute the child process main function with socket file descriptor
+            // Socketpair is bidirectional, so a single fd is used for both reading and writing
+            extern int child_process_main(int comm_fd, ChipId chip_id, const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc);
             try {
-                exit(child_process_main(parent_to_child_pipe_[0], child_to_parent_pipe_[1], chip_id_, simulator_directory, cluster_desc));
+                exit(child_process_main(child_fd_, chip_id_, simulator_directory, cluster_desc));
             } catch (const std::exception& e) {
                 exit(1);
             }
         }
     }
     // Parent process
-    close(parent_to_child_pipe_[0]);  // Close read end
-    close(child_to_parent_pipe_[1]);  // Close write end
+    close(child_fd_);  // Close child's end
 
     child_running_ = true;
 
@@ -155,7 +148,7 @@ void ProcessManager::stop_child_process() {
     }
 
 
-    close_pipes();
+    close_fd();
     child_running_ = false;
 
     log_info(tt::LogEmulationDriver, "Stopped child process for chip {}", chip_id_);
@@ -173,7 +166,7 @@ void ProcessManager::send_message_with_response(MessageType type, const void* da
     msg.type = type;
     msg.size = data_size;
 
-    ssize_t bytes_written = safe_write(parent_to_child_pipe_[1], &msg, sizeof(Message));
+    ssize_t bytes_written = safe_write(parent_fd_, &msg, sizeof(Message));
     if (bytes_written < 0) {
         TT_THROW("Failed to send message header to child process: {}", strerror(errno));
     }
@@ -183,7 +176,7 @@ void ProcessManager::send_message_with_response(MessageType type, const void* da
 
     // Send data directly if present
     if (data && data_size > 0) {
-        bytes_written = safe_write(parent_to_child_pipe_[1], data, data_size);
+        bytes_written = safe_write(parent_fd_, data, data_size);
         if (bytes_written < 0) {
             TT_THROW("Failed to send message data to child process: {}", strerror(errno));
         }
@@ -194,7 +187,7 @@ void ProcessManager::send_message_with_response(MessageType type, const void* da
 
     // Wait for response message
     Message response_msg;
-    ssize_t bytes_read = safe_read(child_to_parent_pipe_[0], &response_msg, sizeof(Message));
+    ssize_t bytes_read = safe_read(parent_fd_, &response_msg, sizeof(Message));
     if (bytes_read < 0) {
         TT_THROW("Failed to read response message: {}", strerror(errno));
     }
@@ -217,7 +210,7 @@ void ProcessManager::send_message_with_response(MessageType type, const void* da
 
     // Read response data if present
     if (response_data && response_size > 0) {
-        bytes_read = safe_read(child_to_parent_pipe_[0], response_data, response_size);
+        bytes_read = safe_read(parent_fd_, response_data, response_size);
         if (bytes_read < 0) {
             TT_THROW("Failed to read response data: {}", strerror(errno));
         }
@@ -241,7 +234,7 @@ void ProcessManager::send_message_with_data_and_response(MessageType type, const
     msg.type = type;
     msg.size = total_data_size;
 
-    ssize_t bytes_written = safe_write(parent_to_child_pipe_[1], &msg, sizeof(Message));
+    ssize_t bytes_written = safe_write(parent_fd_, &msg, sizeof(Message));
     if (bytes_written < 0) {
         TT_THROW("Failed to send message header to child process: {}", strerror(errno));
     }
@@ -251,7 +244,7 @@ void ProcessManager::send_message_with_data_and_response(MessageType type, const
 
     // Send header data
     if (header_size > 0) {
-        bytes_written = safe_write(parent_to_child_pipe_[1], header_data, header_size);
+        bytes_written = safe_write(parent_fd_, header_data, header_size);
         if (bytes_written < 0) {
             TT_THROW("Failed to send header data to child process: {}", strerror(errno));
         }
@@ -262,7 +255,7 @@ void ProcessManager::send_message_with_data_and_response(MessageType type, const
 
     // Send payload data directly
     if (payload_size > 0) {
-        bytes_written = safe_write(parent_to_child_pipe_[1], payload_data, payload_size);
+        bytes_written = safe_write(parent_fd_, payload_data, payload_size);
         if (bytes_written < 0) {
             TT_THROW("Failed to send payload data to child process: {}", strerror(errno));
         }
@@ -273,7 +266,7 @@ void ProcessManager::send_message_with_data_and_response(MessageType type, const
 
     // Wait for response message
     Message response_msg;
-    ssize_t bytes_read = safe_read(child_to_parent_pipe_[0], &response_msg, sizeof(Message));
+    ssize_t bytes_read = safe_read(parent_fd_, &response_msg, sizeof(Message));
     if (bytes_read < 0) {
         TT_THROW("Failed to read response message: {}", strerror(errno));
     }

@@ -20,7 +20,7 @@ class ChildProcessTTSimChip {
 public:
     ChildProcessTTSimChip(ChipId chip_id, const std::filesystem::path& simulator_directory,
                 ClusterDescriptor* cluster_desc,
-                int parent_to_child_fd, int child_to_parent_fd);
+                int comm_fd);
     ~ChildProcessTTSimChip();
 
     // Main loop for the child process
@@ -41,9 +41,8 @@ private:
     std::filesystem::path simulator_directory_;
     ClusterDescriptor* cluster_desc_;
 
-    // Pipe file descriptors for communication
-    int parent_to_child_fd_;
-    int child_to_parent_fd_;
+    // Communication socket file descriptor (bidirectional)
+    int comm_fd_;
 
     bool device_started_;
     bool should_exit_;
@@ -78,6 +77,6 @@ private:
 };
 
 // Main function for child process
-int child_process_main(int parent_to_child_fd, int child_to_parent_fd, ChipId chip_id, const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc);
+int child_process_main(int comm_fd, ChipId chip_id, const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc);
 
 }  // namespace tt::umd

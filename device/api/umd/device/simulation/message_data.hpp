@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unistd.h>
+#include <sys/socket.h>
 #include <cstdint>
 
 namespace tt::umd {
@@ -63,9 +63,9 @@ inline ssize_t safe_read(int fd, void* buf, size_t count) {
     char* buffer = static_cast<char*>(buf);
 
     while (total_read < count) {
-        ssize_t bytes_read = read(fd, buffer + total_read, count - total_read);
+        ssize_t bytes_read = recv(fd, buffer + total_read, count - total_read, 0);
         if (bytes_read == 0) {
-            // EOF reached
+            // Connection closed
             return total_read;
         } else if (bytes_read < 0) {
             // Error occurred
@@ -82,7 +82,7 @@ inline ssize_t safe_write(int fd, const void* buf, size_t count) {
     const char* buffer = static_cast<const char*>(buf);
 
     while (total_written < count) {
-        ssize_t bytes_written = write(fd, buffer + total_written, count - total_written);
+        ssize_t bytes_written = send(fd, buffer + total_written, count - total_written, 0);
         if (bytes_written < 0) {
             // Error occurred
             return -1;

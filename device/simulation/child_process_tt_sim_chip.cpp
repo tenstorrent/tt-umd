@@ -26,9 +26,9 @@
 namespace tt::umd {
 
 ChildProcessTTSimChip::ChildProcessTTSimChip(ChipId chip_id, const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc,
-                          int parent_to_child_fd, int child_to_parent_fd)
+                          int comm_fd)
     : chip_id_(chip_id), simulator_directory_(simulator_directory),
-      cluster_desc_(cluster_desc), parent_to_child_fd_(parent_to_child_fd), child_to_parent_fd_(child_to_parent_fd),
+      cluster_desc_(cluster_desc), comm_fd_(comm_fd),
       device_started_(false), should_exit_(false), libttsim_handle_(nullptr),
       libttsim_pci_device_id_(0) {
 
@@ -160,7 +160,7 @@ void ChildProcessTTSimChip::setup_ethernet_connections() {
 bool ChildProcessTTSimChip::read_message(Message& msg, std::vector<uint8_t>& data_buffer) {
     // Check if data is available without blocking
     struct pollfd pfd;
-    pfd.fd = parent_to_child_fd_;
+    pfd.fd = comm_fd_;
     pfd.events = POLLIN;
     pfd.revents = 0;
 
@@ -173,7 +173,7 @@ bool ChildProcessTTSimChip::read_message(Message& msg, std::vector<uint8_t>& dat
     }
 
     // Data is available, read message header
-    ssize_t bytes_read = safe_read(parent_to_child_fd_, &msg, sizeof(Message));
+    ssize_t bytes_read = safe_read(comm_fd_, &msg, sizeof(Message));
     if (bytes_read == 0) {
         // Parent process closed pipe
         should_exit_ = true;
@@ -189,7 +189,7 @@ bool ChildProcessTTSimChip::read_message(Message& msg, std::vector<uint8_t>& dat
     // Read message data if present
     if (msg.size > 0) {
         data_buffer.resize(msg.size);
-        bytes_read = safe_read(parent_to_child_fd_, data_buffer.data(), msg.size);
+        bytes_read = safe_read(comm_fd_, data_buffer.data(), msg.size);
         if (bytes_read < 0) {
             TT_THROW("Failed to read message data: {}", strerror(errno));
         }
@@ -265,7 +265,7 @@ void ChildProcessTTSimChip::send_response(bool success, const void* data, uint32
     response.type = MessageType::RESPONSE;
     response.size = data_size;
 
-    ssize_t bytes_written = safe_write(child_to_parent_fd_, &response, sizeof(Message));
+    ssize_t bytes_written = safe_write(comm_fd_, &response, sizeof(Message));
     if (bytes_written < 0) {
         TT_THROW("Failed to send response: {}", strerror(errno));
         return;
@@ -277,7 +277,7 @@ void ChildProcessTTSimChip::send_response(bool success, const void* data, uint32
 
     // Send data if provided
     if (data && data_size > 0) {
-        bytes_written = safe_write(child_to_parent_fd_, data, data_size);
+        bytes_written = safe_write(comm_fd_, data, data_size);
         if (bytes_written < 0) {
             TT_THROW("Failed to send response data: {}", strerror(errno));
             return;
@@ -412,25 +412,23 @@ bool ChildProcessTTSimChip::handle_connect_eth_sockets() {
 }
 
 // Main function for child process
-int child_process_main(int parent_to_child_fd, int child_to_parent_fd, ChipId chip_id, const std::filesystem::path& simulator_directory,
+int child_process_main(int comm_fd, ChipId chip_id, const std::filesystem::path& simulator_directory,
                       ClusterDescriptor* cluster_desc) {
-    ChildProcessTTSimChip child_process(chip_id, simulator_directory, cluster_desc,
-                              parent_to_child_fd, child_to_parent_fd);
+    ChildProcessTTSimChip child_process(chip_id, simulator_directory, cluster_desc, comm_fd);
     return child_process.run();
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 6) {
-        TT_THROW("Usage: {} <parent_fd> <child_fd> <chip_id> <simulator_directory> <cluster_descriptor_file>", argv[0]);
+    if (argc != 5) {
+        TT_THROW("Usage: {} <comm_fd> <chip_id> <simulator_directory> <cluster_descriptor_file>", argv[0]);
         return 1;
     }
-    int parent_to_child_fd = std::stoi(argv[1]);
-    int child_to_parent_fd = std::stoi(argv[2]);
-    ChipId chip_id = std::stoi(argv[3]);
-    const std::filesystem::path simulator_directory = argv[4];
-    const std::filesystem::path cluster_descriptor_file = argv[5];
+    int comm_fd = std::stoi(argv[1]);
+    ChipId chip_id = std::stoi(argv[2]);
+    const std::filesystem::path simulator_directory = argv[3];
+    const std::filesystem::path cluster_descriptor_file = argv[4];
     auto cluster_desc = ClusterDescriptor::create_from_yaml(cluster_descriptor_file);
-    return child_process_main(parent_to_child_fd, child_to_parent_fd, chip_id, simulator_directory, cluster_desc.get());
+    return child_process_main(comm_fd, chip_id, simulator_directory, cluster_desc.get());
 }
 
 }  // namespace tt::umd

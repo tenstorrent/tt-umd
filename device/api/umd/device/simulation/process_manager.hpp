@@ -19,7 +19,7 @@ namespace tt::umd {
 // ProcessManager handles communication between parent and child processes
 class ProcessManager {
 public:
-    ProcessManager(ChipId chip_id);
+    ProcessManager(ChipId chip_id, uint32_t sock_size);
     ~ProcessManager();
 
     // Start the child process
@@ -45,18 +45,19 @@ public:
 
 private:
     ChipId chip_id_;
+    uint32_t sock_size_;
     bool child_running_;
 
     // Process management
     pid_t child_pid_;
 
-    // Communication pipes
-    int parent_to_child_pipe_[2];  // [0] = read, [1] = write
-    int child_to_parent_pipe_[2];  // [0] = read, [1] = write
+    // Communication socket pair (bidirectional)
+    int parent_fd_;
+    int child_fd_;
 
     // Helper methods
-    void create_pipes();
-    void close_pipes();
+    void create_sockets();
+    void close_fd();
     void cleanup_child_process();
 };
 

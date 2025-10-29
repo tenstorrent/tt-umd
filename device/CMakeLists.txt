@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.16)
 
 set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
@@ -119,17 +119,6 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
-    )
-    # Skip static analysis on simulator sources
-    set_property(
-        SOURCE
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/simulation_chip.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/tt_sim_chip.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/rtl_simulation_chip.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/simulation_host.cpp
-        PROPERTY
-            SKIP_LINTING
-                ON
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()

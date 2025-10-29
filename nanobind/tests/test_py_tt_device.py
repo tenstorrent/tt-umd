@@ -131,7 +131,35 @@ class TestTTDevice(unittest.TestCase):
                 continue
             
             # Send TEST message with args 0x1234 and 0x5678
-            exit_code, return_3, return_4 = dev.arc_msg(test_msg_code, True, 0x1234, 0x5678, 1000)
+            exit_code, return_3, return_4 = dev.arc_msg(test_msg_code, True, [0x1234, 0x5678], 1000)
             print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
+
+    def test_get_spi_fw_bundle_version(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        for dev_id in dev_ids:
+            dev = tt_umd.TTDevice.create(dev_id)
+            dev.init_tt_device()
+            arch = dev.get_arch()
+            print(f"\nTesting get_spi_fw_bundle_version on device {dev_id} with arch {arch}")
+            
+            # get_spi_fw_bundle_version is only supported on Blackhole
+            if arch != tt_umd.ARCH.BLACKHOLE:
+                print(f"Skipping get_spi_fw_bundle_version test for arch {arch} (only supported on Blackhole)")
+                continue
+            
+            fw_version = dev.get_spi_fw_bundle_version()
+            
+            # Access version components
+            patch = fw_version & 0xFF
+            minor = (fw_version >> 8) & 0xFF
+            major = (fw_version >> 16) & 0xFF
+            component = (fw_version >> 24) & 0xFF
+            
+            print(f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}")
         

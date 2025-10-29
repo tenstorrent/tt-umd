@@ -31,16 +31,14 @@ public:
      *
      * @param msg_code ARC messsage type.
      * @param return_values Return values from the ARC message.
-     * @param arg0 arg0 for the message.
-     * @param arg1 arg1 for the message.
+     * @param args Arguments for the message (device-specific limits apply).
      * @param timeout_ms Timeout in milliseconds; 0 to wait indefinitely.
      * @return Success code of the ARC message.
      */
     virtual uint32_t send_message(
         const uint32_t msg_code,
         std::vector<uint32_t>& return_values,
-        uint16_t arg0 = 0,
-        uint16_t arg1 = 0,
+        const std::vector<uint32_t>& args = {},
         uint32_t timeout_ms = 1000) = 0;
 
     /**
@@ -48,12 +46,11 @@ public:
      * This version of the function can be called if the return values are not needed.
      *
      * @param msg_code ARC messsage type.
-     * @param arg0 arg0 for the message.
-     * @param arg1 arg1 for the message.
+     * @param args Arguments for the message (device-specific limits apply).
      * @param timeout_ms Timeout in milliseconds; 0 to wait indefinitely.
      * @return Success code of the ARC message.
      */
-    uint32_t send_message(const uint32_t msg_code, uint16_t arg0 = 0, uint16_t arg1 = 0, uint32_t timeout_ms = 1000);
+    uint32_t send_message(const uint32_t msg_code, const std::vector<uint32_t>& args = {}, uint32_t timeout_ms = 1000);
 
     virtual ~ArcMessenger();
 

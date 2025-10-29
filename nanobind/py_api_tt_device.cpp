@@ -112,20 +112,24 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done = true,
-               uint32_t arg0 = 0,
-               uint32_t arg1 = 0,
+               std::vector<uint32_t> args = {},
                uint32_t timeout_ms = 1000) -> nb::tuple {
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code =
-                    self.get_arc_messenger()->send_message(msg_code, return_values, arg0, arg1, timeout_ms);
+                uint32_t exit_code = self.get_arc_messenger()->send_message(msg_code, return_values, args, timeout_ms);
                 return nb::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
-            nb::arg("arg0") = 0,
-            nb::arg("arg1") = 0,
+            nb::arg("args") = std::vector<uint32_t>{},
             nb::arg("timeout_ms") = 1000,
-            "Send ARC message and return (exit_code, return_3, return_4)");
+            "Send ARC message and return (exit_code, return_3, return_4). "
+            "Args is a list of uint32_t arguments. For Wormhole, max 2 args (each <= 0xFFFF). For Blackhole, max 7 "
+            "args.")
+        .def(
+            "get_spi_fw_bundle_version",
+            &TTDevice::get_spi_fw_bundle_version,
+            "Get firmware bundle version from SPI (Blackhole only). "
+            "Returns semver_t with major.minor.patch components.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

@@ -10,6 +10,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace nb = nanobind;
 
@@ -46,4 +47,22 @@ void bind_basic_types(nb::module_ &m) {
         .def("__str__", &tt::arch_to_str)
         .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
         .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"));
+
+    nb::class_<semver_t>(m, "semver_t")
+        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
+        .def(nb::init<const std::string &>(), nb::arg("version_str"))
+        .def_rw("major", &semver_t::major)
+        .def_rw("minor", &semver_t::minor)
+        .def_rw("patch", &semver_t::patch)
+        .def("__str__", &semver_t::to_string)
+        .def(
+            "__repr__",
+            [](const semver_t &v) { return fmt::format("semver_t({}, {}, {})", v.major, v.minor, v.patch); })
+        .def("__lt__", &semver_t::operator<)
+        .def("__gt__", &semver_t::operator>)
+        .def("__eq__", &semver_t::operator==)
+        .def("__ne__", &semver_t::operator!=)
+        .def("__le__", &semver_t::operator<=)
+        .def("__ge__", &semver_t::operator>=)
+        .def_static("compare_firmware_bundle", &semver_t::compare_firmware_bundle, nb::arg("v1"), nb::arg("v2"));
 }

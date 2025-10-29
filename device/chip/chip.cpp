@@ -99,7 +99,7 @@ void Chip::enable_ethernet_queue(int timeout_s) {
             throw std::runtime_error(
                 fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
         }
-        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
+        if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, 1000, &msg_success) == HANG_READ_VALUE) {
             break;
         }
     }
@@ -198,8 +198,7 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
 int Chip::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
+    const std::vector<uint32_t>& args,
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
@@ -213,7 +212,7 @@ int Chip::arc_msg(
     }
 
     uint32_t exit_code =
-        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
+        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, args, timeout_ms);
 
     if (return_3 != nullptr) {
         *return_3 = arc_msg_return_values[0];
@@ -230,7 +229,7 @@ void Chip::set_power_state(DevicePowerState state) {
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
-        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {});
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == DevicePowerState::BUSY) {
             exit_code =

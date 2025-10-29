@@ -36,8 +36,9 @@ public:
      * @param addr SPI address to write to
      * @param data Buffer containing data to write
      * @param size Number of bytes to write
+     * @param skip_write_to_spi If true, the data will not be committed to SPI. This is useful for testing.
      */
-    virtual void write(uint32_t addr, const uint8_t* data, size_t size) = 0;
+    virtual void write(uint32_t addr, const uint8_t* data, size_t size, bool skip_write_to_spi = false) = 0;
 };
 
 }  // namespace tt::umd

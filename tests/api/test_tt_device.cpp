@@ -317,6 +317,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
 
         // Read current value
         std::vector<uint8_t> original_value(2, 0);
+        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         tt_device->spi_read(spare_addr, original_value.data(), original_value.size());
 
         std::cout << "Original value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
@@ -330,10 +331,12 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         }
 
         // Write back incremented value
+        std::cout << "spi_write value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
         tt_device->spi_write(spare_addr, new_value.data(), new_value.size());
 
         // Read back to verify
         std::vector<uint8_t> verify_value(2, 0);
+        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         tt_device->spi_read(spare_addr, verify_value.data(), verify_value.size());
 
         std::cout << "Updated value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
@@ -342,8 +345,25 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         // Verify read-after-write
         EXPECT_EQ(new_value, verify_value) << "SPI write verification failed for device " << chip_id;
 
+        // Increment value again, but this time don't commit it to SPI.
+        // This is to verify that the values from SPI are truly fetched.
+        new_value[0] = new_value[0] + 1;  // wrapping_add
+        if (new_value[0] == 0) {
+            new_value[1] = new_value[1] + 1;
+        }
+        // Performs write to the buffer, but doesn't commit it to SPI.
+        std::cout << "spi_write (fake) value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
+        tt_device->spi_write(spare_addr, new_value.data(), new_value.size(), true);
+
+        // Read back to verify
+        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
+        tt_device->spi_read(spare_addr, verify_value.data(), verify_value.size());
+        EXPECT_NE(new_value, verify_value) << "SPI buffer update on read failed for device " << chip_id;
+
+        // Verify that the value fetched from different address was different.
         // Read wider area to check SPI handling of different sizes
         std::vector<uint8_t> wide_value(8, 0);
+        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         tt_device->spi_read(spare_addr, wide_value.data(), wide_value.size());
 
         uint64_t wide_value_u64 = 0;
@@ -352,9 +372,9 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
                   << wide_value_u64 << std::endl;
 
         // Verify first 2 bytes match our written value
-        EXPECT_EQ(wide_value[0], new_value[0])
+        EXPECT_EQ(wide_value[0], verify_value[0])
             << "First byte of wide read doesn't match written value for device " << chip_id;
-        EXPECT_EQ(wide_value[1], new_value[1])
+        EXPECT_EQ(wide_value[1], verify_value[1])
             << "Second byte of wide read doesn't match written value for device " << chip_id;
     }
 }

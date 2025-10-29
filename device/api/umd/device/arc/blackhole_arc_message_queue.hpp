@@ -52,7 +52,7 @@ public:
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
      */
     uint32_t send_message(
-        const ArcMessageType message_type, uint16_t arg0 = 0, uint16_t arg1 = 0, uint32_t timeout_ms = 1000);
+        const ArcMessageType message_type, const std::vector<uint32_t>& args = {}, uint32_t timeout_ms = 1000);
 
     static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
         TTDevice* tt_device, const size_t queue_index);

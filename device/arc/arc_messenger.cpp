@@ -38,9 +38,9 @@ ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
     lock_manager.initialize_mutex(MutexType::ARC_MSG);
 }
 
-uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
+uint32_t ArcMessenger::send_message(const uint32_t msg_code, const std::vector<uint32_t>& args, uint32_t timeout_ms) {
     std::vector<uint32_t> return_values;
-    return send_message(msg_code, return_values, arg0, arg1, timeout_ms);
+    return send_message(msg_code, return_values, args, timeout_ms);
 }
 
 ArcMessenger::~ArcMessenger() {

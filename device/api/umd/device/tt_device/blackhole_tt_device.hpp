@@ -47,6 +47,8 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms) override;
 
+    uint32_t get_spi_fw_bundle_version() override;
+
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 

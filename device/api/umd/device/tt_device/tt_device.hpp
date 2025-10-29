@@ -257,6 +257,25 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
+    /**
+     * Get the firmware bundle version by reading from SPI flash (Blackhole only).
+     *
+     * This method:
+     * 1. Scans the boot filesystem table in SPI starting at address 0
+     * 2. Finds the "cmfwcfg" configuration entry
+     * 3. Reads and parses the protobuf data
+     * 4. Extracts the fw_bundle_version field
+     *
+     * The raw 32-bit value format: [component][major][minor][patch] (each 8 bits)
+     * Returns as semver_t with major.minor.patch (component byte is not included)
+     *
+     * @return The firmware bundle version as semver_t
+     * @throws std::runtime_error if not supported on this architecture or cannot read from SPI
+     *
+     * Note: This is only implemented for Blackhole devices.
+     */
+    virtual uint32_t get_spi_fw_bundle_version();
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -321,8 +340,9 @@ public:
      * @param addr SPI address to write to
      * @param data Buffer containing data to write
      * @param size Number of bytes to write
+     * @param skip_write_to_spi If true, the data will not be committed to SPI. This is useful for testing.
      */
-    void spi_write(uint32_t addr, const uint8_t *data, size_t size);
+    void spi_write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi = false);
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

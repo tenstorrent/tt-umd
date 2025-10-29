@@ -293,4 +293,11 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
 
+uint32_t BlackholeTTDevice::get_spi_fw_bundle_version() {
+    if (!spi_) {
+        throw std::runtime_error("SPI not available for this device.");
+    }
+    return static_cast<BlackholeSPI *>(spi_.get())->get_spi_fw_bundle_version();
+}
+
 }  // namespace tt::umd

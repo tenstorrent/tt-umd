@@ -21,7 +21,7 @@ public:
     explicit WormholeSPI(TTDevice* tt_device);
 
     void read(uint32_t addr, uint8_t* data, size_t size) override;
-    void write(uint32_t addr, const uint8_t* data, size_t size) override;
+    void write(uint32_t addr, const uint8_t* data, size_t size, bool skip_write_to_spi = false) override;
 
 private:
     TTDevice* tt_device_;

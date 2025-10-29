@@ -155,6 +155,11 @@ if(TT_UMD_BUILD_TOOLS)
     add_subdirectory(tools)
 endif()
 
+if(TT_UMD_BUILD_SIMULATION)
+    message(STATUS "Building ${PROJECT_NAME} with Simulation")
+    add_subdirectory(simulation)
+endif()
+
 if(TT_UMD_BUILD_EXAMPLES)
     message(STATUS "Building ${PROJECT_NAME} with Examples")
     add_subdirectory(examples)

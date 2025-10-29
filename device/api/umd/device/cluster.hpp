@@ -426,6 +426,9 @@ public:
      */
     void dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
 
+    void noc_multicast_write(
+        void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
      * from the broadcast. The function has to be called either only for Tensix cores or only for DRAM cores.

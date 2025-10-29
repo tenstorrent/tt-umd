@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class WormholeTTDevice : public TTDevice {

@@ -978,6 +978,11 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
     get_chip(chip)->read_from_device_reg(core, mem_ptr, addr, size);
 }
 
+void Cluster::noc_multicast_write(
+    void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
+}
+
 int Cluster::arc_msg(
     int logical_device_id,
     uint32_t msg_code,

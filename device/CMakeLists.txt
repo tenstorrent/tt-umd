@@ -134,7 +134,13 @@ if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(simulation_obj PRIVATE TT_UMD_BUILD_SIMULATION)
 
     # Add include directories for simulation_obj
-    target_include_directories(simulation_obj PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/api)
+    target_include_directories(
+        simulation_obj
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/api
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_BINARY_DIR}
+    )
 
     # Add necessary dependencies for simulation_obj
     target_link_libraries(

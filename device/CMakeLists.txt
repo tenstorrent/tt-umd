@@ -144,6 +144,9 @@ if(TT_UMD_BUILD_SIMULATION)
             fmt::fmt-header-only
             spdlog::spdlog_header_only
             tt-logger::tt-logger
+            flatbuffers::flatbuffers
+            nng
+            uv_a
     )
 
     target_link_libraries(device PRIVATE simulation_obj)
@@ -270,16 +273,6 @@ if(NOT HAVE_BACKTRACE)
     if(EXECINFO_LIB)
         target_link_libraries(device PRIVATE ${EXECINFO_LIB})
     endif()
-endif()
-
-if(TT_UMD_BUILD_SIMULATION)
-    target_link_libraries(
-        device
-        PRIVATE
-            flatbuffers::flatbuffers
-            nng
-            uv_a
-    )
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support

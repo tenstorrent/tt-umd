@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.16)
 
 set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)

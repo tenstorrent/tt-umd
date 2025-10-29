@@ -11,16 +11,16 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
 class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
-    // Filter discovery by device. See ClusterOptions.
-    std::unordered_set<ChipId> target_devices = {};
-
     // Path to custom SoC descriptor when creating chips. See ClusterOptions.
     std::string soc_descriptor_path = "";
 
@@ -66,39 +66,39 @@ protected:
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
     // eth_core should be in physical (NOC0) coordinates.
-    virtual uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // Returns mangled remote board type from local ETH core.
     // This information can still be used to unique identify a board.
     // eth_core should be in physical (NOC0) coordinates.
-    virtual uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.
     // eth_core should be in physical (NOC0) coordinates.
-    virtual uint64_t get_local_board_id(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual uint64_t get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // eth_core should be in NoC 0 coordinates.
-    virtual uint64_t get_local_asic_id(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual uint64_t get_local_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // eth_core should be in NoC 0 coordinates.
-    virtual uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     uint64_t get_asic_id(Chip* chip);
 
-    virtual uint64_t get_unconnected_chip_id(Chip* chip) = 0;
+    virtual uint64_t get_unconnected_chip_id(TTDevice* tt_device) = 0;
 
-    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip) = 0;
+    virtual std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device) = 0;
 
-    virtual std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
-
-    // local_eth_core should be in NoC 0 coordinates.
-    virtual tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) = 0;
+    virtual std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // local_eth_core should be in NoC 0 coordinates.
-    virtual uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) = 0;
+    virtual tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
 
-    virtual uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
+    // local_eth_core should be in NoC 0 coordinates.
+    virtual uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
+
+    virtual uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
 
     // API exposed as a temporary workaround for issue: https://tenstorrent.atlassian.net/browse/SYS-2064.
     // This is used for querying the logical remote eth channel on Multi-Host Blackhole P150 systems, where
@@ -106,7 +106,7 @@ protected:
     // Logic in this API can be placed in get_remote_eth_channel, and patch_eth_connections can be removed,
     // once the issue outlined in the ticket is resolved (at which point, UMD can directly query the logical
     // ethernet channel for the remote chip on all board types).
-    virtual uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
+    virtual uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
 
     virtual bool is_using_eth_coords() = 0;
 
@@ -118,25 +118,29 @@ protected:
 
     virtual void init_topology_discovery();
 
-    virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
+    virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
-    virtual void patch_eth_connections();
+    virtual void patch_eth_connections() = 0;
 
     // Intermesh links are ethernet links that are turned off during UMD's topology discovery but are
     // otherwise physically connected. This is done since not all tools support limiting the discovery as
     // UMD does. Once all the tools start supporting this, this feature won't be used anymore and this
     // function will return empty set.
     // This will extract the list of intermesh links from a config in L1.
-    virtual std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual std::vector<uint32_t> extract_intermesh_eth_links(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    virtual bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) = 0;
+    virtual bool is_intermesh_eth_link_trained(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // This function is going to be implemented for Blackhole since it needs to load communication
     // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW
     // is loaded from SPI, not in runtime.
-    virtual void initialize_remote_communication(Chip* chip);
+    virtual void initialize_remote_communication(TTDevice* tt_device);
+
+    SocDescriptor get_soc_descriptor(TTDevice* tt_device);
+
+    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
@@ -159,8 +163,6 @@ protected:
     TopologyDiscoveryOptions options;
 
     bool is_running_on_6u = false;
-
-    virtual bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) = 0;
 
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.

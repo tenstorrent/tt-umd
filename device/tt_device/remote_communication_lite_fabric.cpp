@@ -34,8 +34,22 @@ void RemoteCommunicationLiteFabric::write_to_non_mmio(
     host_interface.write((void*)src, size_in_bytes, core_coord, target_core, core_dest);
 }
 
-void RemoteCommunicationLiteFabric::wait_for_non_mmio_flush(const uint32_t timeout_ms) {
-    // TODO(pjanevski): implement this.
+void RemoteCommunicationLiteFabric::read_non_mmio_reg(
+    tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes, const uint64_t timeout_ms) {
+    read_non_mmio(target_core, dest, core_src, size_in_bytes, timeout_ms);
 }
+
+void RemoteCommunicationLiteFabric::write_to_non_mmio_reg(
+    tt_xy_pair target_core,
+    const void* src,
+    uint64_t core_dest,
+    uint32_t size_in_bytes,
+    bool broadcast,
+    std::vector<int> broadcast_header,
+    const uint32_t timeout_ms) {
+    write_to_non_mmio(target_core, src, core_dest, size_in_bytes, broadcast, broadcast_header, timeout_ms);
+}
+
+void RemoteCommunicationLiteFabric::wait_for_non_mmio_flush(const uint32_t timeout_ms) {}
 
 }  // namespace tt::umd

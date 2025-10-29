@@ -22,6 +22,9 @@ enum class MutexType {
     // Used to serialize IO operations which are done directly through TTDevice. This is needed since it goes through a
     // single TLB.
     TT_DEVICE_IO,
+    // Used to serialize IO operations which are done directly through TTDevice. This is needed since it goes through a
+    // single TLB.
+    TT_DEVICE_IO_REG,
     // Used to serialize non-MMIO operations over ethernet.
     NON_MMIO,
     // Used to serialize memory barrier operations.

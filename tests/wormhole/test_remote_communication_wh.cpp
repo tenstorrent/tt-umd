@@ -90,7 +90,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 // This test verifies that chunking works correctly when sysmem_manager is nullptr
 TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     // Discover cluster topology
-    auto [cluster_desc, _] = TopologyDiscovery::discover();
+    auto [cluster_desc, _] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});
 
     // Find a remote chip
     std::optional<ChipId> remote_chip_id;

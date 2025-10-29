@@ -155,6 +155,9 @@ if(TT_UMD_BUILD_SIMULATION)
             uv_a
     )
 
+    # Add compile definition to main device target for simulation support
+    target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
+
     target_link_libraries(device PRIVATE simulation_obj)
 endif()
 

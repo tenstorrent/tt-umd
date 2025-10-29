@@ -111,16 +111,29 @@ target_sources(
 )
 
 if(TT_UMD_BUILD_SIMULATION)
-    target_sources(
-        device
-        PRIVATE
-            simulation/simulation_chip.cpp
-            simulation/tt_sim_chip.cpp
-            simulation/rtl_simulation_chip.cpp
-            simulation/simulation_host.cpp
-            ${FBS_GENERATED_HEADER}
+    # Define an OBJECT library for the simulation components
+    add_library(
+        simulation_obj
+        OBJECT
+        simulation/simulation_chip.cpp
+        simulation/tt_sim_chip.cpp
+        simulation/rtl_simulation_chip.cpp
+        simulation/simulation_host.cpp
+        ${FBS_GENERATED_HEADER}
     )
-    target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
+
+    # Disable clang-tidy for simulation_obj
+    set_target_properties(
+        simulation_obj
+        PROPERTY
+        CXX_CLANG_TIDY
+        ""
+    )
+
+    # Add compile definitions to the object library's PRIVATE interface
+    target_compile_definitions(simulation_obj PRIVATE TT_UMD_BUILD_SIMULATION)
+
+    target_link_libraries(device PRIVATE simulation_obj)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)

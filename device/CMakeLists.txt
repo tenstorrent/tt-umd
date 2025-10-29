@@ -125,9 +125,9 @@ if(TT_UMD_BUILD_SIMULATION)
     # Disable clang-tidy for simulation_obj
     set_target_properties(
         simulation_obj
-        PROPERTY
-        CXX_CLANG_TIDY
-        ""
+        PROPERTIES
+            CXX_CLANG_TIDY
+                ""
     )
 
     # Add compile definitions to the object library's PRIVATE interface

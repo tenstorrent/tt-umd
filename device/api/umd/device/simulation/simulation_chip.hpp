@@ -23,10 +23,17 @@ public:
 
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
-        const SocDescriptor& soc_descriptor,
+// <<<<<<< HEAD
+//         const SocDescriptor& soc_descriptor,
+//         ChipId chip_id,
+//         size_t num_chips,
+//         int num_host_mem_channels = 0);
+// =======
+        SocDescriptor soc_descriptor,
+        ClusterDescriptor* cluster_desc,
         ChipId chip_id,
-        size_t num_chips,
         int num_host_mem_channels = 0);
+// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
 
     ~SimulationChip() override = default;
 

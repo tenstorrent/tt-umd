@@ -133,6 +133,10 @@ if(TT_UMD_BUILD_SIMULATION)
             chip_helpers/tt_sim_tlb_manager.cpp
             pcie/simulation_tlb_window.cpp
             pcie/simulation_tlb_handle.cpp
+            simulation/process_manager.cpp
+            simulation/multi_process_tt_sim_chip.cpp
+            simulation/tt_sim_chip_impl.cpp
+            simulation/eth_connection.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)

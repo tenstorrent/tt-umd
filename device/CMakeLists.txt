@@ -133,6 +133,9 @@ if(TT_UMD_BUILD_SIMULATION)
     # Add compile definitions to the object library's PRIVATE interface
     target_compile_definitions(simulation_obj PRIVATE TT_UMD_BUILD_SIMULATION)
 
+    # Add include directories for simulation_obj
+    target_include_directories(simulation_obj PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/api)
+
     target_link_libraries(device PRIVATE simulation_obj)
 endif()
 

@@ -94,8 +94,14 @@ endif()
 
 add_subdirectory(third_party)
 
-# Configure clang-tidy AFTER third_party so dependencies are not linted
-option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.27)
+    # Configure clang-tidy AFTER third_party so dependencies are not linted
+    option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+else()
+    # Configure clang-tidy AFTER third_party so dependencies are not linted
+    option(ENABLE_CLANG_TIDY "Disable clang-tidy checks during the build because of older versions" OFF)
+endif()
+
 if(ENABLE_CLANG_TIDY)
     find_program(
         CLANG_TIDY_EXE

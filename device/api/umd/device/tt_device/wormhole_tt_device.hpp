@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
@@ -37,6 +38,9 @@ public:
     void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void noc_multicast_write(
+        void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
     ChipInfo get_chip_info() override;
 

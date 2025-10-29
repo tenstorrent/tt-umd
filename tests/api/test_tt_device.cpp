@@ -244,3 +244,55 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         }
     }
 }
+
+TEST(ApiTTDeviceTest, Multicast) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    tt_device->init_tt_device();
+
+    ChipInfo chip_info = tt_device->get_chip_info();
+
+    SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+
+    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    for (std::size_t i = 18; i <= 19; i++) {
+        for (std::size_t j = 18; j <= 19; j++) {
+            std::vector<uint32_t> zeros(data_write.size(), 0);
+
+            tt_device->write_to_device(zeros.data(), {i, j}, address, zeros.size() * sizeof(uint32_t));
+
+            std::vector<uint32_t> check_zeros(data_write.size(), 1);
+            tt_device->read_from_device(check_zeros.data(), {i, j}, address, check_zeros.size() * sizeof(uint32_t));
+
+            ASSERT_EQ(zeros, check_zeros);
+
+            check_zeros = std::vector<uint32_t>(data_write.size(), 1);
+        }
+    }
+
+    // virtual void noc_multicast_write(
+    // void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
+    tt_device->noc_multicast_write(
+        data_write.data(), data_write.size() * sizeof(uint32_t), {18, 18}, {19, 19}, address);
+
+    for (std::size_t i = 18; i <= 19; i++) {
+        for (std::size_t j = 18; j <= 19; j++) {
+            tt_device->read_from_device(data_read.data(), {i, j}, address, data_read.size() * sizeof(uint32_t));
+
+            ASSERT_EQ(data_write, data_read);
+
+            data_read = std::vector<uint32_t>(data_write.size(), 0);
+        }
+    }
+    // tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+    // ASSERT_EQ(data_write, data_read);
+
+    data_read = std::vector<uint32_t>(data_write.size(), 0);
+}

@@ -41,6 +41,9 @@ public:
 
     void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
+    void noc_multicast_write(
+        void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(

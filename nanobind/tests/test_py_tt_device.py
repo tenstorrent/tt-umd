@@ -40,7 +40,7 @@ class TestTTDevice(unittest.TestCase):
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")
 
-    # @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
     def test_spi_read_write(self):
         """Test SPI read/write operations on discovered devices."""
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()

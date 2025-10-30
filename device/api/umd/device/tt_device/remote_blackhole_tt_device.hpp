@@ -16,6 +16,10 @@ public:
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
+    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
+
+    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
+
     void read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;

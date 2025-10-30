@@ -135,6 +135,8 @@ public:
     // to get the information to form cluster of chips, or just use base TTDevice functions.
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device_reg(tt_xy_pair core, const void *src, uint64_t reg_dest, uint32_t size);
+    virtual void read_from_device_reg(tt_xy_pair core, void *dest, uint64_t reg_src, uint32_t size);
 
     /**
      * Read function that will send read message to the ARC core.
@@ -327,6 +329,8 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
+
+    void verify_register_access(const uint64_t address, const size_t size);
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);

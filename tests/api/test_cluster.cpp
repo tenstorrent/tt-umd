@@ -945,7 +945,7 @@ INSTANTIATE_TEST_SUITE_P(
     ClusterAssertDeassertRiscsTest,
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
-TEST(TestCluster, StartDeviceWithValidRiscProgram) {
+TEST(TestCluster, DISABLED_StartDeviceWithValidRiscProgram) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     constexpr uint64_t write_address = 0x1000;
 

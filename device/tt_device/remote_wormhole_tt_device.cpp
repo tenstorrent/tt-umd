@@ -34,6 +34,16 @@ void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair cor
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
+void RemoteWormholeTTDevice::write_to_device_reg(tt_xy_pair core, const void *src, uint64_t reg_dest, uint32_t size) {
+    verify_register_access(reg_dest, size);
+    write_to_device(src, core, reg_dest, size);
+}
+
+void RemoteWormholeTTDevice::read_from_device_reg(tt_xy_pair core, void *dest, uint64_t reg_src, uint32_t size) {
+    verify_register_access(reg_src, size);
+    read_from_device(dest, core, reg_src, size);
+}
+
 void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return remote_communication_.get(); }

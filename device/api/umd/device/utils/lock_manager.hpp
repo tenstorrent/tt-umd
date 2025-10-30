@@ -19,6 +19,10 @@ enum class MutexType {
     ARC_MSG,
     // Used to serialize communication with the remote ARC over ethernet.
     REMOTE_ARC_MSG,
+    // Used to serialize IO operations to registers which are done directly through TTDevice. This is needed since it
+    // goes through a
+    // single TLB.
+    TT_DEVICE_IO_REG,
     // Used to serialize IO operations which are done directly through TTDevice. This is needed since it goes through a
     // single TLB.
     TT_DEVICE_IO,

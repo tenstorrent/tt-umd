@@ -274,10 +274,6 @@ public:
 
     double get_asic_temperature();
 
-    // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
-    // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status();
-
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();

@@ -6,6 +6,7 @@
 
 #include <fmt/ranges.h>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -77,6 +78,16 @@ enum class InitState : uint16_t {
     TERMINATED,
 };
 
+enum class RoutingEnabledState : uint16_t {
+    // Write to disable routing. This will stop all routing activity and propagate routing enabled state to the
+    // connected core
+    STOPPED = 0,
+    // Enabled. Call functions to service channels.
+    ENABLED = 1,
+    // Stopped
+    STOP = 2,
+};
+
 struct LiteFabricConfig {
     // Starting address of the Lite Fabric binary to be copied locally and to the neighbour.
     volatile uint32_t binary_addr = 0;
@@ -88,33 +99,38 @@ struct LiteFabricConfig {
     // get the ethernet core coordinate.
     volatile uint32_t eth_chans_mask = 0;
 
-    unsigned char padding0[4];
+    uint32_t padding0{};
 
     // Subordinate cores on the same chip increment this value when they are ready. The primary core
     // will stall until this value shows all eth cores are ready.
     volatile uint32_t primary_local_handshake = 0;
 
-    unsigned char padding1[12];
+    uint32_t padding1[3]{};
 
-    // Becomes 1 when the neighbour is ready.
+    // Becomes 1 when the neighbour is ready
     volatile uint32_t neighbour_handshake = 0;
 
-    unsigned char padding2[14];
+    uint32_t padding2[1]{};
 
+    // This is the local primary core
     volatile uint16_t is_primary = false;
 
     volatile uint8_t primary_eth_core_x = 0;
 
     volatile uint8_t primary_eth_core_y = 0;
 
+    // This is on the MMIO
     volatile uint16_t is_mmio = false;
 
     volatile InitState initial_state = InitState::UNKNOWN;
 
     volatile InitState current_state = InitState::UNKNOWN;
 
-    // Set to 1 to enable routing.
-    volatile uint32_t routing_enabled = 1;
+    unsigned char padding3[14]{};
+
+    volatile RoutingEnabledState routing_enabled = RoutingEnabledState::STOPPED;
+
+    unsigned char padding4[14]{};
 } __attribute__((packed));
 
 static_assert(sizeof(LiteFabricConfig) % 16 == 0);
@@ -350,10 +366,13 @@ private:
         uint32_t receiver_header_address = get_next_receiver_buffer_slot_address(receiver_channel_base);
         log_debug(
             LogUMD,
-            "Reading data from {} {:#x} unaligned {}",
+            "Board {:#x} {} Reading data from {} {:#x} unaligned {} src node {:#x}",
+            tt_device->get_chip_info().board_id,
+            tt_device->get_chip_info().asic_location,
             receiver_core.str(),
             receiver_header_address,
-            header.unaligned_offset);
+            header.unaligned_offset,
+            src_noc_addr);
         uint32_t receiver_data_address = receiver_header_address + sizeof(FabricLiteHeader);
 
         wait_for_empty_write_slot(receiver_core);
@@ -401,22 +420,24 @@ private:
 __attribute__((packed));
 
 struct LiteFabricMemoryMap {
-    lite_fabric::LiteFabricConfig config;
-    EDMChannelWorkerLocationInfo sender_location_info;
     uint32_t sender_flow_control_semaphore{};
-    unsigned char padding0[12]{};
+    uint32_t padding0[3]{};
     uint32_t sender_connection_live_semaphore{};
-    unsigned char padding1[12]{};
+    uint32_t padding1[3]{};
     uint32_t worker_semaphore{};
-    unsigned char padding2[92]{};
+    uint32_t padding2[7]{};
     unsigned char sender_channel_buffer[lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0] * lite_fabric::CHANNEL_BUFFER_SIZE]{};
     unsigned char padding3[192]{};
     unsigned char
         receiver_channel_buffer[lite_fabric::RECEIVER_NUM_BUFFERS_ARRAY[0] * lite_fabric::CHANNEL_BUFFER_SIZE]{};
-    // L1 address of the service_lite_fabric function.
+    // L1 address of the service_lite_fabric function
     uint32_t service_lite_fabric_addr{};
     unsigned char padding4[12]{};
-    // Must be last because it has members that are only stored on the host.
+
+    lite_fabric::LiteFabricConfig config;
+    lite_fabric::EDMChannelWorkerLocationInfo sender_location_info;
+
+    // Must be last because it has members that are only stored on the host
     HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
 
@@ -466,6 +487,7 @@ static_assert(offsetof(LiteFabricMemoryMap, sender_connection_live_semaphore) % 
 static_assert(offsetof(LiteFabricMemoryMap, worker_semaphore) % 16 == 0);
 static_assert(offsetof(LiteFabricMemoryMap, sender_channel_buffer) % GLOBAL_ALIGNMENT == 0);
 static_assert(offsetof(LiteFabricMemoryMap, receiver_channel_buffer) % GLOBAL_ALIGNMENT == 0);
+static_assert(offsetof(LiteFabricMemoryMap, config) % 16 == 0);
 static_assert(offsetof(LiteFabricMemoryMap, host_interface) % 16 == 0);
 
 }  // namespace lite_fabric

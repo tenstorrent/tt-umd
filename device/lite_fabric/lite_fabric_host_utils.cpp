@@ -16,8 +16,12 @@ static const uint8_t lite_fabric_bin[] = {
 };
 
 namespace {
-uint32_t get_state_address() {
-    return LITE_FABRIC_CONFIG_START + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
+
+constexpr uint32_t get_config_address() {
+    return LITE_FABRIC_CONFIG_START + offsetof(tt::umd::lite_fabric::LiteFabricMemoryMap, config);
+}
+constexpr uint32_t get_state_address() {
+    return get_config_address() + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
 }
 
 }  // namespace
@@ -64,27 +68,23 @@ void wait_for_state(Chip* chip, CoreCoord eth_core, uint32_t addr, InitState sta
 }
 
 void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
-    constexpr uint32_t k_FirmwareStart = 0x6a000;
+    constexpr uint32_t k_FirmwareStart = LITE_FABRIC_TEXT_START;
     constexpr uint32_t k_PcResetAddress = LITE_FABRIC_RESET_PC;
+
+    size_t bin_size = sizeof(lite_fabric_bin) / sizeof(lite_fabric_bin[0]);
 
     LiteFabricConfig config{};
     config.is_primary = true;
     config.is_mmio = true;
     config.initial_state = InitState::ETH_INIT_NEIGHBOUR;
     config.current_state = InitState::ETH_INIT_NEIGHBOUR;
-    config.binary_addr = 0;
-    config.binary_size = 0;
-    config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
-    config.routing_enabled = true;
-
-    size_t bin_size = sizeof(lite_fabric_bin) / sizeof(lite_fabric_bin[0]);
-
-    // Set up configuration
     config.binary_addr = k_FirmwareStart;
     config.binary_size = (bin_size + 15) & ~0xF;
+    config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
+    config.routing_enabled = RoutingEnabledState::ENABLED;
 
     // Need an abstraction layer for Lite Fabric
-    auto config_addr = LITE_FABRIC_CONFIG_START;
+    auto config_addr = get_config_address();
 
     for (const auto& tunnel_1x : eth_cores) {
         set_reset_state(chip, tunnel_1x, true);

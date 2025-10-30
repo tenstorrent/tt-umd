@@ -150,8 +150,7 @@ void BlackholeSPI::read(uint32_t addr, uint8_t* data, size_t size) {
         uint32_t rc = messenger->send_message(
             static_cast<uint32_t>(blackhole::ArcMessageType::READ_EEPROM),
             read_ret,
-            {chunk_addr, chunk_size, buffer_addr},
-            1000);
+            {chunk_addr, chunk_size, buffer_addr});
 
         if (rc != 0) {
             throw std::runtime_error("Failed to read from SPI on Blackhole.");
@@ -196,8 +195,7 @@ void BlackholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool s
             uint32_t rc = messenger->send_message(
                 static_cast<uint32_t>(blackhole::ArcMessageType::WRITE_EEPROM),
                 write_ret,
-                {chunk_addr, chunk_size, buffer_addr},
-                1000);
+                {chunk_addr, chunk_size, buffer_addr});
 
             // Sleep briefly to allow the write to complete (as in Rust implementation)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));

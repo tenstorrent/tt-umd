@@ -254,7 +254,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 // Make sure to only run it on hardware which has recovery support.
 // The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests
 TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
-    auto [cluster_desc, _] = TopologyDiscovery::discover();
+    auto [cluster_desc, _] = TopologyDiscovery::discover({});
 
     std::unordered_map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     for (ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
@@ -278,7 +278,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
                 local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
             remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
-            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication), target_chip);
+            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
             remote_tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(remote_tt_device);
         }

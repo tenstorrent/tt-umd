@@ -324,7 +324,7 @@ void WormholeSPI::read(uint32_t addr, uint8_t* data, size_t size) {
 
         uint32_t spi_read_msg =
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
-        messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF}, 1000);
+        messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
         tt_device_->read_block(spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, chunk_buf.data());
 
         // Copy the relevant portion of the chunk to the output buffer
@@ -389,7 +389,7 @@ void WormholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool sk
             // Read the current chunk first
             uint32_t spi_read_msg =
                 wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
-            messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF}, 1000);
+            messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
             tt_device_->read_block(spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, chunk_buf.data());
 
             // Keep a copy to check if we need to write
@@ -415,7 +415,7 @@ void WormholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool sk
                 if (!skip_write_to_spi) {
                     uint32_t spi_write_msg =
                         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_WRITE);
-                    messenger->send_message(spi_write_msg, ret, {0xFFFF, 0xFFFF}, 1000);
+                    messenger->send_message(spi_write_msg, ret, {0xFFFF, 0xFFFF});
                 }
             }
         }

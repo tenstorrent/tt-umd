@@ -1,7 +1,7 @@
 # Check if this is being built as a standalone project by running cmake from this dir
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # This is a root project build from install artifacts
-    cmake_minimum_required(VERSION 3.27)
+    cmake_minimum_required(VERSION 3.16)
     project(tt_umd_nanobind)
 
     message(STATUS "Building nanobind as standalone project from UMD install artifacts")
@@ -16,7 +16,7 @@ endif()
 find_package(Python REQUIRED COMPONENTS Development.Module)
 
 # Define the Python interface target
-nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp)
+nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp)
 
 # Set properties for the Python module
 set_target_properties(

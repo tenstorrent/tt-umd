@@ -6,6 +6,7 @@
 #pragma once
 
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -30,7 +31,7 @@ public:
         const uint32_t msg_code,
         std::vector<uint32_t>& return_values,
         const std::vector<uint32_t>& args = {},
-        uint32_t timeout_ms = 1000) override;
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT) override;
 };
 
 }  // namespace tt::umd

@@ -65,4 +65,22 @@ void bind_basic_types(nb::module_ &m) {
         .def("__le__", &semver_t::operator<=)
         .def("__ge__", &semver_t::operator>=)
         .def_static("compare_firmware_bundle", &semver_t::compare_firmware_bundle, nb::arg("v1"), nb::arg("v2"));
+
+    nb::enum_<tt::BoardType>(m, "BoardType")
+        .value("E75", tt::BoardType::E75)
+        .value("E150", tt::BoardType::E150)
+        .value("E300", tt::BoardType::E300)
+        .value("N150", tt::BoardType::N150)
+        .value("N300", tt::BoardType::N300)
+        .value("P100", tt::BoardType::P100)
+        .value("P150", tt::BoardType::P150)
+        .value("P300", tt::BoardType::P300)
+        .value("GALAXY", tt::BoardType::GALAXY)
+        .value("UBB", tt::BoardType::UBB)
+        .value("UBB_WORMHOLE", tt::BoardType::UBB_WORMHOLE)
+        .value("UBB_BLACKHOLE", tt::BoardType::UBB_BLACKHOLE)
+        .value("QUASAR", tt::BoardType::QUASAR)
+        .value("UNKNOWN", tt::BoardType::UNKNOWN)
+        .def("__str__", &tt::board_type_to_string)
+        .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
 }

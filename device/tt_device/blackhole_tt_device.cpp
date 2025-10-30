@@ -11,6 +11,7 @@
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/blackhole_spi.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -25,6 +26,7 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    spi_ = std::make_unique<BlackholeSPI>(this);
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {

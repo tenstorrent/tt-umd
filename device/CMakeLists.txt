@@ -107,6 +107,8 @@ target_sources(
         jtag/jtag_device.cpp
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp
+        arc/wormhole_spi.cpp
+        arc/blackhole_spi.cpp
         ${LITE_FABRIC_EMBED} # include generated embed file
 )
 
@@ -210,6 +212,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
+                api/umd/device/arc/spi.hpp
     )
 endif()
 

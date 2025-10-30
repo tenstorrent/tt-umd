@@ -40,7 +40,7 @@ class TestTTDevice(unittest.TestCase):
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")
 
-    @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    # @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
     def test_spi_read_write(self):
         """Test SPI read/write operations on discovered devices."""
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
@@ -95,16 +95,34 @@ class TestTTDevice(unittest.TestCase):
             self.assertEqual(list(new_val), list(verify), 
                            f"SPI write verification failed for device {chip_id}")
             
+            # Increment value again, but this time don't commit it to SPI.
+            # This is to verify that the values from SPI are truly fetched.
+            new_val[0] = (new_val[0] + 1) % 256
+            if new_val[0] == 0:
+                new_val[1] = (new_val[1] + 1) % 256
+            
+            # Performs write to the buffer, but doesn't commit it to SPI (skip_write_to_spi=True)
+            print(f"SPI write (fake) to 0x{spare_addr:x}")
+            tt_device.spi_write(spare_addr, bytes(new_val), True)
+            
+            # Read back to verify - should NOT match new_val since we didn't actually write to SPI
+            verify2 = bytearray(2)
+            tt_device.spi_read(spare_addr, verify2)
+            print(f"Value after fake write at 0x{spare_addr:x}: {verify2[1]:02x}{verify2[0]:02x}")
+            
+            self.assertNotEqual(list(new_val), list(verify2),
+                              f"SPI buffer update on read failed for device {chip_id} - fake write should not change SPI value")
+            
             # Read wider area
             wide_read = bytearray(8)
             tt_device.spi_read(spare_addr, wide_read)
             wide_value = int.from_bytes(wide_read, byteorder='little')
             print(f"Wide read at 0x{spare_addr:x}: {wide_value:016x}")
             
-            # Verify first 2 bytes match
-            self.assertEqual(wide_read[0], new_val[0], 
+            # Verify first 2 bytes match the verify2 value (not new_val)
+            self.assertEqual(wide_read[0], verify2[0], 
                            f"First byte mismatch for device {chip_id}")
-            self.assertEqual(wide_read[1], new_val[1], 
+            self.assertEqual(wide_read[1], verify2[1], 
                            f"Second byte mismatch for device {chip_id}")
         
 

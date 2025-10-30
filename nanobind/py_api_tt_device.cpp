@@ -99,14 +99,16 @@ void bind_tt_device(nb::module_ &m) {
             "Read data from SPI flash memory")
         .def(
             "spi_write",
-            [](TTDevice &self, uint32_t addr, nb::bytes data) -> void {
+            [](TTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.spi_write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size);
+                self.spi_write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
             },
             nb::arg("addr"),
             nb::arg("data"),
-            "Write data to SPI flash memory")
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.")
         .def(
             "arc_msg",
             [](TTDevice &self,

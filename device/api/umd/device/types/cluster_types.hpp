@@ -12,6 +12,8 @@
 #include <ostream>
 #include <vector>
 
+#include "umd/device/utils/semver.hpp"
+
 namespace tt::umd {
 
 struct DeviceParams {
@@ -190,14 +192,3 @@ struct HugepageMapping {
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using barrier_address_params = tt::umd::BarrierAddressParams;
-using device_params = tt::umd::DeviceParams;
-using tt_device_params = tt::umd::DeviceParams;
-using hugepage_mapping = tt::umd::HugepageMapping;
-using device_dram_address_params = tt::umd::DeviceDramAddressParams;
-using device_l1_address_params = tt::umd::DeviceL1AddressParams;
-using driver_host_address_params = tt::umd::DriverHostAddressParams;
-using driver_noc_params = tt::umd::DriverNocParams;
-using driver_eth_interface_params = tt::umd::DriverEthInterfaceParams;

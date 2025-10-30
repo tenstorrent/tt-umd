@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -20,6 +21,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "utils.hpp"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
@@ -91,18 +93,16 @@ void TTDevice::init_tt_device() {
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
-    std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip) {
+std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
             // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
             if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
                 return std::unique_ptr<RemoteWormholeTTDevice>(
-                    new RemoteWormholeTTDevice(std::move(remote_communication), target_chip, IODeviceType::JTAG));
+                    new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(
-                new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
+            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
@@ -465,14 +465,14 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
-void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms) {
+void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         throw std::runtime_error(fmt::format(
             "Invalid DRAM channel index {}, maximum index for given architecture is {}",
             dram_channel,
             architecture_impl_->get_dram_banks_number() - 1));
     }
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
 
@@ -489,13 +489,10 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uin
             return;
         }
 
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(
-                fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
-            break;
-        }
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
     }
 }
 

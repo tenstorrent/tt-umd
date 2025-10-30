@@ -55,6 +55,14 @@ public:
         return semver_t(major, minor, patch);
     }
 
+    /*
+     * Create a semver_t from a 32-bit integer by unpacking the following bits:
+     * 0x00AABCCC where A is major, B is minor and C is patch.
+     */
+    static semver_t from_eth_fw_tag(uint32_t version) {
+        return semver_t((version >> 16) & 0xFF, (version >> 12) & 0xF, version & 0xFFF);
+    }
+
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
     std::string str() const { return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release) : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); }

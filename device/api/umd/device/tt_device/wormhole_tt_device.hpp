@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -17,7 +18,7 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
 
     uint32_t get_clock() override;
 
@@ -39,11 +40,12 @@ public:
 
     ChipInfo get_chip_info() override;
 
-    uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
+    std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     uint64_t get_arc_noc_base_address() const override;
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
+    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
@@ -81,11 +83,10 @@ private:
         uint64_t erisc_remote_eth_id_offset;
     };
 
-    static constexpr uint32_t ETH_UNKNOWN = 0;
-    static constexpr uint32_t ETH_UNCONNECTED = 1;
+    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
     static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
-    uint32_t read_port_status(tt_xy_pair eth_core);
+    uint32_t read_training_status(tt_xy_pair eth_core);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

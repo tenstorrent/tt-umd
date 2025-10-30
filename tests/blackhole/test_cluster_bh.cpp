@@ -15,6 +15,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;
 
@@ -632,10 +633,9 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
 
     DeviceParams default_params;
     cluster.start_device(default_params);
-    auto eth_version = cluster.get_ethernet_fw_version();
-    bool virtual_bcast_supported =
-        (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
-        cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+    auto eth_version = cluster.get_ethernet_firmware_version();
+    bool virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
+                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "

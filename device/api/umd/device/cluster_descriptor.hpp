@@ -19,9 +19,9 @@
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace YAML {
 class Node;
@@ -258,11 +258,20 @@ private:
     void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
 
+    // Centralize mock/simulator-only default values that are not coming from YAML
+    void fill_mock_hardcoded_data(ChipId logical_id);
+
     // Verify for some common mistakes.
-    void verify_cluster_descriptor_info();
+    bool verify_cluster_descriptor_info();
 
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;
+
+    bool verify_board_info_for_chips();
+
+    bool verify_same_architecture();
+
+    bool verify_harvesting_information();
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;
@@ -308,11 +317,8 @@ private:
 
     // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
     std::unordered_map<ChipId, uint16_t> chip_to_bus_id = {};
+
+    // Will have value only if there are ETH cores on chips in the cluster.
+    std::optional<semver_t> eth_fw_version;
 };
-
-using tt_ClusterDescriptor = ClusterDescriptor;
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::ClusterDescriptor;
-using tt::umd::tt_ClusterDescriptor;

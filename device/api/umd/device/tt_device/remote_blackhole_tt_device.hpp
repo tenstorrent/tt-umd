@@ -24,13 +24,15 @@ public:
 
     RemoteCommunication* get_remote_communication();
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
+    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
+
+protected:
+    bool is_arc_available_over_axi() override;
 
 private:
     RemoteBlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip);
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

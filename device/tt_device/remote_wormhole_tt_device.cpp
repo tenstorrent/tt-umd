@@ -9,17 +9,15 @@
 
 namespace tt::umd {
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip) :
+RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
     WormholeTTDevice(remote_communication->get_local_device()->get_pci_device()),
-    target_chip_(target_chip),
     remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
 }
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip, IODeviceType device_type) :
-    WormholeTTDevice(), target_chip_(target_chip), remote_communication_(std::move(remote_communication)) {
+    std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type) :
+    WormholeTTDevice(), remote_communication_(std::move(remote_communication)) {
     // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
     // which in turn uses a local TTDevice for communication,
     // the device type of the underlying communication device is the device type of the local TTDevice.
@@ -54,7 +52,7 @@ void RemoteWormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr
     write_to_device(mem_ptr, get_arc_core(), get_arc_noc_base_address() + arc_addr_offset, size);
 }
 
-bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
+bool RemoteWormholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) {
     throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
 }
 

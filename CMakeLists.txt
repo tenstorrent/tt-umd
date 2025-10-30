@@ -97,31 +97,25 @@ add_subdirectory(third_party)
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.27)
     # Configure clang-tidy AFTER third_party so dependencies are not linted
     option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+    if(ENABLE_CLANG_TIDY)
+        find_program(
+            CLANG_TIDY_EXE
+            NAMES
+                clang-tidy
+                clang-tidy-17
+        )
+        if(CLANG_TIDY_EXE)
+            set(CMAKE_CXX_CLANG_TIDY
+                "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+            )
+            set(CMAKE_C_CLANG_TIDY
+                "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+            )
+        endif()
+    endif()
 else()
     # Configure clang-tidy AFTER third_party so dependencies are not linted
     option(ENABLE_CLANG_TIDY "Disable clang-tidy checks during the build because of older versions" OFF)
-endif()
-
-if(ENABLE_CLANG_TIDY)
-    find_program(
-        CLANG_TIDY_EXE
-        NAMES
-            clang-tidy
-            clang-tidy-17
-    )
-    if(CLANG_TIDY_EXE)
-        set(CMAKE_CXX_CLANG_TIDY
-            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
-        )
-        set(CMAKE_C_CLANG_TIDY
-            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
-        )
-        # If used as a subproject, clear compiler launchers to avoid passing a launcher to the tidy wrapper
-        if(NOT PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-            set(CMAKE_CXX_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
-            set(CMAKE_C_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
-        endif()
-    endif()
 endif()
 
 # Enable all warnings and treat them as errors

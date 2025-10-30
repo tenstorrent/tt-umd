@@ -83,6 +83,10 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             }
         }
 
+        if (target_pci_device_ids.size() == 0) {
+            continue;
+        }
+
         std::cout << "Creating Cluster with target PCI device IDs: ";
         for (const auto& id : target_pci_device_ids) {
             std::cout << id << " ";

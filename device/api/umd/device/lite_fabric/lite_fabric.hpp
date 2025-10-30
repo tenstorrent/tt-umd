@@ -260,7 +260,9 @@ private:
 
                 read_event_addr,
                 sizeof(FabricLiteHeader));
+                log_info(LogUMD, "Read event @ {:#x}: {:#x} expected: {:#x}", read_event_addr, header.command_fields.noc_read.event, expectedOrderId);
             if (header.command_fields.noc_read.event == expectedOrderId) {
+                log_info(LogUMD, "Read Complete");
                 break;
             } else if (
                 header.command_fields.noc_read.event != 0xdeadbeef &&

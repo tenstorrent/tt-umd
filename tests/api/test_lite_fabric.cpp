@@ -156,17 +156,19 @@ TEST_F(LiteFabricFixture, FabricReadMMIOWrite4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
-    uint32_t test_addr = 0x100;
+    for (int i = 0; i < 50; i++) {
+        uint32_t test_addr = 0x100;
 
-    std::vector<uint8_t> write_data(1 << 13, 2);
+        std::vector<uint8_t> write_data(1 << 10, i + 3);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
+        host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
 
-    host_interface.barrier(eth_core_transfer);
+        host_interface.barrier(eth_core_transfer);
 
-    std::vector<uint8_t> readback_data(1 << 13, 0);
-    host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
-    EXPECT_EQ(write_data, readback_data);
+        std::vector<uint8_t> readback_data(1 << 10, 0);
+        host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
+        EXPECT_EQ(write_data, readback_data);
+    }
 }
 
 TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {

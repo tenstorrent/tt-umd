@@ -44,6 +44,8 @@ std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_tra
     uint32_t num_dram_channels) const {
     uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
 
+    // Each dram channel uses 4 bits in the 32-bit value in order to represent the state of DRAM training.
+    // That's why we move by 4 bits for each channel to get its status.
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; ++dram_channel) {
         uint8_t status = (telemetry_data >> (dram_channel * 4)) & 0xF;

@@ -99,10 +99,10 @@ uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
     // Format of the dram training status is as follows:
     // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
-    // Lower of the two bits is for training error and higher of the two bits is for training status.
+    // Lower of the two bits reports the training error and higher of the two bits reports the training status.
     // Example: 0b 00 00 00 00 00 00 01 10
-    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
-    // errors. If some channel is harvested the bits are always going to be zero.
+    // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained and don't
+    // have errors. If some channel is harvested the bits are always going to be zero.
     uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {

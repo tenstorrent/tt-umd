@@ -41,7 +41,7 @@ struct TopologyDiscoveryOptions {
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
         const TopologyDiscoveryOptions& options);
 
     virtual ~TopologyDiscovery() = default;
@@ -84,7 +84,7 @@ protected:
     // eth_core should be in NoC 0 coordinates.
     virtual uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    uint64_t get_asic_id(Chip* chip);
+    uint64_t get_asic_id(TTDevice* chip);
 
     virtual uint64_t get_unconnected_chip_id(TTDevice* tt_device) = 0;
 
@@ -111,10 +111,10 @@ protected:
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.
-    virtual std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
+    virtual std::unique_ptr<TTDevice> create_remote_chip(
+        std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
 
-    Chip* get_chip(const uint64_t asic_id);
+    TTDevice* get_chip(const uint64_t asic_id);
 
     virtual void init_topology_discovery();
 
@@ -142,8 +142,8 @@ protected:
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
-    std::map<uint64_t, std::unique_ptr<Chip>> chips;
+    std::map<uint64_t, std::unique_ptr<TTDevice>> chips_to_discover;
+    std::map<uint64_t, std::unique_ptr<TTDevice>> chips;
 
     std::unordered_map<uint64_t, EthCoord> eth_coords;
 

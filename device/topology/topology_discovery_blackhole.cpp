@@ -27,11 +27,16 @@ namespace tt::umd {
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options) :
     TopologyDiscovery(options) {}
 
-std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
-    std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_chip(
+    std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    return RemoteChip::create(
-        dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, options.soc_descriptor_path);
+    std::unique_ptr<RemoteCommunication> remote_communication =
+        RemoteCommunication::create_remote_communication(gateway_chip, {0, 0, 0, 0});
+    remote_communication->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor(gateway_chip).get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
+    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
+    remote_tt_device->init_tt_device();
+    return remote_tt_device;
 }
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device) { return std::nullopt; }
@@ -193,12 +198,12 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto& [local_chip, local_channel] = eth_connections_original.first;
         auto& [remote_chip, remote_channel] = eth_connections_original.second;
 
-        Chip* remote_chip_ptr = get_chip(remote_chip);
+        TTDevice* remote_chip_ptr = get_chip(remote_chip);
 
         auto eth_core_noc0 = tt::umd::blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
         CoreCoord logical_coord =
-            remote_chip_ptr->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
+            get_soc_descriptor(remote_chip_ptr).translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
 
         ethernet_connections_fixed.insert({{local_chip, local_channel}, {remote_chip, logical_coord.y}});
     }

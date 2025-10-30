@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -63,8 +64,8 @@ protected:
 
     bool is_intermesh_eth_link_trained(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+    std::unique_ptr<TTDevice> create_remote_chip(
+        std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     bool is_using_eth_coords() override;
 

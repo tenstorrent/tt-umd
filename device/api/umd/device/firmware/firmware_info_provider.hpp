@@ -103,7 +103,7 @@ public:
      */
     virtual std::optional<double> get_board_temperature() const;
 
-    virtual DramTrainingStatus get_dram_training_status(uint32_t dram_channel) const;
+    virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
     virtual uint32_t get_max_clock_freq() const;
 

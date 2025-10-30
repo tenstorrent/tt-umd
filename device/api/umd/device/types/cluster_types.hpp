@@ -184,6 +184,7 @@ struct DriverEthInterfaceParams {
     std::uint32_t cmd_ordered = 0;
     std::uint32_t cmd_broadcast = 0;
 };
+
 // ERISC FW version Required by UMD.
 const semver_t BH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(1, 0, 0);
 const semver_t ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(6, 0, 0);

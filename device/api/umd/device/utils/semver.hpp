@@ -27,20 +27,21 @@ public:
     uint64_t pre_release;
 
     semver_t() {}
-    semver_t(std::uint32_t version){
+
+    semver_t(std::uint32_t version) {
         major = (version >> 16) & 0xff;
         minor = (version >> 12) & 0xf;
         patch = version & 0xfff;
     }
 
-    semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00 ) {
+    semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) {
         this->major = major;
         this->minor = minor;
         this->patch = patch;
         this->pre_release = pre_release;
     }
 
-    static semver_t from_firmware_bundle_tag(std::uint32_t version){
+    static semver_t from_firmware_bundle_tag(std::uint32_t version) {
         uint64_t major = (version >> 24) & 0xFF;
         uint64_t minor = (version >> 16) & 0xFF;
         uint64_t patch = (version >> 8) & 0xFF;
@@ -65,10 +66,13 @@ public:
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
-    std::string str() const { return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release) : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); }
+    std::string str() const { 
+        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
+                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); 
+    }
 
     bool operator<(const semver_t& other) const noexcept{
-        uint64_t pr1 = (pre_release == 0) ? 256 : pre_release ;
+        uint64_t pr1 = (pre_release == 0) ? 256 : pre_release;
         uint64_t pr2 = (other.pre_release == 0) ? 256 : other.pre_release;
         return std::tie(major, minor, patch, pr1) < std::tie(other.major, other.minor, other.patch, pr2);
     }
@@ -76,7 +80,8 @@ public:
     bool operator>(const semver_t& other) const { return other < *this; }
 
     bool operator==(const semver_t& other) const {
-        return std::tie(major, minor, patch, pre_release) == std::tie(other.major, other.minor, other.patch, other.pre_release);
+        return std::tie(major, minor, patch, pre_release) == 
+               std::tie(other.major, other.minor, other.patch, other.pre_release);
     }
 
     bool operator!=(const semver_t& other) const { return !(*this == other); }
@@ -85,7 +90,10 @@ public:
 
     bool operator>=(const semver_t& other) const { return !(*this < other); }
 
-    std::string to_string() const { return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release) : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); }
+    std::string to_string() const { 
+        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release) 
+                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); 
+    }
 
     /*
      * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,

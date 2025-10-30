@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <memory>
-#include <utility>
 #include <vector>
 
 #include "umd/device/lite_fabric/lite_fabric.hpp"

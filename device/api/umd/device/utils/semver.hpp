@@ -66,12 +66,12 @@ public:
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
-    std::string str() const { 
+    std::string str() const {
         return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
-                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); 
+                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release);
     }
 
-    bool operator<(const semver_t& other) const noexcept{
+    bool operator<(const semver_t& other) const noexcept {
         uint64_t pr1 = (pre_release == 0) ? 256 : pre_release;
         uint64_t pr2 = (other.pre_release == 0) ? 256 : other.pre_release;
         return std::tie(major, minor, patch, pr1) < std::tie(other.major, other.minor, other.patch, pr2);
@@ -90,9 +90,9 @@ public:
 
     bool operator>=(const semver_t& other) const { return !(*this < other); }
 
-    std::string to_string() const { 
-        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release) 
-                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release); 
+    std::string to_string() const {
+        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
+                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release);
     }
 
     /*

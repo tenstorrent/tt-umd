@@ -1042,7 +1042,7 @@ void Cluster::verify_eth_fw() {
                 fw_versions.push_back(fw_version);
             }
             verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-            eth_fw_version = fw_versions.empty() ? semver_t() : semver_t(uint64_t(fw_versions.at(0)));
+            eth_fw_version = fw_versions.empty() ? semver_t() : semver_t(fw_versions.at(0));
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         const chip_id_t chip = *all_chip_ids_.begin();

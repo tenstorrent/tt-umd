@@ -8,8 +8,10 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 
@@ -97,6 +99,50 @@ static void check_timeout(
     if (elapsed > timeout) {
         throw std::runtime_error(error_msg);
     }
+}
+
+inline std::string generate_path(int card_number) {
+    return fmt::format("/proc/driver/tenstorrent/{}/pids", card_number);
+}
+
+inline std::unordered_set<int> collect_pids(int pci_target_device) {
+    std::ifstream infile(generate_path(pci_target_device));
+
+    if (!infile.is_open()) {
+        fmt::print(
+            "Error: Could not open file {}. Make sure the card number is correct and the driver is loaded.\n",
+            generate_path(pci_target_device));
+        return {};
+    }
+
+    std::string line;
+    std::unordered_set<int> pids;
+
+    // Core logic for reading and converting the PIDs remains the same
+    while (std::getline(infile, line)) {
+        try {
+            int pid = std::stoi(line);
+            pids.insert(pid);
+        } catch (const std::invalid_argument& e) {
+            fmt::print("Warning: Skipped non-numeric line: {}\n", line);
+        } catch (const std::out_of_range& e) {
+            fmt::print("Warning: Skipped out-of-range number: {}\n", line);
+        }
+    }
+
+    infile.close();
+
+    // Output the results
+    if (pids.empty()) {
+        fmt::print("No PIDs collected from {}.\n", generate_path(pci_target_device));
+    } else {
+        fmt::print("Collected PIDs from {}:\n", generate_path(pci_target_device));
+        for (int pid : pids) {
+            fmt::print("{}\n", pid);
+        }
+    }
+
+    return pids;
 }
 
 }  // namespace tt::umd::utils

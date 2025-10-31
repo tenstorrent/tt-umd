@@ -13,8 +13,21 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "utils.hpp"
 
 using namespace tt::umd;
+
+TEST(ApiTTDeviceTest, GetPIDs) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::unordered_set<int> pci_ids(pci_device_ids.begin(), pci_device_ids.end());
+    for (auto& i : pci_ids) {
+        auto pids = utils::collect_pids(i);
+        std::cout << "PCI number: " << i << "\n";
+        for (auto& j : pids) {
+            std::cout << "PID: " << j << "\n";
+        }
+    }
+}
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

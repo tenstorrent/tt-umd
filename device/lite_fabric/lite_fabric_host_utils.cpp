@@ -59,9 +59,9 @@ void set_pc(Chip* chip, CoreCoord eth_core, uint32_t pc_addr, uint32_t pc_val) {
     chip->write_to_device(eth_core, (void*)&pc_val, pc_addr, sizeof(uint32_t));
 }
 
-void wait_for_state(Chip* chip, CoreCoord eth_core, uint32_t addr, InitState state) {
-    std::vector<uint32_t> readback{static_cast<uint32_t>(lite_fabric::InitState::UNKNOWN)};
-    while (static_cast<InitState>(readback[0]) != state) {
+void wait_for_state(Chip* chip, CoreCoord eth_core, uint32_t addr, uint32_t state) {
+    std::vector<uint32_t> readback{0xdeadbeef};
+    while (readback[0] != state) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         chip->read_from_device(eth_core, readback.data(), addr, sizeof(uint32_t));
     }
@@ -104,20 +104,23 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     }
 
     for (auto tunnel_1x : eth_cores) {
-        wait_for_state(chip, tunnel_1x, get_state_address(), InitState::READY);
+        wait_for_state(chip, tunnel_1x, get_state_address(), static_cast<uint32_t>(InitState::READY));
         log_debug(LogUMD, "Lite Fabric ready on core ({}, {})", tunnel_1x.x, tunnel_1x.y);
     }
 }
 
 void terminate_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
-    uint32_t routing_enabled_address =
-        LITE_FABRIC_CONFIG_START + offsetof(LiteFabricMemoryMap, config) + offsetof(LiteFabricConfig, routing_enabled);
-    uint32_t enabled = 0;
+    uint32_t routing_enabled_address = get_config_address() + offsetof(LiteFabricConfig, routing_enabled);
+    uint32_t enabled = static_cast<uint32_t>(RoutingEnabledState::STOP);
     for (const auto& tunnel_1x : eth_cores) {
-        log_debug(LogUMD, "Host to terminate lite fabric on core ({}, {})", tunnel_1x.x, tunnel_1x.y);
+        log_info(LogUMD, "Host to terminate lite fabric on core ({}, {})", tunnel_1x.x, tunnel_1x.y);
         chip->write_to_device(tunnel_1x, (void*)&enabled, routing_enabled_address, sizeof(uint32_t));
     }
     chip->l1_membar();
+    for (const auto& tunnel_1x : eth_cores) {
+        wait_for_state(chip, tunnel_1x, routing_enabled_address, static_cast<uint32_t>(RoutingEnabledState::STOPPED));
+        set_reset_state(chip, tunnel_1x, true);
+    }
 }
 
 }  // namespace lite_fabric

@@ -280,6 +280,9 @@ private:
         }
 
         uint32_t addr = get_next_send_buffer_slot_address(channel_address);
+        header.debug = 0xcafe0000;
+        // Force all packets to be on NOC1 to avoid conflict with ERISC0 NOC0
+        header.noc_send_type.fields.noc_index = 1;
 
         tt_device->write_to_device(&header, translated_core_sender, addr, sizeof(FabricLiteHeader));
 

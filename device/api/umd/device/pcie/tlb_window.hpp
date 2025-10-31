@@ -19,9 +19,9 @@ public:
 
     uint32_t read32(uint64_t offset);
 
-    void write_register(uint64_t offset, uint32_t value);
+    void write_register(uint64_t offset, const void* data, size_t size);
 
-    uint32_t read_register(uint64_t offset);
+    void read_register(uint64_t offset, void* data, size_t size);
 
     void write_block(uint64_t offset, const void* data, size_t size);
 

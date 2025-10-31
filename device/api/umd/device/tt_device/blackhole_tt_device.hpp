@@ -50,7 +50,7 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    bool wait_arc_post_reset(const uint32_t timeout_ms) override;
+    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);

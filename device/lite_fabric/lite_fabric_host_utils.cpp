@@ -20,6 +20,7 @@ namespace {
 constexpr uint32_t get_config_address() {
     return LITE_FABRIC_CONFIG_START + offsetof(tt::umd::lite_fabric::LiteFabricMemoryMap, config);
 }
+
 constexpr uint32_t get_state_address() {
     return get_config_address() + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
 }

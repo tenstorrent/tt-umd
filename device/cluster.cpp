@@ -52,14 +52,17 @@
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
 extern bool umd_use_noc1;
@@ -237,6 +240,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
+    eth_fw_version = cluster_desc->eth_fw_version;
+
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
@@ -252,7 +257,21 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             remote_chip_ids_);
         verify_fw_bundle_version();
         log_device_summary();
-        verify_eth_fw();
+
+        if (arch_name == tt::ARCH::WORMHOLE_B0) {
+            // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
+            use_ethernet_broadcast &= eth_fw_version >= ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
+            // Temporarily enable this feature for 6.7.241 as well for testing.
+            use_translated_coords_for_eth_broadcast = true;
+            for (const auto& chip : all_chip_ids_) {
+                use_translated_coords_for_eth_broadcast &=
+                    (eth_fw_version >= ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                     eth_fw_version == semver_t(6, 7, 241)) &&
+                    get_soc_descriptor(chip).noc_translation_enabled;
+            }
+        }
+
         if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
             verify_sysmem_initialized();
         }
@@ -965,7 +984,7 @@ int Cluster::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
@@ -1019,7 +1038,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
         for (const ChipId& chip : all_chip_ids_) {
-            get_chip(chip)->enable_ethernet_queue(30);
+            get_chip(chip)->enable_ethernet_queue();
         }
     }
 
@@ -1027,80 +1046,8 @@ void Cluster::deassert_resets_and_set_power_state() {
     set_power_state(DevicePowerState::BUSY);
 }
 
-void Cluster::verify_eth_fw() {
-    if (all_chip_ids_.empty()) {
-        log_debug(LogUMD, "No chips in cluster, skipped verification of ethernet FW version.");
-        return;
-    }
-    if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        for (const auto& chip : all_chip_ids_) {
-            uint32_t fw_version;
-            std::vector<uint32_t> fw_versions;
-            for (const CoreCoord eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH)) {
-                read_from_device(
-                    &fw_version, chip, eth_core, get_chip(chip)->l1_address_params.fw_version_addr, sizeof(uint32_t));
-                fw_versions.push_back(fw_version);
-            }
-            verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-            eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
-        }
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        const ChipId chip = *all_chip_ids_.begin();
-        if (get_soc_descriptor(chip).get_cores(CoreType::ETH).empty()) {
-            log_debug(
-                LogUMD, "No ethernet cores found on device {}, skipped verification of ethernet FW version.", chip);
-            return;
-        }
-        static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
-        static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
-        static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
-
-        const CoreCoord eth_core = get_soc_descriptor(chip).get_cores(CoreType::ETH).at(0);
-
-        uint8_t major = 0;
-        uint8_t minor = 0;
-        uint8_t patch = 0;
-        read_from_device(&major, chip, eth_core, eth_fw_major_addr, sizeof(uint8_t));
-        read_from_device(&minor, chip, eth_core, eth_fw_minor_addr, sizeof(uint8_t));
-        read_from_device(&patch, chip, eth_core, eth_fw_patch_addr, sizeof(uint8_t));
-
-        eth_fw_version = tt_version(major, minor, patch);
-    }
-}
-
-void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
-    if (fw_versions.empty()) {
-        log_debug(
-            LogUMD,
-            "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
-            device_id);
-        return;
-    }
-    tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
-    log_info(
-        LogUMD,
-        "Software version {}, Ethernet FW version {} (Device {})",
-        sw.str(),
-        fw_first_eth_core.str(),
-        device_id);
-    for (std::uint32_t& fw_version : fw_versions) {
-        tt_version fw(fw_version);
-        TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        TT_ASSERT(sw.major <= fw.major, "SW/FW major version number out of sync");
-        TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
-    }
-
-    // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-    use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
-    // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
-    // Temporarily enable this feature for 6.7.241 as well for testing.
-    use_translated_coords_for_eth_broadcast &=
-        (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) &&
-        get_soc_descriptor(device_id).noc_translation_enabled;
-}
-
-void Cluster::start_device(const DeviceParams& DeviceParams) {
-    if (DeviceParams.init_device) {
+void Cluster::start_device(const DeviceParams& device_params) {
+    if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
         }
@@ -1145,11 +1092,14 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
+// TODO: Temporary hack to pass tt-metal build
+std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
+
 std::optional<tt_version> Cluster::get_ethernet_fw_version() const {
-    if (eth_fw_version.major == 0xffff || eth_fw_version.minor == 0xff || eth_fw_version.patch == 0xff) {
+    if (!eth_fw_version.has_value()) {
         return std::nullopt;
     }
-    return std::make_optional(eth_fw_version);
+    return tt_version(eth_fw_version->major, eth_fw_version->minor, eth_fw_version->patch);
 }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
@@ -1160,7 +1110,11 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<ChipId> target_devices, IODeviceType device_type) {
-    return TopologyDiscovery::discover(target_devices, sdesc_path, device_type).first;
+    TopologyDiscoveryOptions options;
+    options.target_devices = std::move(target_devices);
+    options.soc_descriptor_path = sdesc_path;
+    options.io_device_type = device_type;
+    return TopologyDiscovery::discover(std::move(options)).first;
 }
 
 }  // namespace tt::umd

@@ -234,11 +234,11 @@ inline constexpr uint32_t GRID_SIZE_Y = 12;
 
 inline constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-// ARC CSM absolute addresses in BAR0 memory space
+// ARC CSM address mapping in BAR0 memory space.
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
-// ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
+// ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
 inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_START = 0x10000000;
 inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 
@@ -248,11 +248,11 @@ inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 
-// ARC APB absolute addresses in BAR0 memory space
+// ARC APB absolute addresses in BAR0 memory space.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
-// ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START
+// ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_START = 0x80000000;
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_END = 0x800FFFFF;
 
@@ -362,7 +362,7 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(wormhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_bar_mailbox_offset() const override {
+    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
         return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + wormhole::ARC_CSM_MAILBOX_OFFSET;
     }
 

@@ -6,6 +6,7 @@
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "utils.hpp"
 
 extern bool umd_use_noc1;
 
@@ -34,7 +35,7 @@ void BlackholeArcMessageQueue::trigger_fw_int() {
 }
 
 void BlackholeArcMessageQueue::push_request(
-    std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, uint32_t timeout_ms) {
+    std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, const std::chrono::milliseconds timeout_ms) {
     uint32_t request_queue_wptr = read_word(request_wptr_offset);
 
     auto start = std::chrono::steady_clock::now();
@@ -45,10 +46,7 @@ void BlackholeArcMessageQueue::push_request(
         }
 
         auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-            throw std::runtime_error("Timeout waiting for ARC msg request queue.");
-        }
+        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     // Offset in words.
@@ -61,7 +59,8 @@ void BlackholeArcMessageQueue::push_request(
     trigger_fw_int();
 }
 
-std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQueue::pop_response(uint32_t timeout_ms) {
+std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQueue::pop_response(
+    const std::chrono::milliseconds timeout_ms) {
     uint32_t response_queue_rptr = read_word(response_rptr_offset);
 
     auto start = std::chrono::steady_clock::now();
@@ -73,10 +72,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
         }
 
         auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-            throw std::runtime_error("Timeout waiting for ARC msg response queue.");
-        }
+        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     uint32_t response_entry_offset =
@@ -91,7 +87,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 }
 
 uint32_t BlackholeArcMessageQueue::send_message(
-    const ArcMessageType message_type, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
+    const ArcMessageType message_type, uint16_t arg0, uint16_t arg1, const std::chrono::milliseconds timeout_ms) {
     uint32_t arg = arg0 | (arg1 << 16);
 
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, arg, 0, 0, 0, 0, 0, 0};

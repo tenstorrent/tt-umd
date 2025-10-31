@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string_view>
@@ -20,6 +21,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -52,8 +54,7 @@ public:
      * Jtag support can be enabled.
      */
     static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
@@ -146,6 +147,9 @@ public:
      * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
      * where the ARC is not available over AXI, hence in this situations, the NOC interface will be used even for local
      * chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -160,6 +164,9 @@ public:
      * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
      * configurations where the ARC is not available over AXI, hence in this situations, the NOC
      * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -174,6 +181,9 @@ public:
      * while the remote chip will use the NOC interface to read the data. Blackhole has board
      * configurations where the ARC is not available over AXI, hence in this situations, the NOC
      * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -188,6 +198,9 @@ public:
      * while the remote chip will use the NOC interface to write the data. Blackhole has board
      * configurations where the ARC is not available over AXI, hence in this situations, the NOC
      * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
@@ -248,7 +261,7 @@ public:
      * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual bool wait_arc_core_start(const uint32_t timeout_ms) = 0;
+    virtual bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -256,9 +269,11 @@ public:
      * @param timeout_ms Timeout in ms.
      * @return Time taken in ms.
      */
-    virtual uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+    virtual std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
 
-    void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
+    void wait_dram_channel_training(
+        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void bar_write32(uint32_t addr, uint32_t data);
 
@@ -288,15 +303,11 @@ public:
 
     double get_asic_temperature();
 
-    // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
-    // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status();
-
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();
 
-    void init_tt_device(const uint32_t timeout_ms = 5000);
+    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 

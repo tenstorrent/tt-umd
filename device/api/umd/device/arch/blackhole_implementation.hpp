@@ -340,9 +340,8 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(blackhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_bar_mailbox_offset() const override {
-        throw std::runtime_error("Not supported for Blackhole arch");
-        return 0;
+    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
+        throw std::runtime_error("Not implemented for Blackhole arch");
     }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }

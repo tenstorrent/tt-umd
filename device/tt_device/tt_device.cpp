@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -20,6 +21,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "utils.hpp"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
@@ -55,7 +57,7 @@ TTDevice::TTDevice() {}
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
-void TTDevice::init_tt_device(const uint32_t timeout_ms) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
     if (!wait_arc_core_start(timeout_ms)) {
         throw std::runtime_error(fmt::format(
@@ -94,18 +96,16 @@ void TTDevice::init_tt_device(const uint32_t timeout_ms) {
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
-    std::unique_ptr<RemoteCommunication> remote_communication, EthCoord target_chip) {
+std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
             // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
             if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
                 return std::unique_ptr<RemoteWormholeTTDevice>(
-                    new RemoteWormholeTTDevice(std::move(remote_communication), target_chip, IODeviceType::JTAG));
+                    new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(
-                new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
+            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
@@ -468,16 +468,17 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
-void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms) {
+void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         throw std::runtime_error(fmt::format(
             "Invalid DRAM channel index {}, maximum index for given architecture is {}",
             dram_channel,
             architecture_impl_->get_dram_banks_number() - 1));
     }
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
+        std::vector<DramTrainingStatus> dram_training_status =
+            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
 
         if (dram_training_status.empty()) {
             log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
@@ -492,13 +493,10 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uin
             return;
         }
 
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(
-                fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
-            break;
-        }
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
     }
 }
 
@@ -569,26 +567,6 @@ uint64_t TTDevice::get_refclk_counter() {
 }
 
 uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id(); }
-
-std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
-    if (!telemetry->is_entry_available(TelemetryTag::DDR_STATUS)) {
-        return {};
-    }
-
-    std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
-    // Format of the dram training status is as follows:
-    // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
-    // Lower of the two bits is for training error and higher of the two bits is for training status.
-    // Example: 0b 00 00 00 00 00 00 01 10
-    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
-    // errors. If some channel is harvested the bits are always going to be zero.
-    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-        dram_training_status.push_back(get_firmware_info_provider()->get_dram_training_status(dram_channel));
-    }
-
-    return dram_training_status;
-}
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 

@@ -36,7 +36,7 @@ public:
     virtual uint32_t get_arc_message_get_aiclk() const = 0;
     virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
     virtual uint32_t get_arc_message_test() const = 0;
-    virtual uint32_t get_arc_csm_bar_mailbox_offset() const = 0;
+    virtual uint32_t get_arc_csm_bar0_mailbox_offset() const = 0;
     virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
     virtual uint32_t get_arc_reset_arc_misc_cntl_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_offset() const = 0;

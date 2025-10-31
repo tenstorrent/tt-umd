@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.16)
 
 set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
@@ -76,6 +76,8 @@ target_sources(
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
         tt_device/remote_blackhole_tt_device.cpp
+        tt_device/rtl_simulation_tt_device.cpp
+        tt_device/tt_sim_tt_device.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
         firmware/wormhole_18_7_firmware_info_provider.cpp
@@ -108,6 +110,7 @@ target_sources(
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp
         ${LITE_FABRIC_EMBED} # include generated embed file
+        tt_kmd_lib/tt_kmd_lib.c
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -119,17 +122,6 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
-    )
-    # Skip static analysis on simulator sources
-    set_property(
-        SOURCE
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/simulation_chip.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/tt_sim_chip.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/rtl_simulation_chip.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/simulation/simulation_host.cpp
-        PROPERTY
-            SKIP_LINTING
-                ON
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
@@ -177,6 +169,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_blackhole_tt_device.hpp
+                api/umd/device/tt_device/rtl_simulation_tt_device.hpp
+                api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/remote_communication_lite_fabric.hpp
@@ -204,6 +198,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/utils/common.hpp
+                api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
                 api/umd/device/types/blackhole_eth.hpp
@@ -220,6 +215,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
+                api/umd/device/tt_kmd_lib/tt_kmd_lib.h
     )
 endif()
 

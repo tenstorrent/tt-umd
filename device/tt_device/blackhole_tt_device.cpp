@@ -7,6 +7,7 @@
 #include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
+#include <chrono>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
@@ -17,6 +18,7 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -147,8 +149,8 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-bool BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
+bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
@@ -158,11 +160,14 @@ bool BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
             return true;
         }
 
-        auto end = std::chrono::system_clock::now();  // End time
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            return false;
-        }
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format(
+                "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                timeout_ms.count(),
+                arc_core.x,
+                arc_core.y));
     }
 }
 
@@ -244,8 +249,9 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
     throw std::runtime_error("CSM read not supported for Blackhole.");
 }
 
-uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
-    uint32_t time_taken = 0;
+std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    auto time_taken = std::chrono::milliseconds(0);
 
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
@@ -253,17 +259,16 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
 
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken = duration.count();
-        if (time_taken > timeout_ms) {
+        if (duration > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms);
+            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
             break;
         }
     }

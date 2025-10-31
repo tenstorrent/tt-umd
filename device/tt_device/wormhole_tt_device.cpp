@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
@@ -14,6 +15,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "utils.hpp"
 
 extern bool umd_use_noc1;
 
@@ -68,13 +70,11 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     ChipInfo chip_info = TTDevice::get_chip_info();
 
     std::vector<uint32_t> arc_msg_return_values = {0};
-    const uint32_t timeout_ms = 1000;
     uint32_t ret_code = get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
         arc_msg_return_values,
         0,
-        0,
-        timeout_ms);
+        0);
 
     if (ret_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
@@ -87,15 +87,13 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 }
 
 uint32_t WormholeTTDevice::get_clock() {
-    const uint32_t timeouts_ms = 1000;
     // There is one return value from AICLK ARC message.
     std::vector<uint32_t> arc_msg_return_values = {0};
     auto exit_code = get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_get_aiclk(),
         arc_msg_return_values,
         0xFFFF,
-        0xFFFF,
-        timeouts_ms);
+        0xFFFF);
     if (exit_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get AICLK value with exit code {}", exit_code));
     }
@@ -119,10 +117,10 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         TT_THROW("configure_iatu_region is redundant for JTAG communication type.");
     }
 
-    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(architecture_impl_->get_arc_csm_bar_mailbox_offset() + 3 * 4, region_size);
+    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 0 * 4, region_id_to_use);
+    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 1 * 4, dest_bar_lo);
+    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 2 * 4, dest_bar_hi);
+    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 3 * 4, region_size);
     arc_messenger_->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), 0, 0);
 
@@ -414,11 +412,12 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
         wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
-    uint32_t time_taken_heartbeat = 0;
-    uint32_t time_taken_port = 0;
-    auto start = std::chrono::system_clock::now();
+    auto time_taken_heartbeat = std::chrono::milliseconds(0);
+    auto time_taken_port = std::chrono::milliseconds(0);
+    auto start = std::chrono::steady_clock::now();
     uint32_t heartbeat_val;
 
     tt_xy_pair actual_eth_core = eth_core;
@@ -431,24 +430,21 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     uint32_t new_heartbeat_val = heartbeat_val;
     while (new_heartbeat_val != heartbeat_val) {
         read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken_heartbeat = duration.count();
-        if (time_taken_heartbeat > timeout_ms) {
-            throw std::runtime_error(fmt::format("ETH training timed out after {} ms", timeout_ms));
-            break;
-        }
+        utils::check_timeout(start, timeout_ms, fmt::format("ETH training timed out after {} ms", timeout_ms));
     }
 
-    start = std::chrono::system_clock::now();
+    start = std::chrono::steady_clock::now();
     while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken_port = duration.count();
+        time_taken_port = duration;
         if (time_taken_port > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 throw std::runtime_error(fmt::format(
-                    "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
+                    "ETH training timed out after {} ms, on eth core {}, {}",
+                    timeout_ms.count(),
+                    eth_core.x,
+                    eth_core.y));
             }
             break;
         }
@@ -514,7 +510,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         erisc_remote_eth_id_offset};
 }
 
-bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -538,12 +534,12 @@ bool WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (true) {
-        auto now = std::chrono::system_clock::now();
+        auto now = std::chrono::steady_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
-            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms);
+        if (timeout_ms.count() != 0 && elapsed_ms > timeout_ms.count()) {
+            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms.count());
             return false;
         }
 

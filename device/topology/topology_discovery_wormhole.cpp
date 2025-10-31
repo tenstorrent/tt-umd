@@ -8,15 +8,14 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<ChipId> target_devices, const std::string& sdesc_path, IODeviceType device_type) :
-    TopologyDiscovery(target_devices, sdesc_path, device_type) {}
+TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :
+    TopologyDiscovery(options) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -236,7 +235,10 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
     EthCoord remote_chip_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
 
     return RemoteChip::create(
-        dynamic_cast<LocalChip*>(gateway_chip), remote_chip_eth_coord, gateway_eth_channels, sdesc_path);
+        dynamic_cast<LocalChip*>(gateway_chip),
+        remote_chip_eth_coord,
+        gateway_eth_channels,
+        options.soc_descriptor_path);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
@@ -257,7 +259,7 @@ bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u
 
 void TopologyDiscoveryWormhole::init_topology_discovery() {
     std::vector<int> device_ids;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
             if (!device_cnt) {
@@ -282,12 +284,12 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     }
 
     for (auto& device_id : device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(300'000);
+        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], io_device_type);
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =
@@ -343,6 +345,36 @@ bool TopologyDiscoveryWormhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_
     tt_device->read_from_device(
         &status, eth_core, eth_addresses.node_info + (4 * link_status_offset), sizeof(uint32_t));
     return (status & link_connected_mask) == link_connected_mask;
+}
+
+bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
+    uint32_t eth_fw_version_read;
+    chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+
+    semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
+
+    bool eth_fw_problem = false;
+    if (!first_eth_fw_version.has_value()) {
+        log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
+        log_debug(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        first_eth_fw_version = eth_fw_version;
+        if (ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+            log_warning(LogUMD, "ETH FW version is older than UMD supported version");
+            eth_fw_problem = true;
+        }
+    }
+
+    if (eth_fw_version != first_eth_fw_version) {
+        log_warning(
+            LogUMD,
+            "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str(),
+            eth_fw_version.to_string());
+        eth_fw_problem = true;
+    }
+
+    return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {

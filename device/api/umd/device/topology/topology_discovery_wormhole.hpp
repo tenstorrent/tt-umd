@@ -11,10 +11,7 @@ namespace tt::umd {
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryWormhole(
-        std::unordered_set<ChipId> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType device_type = IODeviceType::PCIe);
+    TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options);
 
 protected:
     struct EthAddresses {
@@ -75,6 +72,8 @@ protected:
     bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
 
     EthAddresses eth_addresses;
+
+    bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) override;
 
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;

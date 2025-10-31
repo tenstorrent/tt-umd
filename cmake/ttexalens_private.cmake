@@ -21,7 +21,7 @@ if(DOWNLOAD_TTEXALENS_PRIVATE)
         file(
             WRITE
             "${CMAKE_BINARY_DIR}/tt_exalens_private_check/CMakeLists.txt"
-            "cmake_minimum_required(VERSION 3.27)\ncmake_policy(VERSION 3.27)\ninclude(\${CMAKE_CURRENT_LIST_DIR}/ttexalens_private_check.cmake)"
+            "cmake_minimum_required(VERSION 3.16)\ncmake_policy(VERSION 3.16)\ninclude(\${CMAKE_CURRENT_LIST_DIR}/ttexalens_private_check.cmake)"
         )
 
         message(STATUS "Checking for git-lfs...")

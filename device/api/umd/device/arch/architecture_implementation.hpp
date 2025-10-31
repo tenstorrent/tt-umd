@@ -36,7 +36,7 @@ public:
     virtual uint32_t get_arc_message_get_aiclk() const = 0;
     virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
     virtual uint32_t get_arc_message_test() const = 0;
-    virtual uint32_t get_arc_csm_mailbox_offset() const = 0;
+    virtual uint32_t get_arc_csm_bar0_mailbox_offset() const = 0;
     virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
     virtual uint32_t get_arc_reset_arc_misc_cntl_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_offset() const = 0;
@@ -70,6 +70,8 @@ public:
     virtual uint32_t get_grid_size_y() const = 0;
     virtual uint32_t get_tlb_cfg_reg_size_bytes() const = 0;
     virtual uint32_t get_small_read_write_tlb() const = 0;
+    virtual uint64_t get_arc_apb_noc_base_address() const = 0;
+    virtual uint64_t get_arc_csm_noc_base_address() const = 0;
     // Replace with std::span once we enable C++20
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;

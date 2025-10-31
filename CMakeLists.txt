@@ -35,6 +35,7 @@ project(
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES
+        C
         CXX
 )
 

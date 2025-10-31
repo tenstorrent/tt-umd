@@ -337,6 +337,5 @@ struct tenstorrent_set_noc_cleanup {
 	__u64 data;
 };
 
-
 #endif
 // clang-format on

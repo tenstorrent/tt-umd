@@ -340,9 +340,8 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(blackhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_mailbox_offset() const override {
-        throw std::runtime_error("Not supported for Blackhole arch");
-        return 0;
+    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
+        throw std::runtime_error("Not implemented for Blackhole arch");
     }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
@@ -424,6 +423,12 @@ public:
     uint32_t get_tlb_cfg_reg_size_bytes() const override { return blackhole::TLB_CFG_REG_SIZE_BYTES; }
 
     uint32_t get_small_read_write_tlb() const override { return blackhole::MEM_SMALL_READ_WRITE_TLB; }
+
+    uint64_t get_arc_apb_noc_base_address() const override { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
+
+    uint64_t get_arc_csm_noc_base_address() const override {
+        throw std::runtime_error("CSM fetch base address not implemented for Blackhole.");
+    }
 
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return blackhole::HARVESTING_NOC_LOCATIONS;

@@ -50,6 +50,10 @@ private:
     static void memcpy_from_device(void* dest, const void* src, std::size_t num_bytes);
     static void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
 
+    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
+
+    void read_regs(void* src_reg, uint32_t word_len, void* data);
+
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
 };

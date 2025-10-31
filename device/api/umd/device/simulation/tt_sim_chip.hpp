@@ -30,6 +30,8 @@ public:
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
+    void set_debug_core(uint32_t x, uint32_t y);
+
 private:
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::filesystem::path copied_simulator_directory_;
@@ -42,6 +44,7 @@ private:
     void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
+    void (*pfn_libttsim_set_debug_core)(uint32_t x, uint32_t y) = nullptr;
 };
 
 }  // namespace tt::umd

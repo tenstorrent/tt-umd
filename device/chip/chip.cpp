@@ -13,8 +13,6 @@
 #include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/timeouts.hpp"

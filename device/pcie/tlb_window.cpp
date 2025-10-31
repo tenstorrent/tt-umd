@@ -171,4 +171,20 @@ uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }
 
+void TlbWindow::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
+    while (word_len-- != 0) {
+        *dest++ = *src++;
+    }
+}
+
+void TlbWindow::read_regs(void *src_reg, uint32_t word_len, void *data) {
+    const volatile uint32_t *src = reinterpret_cast<uint32_t *>(src_reg);
+    uint32_t *dest = reinterpret_cast<uint32_t *>(data);
+
+    while (word_len-- != 0) {
+        uint32_t temp = *src++;
+        memcpy(dest++, &temp, sizeof(temp));
+    }
+}
+
 }  // namespace tt::umd

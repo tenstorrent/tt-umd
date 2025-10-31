@@ -113,29 +113,33 @@ CoreCoord LiteFabricFixture::tensix_core = CoreCoord(1, 2, CoreType::TENSIX, Coo
 CoreCoord LiteFabricFixture::eth_core_transfer = CoreCoord(0, 0, CoreType::ETH, CoordSystem::TRANSLATED);
 
 TEST_F(LiteFabricFixture, FabricReadWrite4Bytes) {
-    uint32_t test_value = 0xca11abcd;
-    uint32_t test_addr = 0x1000;
+    for (int i = 0; i < 100; i++) {
+        uint32_t test_value = 0xca110000 + i;
+        uint32_t test_addr = 0x1000;
 
-    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
+        host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
 
-    host_interface.barrier(eth_core_transfer);
+        host_interface.barrier(eth_core_transfer);
 
-    uint32_t fabric_readback = 0;
-    host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, tensix_core, test_addr);
-    EXPECT_EQ(fabric_readback, test_value);
+        uint32_t fabric_readback = 0;
+        host_interface.read(&fabric_readback, sizeof(fabric_readback), eth_core_transfer, tensix_core, test_addr);
+        EXPECT_EQ(fabric_readback, test_value);
+    }
 }
 
 TEST_F(LiteFabricFixture, FabricWriteMMIORead4Bytes) {
-    uint32_t test_value = 0xca11abcd;
-    uint32_t test_addr = 0x1000;
+    for (int i = 0; i < 100; i++) {
+        uint32_t test_value = 0xca11abcd + i;
+        uint32_t test_addr = 0x1000;
 
-    host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
+        host_interface.write(&test_value, sizeof(test_value), eth_core_transfer, tensix_core, test_addr);
 
-    host_interface.barrier(eth_core_transfer);
+        host_interface.barrier(eth_core_transfer);
 
-    uint32_t readback = 0;
-    non_fabric_chip->read_from_device(tensix_core, &readback, test_addr, sizeof(readback));
-    EXPECT_EQ(readback, test_value);
+        uint32_t readback = 0;
+        non_fabric_chip->read_from_device(tensix_core, &readback, test_addr, sizeof(readback));
+        EXPECT_EQ(readback, test_value);
+    }
 }
 
 TEST_F(LiteFabricFixture, FabricReadMMIOWrite4Bytes) {
@@ -156,31 +160,35 @@ TEST_F(LiteFabricFixture, FabricReadMMIOWrite4Bytes) {
 }
 
 TEST_F(LiteFabricFixture, FabricReadWrite1MB) {
-    uint32_t test_addr = 0x100;
+    for (int i = 0; i < 100; i++) {
+        uint32_t test_addr = 0x100;
 
-    std::vector<uint8_t> write_data(1 << 13, 2);
+        std::vector<uint8_t> write_data(1 << 13, i + 2);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
+        host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
 
-    host_interface.barrier(eth_core_transfer);
+        host_interface.barrier(eth_core_transfer);
 
-    std::vector<uint8_t> readback_data(1 << 13, 0);
-    host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
-    EXPECT_EQ(write_data, readback_data);
+        std::vector<uint8_t> readback_data(1 << 13, 0);
+        host_interface.read(readback_data.data(), readback_data.size(), eth_core_transfer, tensix_core, test_addr);
+        EXPECT_EQ(write_data, readback_data);
+    }
 }
 
 TEST_F(LiteFabricFixture, FabricWrite1MBMMIORead1MB) {
-    uint32_t test_addr = 0x100;
+    for (int i = 0; i < 100; i++) {
+        uint32_t test_addr = 0x100;
 
-    std::vector<uint8_t> write_data(1 << 20, 3);
+        std::vector<uint8_t> write_data(1 << 20, i + 4);
 
-    host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
+        host_interface.write(write_data.data(), write_data.size(), eth_core_transfer, tensix_core, test_addr);
 
-    host_interface.barrier(eth_core_transfer);
+        host_interface.barrier(eth_core_transfer);
 
-    std::vector<uint8_t> readback_data(1 << 20, 0);
-    non_fabric_chip->read_from_device(tensix_core, readback_data.data(), test_addr, readback_data.size());
-    EXPECT_EQ(write_data, readback_data);
+        std::vector<uint8_t> readback_data(1 << 20, 0);
+        non_fabric_chip->read_from_device(tensix_core, readback_data.data(), test_addr, readback_data.size());
+        EXPECT_EQ(write_data, readback_data);
+    }
 }
 
 TEST_F(LiteFabricFixture, FabricARC) {
@@ -190,12 +198,14 @@ TEST_F(LiteFabricFixture, FabricARC) {
 
     CoreCoord target_arc_core = CoreCoord(8, 0, CoreType::ARC, CoordSystem::TRANSLATED);
 
-    uint32_t arc_boot_status_fabric = 1;
-    host_interface.read(&arc_boot_status_fabric, sizeof(uint32_t), eth_core_transfer, target_arc_core, test_addr);
+    for (int i = 0; i < 100; i++) {
+        uint32_t arc_boot_status_fabric = 1;
+        host_interface.read(&arc_boot_status_fabric, sizeof(uint32_t), eth_core_transfer, target_arc_core, test_addr);
 
-    uint32_t arc_boot_status_check;
-    non_fabric_chip->read_from_device(
-        target_arc_core, &arc_boot_status_check, test_addr, sizeof(arc_boot_status_check));
+        uint32_t arc_boot_status_check = 0;
+        non_fabric_chip->read_from_device(
+            target_arc_core, &arc_boot_status_check, test_addr, sizeof(arc_boot_status_check));
 
-    EXPECT_EQ(arc_boot_status_fabric, arc_boot_status_check);
+        EXPECT_EQ(arc_boot_status_fabric, arc_boot_status_check);
+    }
 }

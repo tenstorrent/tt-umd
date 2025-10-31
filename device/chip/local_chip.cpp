@@ -503,7 +503,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
-    tlb_window->write_block(reg_dest - tlb_window->get_base_address(), src, size);
+    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
@@ -532,7 +532,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
-    tlb_window->read_block(reg_src - tlb_window->get_base_address(), dest, size);
+    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
 
 void LocalChip::ethernet_broadcast_write(

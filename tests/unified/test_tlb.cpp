@@ -154,7 +154,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
         tlb_window->configure(config);
 
-        uint32_t noc_node_id_val = tlb_window->read_register(noc_node_id_tlb_offset & (two_mb_size - 1));
+        uint32_t noc_node_id_val = tlb_window->read32(noc_node_id_tlb_offset & (two_mb_size - 1));
 
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;

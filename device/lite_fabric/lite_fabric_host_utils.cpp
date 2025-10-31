@@ -113,7 +113,7 @@ void terminate_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) 
     uint32_t routing_enabled_address = get_config_address() + offsetof(LiteFabricConfig, routing_enabled);
     uint32_t enabled = static_cast<uint32_t>(RoutingEnabledState::STOP);
     for (const auto& tunnel_1x : eth_cores) {
-        log_info(LogUMD, "Host to terminate lite fabric on core ({}, {})", tunnel_1x.x, tunnel_1x.y);
+        log_debug(LogUMD, "Host to terminate lite fabric on core ({}, {})", tunnel_1x.x, tunnel_1x.y);
         chip->write_to_device(tunnel_1x, (void*)&enabled, routing_enabled_address, sizeof(uint32_t));
     }
     chip->l1_membar();

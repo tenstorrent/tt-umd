@@ -368,12 +368,16 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
     pin_pages.in.virtual_address = (uint64_t)addr;
     pin_pages.in.size = len;
 
+    pin_pages.in.flags = 0;
+
+    if (flags & TT_DMA_FLAG_CONTIGUOUS) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    }
+
     if (flags & TT_DMA_FLAG_NOC) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_DMA;
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
-    } else {
-        pin_pages.in.flags = 0;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
     }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {

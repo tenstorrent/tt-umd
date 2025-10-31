@@ -94,28 +94,27 @@ endif()
 
 add_subdirectory(third_party)
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.27)
-    # Configure clang-tidy AFTER third_party so dependencies are not linted
-    option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
-    if(ENABLE_CLANG_TIDY)
-        find_program(
-            CLANG_TIDY_EXE
-            NAMES
-                clang-tidy
-                clang-tidy-17
+message("Starting the CMake configuration process.")
+# Configure clang-tidy AFTER third_party so dependencies are not linted
+set(ENABLE_CLANG_TIDY
+    "Enable clang-tidy checks during the build"
+    ON
+)
+if(ENABLE_CLANG_TIDY)
+    find_program(
+        CLANG_TIDY_EXE
+        NAMES
+            clang-tidy
+            clang-tidy-17
+    )
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
         )
-        if(CLANG_TIDY_EXE)
-            set(CMAKE_CXX_CLANG_TIDY
-                "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
-            )
-            set(CMAKE_C_CLANG_TIDY
-                "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
-            )
-        endif()
+        set(CMAKE_C_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
     endif()
-else()
-    # Configure clang-tidy AFTER third_party so dependencies are not linted
-    option(ENABLE_CLANG_TIDY "Disable clang-tidy checks during the build because of older versions" OFF)
 endif()
 
 # Enable all warnings and treat them as errors

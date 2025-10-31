@@ -30,12 +30,27 @@ uint32_t TlbWindow::read32(uint64_t offset) {
     return *reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 }
 
-void TlbWindow::write_register(uint64_t offset, uint32_t value) { write32(offset, value); }
+void TlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
+    size_t n = size / sizeof(uint32_t);
+    auto *src = static_cast<const uint32_t *>(data);
+    auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
-uint32_t TlbWindow::read_register(uint64_t offset) { return read32(offset); }
+    validate(offset, size);
+
+    write_regs(dst, src, n);
+}
+
+void TlbWindow::read_register(uint64_t offset, void *data, size_t size) {
+    size_t n = size / sizeof(uint32_t);
+    auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    auto *dst = static_cast<uint32_t *>(data);
+
+    validate(offset, size);
+
+    read_regs((void *)src, n, (void *)dst);
+}
 
 void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
     auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
@@ -49,7 +64,6 @@ void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
 }
 
 void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
     auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
     auto *dst = static_cast<uint32_t *>(data);
 

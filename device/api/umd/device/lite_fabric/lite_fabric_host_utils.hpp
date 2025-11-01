@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <memory>
-#include <utility>
 #include <vector>
 
 #include "umd/device/lite_fabric/lite_fabric.hpp"
@@ -25,7 +23,7 @@ void set_reset_state(Chip* chip, tt_cxy_pair translated_core, bool assert_reset)
 
 void set_pc(Chip* chip, tt_cxy_pair translated_core, uint32_t pc_addr, uint32_t pc_val);
 
-void wait_for_state(Chip* chip, tt_cxy_pair translated_core, uint32_t addr, lite_fabric::InitState state);
+void wait_for_state(Chip* chip, tt_cxy_pair translated_core, uint32_t addr, uint32_t state);
 
 void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores);
 

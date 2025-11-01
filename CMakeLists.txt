@@ -95,6 +95,30 @@ endif()
 
 add_subdirectory(third_party)
 
+# Configure clang-tidy AFTER third_party so dependencies are not linted
+option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+if(ENABLE_CLANG_TIDY)
+    find_program(
+        CLANG_TIDY_EXE
+        NAMES
+            clang-tidy
+            clang-tidy-17
+    )
+    # These flags are needed because clang-tidy might reference warning options in
+    # .clang-tidy-build config file that aren't supported by your actual compiler
+    # version, and without these flags the build would fail with "unknown warning
+    # option" errors. The flags essentially tell the compiler to ignore unsupported
+    # warning flags instead of treating them as fatal errors.
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
+        set(CMAKE_C_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
+    endif()
+endif()
+
 # Enable all warnings and treat them as errors
 # Ignore unused variables and functions since there is no harm.
 # TODO: Re-enable sign-compare

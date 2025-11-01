@@ -35,7 +35,7 @@ bool is_port_free(int port) {
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
 
-    bool free = (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    bool free = (bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
     close(sock);
     return free;
 }

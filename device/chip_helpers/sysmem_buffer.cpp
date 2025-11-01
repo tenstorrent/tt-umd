@@ -38,7 +38,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
-    const uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
+    const uint8_t* buffer = reinterpret_cast<const uint8_t*>(get_device_io_addr(offset));
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
@@ -74,7 +74,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     validate(offset);
 
     static const std::string tlb_name = "LARGE_READ_TLB";
-    uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
+    uint8_t* buffer = reinterpret_cast<uint8_t*>(get_device_io_addr(offset));
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
@@ -117,7 +117,7 @@ void SysmemBuffer::align_address_and_size() {
     mapped_buffer_size_ = (mapped_buffer_size_ + offset_from_aligned_addr_ + page_size - 1) & ~(page_size - 1);
 }
 
-void* SysmemBuffer::get_buffer_va() const { return (uint8_t*)buffer_va_ + offset_from_aligned_addr_; }
+void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
 
 size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }
 

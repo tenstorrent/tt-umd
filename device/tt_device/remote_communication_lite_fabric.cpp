@@ -35,7 +35,7 @@ void RemoteCommunicationLiteFabric::write_to_non_mmio(
     // TODO(pjanevski): support const void* properly
     tt_xy_pair eth_core = get_remote_transfer_ethernet_core();
     CoreCoord core_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::NOC0);
-    host_interface.write((void*)src, size_in_bytes, core_coord, target_core, core_dest);
+    host_interface.write(const_cast<void*>(src), size_in_bytes, core_coord, target_core, core_dest);
 }
 
 void RemoteCommunicationLiteFabric::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {

@@ -26,6 +26,28 @@ set_target_properties(
             "tt_umd" # Name of the Python module
 )
 
+# Do not run clang-tidy on the Python module (pulls third-party sources via CPM)
+set_target_properties(
+    nanobind_tt_umd
+    PROPERTIES
+        CXX_CLANG_TIDY
+            ""
+        C_CLANG_TIDY
+            ""
+)
+
+# Also disable clang-tidy for the underlying third-party static lib if present
+if(TARGET nanobind-static)
+    set_target_properties(
+        nanobind-static
+        PROPERTIES
+            CXX_CLANG_TIDY
+                ""
+            C_CLANG_TIDY
+                ""
+    )
+endif()
+
 # The problem that RPATH is solving is the following:
 # Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.
 # When the third party package tries to include tt_umd module, it will correctly find it. The module will then include the python bindings .so file

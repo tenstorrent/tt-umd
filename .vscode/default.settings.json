@@ -4,4 +4,12 @@
     },
     "C_Cpp.clang_format_fallbackStyle": "Google",
     "C_Cpp.clang_format_style": "file",
+    "clangd.path": "clangd-17",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--header-insertion=never",
+        "--enable-config"
+    ],
+    "C_Cpp.default.intelliSenseMode": "clang-x64",
+    "C_Cpp.intelliSenseEngine": "disabled"
 }

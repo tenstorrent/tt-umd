@@ -272,12 +272,26 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
-        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
-        ChipId remote_chip_id = asic_id_to_chip_id.at(ethernet_connection_remote.first);
-        cluster_desc->ethernet_connections[local_chip_id][ethernet_connection_logical.second] = {
-            remote_chip_id, ethernet_connection_remote.second};
-        cluster_desc->ethernet_connections[remote_chip_id][ethernet_connection_remote.second] = {
-            local_chip_id, ethernet_connection_logical.second};
+        auto local_asic_id = ethernet_connection_logical.first;
+        auto remote_asic_id = ethernet_connection_remote.first;
+        auto local_channel = ethernet_connection_logical.second;
+        auto remote_channel = ethernet_connection_remote.second;
+
+        ChipId local_chip_id = asic_id_to_chip_id.at(local_asic_id);
+        ChipId remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
+
+        // Check if both local and remote channels are active
+        bool local_channel_inactive = active_eth_channels_per_chip.at(local_asic_id).find(local_channel) ==
+                                      active_eth_channels_per_chip.at(local_asic_id).end();
+        bool remote_channel_inactive = active_eth_channels_per_chip.at(remote_asic_id).find(remote_channel) ==
+                                       active_eth_channels_per_chip.at(remote_asic_id).end();
+
+        if (local_channel_inactive || remote_channel_inactive) {
+            continue;
+        }
+        // Set up bidirectional ethernet connections
+        cluster_desc->ethernet_connections[local_chip_id][local_channel] = {remote_chip_id, remote_channel};
+        cluster_desc->ethernet_connections[remote_chip_id][remote_channel] = {local_chip_id, local_channel};
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections_to_remote_devices) {

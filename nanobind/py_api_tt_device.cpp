@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/chrono.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
@@ -70,7 +71,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::rv_policy::take_ownership)
-        .def("init_tt_device", &TTDevice::init_tt_device)
+        .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)

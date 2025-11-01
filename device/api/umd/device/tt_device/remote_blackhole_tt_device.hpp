@@ -24,8 +24,6 @@ public:
 
     RemoteCommunication* get_remote_communication();
 
-    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
-
 protected:
     bool is_arc_available_over_axi() override;
 

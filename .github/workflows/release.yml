@@ -297,19 +297,10 @@ jobs:
           path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}.tar
 
   build-python-wheels:
-    name: Build Python Wheel (${{ matrix.ubuntu-docker-version }})
+    name: Build Python Wheel (manylinux)
     runs-on: ubuntu-22.04
     needs: prepare-release
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu-docker-version: [
-          'ubuntu-22.04',
-          'ubuntu-24.04',
-        ]
-    container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -321,44 +312,40 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Build wheel
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build manylinux wheels
         shell: bash
         run: |
           echo "Cleaning up wheel directory in case of previous build..."
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
-          echo "Setting up virtual environment..."
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
-          echo "Compiling the code..."
-          pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
-          echo "Compile complete."
+          echo "Building manylinux wheels..."
+          python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Build complete."
 
-      - name: Rename wheel with version and ubuntu version
+      - name: Rename wheels with version
         run: |
           cd ${{ env.WHEEL_OUTPUT_DIR }}
-          # Find the original wheel file
-          ORIGINAL_WHEEL=$(find . -name "tt_umd-*.whl" -type f | head -1)
-          if [ -n "$ORIGINAL_WHEEL" ]; then
-            # Extract the wheel name parts
-            WHEEL_NAME=$(basename "$ORIGINAL_WHEEL")
-            # Create new name following C++ artifact pattern: tt-umd-v{version}-{ubuntu-version}-{wheel-suffix}
-            VERSION="${{ needs.prepare-release.outputs.version }}"
-            UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
-            # Extract wheel suffix (everything after the first two components: name-version)
-            WHEEL_SUFFIX=$(echo "$WHEEL_NAME" | cut -d'-' -f3-)
-            NEW_WHEEL_NAME="tt-umd-v${VERSION}-${UBUNTU_VERSION}-${WHEEL_SUFFIX}"
-            mv "$ORIGINAL_WHEEL" "$NEW_WHEEL_NAME"
-            echo "Renamed wheel: $ORIGINAL_WHEEL -> $NEW_WHEEL_NAME"
-          else
-            echo "No wheel file found to rename"
-          fi
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          # Rename all wheel files to include version
+          for wheel in *.whl; do
+            if [ -f "$wheel" ]; then
+              # Extract wheel name parts
+              WHEEL_NAME=$(basename "$wheel")
+              # Create new name: tt-umd-v{version}-{wheel-suffix}
+              WHEEL_SUFFIX=$(echo "$WHEEL_NAME" | cut -d'-' -f3-)
+              NEW_WHEEL_NAME="tt-umd-v${VERSION}-${WHEEL_SUFFIX}"
+              mv "$wheel" "$NEW_WHEEL_NAME"
+              echo "Renamed wheel: $wheel -> $NEW_WHEEL_NAME"
+            fi
+          done
 
-      - name: Upload wheel
+      - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-wheel-${{ matrix.ubuntu-docker-version }}
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: ${{ env.WHEEL_OUTPUT_DIR }}
 
   create-release:

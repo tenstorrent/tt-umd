@@ -310,7 +310,7 @@ void WormholeSPI::read(uint32_t addr, uint8_t* data, size_t size) {
     }
 
     uint32_t spi_dump_addr_offset = ret[0];
-    uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_AXI + (spi_dump_addr_offset - 0x10000000);
+    uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - 0x10000000);
 
     // Get aligned parameters
     uint32_t start_addr, num_chunks, start_offset;
@@ -325,7 +325,8 @@ void WormholeSPI::read(uint32_t addr, uint8_t* data, size_t size) {
         uint32_t spi_read_msg =
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
         messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
-        tt_device_->read_block(spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, chunk_buf.data());
+        tt_device_->read_from_device(
+            chunk_buf.data(), tt_device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
 
         // Copy the relevant portion of the chunk to the output buffer
         if (offset < start_offset) {
@@ -374,7 +375,7 @@ void WormholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool sk
         }
 
         uint32_t spi_dump_addr_offset = ret[0];
-        uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_AXI + (spi_dump_addr_offset - 0x10000000);
+        uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - 0x10000000);
 
         // Get aligned parameters
         uint32_t start_addr, num_chunks, start_offset;
@@ -390,7 +391,9 @@ void WormholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool sk
             uint32_t spi_read_msg =
                 wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
             messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
-            tt_device_->read_block(spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, chunk_buf.data());
+
+            tt_device_->read_from_device(
+                chunk_buf.data(), tt_device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
 
             // Keep a copy to check if we need to write
             std::vector<uint8_t> orig_data = chunk_buf;
@@ -410,7 +413,8 @@ void WormholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool sk
 
             // Only write if the data changed
             if (chunk_buf != orig_data) {
-                tt_device_->write_block(spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, chunk_buf.data());
+                tt_device_->write_to_device(
+                    chunk_buf.data(), tt_device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
 
                 if (!skip_write_to_spi) {
                     uint32_t spi_write_msg =

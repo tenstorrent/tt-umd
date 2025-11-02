@@ -144,9 +144,9 @@ void bind_tt_device(nb::module_ &m) {
                 return nb::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
+            nb::arg("wait_for_done"),
             nb::arg("arg0"),
             nb::arg("arg1"),
-            nb::arg("wait_for_done") = true,
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4).")
         .def(

@@ -132,13 +132,6 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
                     msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
-                log_info(
-                    tt::LogUMD,
-                    "arc_msg msg_code={:x}, exit_code={}, return_values={}, return_values[1]={}",
-                    msg_code,
-                    exit_code,
-                    return_values[0],
-                    return_values[1]);
                 return nb::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),

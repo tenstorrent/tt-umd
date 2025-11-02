@@ -11,6 +11,8 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -118,6 +120,11 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
                uint32_t timeout_ms = 1000) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
                 // For Wormhole, prepend 0xaa00 to the msg_code
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
@@ -125,6 +132,13 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
                     msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                log_info(
+                    tt::LogUMD,
+                    "arc_msg msg_code={:x}, exit_code={}, return_values={}, return_values[1]={}",
+                    msg_code,
+                    exit_code,
+                    return_values[0],
+                    return_values[1]);
                 return nb::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -142,6 +156,11 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t arg0,
                uint32_t arg1,
                uint32_t timeout_ms = 1000) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
                 // For Wormhole, prepend 0xaa00 to the msg_code
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;

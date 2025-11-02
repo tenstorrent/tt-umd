@@ -47,6 +47,7 @@ target_link_libraries(
     PRIVATE
         umd::device
         fmt::fmt-header-only
+        tt-logger::tt-logger
 )
 
 # Install the Python module

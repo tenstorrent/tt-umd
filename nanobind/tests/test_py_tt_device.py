@@ -149,7 +149,7 @@ class TestTTDevice(unittest.TestCase):
                 continue
             
             # Send TEST message with args 0x1234 and 0x5678
-            exit_code, return_3, return_4 = dev.arc_msg_vec(test_msg_code, True, [0x1234, 0x5678], 1000)
+            exit_code, return_3, return_4 = dev.arc_msg(test_msg_code, True, [0x1234, 0x5678], 1000)
             print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
             exit_code, return_3, return_4 = dev.arc_msg(test_msg_code, True, 0x1234, 0x5678, 1000)

@@ -111,7 +111,7 @@ void bind_tt_device(nb::module_ &m) {
             "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
             "SPI.")
         .def(
-            "arc_msg",
+            "arc_msg_vec",
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done = true,

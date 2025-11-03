@@ -65,6 +65,12 @@ protected:
         eth_core_transfer = eth_cores_up[0];
     }
 
+    static void TearDownTestSuite() {
+        fabric_chip.reset();
+        non_fabric_chip.reset();
+        eth_cores_up.clear();
+    }
+
     void SetUp() override {
         if (should_skip_lite_fabric_tests()) {
             GTEST_SKIP() << "Skipping lite fabric tests. Lite fabric tests require at least two Blackhole devices "
@@ -80,8 +86,6 @@ protected:
         if (fabric_chip.get() != nullptr) {
             lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up);
         }
-        fabric_chip.reset();
-        non_fabric_chip.reset();
     }
 
     bool should_skip_lite_fabric_tests() {

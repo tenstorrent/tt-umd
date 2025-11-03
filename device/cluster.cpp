@@ -415,17 +415,7 @@ HarvestingMasks Cluster::get_harvesting_masks(
     return cluster_harvesting_masks | simulated_harvesting_masks;
 }
 
-void Cluster::verify_cluster_options(const ClusterOptions& options) {
-    if (!options.pci_target_devices.empty() && !options.target_devices.empty()) {
-        throw std::runtime_error("Cannot pass both target_devices and pci_target_devices to Cluster constructor.");
-    }
-
-    if (!options.pci_target_devices.empty() && options.cluster_descriptor != nullptr) {
-        throw std::runtime_error(
-            "Cannot pass pci_target_devices and custom cluster descriptor to Cluster constructor. "
-            "Custom cluster descriptor should be used together with target_devices (logical IDs).");
-    }
-}
+void Cluster::verify_cluster_options(const ClusterOptions& options) {}
 
 Cluster::Cluster(ClusterOptions options) {
     Cluster::verify_cluster_options(options);
@@ -440,10 +430,7 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
-                options.sdesc_path,
-                options.io_device_type == IODeviceType::PCIe ? options.pci_target_devices : options.jtag_target_devices,
-                options.io_device_type);
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -1109,7 +1096,7 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<ChipId> target_devices, IODeviceType device_type) {
+    std::string sdesc_path, IODeviceType device_type) {
     TopologyDiscoveryOptions options;
     options.soc_descriptor_path = sdesc_path;
     options.io_device_type = device_type;

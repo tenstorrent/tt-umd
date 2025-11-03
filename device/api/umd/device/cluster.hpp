@@ -77,23 +77,8 @@ struct ClusterOptions {
      */
     std::string sdesc_path = "";
     /**
-     * If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
-     * will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
-     * skipped, and you can create chips regardless of the devices on the system.
      */
     std::unordered_set<ChipId> target_devices = {};
-    /**
-     * If set, Cluster will target only boards that have the IDs of the chips specified in this set.
-     * If not set, all discovered boards will be used. This can only be used with SILICON chip type.
-     * Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
-     * of the PCIE chips on certain board is specified, UMD will take all chips from the board.
-     */
-    std::unordered_set<ChipId> pci_target_devices = {};
-
-    /**
-     * Same rules apply here as for pci_target_devices. The only difference is the protocol type (jtag).
-     */
-    std::unordered_set<ChipId> jtag_target_devices = {};
 
     /**
      * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
@@ -148,9 +133,7 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = "",
-        std::unordered_set<ChipId> target_devices = {},
-        IODeviceType device_type = IODeviceType::PCIe);
+        std::string sdesc_path = "", IODeviceType device_type = IODeviceType::PCIe);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.

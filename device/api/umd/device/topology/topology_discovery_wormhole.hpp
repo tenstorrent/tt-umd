@@ -7,6 +7,7 @@
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -20,6 +21,7 @@ protected:
         uint32_t masked_version;
 
         uint64_t eth_param_table;
+        uint64_t routing_firmware_state;
         uint64_t node_info;
         uint64_t eth_conn_info;
         uint64_t results_buf;
@@ -60,10 +62,6 @@ protected:
 
     uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    std::vector<uint32_t> extract_intermesh_eth_links(TTDevice* tt_device, tt_xy_pair eth_core) override;
-
-    bool is_intermesh_eth_link_trained(TTDevice* tt_device, tt_xy_pair eth_core) override;
-
     std::unique_ptr<TTDevice> create_remote_chip(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
@@ -72,6 +70,8 @@ protected:
     void init_topology_discovery() override;
 
     bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
+
+    void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<TTDevice>>& devices) override;
 
     EthAddresses eth_addresses;
 

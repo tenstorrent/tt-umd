@@ -21,12 +21,14 @@ void RemoteBlackholeTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair co
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteBlackholeTTDevice::read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    read_from_device(mem_ptr, get_arc_core(), get_arc_noc_base_address() + arc_addr_offset, size);
+void RemoteBlackholeTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    read_from_device(
+        mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
 }
 
-void RemoteBlackholeTTDevice::write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    write_to_device(mem_ptr, get_arc_core(), get_arc_noc_base_address() + arc_addr_offset, size);
+void RemoteBlackholeTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    write_to_device(
+        mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
 }
 
 void RemoteBlackholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

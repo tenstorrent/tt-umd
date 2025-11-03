@@ -120,18 +120,11 @@ protected:
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
+    virtual void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<TTDevice>>& devices) = 0;
+
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections() = 0;
-
-    // Intermesh links are ethernet links that are turned off during UMD's topology discovery but are
-    // otherwise physically connected. This is done since not all tools support limiting the discovery as
-    // UMD does. Once all the tools start supporting this, this feature won't be used anymore and this
-    // function will return empty set.
-    // This will extract the list of intermesh links from a config in L1.
-    virtual std::vector<uint32_t> extract_intermesh_eth_links(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
-
-    virtual bool is_intermesh_eth_link_trained(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // This function is going to be implemented for Blackhole since it needs to load communication
     // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW

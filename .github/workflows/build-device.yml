@@ -118,6 +118,15 @@ jobs:
           path: |
             ${{ env.TT_UMD_DIR }}/.clang-tidy-build
 
+      - name: ls -la ${{ env.TT_UMD_DIR }}/
+        run: |
+          echo "ls -la ${{ env.TT_UMD_DIR }}/"
+          ls -la ${{ env.TT_UMD_DIR }}/
+
+      - name: List all files recursively
+        run: find ${{ env.TT_UMD_DIR }} -name ".clang-tidy*"
+
+
       - name: Install device library
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}

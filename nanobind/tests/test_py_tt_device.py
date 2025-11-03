@@ -18,8 +18,26 @@ class TestTTDevice(unittest.TestCase):
             pci_dev = dev.get_pci_device()
             pci_info = pci_dev.get_device_info().pci_bdf
             print("pci bdf is ", pci_info)
+            
+            # Test noc_read32
             val = dev.noc_read32(9, 0, 0)
             print("Read value from device, core 9,0 addr 0x0: ", val)
+            
+            # Test noc_write32 and noc_read32
+            original = dev.noc_read32(9, 0, 0x100)
+            test_val = 0xABCD1234
+            dev.noc_write32(9, 0, 0x100, test_val)
+            read_back = dev.noc_read32(9, 0, 0x100)
+            print(f"noc_write32/read32: wrote 0x{test_val:08x}, read 0x{read_back:08x}")
+            dev.noc_write32(9, 0, 0x100, original)  # Restore
+            
+            # Test noc_read and noc_write
+            original_data = dev.noc_read(9, 0, 0x200, 16)
+            test_data = bytes([i for i in range(16)])
+            dev.noc_write(9, 0, 0x200, test_data)
+            read_data = dev.noc_read(9, 0, 0x200, 16)
+            print(f"noc_write/read: wrote {test_data.hex()}, read {read_data.hex()}")
+            dev.noc_write(9, 0, 0x200, original_data)  # Restore
 
     def test_remote_tt_device(self):
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()

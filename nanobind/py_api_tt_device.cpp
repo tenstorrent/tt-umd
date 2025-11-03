@@ -93,7 +93,45 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
-            nb::arg("addr"))
+            nb::arg("addr"),
+            "Read a 32-bit value from a core at the specified address")
+        .def(
+            "noc_write32",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value) -> void {
+                tt_xy_pair core = {core_x, core_y};
+                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("value"),
+            "Write a 32-bit value to a core at the specified address")
+        .def(
+            "noc_read",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+                tt_xy_pair core = {core_x, core_y};
+                std::vector<uint8_t> buffer(size);
+                self.read_from_device(buffer.data(), core, addr, size);
+                return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            "Read arbitrary-length data from a core at the specified address")
+        .def(
+            "noc_write",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
+                tt_xy_pair core = {core_x, core_y};
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write arbitrary-length data to a core at the specified address")
         .def(
             "spi_read",
             [](TTDevice &self, uint32_t addr, nb::bytearray data) -> void {

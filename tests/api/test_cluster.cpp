@@ -845,6 +845,10 @@ TEST(TestCluster, GetEthernetFirmware) {
 TEST(TestCluster, TestMulticastWrite) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     const tt_xy_pair grid_size = {8, 8};
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);

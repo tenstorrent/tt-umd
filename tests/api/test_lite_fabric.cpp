@@ -83,6 +83,9 @@ protected:
     }
 
     void TearDown() override {
+        if (should_skip_lite_fabric_tests()) {
+            return;
+        }
         if (fabric_chip.get() != nullptr) {
             lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up);
         }

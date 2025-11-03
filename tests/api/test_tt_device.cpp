@@ -154,6 +154,12 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
+#if defined(__aarch64__)
+    // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
+    // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
+    GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
+#endif
+
     auto cluster = std::make_unique<Cluster>();
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";

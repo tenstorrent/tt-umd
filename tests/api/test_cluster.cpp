@@ -608,6 +608,9 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 }
 
 TEST(TestCluster, WarmReset) {
+#if defined(__aarch64__)
+    GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+#endif
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

@@ -80,7 +80,16 @@ jobs:
 
       - name: List build directory contents
         run: |
-          ls -l ${{ env.TT_UMD_DIR_SHELL }}/build
+          ls -l ${{ env.TT_UMD_DIR_SHELL }}/build/
+          echo "space"
+          ls -l ${{ env.TT_UMD_DIR }}/
+          echo "space"
+          ls -l tt-umd/
+          echo "space"
+          ls -l ${{ env.TT_UMD_DIR }}/${{ env.BUILD_OUTPUT_DIR }}/
+          echo "space"
+          ls -l ${{ env.TT_UMD_DIR_SHELL }/
+
 
       - name: Show path after
         run: |
@@ -96,7 +105,7 @@ jobs:
         with:
           name: >
             clang-tidy-compile-commands-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
-          path: ${{ env.BUILD_OUTPUT_DIR }}/compile_commands.json
+          path: ${{ env.TT_UMD_DIR }}/${{ env.BUILD_OUTPUT_DIR }}/compile_commands.json
 
       # Upload clang-tidy configuration files to show exactly which checks were enabled/disabled.
       # Provides transparency and allows developers to use the same settings locally

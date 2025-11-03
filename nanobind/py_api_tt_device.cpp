@@ -42,6 +42,8 @@ void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType").value("PCIe", IODeviceType::PCIe).value("JTAG", IODeviceType::JTAG);
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
+        .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
+        .def_ro("device_id", &PciDeviceInfo::device_id)
         .def_ro("pci_domain", &PciDeviceInfo::pci_domain)
         .def_ro("pci_bus", &PciDeviceInfo::pci_bus)
         .def_ro("pci_device", &PciDeviceInfo::pci_device)

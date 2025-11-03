@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -23,6 +24,8 @@ public:
      * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
      */
     TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     ~TlbHandle() noexcept;
 
@@ -66,7 +69,9 @@ private:
     size_t tlb_size;
     tlb_data tlb_config;
     uint32_t fd;
+    tt_device_t* tt_device_;
     TlbMapping tlb_mapping;
+    tt_tlb_t* tlb_handle_ = nullptr;
 };
 
 }  // namespace tt::umd

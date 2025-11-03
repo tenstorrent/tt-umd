@@ -38,6 +38,45 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
     tlb_base = reinterpret_cast<uint8_t*>(mapped_tlb);
 }
 
+TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
+    tlb_size(size), tt_device_(tt_device), tlb_mapping(tlb_mapping) {
+    //     struct tt_tlb_t {
+    //     uint32_t id;
+    //     size_t size;
+    //     void* mmio;
+    // };
+
+    //     int tt_tlb_alloc(tt_device_t* dev, size_t size, enum tt_tlb_cache_mode cache, tt_tlb_t** out_tlb);
+
+    tt_tlb_alloc(
+        tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
+
+    // tlb_id = tlb_handle_->id;
+    tlb_id = 0;
+
+    // tenstorrent_allocate_tlb allocate_tlb{};
+    // allocate_tlb.in.size = size;
+    // if (ioctl(tt_device, TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
+    //     throw std::runtime_error(fmt::format("Failed to allocate the TLB with size {}", size));
+    // }
+
+    // tlb_id = allocate_tlb.out.id;
+
+    tt_tlb_get_mmio(tlb_handle_, (void**)&tlb_base);
+
+    // void* mapped_tlb =
+    //     tlb_mapping == TlbMapping::UC
+    //         ? mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, tt_device, allocate_tlb.out.mmap_offset_uc)
+    //         : mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, tt_device, allocate_tlb.out.mmap_offset_wc);
+    // if (mapped_tlb == MAP_FAILED) {
+    //     munmap(mapped_tlb, size);
+    //     free_tlb();
+    //     throw std::runtime_error("Failed to map the TLB.");
+    // }
+
+    // tlb_base = reinterpret_cast<uint8_t*>(mapped_tlb);
+}
+
 TlbHandle::~TlbHandle() noexcept {
     munmap(tlb_base, tlb_size);
     free_tlb();

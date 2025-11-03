@@ -78,6 +78,10 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
+      - name: List build directory contents
+        run: |
+          ls -l ${{ env.TT_UMD_DIR_SHELL }}/build
+
       - name: Show path after
         run: |
           echo "Path is:"

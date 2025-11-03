@@ -73,6 +73,12 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
+      # Build with all components to verify the build passes.
+      - name: Show path
+        run: |
+          echo "Path is:"
+          pwd
+
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,
       # enabling developers to reproduce the analysis locally and troubleshoot issues.

@@ -67,9 +67,35 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_ALL=ON
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_ALL=ON \
+            -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
+
+      # Upload compile_commands.json for debugging and IDE integration.
+      # This file contains exact compilation flags used during the build,
+      # enabling developers to reproduce the analysis locally and troubleshoot issues.
+      - name: Upload compile commands
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: >
+            clang-tidy-compile-commands-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}/compile_commands.json
+
+      # Upload clang-tidy configuration files to show exactly which checks were enabled/disabled.
+      # Provides transparency and allows developers to use the same settings locally
+      # for consistent static analysis results.
+      - name: Upload clang-tidy config
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: >
+            clang-tidy-config--${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+          path: |
+            ${{ env.TT_UMD_DIR }}/.clang-tidy-build
+            ${{ env.TT_UMD_DIR }}/.clang-tidy
 
       - name: Install device library
         run: |

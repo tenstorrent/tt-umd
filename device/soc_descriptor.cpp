@@ -16,6 +16,7 @@
 #include <unordered_set>
 
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "utils.hpp"
@@ -325,6 +326,25 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .noc0_y_to_noc1_y = blackhole::NOC0_Y_TO_NOC1_Y};
             break;
         }
+        case tt::ARCH::QUASAR: {
+            return SocDescriptorInfo{
+                .arch = tt::ARCH::QUASAR,
+                .grid_size = grendel::GRID_SIZE,
+                .tensix_cores = grendel::TENSIX_CORES_NOC0,
+                .dram_cores = grendel::DRAM_CORES_NOC0,
+                .eth_cores = grendel::ETH_CORES_NOC0,
+                .arc_cores = grendel::ARC_CORES_NOC0,
+                .pcie_cores = grendel::PCIE_CORES_NOC0,
+                .router_cores = grendel::ROUTER_CORES_NOC0,
+                .security_cores = grendel::SECURITY_CORES_NOC0,
+                .l2cpu_cores = grendel::L2CPU_CORES_NOC0,
+                .worker_l1_size = grendel::TENSIX_L1_SIZE,
+                .eth_l1_size = grendel::ETH_L1_SIZE,
+                .dram_bank_size = grendel::DRAM_BANK_SIZE,
+                .noc0_x_to_noc1_x = grendel::NOC0_X_TO_NOC1_X,
+                .noc0_y_to_noc1_y = grendel::NOC0_Y_TO_NOC1_Y};
+            break;
+        }
         default:
             throw std::runtime_error("Invalid architecture for creating SocDescriptorInfo.");
     }
@@ -631,6 +651,10 @@ std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE: {
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch.yaml");
+        }
+        case tt::ARCH::QUASAR: {
+            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+            return tt::umd::utils::get_abs_path("tests/soc_descs/quasar_simulation_1x1.yaml");
         }
         default:
             throw std::runtime_error("Invalid architecture");

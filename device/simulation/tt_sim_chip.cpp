@@ -110,7 +110,20 @@ void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixS
         uint32_t reset_value = uint32_t(soft_resets);
         pfn_libttsim_tile_wr_bytes(
             translated_core.x, translated_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
-    } else {
+    } 
+    else if (libttsim_pci_device_id == 0xFEED) {  // QSR
+        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+        uint64_t reset_value = uint64_t(soft_resets);
+        if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
+            reset_value = 0xF0000; // This is using old API, translate to QSR values
+        }
+        else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
+            reset_value = 0xFFF00; // This is using old API, translate to QSR values
+        }
+        pfn_libttsim_tile_wr_bytes(
+            translated_core.x, translated_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    }
+    else {
         TT_THROW("Missing implementation of reset for this chip.");
     }
 }
@@ -125,10 +138,18 @@ void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs)
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
-    uint32_t reset_value;
-    pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
-    reset_value |= soft_reset_update;
-    pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    if (libttsim_pci_device_id == 0xFEED) {  // QSR
+        uint64_t reset_value;
+        pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+        reset_value &= ~(uint64_t)soft_reset_update; // QSR logic is reversed for DM cores, so we need to invert the update.
+        pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    }
+    else {
+        uint32_t reset_value;
+        pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+        reset_value |= soft_reset_update;
+        pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    }
 }
 
 void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
@@ -137,10 +158,18 @@ void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_risc
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
-    uint32_t reset_value;
-    pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
-    reset_value &= ~soft_reset_update;
-    pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    if (libttsim_pci_device_id == 0xFEED) {  // QSR
+        uint64_t reset_value;
+        pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+        reset_value |= (uint64_t)soft_reset_update; // QSR logic is reversed for DM cores, so we need to invert the update.
+        pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    }
+    else {
+        uint32_t reset_value;
+        pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+        reset_value &= ~soft_reset_update;
+        pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
+    }
 }
 
 }  // namespace tt::umd

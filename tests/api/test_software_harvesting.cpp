@@ -9,6 +9,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -30,6 +31,8 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
         } else if (arch == tt::ARCH::BLACKHOLE) {
             // At least 2 columns are expected to be harvested.
             upper_limit_num_cores = 120;
+        } else if (arch == tt::ARCH::QUASAR) {
+            THROW_NOT_IMPLEMENTED("Quasar software harvesting is not implemented");
         }
         ASSERT_LE(cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), upper_limit_num_cores);
     }

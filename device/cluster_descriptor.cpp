@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
+#include "api/umd/device/arch/grendel_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"

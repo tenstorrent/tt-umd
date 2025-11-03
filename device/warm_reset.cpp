@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
+#include "api/umd/device/arch/grendel_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

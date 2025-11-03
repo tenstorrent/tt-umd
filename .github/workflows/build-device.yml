@@ -114,10 +114,10 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-config--${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+            clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: |
-            ${{ env.TT_UMD_DIR }}/.clang-tidy-build
-            ${{ env.TT_UMD_DIR }}/.clang-tidy
+            .clang-tidy-build
+            .clang-tidy
 
       - name: Install device library
         run: |

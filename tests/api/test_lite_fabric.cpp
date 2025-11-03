@@ -5,11 +5,12 @@
 
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/l1_address_map.h"
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 #include "umd/device/lite_fabric/lite_fabric.hpp"
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 class LiteFabricFixture : public ::testing::Test {

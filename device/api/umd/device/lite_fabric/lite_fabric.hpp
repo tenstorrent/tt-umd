@@ -11,13 +11,13 @@
 #include <cstdlib>
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/lite_fabric/fabric_edm_types.hpp"
 #include "umd/device/lite_fabric/lf_dev_mem_map.hpp"
 #include "umd/device/lite_fabric/lite_fabric_constants.hpp"
 #include "umd/device/lite_fabric/lite_fabric_header.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

@@ -29,7 +29,7 @@ namespace wormhole {
 // ordering:     [ 0, 43, 42,  "ordering mode (01 = strict (full AXI ordering), 00 = relaxed (no RAW hazard), 10 = posted (may have RAW hazard)"]
 // linked:       [ 0, 44, 44,  "linked"]
 // clang-format on
-static constexpr auto TLB_1M_OFFSET = tlb_offsets{
+inline constexpr auto TLB_1M_OFFSET = tlb_offsets{
     .local_offset = 0,
     .x_end = 16,
     .y_end = 22,
@@ -53,7 +53,7 @@ static constexpr auto TLB_1M_OFFSET = tlb_offsets{
 // ordering:     [ 0, 42, 41,  "ordering mode (01 = strict (full AXI ordering), 00 = relaxed (no RAW hazard), 10 = posted (may have RAW hazard)"]
 // linked:       [ 0, 43, 43,  "linked"]
 // clang-format on
-static constexpr auto TLB_2M_OFFSET = tlb_offsets{
+inline constexpr auto TLB_2M_OFFSET = tlb_offsets{
     .local_offset = 0,
     .x_end = 15,
     .y_end = 21,
@@ -77,7 +77,7 @@ static constexpr auto TLB_2M_OFFSET = tlb_offsets{
 // ordering:     [ 0, 39, 38,  "ordering mode (01 = strict (full AXI ordering), 00 = relaxed (no RAW hazard), 10 = posted (may have RAW hazard)"]
 // linked:       [ 0, 40, 40,  "linked"]
 // clang-format on
-static constexpr auto TLB_16M_OFFSET = tlb_offsets{
+inline constexpr auto TLB_16M_OFFSET = tlb_offsets{
     .local_offset = 0,
     .x_end = 12,
     .y_end = 18,
@@ -105,13 +105,13 @@ enum class arc_message_type {
 };
 
 // DEVICE_DATA
-static const tt_xy_pair GRID_SIZE = {10, 12};
+inline constexpr tt_xy_pair GRID_SIZE = {10, 12};
 // Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
 // NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
 // NOC0_Y_TO_NOC1_Y[noc0_y] is the NOC1 y coordinate corresponding to NOC0 y coordinate noc0_y.
 static const std::vector<uint32_t> NOC0_X_TO_NOC1_X = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 static const std::vector<uint32_t> NOC0_Y_TO_NOC1_Y = {11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-static const tt_xy_pair TENSIX_GRID_SIZE = {8, 10};
+inline constexpr tt_xy_pair TENSIX_GRID_SIZE = {8, 10};
 // clang-format off
 static const std::vector<tt_xy_pair> TENSIX_CORES_NOC0 = {
     {1, 1},   {2, 1},  {3, 1},  {4, 1},  {6, 1},  {7, 1},  {8, 1},  {9, 1},
@@ -127,9 +127,9 @@ static const std::vector<tt_xy_pair> TENSIX_CORES_NOC0 = {
 };
 // clang-format on
 
-static const std::size_t NUM_DRAM_BANKS = 6;
-static const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
-static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
+inline constexpr std::size_t NUM_DRAM_BANKS = 6;
+inline constexpr std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
+inline constexpr tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
 // clang-format off
 static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_NOC0 = {
     {{0, 0}, {0, 1}, {0, 11}},
@@ -143,7 +143,7 @@ static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_NOC0 = {
 // the existing code in clients which rely on DRAM_LOCATIONS.
 static const std::vector<tt_xy_pair> DRAM_LOCATIONS = flatten_vector(DRAM_CORES_NOC0);
 
-static const size_t NUM_ETH_CHANNELS = 16;
+inline constexpr size_t NUM_ETH_CHANNELS = 16;
 static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
     {{9, 0},
      {1, 0},
@@ -163,11 +163,11 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {4, 6}}};
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
 
-static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
+inline constexpr tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{0, 10}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
-static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
+inline constexpr tt_xy_pair PCIE_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{{0, 3}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_NOC0;
 
@@ -182,94 +182,112 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {1, 3, 5, 7, 9, 8, 6, 4, 2, 0};
 
-static constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
+inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
 
-static constexpr xy_pair BROADCAST_LOCATION = {0, 0};
-static constexpr uint32_t BROADCAST_TLB_INDEX = 0;
-static constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
-static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 8;
+inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};
+inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;
+inline constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
+inline constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 8;
 
-static constexpr uint32_t TLB_COUNT_1M = 156;
-static constexpr uint32_t TLB_COUNT_2M = 10;
-static constexpr uint32_t TLB_COUNT_16M = 20;
+inline constexpr uint32_t TLB_COUNT_1M = 156;
+inline constexpr uint32_t TLB_COUNT_2M = 10;
+inline constexpr uint32_t TLB_COUNT_16M = 20;
 
-static constexpr uint32_t TLB_BASE_1M = 0;
-static constexpr uint32_t TLB_BASE_2M = TLB_COUNT_1M * (1 << 20);
-static constexpr uint32_t TLB_BASE_16M = TLB_BASE_2M + TLB_COUNT_2M * (1 << 21);
+inline constexpr uint32_t TLB_BASE_1M = 0;
+inline constexpr uint32_t TLB_BASE_2M = TLB_COUNT_1M * (1 << 20);
+inline constexpr uint32_t TLB_BASE_16M = TLB_BASE_2M + TLB_COUNT_2M * (1 << 21);
 
-static constexpr uint32_t TLB_BASE_INDEX_1M = 0;
-static constexpr uint32_t TLB_BASE_INDEX_2M = TLB_COUNT_1M;
-static constexpr uint32_t TLB_BASE_INDEX_16M = TLB_BASE_INDEX_2M + TLB_COUNT_2M;
+inline constexpr uint32_t TLB_BASE_INDEX_1M = 0;
+inline constexpr uint32_t TLB_BASE_INDEX_2M = TLB_COUNT_1M;
+inline constexpr uint32_t TLB_BASE_INDEX_16M = TLB_BASE_INDEX_2M + TLB_COUNT_2M;
 
-static constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
+inline constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
 
-static constexpr uint32_t DYNAMIC_TLB_16M_SIZE = 16 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_16M_CFG_ADDR =
+inline constexpr uint32_t DYNAMIC_TLB_16M_SIZE = 16 * 1024 * 1024;
+inline constexpr uint32_t DYNAMIC_TLB_16M_CFG_ADDR =
     STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_16M * TLB_CFG_REG_SIZE_BYTES);
-static constexpr uint32_t DYNAMIC_TLB_16M_BASE = TLB_BASE_16M;
+inline constexpr uint32_t DYNAMIC_TLB_16M_BASE = TLB_BASE_16M;
 
-static constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
-static constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
+inline constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
+inline constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
+inline constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
-static constexpr uint32_t DYNAMIC_TLB_1M_SIZE = 1 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_1M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_1M * TLB_CFG_REG_SIZE_BYTES);
-static constexpr uint32_t DYNAMIC_TLB_1M_BASE = TLB_BASE_1M;
+inline constexpr uint32_t DYNAMIC_TLB_1M_SIZE = 1 * 1024 * 1024;
+inline constexpr uint32_t DYNAMIC_TLB_1M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_1M * TLB_CFG_REG_SIZE_BYTES);
+inline constexpr uint32_t DYNAMIC_TLB_1M_BASE = TLB_BASE_1M;
 
 // MEM_*_TLB are for dynamic read/writes to memory, either 16MB (large read/writes) or 2MB (polling). REG_TLB for
 // dynamic writes to registers.   They are aligned with the kernel driver's WC/UC split.  But kernel driver uses
 // different TLB's for these.
-static constexpr unsigned int REG_TLB = TLB_BASE_INDEX_16M + 18;
-static constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_16M + 17;
-static constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_16M + 0;
-static constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 1;
-static constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = MEM_LARGE_READ_TLB + 1;
-static constexpr uint32_t INTERNAL_TLB_INDEX = DYNAMIC_TLB_BASE_INDEX + DYNAMIC_TLB_COUNT;  // pcie_write_xy and similar
-static constexpr uint32_t DRAM_CHANNEL_0_X = 0;
-static constexpr uint32_t DRAM_CHANNEL_0_Y = 0;
-static constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  // This is the last 256MB of DRAM
+inline constexpr unsigned int REG_TLB = TLB_BASE_INDEX_16M + 18;
+inline constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_16M + 17;
+inline constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_16M + 0;
+inline constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 1;
+inline constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = MEM_LARGE_READ_TLB + 1;
+inline constexpr uint32_t INTERNAL_TLB_INDEX = DYNAMIC_TLB_BASE_INDEX + DYNAMIC_TLB_COUNT;  // pcie_write_xy and similar
+inline constexpr uint32_t DRAM_CHANNEL_0_X = 0;
+inline constexpr uint32_t DRAM_CHANNEL_0_Y = 0;
+inline constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  // This is the last 256MB of DRAM
 
-static constexpr uint32_t GRID_SIZE_X = 10;
-static constexpr uint32_t GRID_SIZE_Y = 12;
+inline constexpr uint32_t GRID_SIZE_X = 10;
+inline constexpr uint32_t GRID_SIZE_Y = 12;
 
-static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
+inline constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
-static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
+// ARC CSM address mapping in BAR0 memory space.
+inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_START = 0x1FE80000;
+inline constexpr uint32_t ARC_CSM_BAR0_XBAR_OFFSET_END = 0x1FEFFFFF;
 
-static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x1FEF83C4;
-static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
+// ARC CSM addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
+inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_START = 0x10000000;
+inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 
-static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
+inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_OFFSET_END - ARC_CSM_NOC_XBAR_OFFSET_START;
 
-static constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
+inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
+inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 
-static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
+// ARC APB absolute addresses in BAR0 memory space.
+inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
+inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
-static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
-static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x60;
-static constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x8;
-static constexpr uint32_t ARC_RESET_SCRATCH_RES0_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0xC;
-static constexpr uint32_t ARC_RESET_SCRATCH_RES1_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x10;
-static constexpr uint32_t ARC_RESET_SCRATCH_STATUS_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x14;
-static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
-static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
-static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
+// ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
+inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_START = 0x80000000;
+inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_END = 0x800FFFFF;
 
-static constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
+inline constexpr uint32_t ARC_APB_ADDRESS_RANGE = ARC_APB_NOC_XBAR_OFFSET_END - ARC_APB_NOC_XBAR_OFFSET_START;
 
-constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x880000000;
-constexpr uint64_t ARC_NOC_XBAR_ADDRESS_END = 0x8FFFFFFFF;
+inline constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
-constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
-constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
+inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
-static constexpr uint32_t AICLK_BUSY_VAL = 1000;
-static constexpr uint32_t AICLK_IDLE_VAL = 500;
+inline constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
-static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
-static constexpr uint32_t ETH_L1_SIZE = 262144;
-static constexpr uint64_t DRAM_BANK_SIZE = 2147483648;
+// ARC Reset Unit offset address (APB peripheral) - accessible via BAR0 or NOC
+// Usage examples with ARC_RESET_SCRATCH_STATUS_OFFSET:
+// - BAR0 access: ARC_APB_BAR0_XBAR_OFFSET_START + ARC_RESET_SCRATCH_STATUS_OFFSET
+// - NOC access:  ARC_NOC_ADDRESS_START + ARC_APB_NOC_XBAR_OFFSET_START + ARC_RESET_SCRATCH_STATUS_OFFSET
+inline constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
+inline constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x60;
+inline constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x8;
+inline constexpr uint32_t ARC_RESET_SCRATCH_RES0_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0xC;
+inline constexpr uint32_t ARC_RESET_SCRATCH_RES1_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x10;
+inline constexpr uint32_t ARC_RESET_SCRATCH_STATUS_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x14;
+inline constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
+inline constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
+inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
+
+inline constexpr uint64_t ARC_NOC_ADDRESS_START = 0x800000000;
+
+inline constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
+inline constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
+
+inline constexpr uint32_t AICLK_BUSY_VAL = 1000;
+inline constexpr uint32_t AICLK_IDLE_VAL = 500;
+
+inline constexpr uint32_t TENSIX_L1_SIZE = 1499136;
+inline constexpr uint32_t ETH_L1_SIZE = 262144;
+inline constexpr uint64_t DRAM_BANK_SIZE = 2147483648;
 
 constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
@@ -285,27 +303,27 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::PCIE, 0xFFFB30000},
      {CoreType::ARC, 0xFFFB30000},
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
-static const uint64_t NOC_NODE_ID_OFFSET = 0x2C;
+inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
 
-static const uint64_t ARC_NOC_RESET_UNIT_BASE_ADDR = 0x880030000;
+inline constexpr uint64_t ARC_NOC_RESET_UNIT_BASE_ADDR = 0x880030000;
 // Offset of NOC node id registers on ARC core which are
 // used to store telemetry addresses, not used for NOC routing.
-static const uint64_t NOC_NODEID_X_0 = 0x1D0;
-static const uint64_t NOC_NODEID_Y_0 = 0x1D4;
+inline constexpr uint64_t NOC_NODEID_X_0 = 0x1D0;
+inline constexpr uint64_t NOC_NODEID_Y_0 = 0x1D4;
 
-static const size_t tensix_translated_coordinate_start_x = 18;
-static const size_t tensix_translated_coordinate_start_y = 18;
+inline constexpr size_t tensix_translated_coordinate_start_x = 18;
+inline constexpr size_t tensix_translated_coordinate_start_y = 18;
 
-static const size_t eth_translated_coordinate_start_x = 18;
-static const size_t eth_translated_coordinate_start_y = 16;
+inline constexpr size_t eth_translated_coordinate_start_x = 18;
+inline constexpr size_t eth_translated_coordinate_start_y = 16;
 
 // Constants related to bits in the soft reset register
-static const uint32_t SOFT_RESET_BRISC = 1 << 11;
-static const uint32_t SOFT_RESET_TRISC0 = 1 << 12;
-static const uint32_t SOFT_RESET_TRISC1 = 1 << 13;
-static const uint32_t SOFT_RESET_TRISC2 = 1 << 14;
-static const uint32_t SOFT_RESET_NCRISC = 1 << 18;
-static const uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
+inline constexpr uint32_t SOFT_RESET_BRISC = 1 << 11;
+inline constexpr uint32_t SOFT_RESET_TRISC0 = 1 << 12;
+inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;
+inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
+inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
+inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
 }  // namespace wormhole
 
@@ -343,7 +361,9 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(wormhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
+    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
+        return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + wormhole::ARC_CSM_MAILBOX_OFFSET;
+    }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 
@@ -413,6 +433,14 @@ public:
 
     uint32_t get_small_read_write_tlb() const override { return wormhole::MEM_SMALL_READ_WRITE_TLB; }
 
+    uint64_t get_arc_apb_noc_base_address() const override {
+        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_APB_NOC_XBAR_OFFSET_START;
+    }
+
+    uint64_t get_arc_csm_noc_base_address() const override {
+        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START;
+    }
+
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return wormhole::HARVESTING_NOC_LOCATIONS;
     }
@@ -442,10 +470,10 @@ public:
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
-    device_l1_address_params get_l1_address_params() const override;
-    driver_host_address_params get_host_address_params() const override;
-    driver_eth_interface_params get_eth_interface_params() const override;
-    driver_noc_params get_noc_params() const override;
+    DeviceL1AddressParams get_l1_address_params() const override;
+    DriverHostAddressParams get_host_address_params() const override;
+    DriverEthInterfaceParams get_eth_interface_params() const override;
+    DriverNocParams get_noc_params() const override;
 
     virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 

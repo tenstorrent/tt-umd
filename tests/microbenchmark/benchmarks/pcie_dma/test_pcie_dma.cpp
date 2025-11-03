@@ -11,7 +11,7 @@
 
 using namespace tt::umd;
 
-constexpr chip_id_t chip = 0;
+constexpr ChipId chip = 0;
 constexpr uint32_t one_kb = 1 << 10;
 constexpr uint32_t one_mb = 1 << 20;
 constexpr uint32_t one_gb = 1 << 30;
@@ -247,7 +247,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -283,7 +283,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -341,7 +341,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -418,7 +418,7 @@ TEST(MicrobenchmarkPCIeDMA, DISABLED_EthZeroCopy) {
     constexpr uint32_t buf_size = 128 * one_kb;
     constexpr uint32_t address = 128 * one_kb;
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 

@@ -12,7 +12,6 @@
 #include <tuple>
 #include <vector>
 
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -37,7 +36,7 @@ public:
     virtual uint32_t get_arc_message_get_aiclk() const = 0;
     virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
     virtual uint32_t get_arc_message_test() const = 0;
-    virtual uint32_t get_arc_csm_mailbox_offset() const = 0;
+    virtual uint32_t get_arc_csm_bar0_mailbox_offset() const = 0;
     virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
     virtual uint32_t get_arc_reset_arc_misc_cntl_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_offset() const = 0;
@@ -71,6 +70,8 @@ public:
     virtual uint32_t get_grid_size_y() const = 0;
     virtual uint32_t get_tlb_cfg_reg_size_bytes() const = 0;
     virtual uint32_t get_small_read_write_tlb() const = 0;
+    virtual uint64_t get_arc_apb_noc_base_address() const = 0;
+    virtual uint64_t get_arc_csm_noc_base_address() const = 0;
     // Replace with std::span once we enable C++20
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
@@ -86,10 +87,10 @@ public:
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
 
-    virtual device_l1_address_params get_l1_address_params() const = 0;
-    virtual driver_host_address_params get_host_address_params() const = 0;
-    virtual driver_eth_interface_params get_eth_interface_params() const = 0;
-    virtual driver_noc_params get_noc_params() const = 0;
+    virtual DeviceL1AddressParams get_l1_address_params() const = 0;
+    virtual DriverHostAddressParams get_host_address_params() const = 0;
+    virtual DriverEthInterfaceParams get_eth_interface_params() const = 0;
+    virtual DriverNocParams get_noc_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 

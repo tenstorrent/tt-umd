@@ -51,7 +51,7 @@ protected:
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
             auto soc_descriptor =
-                tt_SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
+                SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
             device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             device_data_.push_back(std::move(device_data));
         }
@@ -182,7 +182,7 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
     uint64_t address = 0x0;
 
     for (const auto& device : device_data_) {
-        tt_SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
+        SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
         tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
         tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
 
@@ -219,7 +219,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     }
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -232,7 +232,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 

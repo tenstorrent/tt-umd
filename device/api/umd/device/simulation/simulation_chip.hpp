@@ -23,7 +23,7 @@ public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     static std::unique_ptr<SimulationChip> create(
-        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
+        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
 
     virtual ~SimulationChip() = default;
 
@@ -65,7 +65,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) override;
 
@@ -83,16 +83,16 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
-    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id);
+    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
 
     // Simulator directory.
     // Common state variables.
-    driver_noc_params noc_params;
-    std::set<chip_id_t> target_devices_in_cluster = {};
-    std::set<chip_id_t> target_remote_chips = {};
+    DriverNocParams noc_params;
+    std::set<ChipId> target_devices_in_cluster = {};
+    std::set<ChipId> target_remote_chips = {};
     tt::ARCH arch_name;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
-    std::unordered_map<chip_id_t, SocDescriptor> soc_descriptor_per_chip = {};
+    std::unordered_map<ChipId, SocDescriptor> soc_descriptor_per_chip = {};
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock
@@ -101,7 +101,4 @@ protected:
 
     std::filesystem::path simulator_directory_;
 };
-
-// TODO: To be removed once clients are updated.
-using SimulationDevice = SimulationChip;
 }  // namespace tt::umd

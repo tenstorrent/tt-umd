@@ -23,7 +23,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    chip_id_t mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
+    ChipId mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
     LocalChip* local_chip = cluster->get_local_chip(mmio_chip_id);
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
@@ -43,8 +43,8 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
         active_eth_cores.push_back(tt_xy_pair(noc0_eth_core.x, noc0_eth_core.y));
     }
 
-    for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
-        eth_coord_t remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EthCoord remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
 
         std::unique_ptr<RemoteCommunicationLegacyFirmware> remote_comm =
             std::make_unique<RemoteCommunicationLegacyFirmware>(
@@ -83,5 +83,79 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
                 data_to_write[i] = data_to_write[i] + 10;
             }
         }
+    }
+}
+
+// Test large transfers (> 1024 bytes) to remote chips without sysmem
+// This test verifies that chunking works correctly when sysmem_manager is nullptr
+TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
+    // Discover cluster topology
+    auto [cluster_desc, _] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});
+
+    // Find a remote chip
+    std::optional<ChipId> remote_chip_id;
+    for (ChipId chip_id : cluster_desc->get_all_chips()) {
+        if (!cluster_desc->is_chip_mmio_capable(chip_id)) {
+            remote_chip_id = chip_id;
+            break;
+        }
+    }
+
+    if (!remote_chip_id.has_value()) {
+        GTEST_SKIP() << "No remote chips found. Test requires at least one remote chip. Skipping test.";
+    }
+
+    ChipId local_chip_id = cluster_desc->get_closest_mmio_capable_chip(*remote_chip_id);
+    int physical_device_id = cluster_desc->get_chips_with_mmio().at(local_chip_id);
+    std::unique_ptr<TTDevice> local_tt_device = TTDevice::create(physical_device_id);
+    local_tt_device->init_tt_device();
+
+    SocDescriptor local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
+    EthCoord target_chip = cluster_desc->get_chip_locations().at(*remote_chip_id);
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
+    remote_communication->set_remote_transfer_ethernet_cores(
+        local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_desc->get_active_eth_channels(local_chip_id)));
+    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
+    remote_tt_device->init_tt_device();
+
+    // Get a tensix core to test on
+    SocDescriptor remote_soc_desc(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
+    auto tensix_core = *remote_soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED).begin();
+    tt_xy_pair tensix_core_xy = tt_xy_pair(tensix_core.x, tensix_core.y);
+
+    // Test with 2048 bytes (2x the 1024 threshold)
+    constexpr uint32_t test_size = 2048;
+    constexpr uint64_t test_address = 0x100;
+
+    // First write only zeros.
+    std::vector<uint32_t> data_to_write(test_size / sizeof(uint32_t), 0);
+    std::vector<uint32_t> data_read(test_size / sizeof(uint32_t), 1);
+
+    // Perform write and read operations.
+    remote_tt_device->write_to_device(data_to_write.data(), tensix_core_xy, test_address, test_size);
+    remote_tt_device->wait_for_non_mmio_flush();
+    remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);
+
+    // Verify data matches
+    ASSERT_EQ(data_to_write.size(), data_read.size()) << "Read and write data sizes do not match";
+    for (size_t i = 0; i < data_to_write.size(); i++) {
+        ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex
+                                                  << data_to_write[i] << " but got 0x" << data_read[i];
+    }
+
+    // Now write some random data.
+    for (size_t i = 0; i < data_to_write.size(); i++) {
+        data_to_write[i] = i;
+    }
+    remote_tt_device->write_to_device(data_to_write.data(), tensix_core_xy, test_address, test_size);
+    remote_tt_device->wait_for_non_mmio_flush();
+    remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);
+
+    // Verify data matches
+    ASSERT_EQ(data_to_write.size(), data_read.size()) << "Read and write data sizes do not match";
+    for (size_t i = 0; i < data_to_write.size(); i++) {
+        ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex
+                                                  << data_to_write[i] << " but got 0x" << data_read[i];
     }
 }

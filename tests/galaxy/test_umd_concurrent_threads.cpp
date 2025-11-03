@@ -29,14 +29,14 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     // Galaxy Setup
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-    std::set<chip_id_t> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    std::set<chip_id_t> target_devices_th2 = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+    std::set<ChipId> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    std::set<ChipId> target_devices_th2 = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
 
     if (is_4u_galaxy_configuration(cluster.get())) {
         target_devices_th2.insert(32);
     }
 
-    std::unordered_set<chip_id_t> all_devices = {};
+    std::unordered_set<ChipId> all_devices = {};
     std::set_union(
         target_devices_th1.begin(),
         target_devices_th1.end(),
@@ -62,7 +62,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -132,14 +132,14 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     // Galaxy Setup
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-    std::set<chip_id_t> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
-    std::set<chip_id_t> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
+    std::set<ChipId> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
+    std::set<ChipId> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
 
     if (is_4u_galaxy_configuration(cluster.get())) {
         target_devices_th2.insert(32);
     }
 
-    std::unordered_set<chip_id_t> all_devices = {};
+    std::unordered_set<ChipId> all_devices = {};
     std::set_union(
         std::begin(target_devices_th1),
         std::end(target_devices_th1),
@@ -165,7 +165,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -221,10 +221,10 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     Cluster device;
-    std::unordered_set<chip_id_t> target_devices = cluster_desc->get_all_chips();
+    std::unordered_set<ChipId> target_devices = cluster_desc->get_all_chips();
     tt::umd::test::utils::set_barrier_params(device);
 
-    device_params default_params;
+    DeviceParams default_params;
     device.start_device(default_params);
 
     // Test
@@ -232,7 +232,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     std::vector<uint32_t> large_vector(20000, 0xbeef1234);
 
     std::thread th1 = std::thread([&] {
-        chip_id_t mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
+        ChipId mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x0;
         device.write_to_device(

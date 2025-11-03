@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0] - 2025-10-`8
+
+### Changed
+
+Removed old type names.
+
+## [0.3.0] - 2025-10-17
+
+### Changed
+
+Many smaller fixes and improvements.
+TTsim support improvements.
+JTAG support improvement.
+Fixing CMake install path.
+Further work on integrating new KMD TLBs.
+
 ## [0.2.0] - 2025-09-15
 
 ### Changed

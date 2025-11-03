@@ -20,7 +20,7 @@ void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes
 }
 
 static inline uint64_t get_sys_addr(
-    const driver_noc_params& noc_params,
+    const DriverNocParams& noc_params,
     uint32_t chip_x,
     uint32_t chip_y,
     uint32_t noc_x,
@@ -40,7 +40,7 @@ static inline uint64_t get_sys_addr(
 }
 
 static inline uint16_t get_sys_rack(
-    const driver_eth_interface_params& eth_interface_params, uint32_t rack_x, uint32_t rack_y) {
+    const DriverEthInterfaceParams& eth_interface_params, uint32_t rack_x, uint32_t rack_y) {
     uint32_t result = rack_y;
     result <<= eth_interface_params.eth_rack_coord_width;
     result |= rack_x;
@@ -49,7 +49,7 @@ static inline uint16_t get_sys_rack(
 }
 
 static inline bool is_non_mmio_cmd_q_full(
-    const driver_eth_interface_params& eth_interface_params, uint32_t curr_wptr, uint32_t curr_rptr) {
+    const DriverEthInterfaceParams& eth_interface_params, uint32_t curr_wptr, uint32_t curr_rptr) {
     return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.cmd_buf_size_mask) ==
                                         (curr_rptr & eth_interface_params.cmd_buf_size_mask));
 }

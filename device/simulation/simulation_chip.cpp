@@ -16,7 +16,7 @@
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) {
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id);
     } else {
@@ -30,7 +30,7 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 }
 
 SimulationChip::SimulationChip(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, chip_id_t chip_id) :
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), simulator_directory_(simulator_directory) {
     soc_descriptor_per_chip.emplace(chip_id, soc_descriptor);
     arch_name = soc_descriptor.arch;
@@ -81,7 +81,7 @@ int SimulationChip::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     *return_3 = 1;

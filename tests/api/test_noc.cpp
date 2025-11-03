@@ -15,7 +15,7 @@ using namespace tt::umd;
 TEST(TestNoc, TestNoc0NodeId) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
+    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
         const uint64_t noc_node_id_offset = 0x2C;
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
@@ -27,7 +27,7 @@ TEST(TestNoc, TestNoc0NodeId) {
         return tt_xy_pair(x, y);
     };
 
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type);
         for (const CoreCoord& core : cores) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
@@ -37,7 +37,7 @@ TEST(TestNoc, TestNoc0NodeId) {
     };
 
     auto check_noc_id_harvested_cores = [read_noc_id_reg](
-                                            std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+                                            std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
         for (const CoreCoord& core : cores) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
@@ -46,7 +46,7 @@ TEST(TestNoc, TestNoc0NodeId) {
         }
     };
 
-    for (chip_id_t chip : cluster->get_target_device_ids()) {
+    for (ChipId chip : cluster->get_target_device_ids()) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
@@ -76,7 +76,7 @@ TEST(TestNoc, TestNoc1NodeId) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
+    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 1) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
@@ -87,7 +87,7 @@ TEST(TestNoc, TestNoc1NodeId) {
         return tt_xy_pair(x, y);
     };
 
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC1);
         for (const CoreCoord& core : cores) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
@@ -97,7 +97,7 @@ TEST(TestNoc, TestNoc1NodeId) {
     };
 
     auto check_noc_id_harvested_cores = [read_noc_id_reg](
-                                            std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+                                            std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores =
             cluster->get_soc_descriptor(chip).get_harvested_cores(core_type, CoordSystem::NOC1);
         for (const CoreCoord& core : cores) {
@@ -107,7 +107,7 @@ TEST(TestNoc, TestNoc1NodeId) {
         }
     };
 
-    for (chip_id_t chip : cluster->get_target_device_ids()) {
+    for (ChipId chip : cluster->get_target_device_ids()) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 

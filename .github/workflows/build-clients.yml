@@ -50,7 +50,7 @@ jobs:
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
-          ./build_metal.sh --build-all --enable-ccache --enable-profiler
+          ./build_metal.sh --build-all --enable-ccache
           cd ../
 
   build-tt-exalens:
@@ -157,8 +157,10 @@ jobs:
         run: |
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
+          export TT_METAL_RUNTIME_ROOT=$(pwd)
           export PYTHONPATH=$(pwd)
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
+          echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh --build-programming-examples
           cd ../

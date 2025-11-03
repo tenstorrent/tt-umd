@@ -40,7 +40,7 @@ struct routing_cmd_t {
 };
 
 RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
-    TTDevice* local_tt_device, eth_coord_t target_chip, SysmemManager* sysmem_manager) :
+    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) :
     RemoteCommunication(local_tt_device, sysmem_manager), target_chip(target_chip) {}
 
 /*
@@ -95,7 +95,11 @@ RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
  */
 
 void RemoteCommunicationLegacyFirmware::read_non_mmio(
-    tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes, const uint64_t timeout_ms) {
+    tt_xy_pair target_core,
+    void* dest,
+    uint64_t core_src,
+    uint32_t size_in_bytes,
+    const std::chrono::milliseconds timeout_ms) {
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -145,12 +149,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool use_dram;
-    uint32_t max_block_size;
-
-    use_dram = size_in_bytes > 1024;
-    TT_ASSERT(!(use_dram && sysmem_manager_ == nullptr), "Large transfers not available without system memory.");
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
+    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr;
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    uint32_t max_block_size =
+        use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     uint32_t offset = 0;
     uint32_t block_size;
@@ -187,7 +189,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         uint32_t host_dram_block_addr = host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
         uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
-        if (use_dram && block_size > DATA_WORD_SIZE) {
+        if (use_host_dram && block_size > DATA_WORD_SIZE) {
             req_flags |= eth_interface_params.cmd_data_block_dram;
             resp_flags |= eth_interface_params.cmd_data_block_dram;
         }
@@ -202,7 +204,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
         new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
-        if (use_dram) {
+        if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
         local_tt_device_->write_to_device(
@@ -254,8 +256,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 DATA_WORD_SIZE);
 
-            tt::umd::utils::check_timeout(
-                start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
         tt_driver_atomics::lfence();
         uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
@@ -267,8 +268,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.response_routing_cmd_queue_base + flags_offset,
                 DATA_WORD_SIZE);
 
-            tt::umd::utils::check_timeout(
-                start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_flags[0] == 0);
 
         if (erisc_resp_flags[0] == resp_flags) {
@@ -290,7 +290,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 }
             } else {
                 // Read 4 byte aligned block from device/sysmem
-                if (use_dram) {
+                if (use_host_dram) {
                     size_buffer_to_capacity(data_block, block_size);
                     sysmem_manager_->read_from_sysmem(
                         host_dram_channel, data_block.data(), host_dram_block_addr, block_size);
@@ -338,7 +338,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     uint32_t size_in_bytes,
     bool broadcast,
     std::vector<int> broadcast_header,
-    const uint32_t timeout_ms) {
+    const std::chrono::milliseconds timeout_ms) {
     flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;
@@ -360,15 +360,13 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     uint32_t buffer_id = 0;
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
-    bool use_dram;
-    uint32_t max_block_size;
 
     // Broadcast requires block writes to host dram
-    use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
-    TT_ASSERT(
-        !(use_dram && sysmem_manager_ == nullptr),
-        "Large transfers and broadcasts not available without system memory.");
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
+    TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
+    uint32_t max_block_size =
+        use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
@@ -404,8 +402,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
 
-            tt::umd::utils::check_timeout(
-                start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         }
         // full = true;
         //  set full only if this command will make the q full.
@@ -449,7 +446,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
         if (req_flags & eth_interface_params.cmd_data_block) {
             // Copy data to sysmem or device DRAM for Block mode
-            if (use_dram) {
+            if (use_host_dram) {
                 req_flags |= eth_interface_params.cmd_data_block_dram;
                 resp_flags |= eth_interface_params.cmd_data_block_dram;
                 size_buffer_to_capacity(data_block, block_size);
@@ -508,7 +505,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
         new_cmd->flags = req_flags;
         new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
-        if (use_dram) {
+        if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
         local_tt_device_->write_to_device(
@@ -549,12 +546,11 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
 
-        tt::umd::utils::check_timeout(
-            start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
     }
 }
 
-void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t timeout_ms) {
+void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {
     if (flush_non_mmio_) {
         TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
@@ -576,7 +572,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t t
                         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                         eth_interface_params.remote_update_ptr_size_bytes * 2);
 
-                    tt::umd::utils::check_timeout(
+                    utils::check_timeout(
                         start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
@@ -586,7 +582,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const uint32_t t
                     local_tt_device_->read_from_device(
                         erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8);
 
-                    tt::umd::utils::check_timeout(
+                    utils::check_timeout(
                         start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }

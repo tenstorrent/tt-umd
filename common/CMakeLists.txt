@@ -6,7 +6,10 @@ target_sources(
     INTERFACE
         assert.hpp
         backtrace.hpp
+        disjoint_set.hpp
         gtest_initializer.hpp # FIXME: this should be tucked away with the tests
+        timestamp.hpp
+        utils.hpp
 )
 
 target_include_directories(umd_common INTERFACE .)

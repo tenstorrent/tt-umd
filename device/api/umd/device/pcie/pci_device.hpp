@@ -17,9 +17,9 @@
 #include <vector>
 
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -233,7 +233,7 @@ public:
     /**
      * Reset device via ioctl.
      */
-    static void reset_devices(TenstorrentResetDevice flag);
+    static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.
@@ -314,6 +314,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::PCIDevice;

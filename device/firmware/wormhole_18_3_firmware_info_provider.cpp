@@ -40,21 +40,33 @@ double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
            16.0;
 }
 
-DramTrainingStatus Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) const {
+std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(
+    uint32_t num_dram_channels) const {
     uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
-    uint8_t status = (telemetry_data >> (dram_channel * 4)) & 0xF;
 
-    switch (status) {
-        case wormhole::WormholeDramTrainingStatus::TrainingNone:
-            return DramTrainingStatus::IN_PROGRESS;
-        case wormhole::WormholeDramTrainingStatus::TrainingFail:
-            return DramTrainingStatus::FAIL;
-        case wormhole::WormholeDramTrainingStatus::TrainingPass:
-        case wormhole::WormholeDramTrainingStatus::TrainingSkip:
-            return DramTrainingStatus::SUCCESS;
-        default:
-            return DramTrainingStatus::FAIL;
+    // Each dram channel uses 4 bits in the 32-bit value in order to represent the state of DRAM training.
+    // That's why we move by 4 bits for each channel to get its status.
+    std::vector<DramTrainingStatus> statuses;
+    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; ++dram_channel) {
+        uint8_t status = (telemetry_data >> (dram_channel * 4)) & 0xF;
+
+        switch (status) {
+            case wormhole::WormholeDramTrainingStatus::TrainingNone:
+                statuses.push_back(DramTrainingStatus::IN_PROGRESS);
+                break;
+            case wormhole::WormholeDramTrainingStatus::TrainingFail:
+                statuses.push_back(DramTrainingStatus::FAIL);
+                break;
+            case wormhole::WormholeDramTrainingStatus::TrainingPass:
+            case wormhole::WormholeDramTrainingStatus::TrainingSkip:
+                statuses.push_back(DramTrainingStatus::SUCCESS);
+                break;
+            default:
+                statuses.push_back(DramTrainingStatus::FAIL);
+        }
     }
+
+    return statuses;
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() const {

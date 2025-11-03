@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 
@@ -146,15 +146,6 @@ struct CoreCoord : public tt_xy_pair {
 }  // namespace umd
 
 }  // namespace tt
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::CoordSystem;
-using tt::CoreType;
-
-namespace tt::umd {
-using CoreType = tt::CoreType;
-using CoordSystem = tt::CoordSystem;
-}  // namespace tt::umd
 
 namespace std {
 template <>

@@ -11,7 +11,7 @@
 
 using namespace tt::umd;
 
-constexpr chip_id_t chip = 0;
+constexpr ChipId chip = 0;
 constexpr uint64_t one_mb = 1 << 20;
 constexpr uint32_t NUM_ITERATIONS = 100;
 

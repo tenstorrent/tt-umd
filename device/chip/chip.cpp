@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/chip.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
@@ -16,6 +17,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 extern bool umd_use_noc1;
 
@@ -41,10 +43,10 @@ void Chip::set_default_params(ARCH arch) {
     dram_address_params = {0u};
 }
 
-void Chip::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
-    l1_address_params.tensix_l1_barrier_base = barrier_address_params_.tensix_l1_barrier_base;
-    l1_address_params.eth_l1_barrier_base = barrier_address_params_.eth_l1_barrier_base;
-    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params_.dram_barrier_base;
+void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
+    l1_address_params.tensix_l1_barrier_base = barrier_address_params.tensix_l1_barrier_base;
+    l1_address_params.eth_l1_barrier_base = barrier_address_params.eth_l1_barrier_base;
+    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params.dram_barrier_base;
 }
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
@@ -54,8 +56,8 @@ void Chip::wait_chip_to_be_ready() {
     wait_dram_cores_training();
 }
 
-void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    uint32_t timeout_left = timeout_ms;
+void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
+    auto timeout_left = timeout_ms;
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
@@ -72,7 +74,7 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
     }
 }
 
-void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
+void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) {
     TTDevice* tt_device = get_tt_device();
     const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
     const uint32_t chip_num_dram_channels = std::min(
@@ -87,19 +89,18 @@ void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
     }
 }
 
-void Chip::enable_ethernet_queue(int timeout_s) {
+void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     TT_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout_s);
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            throw std::runtime_error(fmt::format(
+                "Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count()));
         }
-        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
+        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
         }
     }
@@ -200,7 +201,7 @@ int Chip::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     std::vector<uint32_t> arc_msg_return_values;
@@ -256,8 +257,9 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
-void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
+void Chip::wait_for_aiclk_value(
+    TTDevice* tt_device, DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
     if (power_state == DevicePowerState::BUSY) {
         target_aiclk = tt_device->get_max_clock_freq();
@@ -266,9 +268,9 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_stat
     }
     uint32_t aiclk = tt_device->get_clock();
     while (aiclk != target_aiclk) {
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
+        if (duration.count() > timeout_ms.count()) {
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "

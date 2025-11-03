@@ -15,9 +15,9 @@
 using namespace tt;
 using namespace tt::umd;
 
-int count_connections(const std::unordered_map<
-                      chip_id_t,
-                      std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
+int count_connections(
+    const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
+        connections) {
     size_t count = 0;
     for (const auto& [_, channels] : connections) {
         count += channels.size();
@@ -30,10 +30,10 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_yaml);
 
-        std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-        std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
+        std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
+        std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
 
-        std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
+        std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
             cluster_desc->get_chips_grouped_by_closest_mmio();
 
         // Check that cluster_id is always the same for the same cluster.
@@ -53,16 +53,16 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
-    DisjointSet<chip_id_t> chip_clusters;
+    DisjointSet<ChipId> chip_clusters;
     for (auto chip : all_chips) {
         chip_clusters.add_item(chip);
     }
 
     // Merge into clusters of chips.
     for (auto connection : cluster_desc->get_ethernet_connections()) {
-        chip_id_t chip = connection.first;
+        ChipId chip = connection.first;
         for (auto [channel, remote_chip_and_channel] : connection.second) {
-            chip_id_t remote_chip = std::get<0>(remote_chip_and_channel);
+            ChipId remote_chip = std::get<0>(remote_chip_and_channel);
             chip_clusters.merge(chip, remote_chip);
         }
     }
@@ -72,7 +72,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 
     // Check that get_closes_mmio_capable_chip works.
     for (auto chip : all_chips) {
-        chip_id_t closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
+        ChipId closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
         EXPECT_TRUE(chip_clusters.are_same_set(chip, closest_mmio_chip));
     }
 }
@@ -83,9 +83,8 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
 
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
-        [](const std::unordered_map<
-            chip_id_t,
-            std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
+        [](const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
+               connections) {
             std::unordered_set<int> unique_connections;
             for (const auto& [chip, channels] : connections) {
                 for (const auto& [channel, remote_chip_and_channel] : channels) {

@@ -16,7 +16,7 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 /* Sizes:
  * Distribution (including min/max)
@@ -90,7 +90,7 @@ using DefaultTransferTypeGenerator =
     ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, std::discrete_distribution>;
 
 using address_t = uint32_t;
-using destination_t = std::pair<chip_id_t, CoreCoord>;
+using destination_t = std::pair<ChipId, CoreCoord>;
 using transfer_size_t = uint32_t;
 
 struct write_transfer_sample_t {
@@ -352,7 +352,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
     ClusterDescriptor const& cluster_desc, SocDescriptor const& soc_desc) {
     std::vector<destination_t> core_index_to_location = {};
 
-    for (chip_id_t chip : cluster_desc.get_all_chips()) {
+    for (ChipId chip : cluster_desc.get_all_chips()) {
         for (const CoreCoord dram_core : soc_desc.get_cores(CoreType::DRAM)) {
             core_index_to_location.push_back({chip, dram_core});
         }

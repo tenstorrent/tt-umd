@@ -23,7 +23,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const uint64_t tensix_addr = 0;
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -69,7 +69,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const uint64_t tensix_addr = 0;
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -121,7 +121,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const uint64_t tensix_addr = 0;
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
     // Point of the test is to read NOC0 node id register.
@@ -169,7 +169,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const uint64_t tensix_addr = 0;
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -214,7 +214,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const uint64_t tensix_addr = 0;
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
 
@@ -278,7 +278,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const uint64_t tensix_addr = 0;
-    const chip_id_t chip = 0;
+    const ChipId chip = 0;
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
 

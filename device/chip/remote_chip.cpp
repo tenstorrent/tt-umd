@@ -22,7 +22,7 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
-    eth_coord_t target_eth_coord,
+    EthCoord target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     std::string sdesc_path) {
     auto remote_communication = RemoteCommunication::create_remote_communication(
@@ -30,7 +30,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
@@ -45,7 +45,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
-    eth_coord_t target_eth_coord,
+    EthCoord target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
     auto remote_communication = RemoteCommunication::create_remote_communication(
@@ -53,7 +53,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(

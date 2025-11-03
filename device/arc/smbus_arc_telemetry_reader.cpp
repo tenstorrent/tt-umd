@@ -22,13 +22,11 @@ SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelem
 
 void SmBusArcTelemetryReader::get_telemetry_address() {
     std::vector<uint32_t> arc_msg_return_values = {0};
-    static const uint32_t timeout_ms = 1000;
     uint32_t exit_code = tt_device->get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | (uint32_t)wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
         arc_msg_return_values,
         0,
-        0,
-        timeout_ms);
+        0);
 
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     telemetry_base_noc_addr = arc_msg_return_values[0] + noc_telemetry_offset;

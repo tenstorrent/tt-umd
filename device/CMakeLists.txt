@@ -76,6 +76,8 @@ target_sources(
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
         tt_device/remote_blackhole_tt_device.cpp
+        tt_device/rtl_simulation_tt_device.cpp
+        tt_device/tt_sim_tt_device.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
         firmware/wormhole_18_7_firmware_info_provider.cpp
@@ -108,6 +110,7 @@ target_sources(
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp
         ${LITE_FABRIC_EMBED} # include generated embed file
+        tt_kmd_lib/tt_kmd_lib.c
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -139,7 +142,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/smbus_arc_telemetry_reader.hpp
                 api/umd/device/arc/wormhole_arc_messenger.hpp
                 api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
-                api/umd/device/arc_telemetry_reader.h
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
@@ -151,7 +153,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
-                api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.hpp
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
@@ -168,6 +169,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_blackhole_tt_device.hpp
+                api/umd/device/tt_device/rtl_simulation_tt_device.hpp
+                api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/remote_communication_lite_fabric.hpp
@@ -194,8 +197,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_discovery_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
-                api/umd/device/tt_xy_pair.h
                 api/umd/device/utils/common.hpp
+                api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
                 api/umd/device/types/blackhole_eth.hpp
@@ -203,8 +206,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/cluster_types.hpp
                 api/umd/device/types/communication_protocol.hpp
                 api/umd/device/types/core_coordinates.hpp
-                api/umd/device/types/harvesting.h
-                api/umd/device/types/harvesting.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/wormhole_dram.hpp
@@ -214,30 +215,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
-                # To be removed
-                api/umd/device/simulation/simulation_device.hpp
-                api/umd/device/hugepage.h
-                api/umd/device/tt_core_coordinates.h
-                api/umd/device/tt_cluster_descriptor.h
-                api/umd/device/tt_soc_descriptor.h
-                api/umd/device/wormhole_implementation.h
-                api/umd/device/blackhole_implementation.h
-                api/umd/device/coordinate_manager.h
-                api/umd/device/tt_silicon_driver_common.hpp
-                api/umd/device/pci_device.hpp
-                api/umd/device/types/xy_pair.h
-                api/umd/device/types/arch.h
-                api/umd/device/types/cluster_descriptor_types.h
-                api/umd/device/cluster.h
-                api/umd/device/types/harvesting.h
-                api/umd/device/types/harvesting.hpp
-                api/umd/device/chip_helpers/tlb_manager.h
-                api/umd/device/types/cluster_types.h
-                api/umd/device/jtag/jtag_device.h
-                api/umd/device/jtag/jtag.h
-                api/umd/device/logging/config.h
-                api/umd/device/tt_device/tt_device.h
-                api/umd/device/lite_fabric/lite_fabric.hpp
+                api/umd/device/tt_kmd_lib/tt_kmd_lib.h
     )
 endif()
 

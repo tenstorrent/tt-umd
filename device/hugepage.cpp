@@ -140,7 +140,7 @@ std::string find_hugepage_dir(std::size_t pagesize) {
     return std::string();
 }
 
-int open_hugepage_file(const std::string& dir, chip_id_t physical_device_id, uint16_t channel) {
+int open_hugepage_file(const std::string& dir, ChipId physical_device_id, uint16_t channel) {
     std::vector<char> filename;
     static const char pipeline_name[] = "tenstorrent";
 

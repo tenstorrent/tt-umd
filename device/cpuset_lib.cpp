@@ -394,7 +394,7 @@ bool cpuset_allocator::init_determine_cpuset_allocations() {
 
 // Given a physical device_id, determine the right numa nodes associated with it and attempt to membind a previously
 // allocated memory region to it.
-bool cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void *addr, size_t len) {
+bool cpuset_allocator::bind_area_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len) {
     auto tid = std::this_thread::get_id();
     log_debug(
         LogUMD,
@@ -476,7 +476,7 @@ std::string cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj) {
     return pci_bus_id_str;
 }
 
-int cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, chip_id_t physical_device_id) {
+int cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id) {
     auto pci_bus_id_str = m_physical_device_id_to_pci_bus_id_map.at(physical_device_id);
 
     log_debug(
@@ -522,8 +522,7 @@ int cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, chi
     return package_id;
 }
 
-hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(
-    hwloc_obj_t pci_device_obj, chip_id_t physical_device_id) {
+hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id) {
     hwloc_nodeset_t nodeset = 0x0;
 
     // Currently an issue in non-EPYC machines where PCI devices are directly under Machine, and not any NumaNodes.

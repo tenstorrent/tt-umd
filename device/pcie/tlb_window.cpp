@@ -9,7 +9,7 @@
 
 #include <stdexcept>
 
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 namespace tt::umd {
 

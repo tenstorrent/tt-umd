@@ -31,8 +31,6 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
         } else if (arch == tt::ARCH::BLACKHOLE) {
             // At least 2 columns are expected to be harvested.
             upper_limit_num_cores = 120;
-        } else if (arch == tt::ARCH::QUASAR) {
-            THROW_NOT_IMPLEMENTED("Quasar software harvesting is not implemented");
         }
         ASSERT_LE(cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), upper_limit_num_cores);
     }

@@ -357,7 +357,7 @@ void TTDevice::write_tlb_reg(
         TT_THROW("write_tlb_reg is not applicable for JTAG communication type.");
     }
 
-    volatile uint64_t *dest_qw = pci_device_->get_register_address<uint64_t>(byte_addr);
+    volatile uint32_t *dest_dw = pci_device_->get_register_address<uint32_t>(byte_addr);
     volatile uint32_t *dest_extra_dw = pci_device_->get_register_address<uint32_t>(byte_addr + 8);
 #if defined(__ARM_ARCH) || defined(__riscv)
     // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
@@ -365,7 +365,8 @@ void TTDevice::write_tlb_reg(
     // accesses. Insert an explicit full memory barrier for ARM. Do the same for RISC-V.
     tt_driver_atomics::mfence();
 #endif
-    *dest_qw = value_lower;
+    dest_dw[0] = static_cast<uint32_t>(value_lower);
+    dest_dw[1] = static_cast<uint32_t>(value_lower >> 32);
     if (tlb_cfg_reg_size > 8) {
         uint32_t *p_value_upper = reinterpret_cast<uint32_t *>(&value_upper);
         *dest_extra_dw = p_value_upper[0];

@@ -37,8 +37,8 @@ tlb_configuration grendel_implementation::get_tlb_configuration(uint32_t tlb_ind
             .base = grendel::DYNAMIC_TLB_4G_BASE,
             .cfg_addr = grendel::DYNAMIC_TLB_4G_CFG_ADDR,
             .index_offset = tlb_index - grendel::TLB_BASE_INDEX_4G,
-            .tlb_offset = grendel::DYNAMIC_TLB_4G_BASE +
-                          (tlb_index - grendel::TLB_BASE_INDEX_4G) * grendel::DYNAMIC_TLB_4G_SIZE,
+            .tlb_offset =
+                grendel::DYNAMIC_TLB_4G_BASE + (tlb_index - grendel::TLB_BASE_INDEX_4G) * grendel::DYNAMIC_TLB_4G_SIZE,
             .offset = grendel::TLB_4G_OFFSET,
         };
     }
@@ -48,8 +48,8 @@ tlb_configuration grendel_implementation::get_tlb_configuration(uint32_t tlb_ind
         .base = grendel::DYNAMIC_TLB_2M_BASE,
         .cfg_addr = grendel::DYNAMIC_TLB_2M_CFG_ADDR,
         .index_offset = tlb_index - grendel::TLB_BASE_INDEX_2M,
-        .tlb_offset = grendel::DYNAMIC_TLB_2M_BASE +
-                      (tlb_index - grendel::TLB_BASE_INDEX_2M) * grendel::DYNAMIC_TLB_2M_SIZE,
+        .tlb_offset =
+            grendel::DYNAMIC_TLB_2M_BASE + (tlb_index - grendel::TLB_BASE_INDEX_2M) * grendel::DYNAMIC_TLB_2M_SIZE,
         .offset = grendel::TLB_2M_OFFSET,
     };
 }
@@ -94,9 +94,7 @@ DriverEthInterfaceParams grendel_implementation::get_eth_interface_params() cons
     };
 }
 
-DriverNocParams grendel_implementation::get_noc_params() const {
-    return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
-}
+DriverNocParams grendel_implementation::get_noc_params() const { return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS}; }
 
 uint64_t grendel_implementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
@@ -224,11 +222,10 @@ RiscType grendel_implementation::get_soft_reset_risc_type(uint32_t soft_reset_re
 
 namespace grendel {
 tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
-    return (noc_translation_enabled || !umd_use_noc1)
-               ? grendel::ARC_CORES_NOC0[0]
-               : tt_xy_pair(
-                     grendel::NOC0_X_TO_NOC1_X[grendel::ARC_CORES_NOC0[0].x],
-                     grendel::NOC0_Y_TO_NOC1_Y[grendel::ARC_CORES_NOC0[0].y]);
+    return (noc_translation_enabled || !umd_use_noc1) ? grendel::ARC_CORES_NOC0[0]
+                                                      : tt_xy_pair(
+                                                            grendel::NOC0_X_TO_NOC1_X[grendel::ARC_CORES_NOC0[0].x],
+                                                            grendel::NOC0_Y_TO_NOC1_Y[grendel::ARC_CORES_NOC0[0].y]);
 }
 }  // namespace grendel
 

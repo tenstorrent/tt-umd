@@ -415,7 +415,9 @@ public:
 
     tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
-    uint32_t get_soft_reset_staggered_start() const override { return 0; } //grendel does not support staggered start ??
+    uint32_t get_soft_reset_staggered_start() const override {
+        return 0;
+    }  // grendel does not support staggered start ??
 
     uint32_t get_grid_size_x() const override { return grendel::GRID_SIZE_X; }
 

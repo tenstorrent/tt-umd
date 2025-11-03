@@ -140,7 +140,12 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
     auto post_reset_wait =
         reset_m3 ? M3_POST_RESET_WAIT
                  : std::chrono::milliseconds(static_cast<int>(std::max(2.0, 0.4 * pci_devices_info.size()) * 1000));
+
+    std::chrono::duration<double> post_reset_wait_seconds = post_reset_wait;
+
+    log_info(tt::LogUMD, "Waiting for {} seconds after reset execution.", post_reset_wait_seconds.count());
     std::this_thread::sleep_for(post_reset_wait);
+    log_info(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
 
     for (auto& pci_bdf : pci_bdfs) {
         auto new_id = wait_for_device_to_reappear(pci_bdf.second);

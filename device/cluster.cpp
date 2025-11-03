@@ -1112,6 +1112,7 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<ChipId> target_devices, IODeviceType device_type) {
     TopologyDiscoveryOptions options;
     options.soc_descriptor_path = sdesc_path;
+    options.target_devices = std::move(target_devices);
     options.io_device_type = device_type;
     return TopologyDiscovery::discover(std::move(options)).first;
 }

@@ -62,6 +62,11 @@ jobs:
           echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV
           echo "CMAKE_CXX_COMPILER=${{ matrix.image.cpp }}" >> $GITHUB_ENV
 
+      - name: Show path before
+        run: |
+          echo "Path is:"
+          pwd
+
       # Build with all components to verify the build passes.
       - name: Build All
         run: |
@@ -73,8 +78,7 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      # Build with all components to verify the build passes.
-      - name: Show path
+      - name: Show path after
         run: |
           echo "Path is:"
           pwd

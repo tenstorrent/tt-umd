@@ -7,6 +7,7 @@
 #include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
+#include <unistd.h>  // For access()
 
 #include <algorithm>
 #include <cstdint>
@@ -57,6 +58,22 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
             .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }
     return options;
+}
+
+// Small helper function to check if the ipmitool is ready.
+bool is_ipmitool_ready() {
+    if (system("which ipmitool > /dev/null 2>&1") != 0) {
+        std::cout << "ipmitool executable not found." << std::endl;
+        return false;
+    }
+
+    if ((access("/dev/ipmi0", F_OK) != 0) && (access("/dev/ipmi/0", F_OK) != 0) &&
+        (access("/dev/ipmidev/0", F_OK) != 0)) {
+        std::cout << "IPMI device file not found (/dev/ipmi0, /dev/ipmi/0, or /dev/ipmidev/0)." << std::endl;
+        return false;
+    }
+
+    return true;
 }
 
 // This test should be one line only.
@@ -556,6 +573,10 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
     auto arch = cluster->get_cluster_description()->get_arch();
     if (arch != tt::ARCH::WORMHOLE_B0) {
         GTEST_SKIP() << "Only test Wormhole architecture for Galaxy UBB reset.";
+    }
+
+    if (!is_ipmitool_ready()) {
+        GTEST_SKIP() << "Only test warm reset on systems that have the ipmi tool.";
     }
 
     static constexpr uint32_t write_test_data = 0xDEADBEEF;

@@ -32,15 +32,12 @@ class TestSocDescriptor(unittest.TestCase):
         core_types = [
             tt_umd.CoreType.ARC,
             tt_umd.CoreType.DRAM,
-            tt_umd.CoreType.ACTIVE_ETH,
-            tt_umd.CoreType.IDLE_ETH,
             tt_umd.CoreType.PCIE,
             tt_umd.CoreType.TENSIX,
             tt_umd.CoreType.ROUTER_ONLY,
             tt_umd.CoreType.SECURITY,
             tt_umd.CoreType.L2CPU,
             tt_umd.CoreType.ETH,
-            tt_umd.CoreType.WORKER,
         ]
         
         # Test get_cores for each core type

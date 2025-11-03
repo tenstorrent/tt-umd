@@ -22,6 +22,8 @@
 
 // #include "l1_address_map.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
@@ -183,6 +185,18 @@ CoreCoord SocDescriptor::get_coord_at(const tt_xy_pair core, const CoordSystem c
 CoreCoord SocDescriptor::translate_coord_to(
     const tt_xy_pair core_location, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
+}
+
+tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    if (noc_translation_enabled && arch == tt::ARCH::BLACKHOLE) {
+        return translate_coord_to(core, CoordSystem::TRANSLATED);
+    }
+
+    return translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {

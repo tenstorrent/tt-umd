@@ -1092,15 +1092,7 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-// TODO: Temporary hack to pass tt-metal build
 std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
-
-std::optional<tt_version> Cluster::get_ethernet_fw_version() const {
-    if (!eth_fw_version.has_value()) {
-        return std::nullopt;
-    }
-    return tt_version(eth_fw_version->major, eth_fw_version->minor, eth_fw_version->patch);
-}
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {

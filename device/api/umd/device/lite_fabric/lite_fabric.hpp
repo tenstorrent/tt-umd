@@ -79,12 +79,12 @@ enum class InitState : uint16_t {
 };
 
 enum class RoutingEnabledState : uint16_t {
-    // Write to disable routing. This will stop all routing activity and propagate routing enabled state to the
-    // connected core
+    // Stopped.
     STOPPED = 0,
     // Enabled. Call functions to service channels.
     ENABLED = 1,
-    // Stopped
+    // Write to disable routing. This will stop all routing activity and propagate routing enabled state to the
+    // connected core.
     STOP = 2,
 };
 
@@ -107,19 +107,19 @@ struct LiteFabricConfig {
 
     uint32_t padding1[3]{};
 
-    // Becomes 1 when the neighbour is ready
+    // Becomes 1 when the neighbour is ready.
     volatile uint32_t neighbour_handshake = 0;
 
     uint32_t padding2[1]{};
 
-    // This is the local primary core
+    // This is the local primary core.
     volatile uint16_t is_primary = false;
 
     volatile uint8_t primary_eth_core_x = 0;
 
     volatile uint8_t primary_eth_core_y = 0;
 
-    // This is on the MMIO
+    // This is on the MMIO.
     volatile uint16_t is_mmio = false;
 
     volatile InitState initial_state = InitState::UNKNOWN;
@@ -147,7 +147,7 @@ public:
     static void increment() { event.fetch_add(1); }
 };
 
-// Interface for Host to MMIO Lite Fabric
+// Interface for Host to MMIO Lite Fabric.
 template <uint32_t NUM_BUFFERS, uint32_t CHANNEL_BUFFER_SIZE>
 struct HostToLiteFabricInterface {
     // This values are updated by the device and read to the host.
@@ -281,7 +281,7 @@ private:
 
         uint32_t addr = get_next_send_buffer_slot_address(channel_address);
         header.debug = 0xcafe0000;
-        // Force all packets to be on NOC1 to avoid conflict with ERISC0 NOC0
+        // Force all packets to be on NOC1 to avoid conflict with ERISC0 NOC0.
         header.noc_send_type.fields.noc_index = 1;
 
         tt_device->write_to_device(&header, translated_core_sender, addr, sizeof(FabricLiteHeader));
@@ -433,14 +433,14 @@ struct LiteFabricMemoryMap {
     unsigned char padding3[192]{};
     unsigned char
         receiver_channel_buffer[lite_fabric::RECEIVER_NUM_BUFFERS_ARRAY[0] * lite_fabric::CHANNEL_BUFFER_SIZE]{};
-    // L1 address of the service_lite_fabric function
+    // L1 address of the service_lite_fabric function.
     uint32_t service_lite_fabric_addr{};
     unsigned char padding4[12]{};
 
     lite_fabric::LiteFabricConfig config;
     lite_fabric::EDMChannelWorkerLocationInfo sender_location_info;
 
-    // Must be last because it has members that are only stored on the host
+    // Must be last because it has members that are only stored on the host.
     HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
 

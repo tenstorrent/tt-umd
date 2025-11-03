@@ -71,14 +71,15 @@ protected:
                             "connected with ethernet.";
         }
         host_interface = lite_fabric::LiteFabricMemoryMap::make_host_interface(fabric_chip.get()->get_tt_device());
-        lite_fabric::launch_lite_fabric(fabric_chip.get(), eth_cores_up);
+        lite_fabric::launch_lite_fabric(fabric_chip->get_tt_device(), fabric_chip->get_soc_descriptor(), eth_cores_up);
         std::vector<uint8_t> zero_data(1 << 20, 0);
         non_fabric_chip->write_to_device(tensix_core, zero_data.data(), 0, zero_data.size());
     }
 
     void TearDown() override {
         if (fabric_chip.get() != nullptr) {
-            lite_fabric::terminate_lite_fabric(fabric_chip.get(), eth_cores_up);
+            lite_fabric::terminate_lite_fabric(
+                fabric_chip->get_tt_device(), fabric_chip->get_soc_descriptor(), eth_cores_up);
         }
         fabric_chip.reset();
         non_fabric_chip.reset();

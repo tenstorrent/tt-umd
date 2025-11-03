@@ -240,7 +240,7 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(TTDevice* tt_de
 
     // TODO: be careful to not launch lite fabric on ETH cores that already have it running.
     for (const auto& [remote_asic_id, eth_cores] : remote_asic_ids_to_eth_cores) {
-        // lite_fabric::launch_lite_fabric(tt_device, eth_cores); TODO
+        lite_fabric::launch_lite_fabric(tt_device, eth_cores);
     }
 }
 

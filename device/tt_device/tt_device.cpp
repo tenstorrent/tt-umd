@@ -276,7 +276,13 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
     }
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    bool use_safe_memcpy = false;
+#if defined(__ARM_ARCH) || defined(__riscv)
+    use_safe_memcpy = true;
+#else
+    use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
+#endif
+    if (use_safe_memcpy) {
         memcpy_to_device(dest, src, num_bytes);
     } else {
         memcpy(dest, src, num_bytes);
@@ -296,7 +302,13 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    bool use_safe_memcpy = false;
+#if defined(__ARM_ARCH) || defined(__riscv)
+    use_safe_memcpy = true;
+#else
+    use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
+#endif
+    if (use_safe_memcpy) {
         memcpy_from_device(dest, src, num_bytes);
     } else {
         memcpy(dest, src, num_bytes);

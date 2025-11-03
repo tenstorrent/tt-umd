@@ -30,7 +30,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
@@ -53,7 +53,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(

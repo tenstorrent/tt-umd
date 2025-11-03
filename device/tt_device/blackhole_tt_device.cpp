@@ -7,6 +7,7 @@
 #include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
+#include <chrono>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
@@ -17,6 +18,7 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -147,23 +149,25 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
+void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
             return;
         }
 
-        auto end = std::chrono::system_clock::now();  // End time
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format(
-                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
-        }
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format(
+                "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                timeout_ms.count(),
+                arc_core.x,
+                arc_core.y));
     }
 }
 
@@ -193,9 +197,9 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range");
+        throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -208,16 +212,16 @@ void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, s
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+        read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 };
 
-void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range");
+        throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -230,15 +234,24 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+        write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
         blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
-    uint32_t time_taken = 0;
+void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    throw std::runtime_error("CSM write not supported for Blackhole.");
+}
+
+void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    throw std::runtime_error("CSM read not supported for Blackhole.");
+}
+
+std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    auto time_taken = std::chrono::milliseconds(0);
 
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
@@ -246,26 +259,23 @@ uint32_t BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, co
 
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken = duration.count();
-        if (time_taken > timeout_ms) {
+        if (duration > timeout_ms) {
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms);
+            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
             break;
         }
     }
     return time_taken;
 }
 
-uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
-
-bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
+bool BlackholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) { return true; }
 
 bool BlackholeTTDevice::is_hardware_hung() {
     // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");

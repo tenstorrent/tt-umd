@@ -11,7 +11,7 @@ namespace tt::umd {
 
 class TopologyDiscoveryBlackhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryBlackhole(std::unordered_set<ChipId> pci_target_devices = {}, const std::string& sdesc_path = "");
+    TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options);
 
 protected:
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
@@ -42,15 +42,13 @@ protected:
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
-    std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) override;
-
-    bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
-
     bool is_using_eth_coords() override;
 
     uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);
 
     bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
+
+    void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(
         std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
@@ -60,6 +58,8 @@ protected:
     void initialize_remote_communication(Chip* chip) override;
 
     void init_topology_discovery() override;
+
+    bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) override;
 };
 
 }  // namespace tt::umd

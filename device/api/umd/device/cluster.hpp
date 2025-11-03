@@ -593,7 +593,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 
@@ -611,9 +611,10 @@ public:
 
     /**
      * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
-     * Will return a bogus version if no remote chips are supported for the device.
      */
     std::optional<tt_version> get_ethernet_fw_version() const;
+    // TODO: Temporary hack to pass tt-metal build
+    std::optional<semver_t> get_ethernet_firmware_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -684,11 +685,10 @@ private:
         const std::set<ChipId>& chips_to_exclude);
 
     // Test functions
+    // TODO: Move this check to TopologyDiscovery.
     void verify_fw_bundle_version();
     void log_device_summary();
     void log_pci_device_summary();
-    void verify_eth_fw();
-    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
     void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
@@ -729,9 +729,7 @@ private:
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
-    tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
-    // ERISC FW Version Required by UMD
-    static constexpr std::uint32_t SW_VERSION = 0x06060000;
+    std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.
 };
 
 }  // namespace tt::umd

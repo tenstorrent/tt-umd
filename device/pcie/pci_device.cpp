@@ -197,8 +197,8 @@ static PciDeviceInfo read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_devices(uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices()) {
+static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint32_t flags) {
+    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
             continue;
@@ -708,7 +708,9 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
 }
 
-void PCIDevice::reset_devices(TenstorrentResetDevice flag) { umd::reset_devices(static_cast<uint32_t>(flag)); }
+void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {
+    umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
+}
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
     int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);

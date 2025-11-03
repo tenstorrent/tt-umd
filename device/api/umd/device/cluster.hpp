@@ -77,6 +77,8 @@ struct ClusterOptions {
      */
     std::string sdesc_path = "";
     /**
+     * Used to constrain Cluster by specifying which chips should be present.
+     * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      */
     std::unordered_set<ChipId> target_devices = {};
 

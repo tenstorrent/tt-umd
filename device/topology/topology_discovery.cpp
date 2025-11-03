@@ -27,7 +27,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
     switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            auto pci_devices_info = PCIDevice::enumerate_devices_info(options.target_devices);
+            auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
                 return nullptr;
             }
@@ -86,12 +86,11 @@ void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
     switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            device_ids = PCIDevice::enumerate_devices(options.target_devices);
+            device_ids = PCIDevice::enumerate_devices();
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt =
-                JtagDevice::create(JtagDevice::jtag_library_path, options.target_devices)->get_device_cnt();
+            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path)->get_device_cnt();
             device_ids = std::vector<int>(device_cnt);
             std::iota(device_ids.begin(), device_ids.end(), 0);
             break;

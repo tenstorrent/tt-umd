@@ -35,7 +35,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
 
-    // check driver version
+    // Perfrom check of driver version.
     semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
 
     auto kmd_version = PCIDevice::read_kmd_version();
@@ -62,34 +62,34 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     }
 }
 
-int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
-    // Print waiting message in blue
-    fmt::print(fg(fmt::color::blue), "Waiting for devices to reappear on pci bus...\n");
+int wait_for_device_to_reappear(
+    const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
+    log_info(tt::LogUMD, "Waiting for devices to reappear on pci bus.");
 
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout);
+    auto deadline = std::chrono::steady_clock::now() + timeout_ms;
     bool device_reappeared = false;
     int interface_id = -1;
 
-    while (std::chrono::steady_clock::now() < deadline && !device_reappeared) {
-        // Use glob to find matching paths
+    while (std::chrono::steady_clock::now() < deadline) {
+        // Use glob to find matching paths.
         glob_t glob_result;
         std::string pattern = fmt::format("/sys/bus/pci/devices/{}/tenstorrent/tenstorrent!*", bdf);
 
         int glob_status = glob(pattern.c_str(), GLOB_NOSORT, nullptr, &glob_result);
 
         if (glob_status == 0 && glob_result.gl_pathc > 0) {
-            // Extract interface_id from the first match
+            // Extract interface_id from the first match.
             std::string match_path = glob_result.gl_pathv[0];
             std::filesystem::path path(match_path);
             std::string filename = path.filename().string();
 
-            // Remove "tenstorrent!" prefix using find()
+            // Remove "tenstorrent!" prefix using find().
             const std::string prefix = "tenstorrent!";
             if (filename.find(prefix) == 0) {
                 std::string id_str = filename.substr(prefix.length());
                 interface_id = std::stoi(id_str);
 
-                // Check if device path exists
+                // Check if device path exists.
                 std::string dev_path = fmt::format("/dev/tenstorrent/{}", interface_id);
                 if (std::filesystem::exists(dev_path)) {
                     device_reappeared = true;
@@ -101,11 +101,13 @@ int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
 
         if (!device_reappeared) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
         }
+        break;
     }
 
     if (!device_reappeared) {
-        fmt::print(fg(fmt::color::red), "Timeout waiting for device at PCI index {} to reappear.\n", interface_id);
+        log_error(tt::LogUMD, "Timeout waiting for device at BDF {} to reappear.", bdf);
         return -1;
     }
 
@@ -114,32 +116,27 @@ int wait_for_device_to_reappear(const std::string& bdf, int timeout = 10) {
 
 void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
-    // get pci bdf
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
 
-    // save pci bdf
     std::map<int, std::string> pci_bdfs;
     for (auto& pci_device_info : pci_devices_info) {
         pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
     }
 
-    // IOCTL Reset PCIe Link
     PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::RESET_PCIE_LINK);
 
-    // IOCTL ASIC_DMC_RESET or ASIC_RESET
     if (reset_m3) {
         PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_DMC_RESET);
     } else {
         PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_RESET);
     }
 
-    // Sleep post reset wait
-    // change this to be a parameter
-    static constexpr double M3_POST_RESET_WAIT = 20.0;
-    auto post_reset_wait = reset_m3 ? M3_POST_RESET_WAIT : std::max(2.0, 0.4 * pci_devices_info.size());
-    sleep(static_cast<int>(post_reset_wait));
+    static constexpr std::chrono::seconds M3_POST_RESET_WAIT{20};
+    auto post_reset_wait =
+        reset_m3 ? M3_POST_RESET_WAIT
+                 : std::chrono::milliseconds(static_cast<int>(std::max(2.0, 0.4 * pci_devices_info.size()) * 1000));
+    std::this_thread::sleep_for(post_reset_wait);
 
-    // check for BDF to re-appear and then call post_reset ioctl
     for (auto& pci_bdf : pci_bdfs) {
         auto new_id = wait_for_device_to_reappear(pci_bdf.second);
         if (new_id == -1) {
@@ -148,7 +145,7 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
         }
     }
 
-    // IOCTL POST_RESET - returns bool if the reset is succesful (not implemented)
+    // TODO: Make return value bool to return true if the reset is succesful (not implemented).
     PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::POST_RESET);
 }
 

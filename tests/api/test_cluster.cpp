@@ -60,7 +60,7 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     return options;
 }
 
-// Small helper function to check if the ipmitool is ready
+// Small helper function to check if the ipmitool is ready.
 bool is_ipmitool_ready() {
     if (system("which ipmitool > /dev/null 2>&1") != 0) {
         std::cout << "ipmitool executable not found." << std::endl;

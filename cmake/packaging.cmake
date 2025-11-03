@@ -23,10 +23,18 @@ install(
 )
 
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}-dev")
-set(CPACK_GENERATOR "DEB")
+set(CPACK_GENERATOR "DEB;RPM")
 set(CPACK_PACKAGE_VENDOR "Tenstorrent, Inc.")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "support@tenstorrent.com")
+
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Tenstorrent User Mode Driver")
-#set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+set(CPACK_PACKAGE_CONTACT "support@tenstorrent.com")
+
+# Debian-specific defaults
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "support@tenstorrent.com")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+
+# RPM-specific defaults
+set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
+set(CPACK_RPM_PACKAGE_GROUP "Development/Libraries")
 
 include(CPack)

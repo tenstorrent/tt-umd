@@ -116,7 +116,7 @@ jobs:
           name: >
             clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: |
-            .clang-tidy-build
+            ${{ env.TT_UMD_DIR }}/.clang-tidy-build
 
       - name: Install device library
         run: |

@@ -125,8 +125,8 @@ jobs:
         with:
           name: tt-umd-examples-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: |
-            ${{ env.TT_UMD_DIR_SHELL }}/cmake/example_client.cmake
-            ${{ env.TT_UMD_DIR_SHELL }}/cmake/CPM.cmake
+            ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
+            ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
           if-no-files-found: error
 
       - name: Install device library

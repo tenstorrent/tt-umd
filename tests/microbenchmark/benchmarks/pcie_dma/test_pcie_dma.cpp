@@ -424,7 +424,7 @@ TEST(MicrobenchmarkPCIeDMA, DISABLED_EthZeroCopy) {
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
 
-    test_utils::fill_with_random_bytes((uint8_t*)sysmem_buffer->get_buffer_va(), buf_size);
+    test_utils::fill_with_random_bytes(static_cast<uint8_t*>(sysmem_buffer->get_buffer_va()), buf_size);
 
     const std::vector<std::string> headers = {
         "Size (bytes)",

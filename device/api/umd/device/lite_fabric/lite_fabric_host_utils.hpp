@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <memory>
-#include <utility>
 #include <vector>
 
 #include "umd/device/lite_fabric/lite_fabric.hpp"
@@ -26,7 +24,7 @@ void set_reset_state(TTDevice* tt_device, tt_xy_pair translated_core, bool asser
 
 void set_pc(TTDevice* tt_device, tt_xy_pair translated_core, uint32_t pc_addr, uint32_t pc_val);
 
-void wait_for_state(TTDevice* tt_device, tt_xy_pair translated_core, uint32_t addr, lite_fabric::InitState state);
+void wait_for_state(TTDevice* tt_device, tt_xy_pair translated_core, uint32_t addr, uint32_t state);
 
 void launch_lite_fabric(TTDevice* tt_device, const SocDescriptor& soc_desc, const std::vector<CoreCoord>& eth_cores);
 

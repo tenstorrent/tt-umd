@@ -119,7 +119,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     routing_cmd_t* new_cmd;
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
-    new_cmd = (routing_cmd_t*)&erisc_command[0];
+    new_cmd = reinterpret_cast<routing_cmd_t*>(&erisc_command[0]);
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
@@ -284,9 +284,9 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 if (size_in_bytes - offset < 4) {
                     // Handle misaligned (4 bytes) data at the end of the block.
                     // Only read remaining bytes into the host buffer, instead of reading the full uint32_t
-                    std::memcpy((uint8_t*)dest + offset, erisc_resp_data.data(), size_in_bytes - offset);
+                    std::memcpy(static_cast<uint8_t*>(dest) + offset, erisc_resp_data.data(), size_in_bytes - offset);
                 } else {
-                    *((uint32_t*)dest + offset / DATA_WORD_SIZE) = erisc_resp_data[0];
+                    *(static_cast<uint32_t*>(dest) + offset / DATA_WORD_SIZE) = erisc_resp_data[0];
                 }
             } else {
                 // Read 4 byte aligned block from device/sysmem
@@ -306,7 +306,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                     (data_block.size() * DATA_WORD_SIZE) >= block_size,
                     "Incorrect data size read back from sysmem/device");
                 // Account for misalignment by skipping any padding bytes in the copied data_block
-                memcpy((uint8_t*)dest + offset, data_block.data(), std::min(block_size, size_in_bytes - offset));
+                memcpy(
+                    static_cast<uint8_t*>(dest) + offset,
+                    data_block.data(),
+                    std::min(block_size, size_in_bytes - offset));
             }
         }
 
@@ -377,7 +380,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
-    new_cmd = (routing_cmd_t*)&erisc_command[0];
+    new_cmd = reinterpret_cast<routing_cmd_t*>(&erisc_command[0]);
     local_tt_device_->read_from_device(
         erisc_q_ptrs.data(),
         remote_transfer_ethernet_core,
@@ -450,7 +453,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 req_flags |= eth_interface_params.cmd_data_block_dram;
                 resp_flags |= eth_interface_params.cmd_data_block_dram;
                 size_buffer_to_capacity(data_block, block_size);
-                memcpy(&data_block[0], (uint8_t*)src + offset, transfer_size);
+                memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
                 if (broadcast) {
                     // Write broadcast header to sysmem
                     sysmem_manager_->write_to_sysmem(
@@ -469,7 +472,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             } else {
                 uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
-                memcpy(&data_block[0], (uint8_t*)src + offset, transfer_size);
+                memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
                 local_tt_device_->write_to_device(
                     data_block.data(), remote_transfer_ethernet_core, buf_address, data_block.size() * DATA_WORD_SIZE);
             }
@@ -499,7 +502,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 // Assemble a padded uint32_t from single bytes, in case we have less than 4 bytes remaining
                 memcpy(&new_cmd->data, static_cast<const uint8_t*>(src) + offset, size_in_bytes - offset);
             } else {
-                new_cmd->data = *((uint32_t*)src + offset / DATA_WORD_SIZE);
+                new_cmd->data = *(static_cast<const uint32_t*>(src) + offset / DATA_WORD_SIZE);
             }
         }
 

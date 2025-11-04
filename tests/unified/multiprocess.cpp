@@ -24,8 +24,8 @@ static constexpr int NUM_OF_BYTES_RESERVED = 128;
 // All of this is focused on a single chip system.
 static void test_read_write_all_tensix_cores_impl(
     Cluster* cluster, int thread_id, uint32_t reserved_size = 0, bool enable_alignment = false) {
-    std::cout << " Starting test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
-              << thread_id << std::endl;
+    std::cout << " Starting test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
+              << " thread_id " << thread_id << std::endl;
 
     const auto l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
     const auto available_size = l1_size - reserved_size;
@@ -60,8 +60,8 @@ static void test_read_write_all_tensix_cores_impl(
             address = start_address;
         }
     }
-    std::cout << "Completed test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
-              << thread_id << std::endl;
+    std::cout << "Completed test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
+              << " thread_id " << thread_id << std::endl;
 }
 
 // We want to test IO in parallel in each thread.

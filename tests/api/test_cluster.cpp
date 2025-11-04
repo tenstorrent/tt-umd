@@ -1126,7 +1126,7 @@ TEST(TestCluster, SysmemReadWrite) {
     // cluster.start_device(device_params{});
 
     for (uint32_t channel = 0; channel < channels; channel++) {
-        uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(mmio_chip_id, 0, channel);
+        uint8_t* sysmem = static_cast<uint8_t*>(cluster.host_dma_address(mmio_chip_id, 0, channel));
 
         ASSERT_NE(sysmem, nullptr);
         test_utils::fill_with_random_bytes(sysmem, ONE_GIG);

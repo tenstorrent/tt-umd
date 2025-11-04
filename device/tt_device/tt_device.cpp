@@ -277,11 +277,11 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
     bool use_safe_memcpy = false;
-#if defined(__ARM_ARCH) || defined(__riscv)
-    use_safe_memcpy = true;
-#else
-    use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
-#endif
+    if constexpr (is_arm_platform() || is_riscv_platform()) {
+        use_safe_memcpy = true;
+    } else {
+        use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
+    }
     if (use_safe_memcpy) {
         memcpy_to_device(dest, src, num_bytes);
     } else {
@@ -303,11 +303,11 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
     bool use_safe_memcpy = false;
-#if defined(__ARM_ARCH) || defined(__riscv)
-    use_safe_memcpy = true;
-#else
-    use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
-#endif
+    if constexpr (is_arm_platform() || is_riscv_platform()) {
+        use_safe_memcpy = true;
+    } else {
+        use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
+    }
     if (use_safe_memcpy) {
         memcpy_from_device(dest, src, num_bytes);
     } else {
@@ -371,12 +371,13 @@ void TTDevice::write_tlb_reg(
 
     volatile uint32_t *dest_dw = pci_device_->get_register_address<uint32_t>(byte_addr);
     volatile uint32_t *dest_extra_dw = pci_device_->get_register_address<uint32_t>(byte_addr + 8);
-#if defined(__ARM_ARCH) || defined(__riscv)
+
     // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
     // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory
     // accesses. Insert an explicit full memory barrier for ARM. Do the same for RISC-V.
-    tt_driver_atomics::mfence();
-#endif
+    if constexpr (is_arm_platform() || is_riscv_platform()) {
+        tt_driver_atomics::mfence();
+    }
     dest_dw[0] = static_cast<uint32_t>(value_lower);
     dest_dw[1] = static_cast<uint32_t>(value_lower >> 32);
     if (tlb_cfg_reg_size > 8) {

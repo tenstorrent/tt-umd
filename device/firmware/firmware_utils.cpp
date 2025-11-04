@@ -49,4 +49,49 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
                ? fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
                : semver_t(0, 0, 0);
 }
+
+semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return semver_t(0, 0, 0);
+    }
+
+    return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {
+    return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+semver_t get_cm_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return semver_t((telemetry_data >> 24) & 0xFF, (telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF);
+    }
+
+    return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+semver_t get_dm_app_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return semver_t((telemetry_data >> 24) & 0xFF, (telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF);
+    }
+
+    return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+semver_t get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return semver_t(0, 0, 0);
+    }
+
+    return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+semver_t get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return semver_t((telemetry_data >> 16) & 0xFFFF, telemetry_data & 0xFFFF, 0);
+    }
+
+    return semver_t(0, 0, 0);
+}
+
 }  // namespace tt::umd

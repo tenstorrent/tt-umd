@@ -96,6 +96,58 @@ uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ETH_FW_VERSION);
 }
 
+semver_t FirmwareInfoProvider::get_eth_fw_version_semver() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::ETH_FW_VERSION)) {
+        return semver_t(0, 0, 0);
+    }
+    return get_eth_fw_version_from_telemetry(
+        telemetry->read_entry(TelemetryTag::ETH_FW_VERSION), tt_device->get_arch());
+}
+
+semver_t FirmwareInfoProvider::get_gddr_fw_version() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::GDDR_FW_VERSION)) {
+        return semver_t(0, 0, 0);
+    }
+    return get_gddr_fw_version_from_telemetry(
+        telemetry->read_entry(TelemetryTag::GDDR_FW_VERSION), tt_device->get_arch());
+}
+
+semver_t FirmwareInfoProvider::get_cm_fw_version() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::CM_FW_VERSION)) {
+        return semver_t(0, 0, 0);
+    }
+    return get_cm_fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::CM_FW_VERSION), tt_device->get_arch());
+}
+
+semver_t FirmwareInfoProvider::get_dm_app_fw_version() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::DM_APP_FW_VERSION)) {
+        return semver_t(0, 0, 0);
+    }
+    return get_dm_app_fw_version_from_telemetry(
+        telemetry->read_entry(TelemetryTag::DM_APP_FW_VERSION), tt_device->get_arch());
+}
+
+semver_t FirmwareInfoProvider::get_dm_bl_fw_version() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::DM_BL_FW_VERSION)) {
+        return semver_t(0, 0, 0);
+    }
+    return get_dm_bl_fw_version_from_telemetry(
+        telemetry->read_entry(TelemetryTag::DM_BL_FW_VERSION), tt_device->get_arch());
+}
+
+semver_t FirmwareInfoProvider::get_tt_flash_version() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::TT_FLASH_VERSION)) {
+        return semver_t(0, 0, 0);
+    }
+    return get_tt_flash_version_from_telemetry(telemetry->read_entry(TelemetryTag::TT_FLASH_VERSION));
+}
+
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
     // Format of the dram training status is as follows:
     // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.

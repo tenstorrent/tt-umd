@@ -17,7 +17,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-docker-version: [ 'ubuntu-22.04', 'ubuntu-24.04' ]
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+          'ubuntu-24.04'
+        ]
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
 
@@ -26,15 +29,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Install packaging tooling (rpm, dpkg-dev, fakeroot)
-        shell: bash
-        run: |
-          set -euo pipefail
-          apt-get update
-          # rpm for RPM packages; dpkg-dev provides dpkg-shlibdeps used by CPack when SHLIBDEPS is ON
-          # fakeroot is commonly used by CPack for Debian packages
-          apt-get install -y rpm dpkg-dev fakeroot
 
       - name: Configure
         run: |
@@ -67,5 +61,3 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}/*.deb
             ${{ env.BUILD_OUTPUT_DIR }}/*.rpm
           if-no-files-found: error
-
-

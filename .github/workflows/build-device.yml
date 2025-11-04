@@ -123,7 +123,7 @@ jobs:
         with:
           name: >
             clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
-          path: ${{ env.TT_UMD_DIR_SHELL }}/.clang-tidy-build
+          path: ${{ github.workspace }}/${{ env.TT_UMD_DIR }}/.clang-tidy-build
 
       - name: ls -la ${{ env.TT_UMD_DIR }}/
         run: |

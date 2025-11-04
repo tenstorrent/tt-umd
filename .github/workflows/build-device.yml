@@ -106,13 +106,14 @@ jobs:
             clang-tidy-compile-commands-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
-      # Insert this just before the upload step
-      - name: Final check before upload
+      - name: Prepare config file for upload
         run: |
-          echo "Checking absolute path existence..."
-          ls -l ${{ github.workspace }}/${{ env.TT_UMD_DIR }}/.clang-tidy-build
-          echo "Attempting to read file content..."
-          cat ${{ github.workspace }}/${{ env.TT_UMD_DIR }}/.clang-tidy-build
+          echo "1. Ensure file is readable by the runner user"
+          chmod a+r ${{ env.TT_UMD_DIR }}/.clang-tidy-build
+          echo "2. Copy the file to a known temporary location"
+          cp ${{ env.TT_UMD_DIR }}/.clang-tidy-build $RUNNER_TEMP/clang-tidy-config-final
+          echo "3. Debug check of the new location"
+          ls -l $RUNNER_TEMP/clang-tidy-config-final
 
       # Upload clang-tidy configuration files to show exactly which checks were enabled/disabled.
       # Provides transparency and allows developers to use the same settings locally
@@ -123,7 +124,7 @@ jobs:
         with:
           name: >
             clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
-          path: ${{ github.workspace }}/${{ env.TT_UMD_DIR }}/.clang-tidy-build
+          path: ${{ runner.temp }}/clang-tidy-config-final
 
       - name: ls -la ${{ env.TT_UMD_DIR }}/
         run: |

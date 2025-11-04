@@ -22,6 +22,7 @@ inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(60'000);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);
 
+inline constexpr auto WARM_RESET_M3_TIMEOUT = std::chrono::milliseconds(10'000);
 inline constexpr auto WARM_RESET_DEVICES_REAPPEAR_TIMEOUT = std::chrono::milliseconds(10'000);
 
 inline constexpr auto UBB_WARM_RESET_TIMEOUT = std::chrono::milliseconds(100'000);

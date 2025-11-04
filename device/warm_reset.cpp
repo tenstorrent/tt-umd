@@ -119,7 +119,8 @@ int wait_for_device_to_reappear(
     return interface_id;
 }
 
-void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
+void WarmReset::warm_reset_new(
+    std::vector<int> pci_device_ids, bool reset_m3, std::chrono::milliseconds reset_m3_timeout) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
 
@@ -128,6 +129,7 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
         pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
     }
 
+    log_info(tt::LogUMD, "Starting reset on devices at PCI indices: {}", fmt::join(pci_device_id_set, ", "));
     PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::RESET_PCIE_LINK);
 
     if (reset_m3) {
@@ -136,9 +138,8 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
         PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_RESET);
     }
 
-    static constexpr std::chrono::seconds M3_POST_RESET_WAIT{20};
     auto post_reset_wait =
-        reset_m3 ? M3_POST_RESET_WAIT
+        reset_m3 ? reset_m3_timeout
                  : std::chrono::milliseconds(static_cast<int>(std::max(2.0, 0.4 * pci_devices_info.size()) * 1000));
 
     std::chrono::duration<double> post_reset_wait_seconds = post_reset_wait;
@@ -155,7 +156,6 @@ void WarmReset::warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3) {
         }
     }
 
-    // TODO: Make return value bool to return true if the reset is succesful (not implemented).
     PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::POST_RESET);
 }
 

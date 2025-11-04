@@ -28,7 +28,10 @@ private:
 
     static void warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3);
 
-    static void warm_reset_new(std::vector<int> pci_device_ids, bool reset_m3);
+    static void warm_reset_new(
+        std::vector<int> pci_device_ids,
+        bool reset_m3,
+        std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT);
 
     static void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 

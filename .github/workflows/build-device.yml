@@ -20,7 +20,6 @@ env:
   TT_UMD_DIR_SHELL: $GITHUB_WORKSPACE/tt-umd
   CLIENTS_BUILD_DIR_SHELL: $GITHUB_WORKSPACE/build_clients
   BUILD_OUTPUT_DIR: ./build
-  BUILD_OUTPUT_DIR_NO_DOT: build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
@@ -103,15 +102,13 @@ jobs:
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package
+        working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
-          pwd
-          cd ${{ env.TT_UMD_DIR }}/build
           cpack -G DEB
 
       - name: Generate .rpm package
         working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
-          pwd
           cpack -G RPM
 
       - name: Upload packages
@@ -119,8 +116,8 @@ jobs:
         with:
           name: tt-umd-cpack-${{ matrix.ubuntu-docker-version }}
           path: |
-            ${{ env.BUILD_OUTPUT_DIR_NO_DOT }}/*.deb
-            ${{ env.BUILD_OUTPUT_DIR_NO_DOT }}/*.rpm
+            ${{ env.TT_UMD_DIR }}/build/*.deb
+            ${{ env.TT_UMD_DIR }}/build/*.rpm
           if-no-files-found: error
 
       - name: Install device library

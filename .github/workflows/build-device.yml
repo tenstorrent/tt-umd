@@ -60,6 +60,7 @@ jobs:
           echo "$GITHUB_WORKSPACE"
           echo "${{ env.TT_UMD_DIR_SHELL }}"
           echo "${{ env.CLIENTS_BUILD_DIR_SHELL }}"
+          ls -la $GITHUB_WORKSPACE
 
 
       - name: Set GCC compiler

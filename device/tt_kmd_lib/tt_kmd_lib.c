@@ -368,12 +368,16 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
     pin_pages.in.virtual_address = (uint64_t)addr;
     pin_pages.in.size = len;
 
+    pin_pages.in.flags = 0;
+
+    if (flags & TT_DMA_FLAG_CONTIGUOUS) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    }
+
     if (flags & TT_DMA_FLAG_NOC) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_DMA;
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
-    } else {
-        pin_pages.in.flags = 0;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
     }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {
@@ -486,6 +490,11 @@ int tt_tlb_free(tt_device_t* dev, tt_tlb_t* tlb) {
 
 int tt_tlb_get_mmio(tt_tlb_t* tlb, void** out_mmio) {
     *out_mmio = tlb->mmio;
+    return 0;
+}
+
+int tt_tlb_get_id(tt_tlb_t* tlb, uint32_t* out_id) {
+    *out_id = tlb->id;
     return 0;
 }
 

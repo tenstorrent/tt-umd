@@ -213,7 +213,7 @@ jobs:
           PACKAGE_DIR="./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package"
           mkdir -p ./umd_so_lib
           dpkg-deb --extract $PACKAGE_DIR/umd-dev-0.4.0-Linux.deb ./umd_so_lib
-
+          ls -la .
           ls -la ./umd_so_lib
 
           mkdir -p ./example_test

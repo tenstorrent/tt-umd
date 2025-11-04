@@ -29,12 +29,14 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
     uint64_t erisc_local_board_id_lo_offset;
     uint64_t erisc_remote_board_id_lo_offset;
     uint64_t erisc_remote_eth_id_offset;
+    uint64_t routing_firmware_state;
 
     if (masked_version >= 0x060000) {
         eth_param_table = 0x1000;
         node_info = 0x1100;
         eth_conn_info = 0x1200;
         results_buf = 0x1ec0;
+        routing_firmware_state = 0x104c;
     } else {
         throw std::runtime_error(
             fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
@@ -57,6 +59,7 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
     return TopologyDiscoveryWormhole::EthAddresses{
         masked_version,
         eth_param_table,
+        routing_firmware_state,
         node_info,
         eth_conn_info,
         results_buf,
@@ -317,37 +320,6 @@ bool TopologyDiscoveryWormhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_
     return read_training_status(chip, eth_core) == LINK_TRAIN_SUCCESS;
 }
 
-std::vector<uint32_t> TopologyDiscoveryWormhole::extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) {
-    constexpr uint32_t intermesh_eth_link_config_offset = 19;
-    constexpr uint32_t intermesh_eth_link_bits_shift = 8;
-    constexpr uint32_t intermesh_eth_link_bits_mask = 0xFFFF;
-    TTDevice* tt_device = chip->get_tt_device();
-    uint32_t config_data;
-    tt_device->read_from_device(
-        &config_data,
-        eth_core,
-        eth_addresses.eth_param_table + (4 * intermesh_eth_link_config_offset),
-        sizeof(uint32_t));
-    std::vector<uint32_t> intermesh_eth_links;
-    uint32_t intermesh_eth_links_bits = (config_data >> intermesh_eth_link_bits_shift) & intermesh_eth_link_bits_mask;
-    while (intermesh_eth_links_bits != 0) {
-        uint32_t link = __builtin_ctz(intermesh_eth_links_bits);
-        intermesh_eth_links.push_back(link);
-        intermesh_eth_links_bits &= ~(1 << link);
-    }
-    return intermesh_eth_links;
-}
-
-bool TopologyDiscoveryWormhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
-    constexpr uint32_t link_status_offset = 1;
-    constexpr uint32_t link_connected_mask = 0x1;
-    uint32_t status;
-    TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(
-        &status, eth_core, eth_addresses.node_info + (4 * link_status_offset), sizeof(uint32_t));
-    return (status & link_connected_mask) == link_connected_mask;
-}
-
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
     uint32_t eth_fw_version_read;
     chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
@@ -380,6 +352,27 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
     return chip->get_tt_device()->get_board_id();
+}
+
+void TopologyDiscoveryWormhole::validate_routing_firmware_state(
+    const std::map<uint64_t, std::unique_ptr<Chip>>& chips) {
+    for (const auto& [asic_id, chip] : chips) {
+        std::vector<CoreCoord> eth_cores =
+            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        if (eth_cores.empty()) {
+            continue;
+        }
+        TTDevice* tt_device = chip->get_tt_device();
+
+        uint32_t routing_firmware_disabled;
+        tt_device->read_from_device(
+            &routing_firmware_disabled, eth_cores[0], eth_addresses.routing_firmware_state, sizeof(uint32_t));
+        if (is_running_on_6u && routing_firmware_disabled == 0) {
+            throw std::runtime_error("Routing Firmware should not be enabled on 6U-Galaxy Systems.");
+        } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
+            throw std::runtime_error("Routing Firmware should be enabled on Non 6U-Galaxy Systems.");
+        }
+    }
 }
 
 }  // namespace tt::umd

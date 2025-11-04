@@ -212,6 +212,7 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     patch_eth_connections();
+    validate_routing_firmware_state(chips);
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {

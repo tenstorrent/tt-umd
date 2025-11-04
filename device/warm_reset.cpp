@@ -84,7 +84,7 @@ void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    sleep(POST_RESET_WAIT);
+    std::this_thread::sleep_for(POST_RESET_WAIT);
 
     if (!all_reset_bits_set) {
         for (auto& [chip, reset_bit] : reset_bits) {
@@ -146,7 +146,7 @@ void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_
         }
     }
 
-    sleep(POST_RESET_WAIT);
+    std::this_thread::sleep_for(POST_RESET_WAIT);
 
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());
@@ -247,7 +247,7 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
 
     wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
     log_info(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
-    sleep(30);
+    std::this_thread::sleep_for(UBB_POST_RESET_WAIT);
     log_info(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
 }

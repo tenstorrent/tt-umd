@@ -55,6 +55,13 @@ jobs:
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
+      - name: Print variables
+        run: |
+          echo "$GITHUB_WORKSPACE"
+          echo "${{ env.TT_UMD_DIR_SHELL }}"
+          echo "${{ env.CLIENTS_BUILD_DIR_SHELL }}"
+
+
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
         if: ${{ matrix.image.compiler != 'clang' }}

@@ -74,17 +74,24 @@ void SimulationHost::init() {
         log_info(tt::LogEmulationDriver, "Using generated port: {}", port);
     }
 
-    std::ostringstream ss;
-    ss << "tcp://" << hostname << ":" << port;
-    nng_socket_addr_str = ss.str();
+    // Check if NNG_SOCKET_ADDR is already set
+    const char *existing_socket_addr = std::getenv("NNG_SOCKET_ADDR");
+    const char *nng_socket_addr;
 
-    // Export the address for client to use
-    if (std::getenv("NNG_SOCKET_ADDR") == nullptr) {
-        setenv("NNG_SOCKET_ADDR", nng_socket_addr_str.c_str(), 1);
-        log_info(tt::LogEmulationDriver, "Generated NNG_SOCKET_ADDR: {}", nng_socket_addr_str);
+    if (existing_socket_addr != nullptr) {
+        // Use the existing environment variable
+        nng_socket_addr = existing_socket_addr;
+        log_info(tt::LogEmulationDriver, "Using existing NNG_SOCKET_ADDR: {}", nng_socket_addr);
+    } else {
+        // Generate new address and export it
+        std::ostringstream ss;
+        ss << "tcp://" << hostname << ":" << port;
+        nng_socket_addr_str = ss.str();
+        nng_socket_addr = nng_socket_addr_str.c_str();
+
+        setenv("NNG_SOCKET_ADDR", nng_socket_addr, 1);
+        log_info(tt::LogEmulationDriver, "Generated NNG_SOCKET_ADDR: {}", nng_socket_addr);
     }
-
-    const char *nng_socket_addr = nng_socket_addr_str.c_str();
 
     // Open socket and create listener (server mode)
     log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);

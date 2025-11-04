@@ -136,6 +136,17 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    /**
+     * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
+     * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
+     * will ensure that the write will land on the correct cores.
+     *
+     * @param dst pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
     virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**

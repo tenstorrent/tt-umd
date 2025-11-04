@@ -62,7 +62,6 @@ jobs:
           echo "${{ env.CLIENTS_BUILD_DIR_SHELL }}"
           ls -la $GITHUB_WORKSPACE
 
-
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
         if: ${{ matrix.image.compiler != 'clang' }}

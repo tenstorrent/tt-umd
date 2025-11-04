@@ -120,6 +120,15 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*.rpm
           if-no-files-found: error
 
+      - name: Upload example config files
+        uses:
+          with:
+            name: tt-umd-examples-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+            path: |
+              ${{ env.TT_UMD_DIR_SHELL }}/cmake/example_client.cmake
+              ${{ env.TT_UMD_DIR_SHELL }}/cmake/CPM.cmake
+            if-no-files-found: error
+
       - name: Install device library
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
@@ -165,3 +174,54 @@ jobs:
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
+
+  test-build:
+    needs: build
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+
+    # Pick one of the matrix combinations to run the test on a compatible runner.
+    runs-on: ubuntu-22.04
+    container:
+      # Use a similar environment to the build to ensure compatibility.
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Clone under tt-umd directory
+          submodules: recursive
+
+      - name: Download Packages Artifact
+        uses: actions/download-artifact@v4
+        with:
+          # Use the artifact name created in the build job for the specific matrix combination you want to test.
+          # Example for ubuntu-22.04 with clang:
+          name: tt-umd-ubuntu-22.04-clang
+          path: ./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package
+
+      - name: Download Examples Artifact
+        uses: actions/download-artifact@v4
+        with:
+          # Use the artifact name created in the build job for the specific matrix combination you want to test.
+          # Example for ubuntu-22.04 with clang:
+          name: tt-umd-examples-ubuntu-22.04-clang
+          path: ./downloaded-artifact/tt-umd-examples-ubuntu-22.04-clang-example
+
+      - name: Run test on example and package
+        run: |
+          echo "Extract from .deb file"
+          PACKAGE_DIR="./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package"
+          mkdir -p ./umd_so_lib
+          dpkg-deb --extract $PACKAGE_DIR/umd-dev-0.4.0-Linux.deb ./umd_so_lib
+
+          ls -la ./umd_so_lib
+
+          mkdir -p ./example_test
+          cp -r ./tt-umd/examples ./example_test
+
+          echo "Copy from .cmake files file"
+          mkdir -p ./cmake
+          cp ./downloaded-artifact/tt-umd-examples-ubuntu-22.04-clang-example/* ./cmake
+
+          cd ./example_test
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_so_lib/usr

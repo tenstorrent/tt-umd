@@ -153,7 +153,7 @@ void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *dat
         TT_THROW("write_regs is not applicable for JTAG communication type.");
     }
     volatile uint32_t *dest = pci_device_->get_register_address<uint32_t>(byte_addr);
-    const uint32_t *src = (uint32_t *)(data);
+    const uint32_t *src = reinterpret_cast<const uint32_t *>(data);
 
     write_regs(dest, src, word_len);
 }

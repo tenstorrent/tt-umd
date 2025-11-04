@@ -101,9 +101,9 @@ void bind_telemetry(nb::module_ &m) {
         .value("DDR_STATUS", TelemetryTag::DDR_STATUS)
         .value("DDR_SPEED", TelemetryTag::DDR_SPEED)
         .value("ETH_FW_VERSION", TelemetryTag::ETH_FW_VERSION)
-        .value("DDR_FW_VERSION", TelemetryTag::DDR_FW_VERSION)
-        .value("BM_APP_FW_VERSION", TelemetryTag::BM_APP_FW_VERSION)
-        .value("BM_BL_FW_VERSION", TelemetryTag::BM_BL_FW_VERSION)
+        .value("GDDR_FW_VERSION", TelemetryTag::GDDR_FW_VERSION)
+        .value("DM_APP_FW_VERSION", TelemetryTag::DM_APP_FW_VERSION)
+        .value("DM_BL_FW_VERSION", TelemetryTag::DM_BL_FW_VERSION)
         .value("FLASH_BUNDLE_VERSION", TelemetryTag::FLASH_BUNDLE_VERSION)
         .value("CM_FW_VERSION", TelemetryTag::CM_FW_VERSION)
         .value("L2CPU_FW_VERSION", TelemetryTag::L2CPU_FW_VERSION)
@@ -115,6 +115,7 @@ void bind_telemetry(nb::module_ &m) {
         .value("ENABLED_GDDR", TelemetryTag::ENABLED_GDDR)
         .value("ENABLED_L2CPU", TelemetryTag::ENABLED_L2CPU)
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
+        .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 

@@ -25,6 +25,18 @@ public:
 
     uint32_t get_eth_fw_version() const override;
 
+    semver_t get_eth_fw_version_semver() const override;
+
+    semver_t get_gddr_fw_version() const override;
+
+    semver_t get_cm_fw_version() const override;
+
+    semver_t get_dm_app_fw_version() const override;
+
+    semver_t get_dm_bl_fw_version() const override;
+
+    semver_t get_tt_flash_version() const override;
+
     double get_asic_temperature() const override;
 
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const override;

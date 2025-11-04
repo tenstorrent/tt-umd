@@ -189,6 +189,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # Clone under tt-umd directory
+          path: tt-umd
           submodules: recursive
 
       - name: Download Packages Artifact
@@ -214,6 +215,7 @@ jobs:
           mkdir -p ./umd_so_lib
           dpkg-deb --extract $PACKAGE_DIR/umd-dev-0.4.0-Linux.deb ./umd_so_lib
           ls -la .
+          pwd
           ls -la ./umd_so_lib
 
           mkdir -p ./example_test

@@ -3,7 +3,6 @@ name: Release CPack Artifacts
 
 on:
   workflow_dispatch:
-  pull_request:
 
 env:
   RELEASE_BUILD_TYPE: Release

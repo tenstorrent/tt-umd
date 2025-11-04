@@ -610,6 +610,10 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     if (communication_device_type_ == IODeviceType::JTAG) {
         throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
     }
+
+    std::cout << "core start x: " << core_start.x << " core start y: " << core_start.y << std::endl;
+    std::cout << "core end x: " << core_end.x << " core end y: " << core_end.y << std::endl;
+
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(dst);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();

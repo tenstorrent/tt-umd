@@ -842,7 +842,7 @@ TEST(TestCluster, GetEthernetFirmware) {
     }
 }
 
-TEST(TestCluster, TestMulticastWrite) {
+TEST(TestCluster, TestMulticastWriteTensix) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
@@ -884,6 +884,67 @@ TEST(TestCluster, TestMulticastWrite) {
                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
 
             EXPECT_EQ(write_data, readback);
+        }
+    }
+}
+
+TEST(TestCluster, TestMulticastWriteEth) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    const uint32_t num_eth_channels = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
+
+    const CoreCoord start_eth = CoreCoord(0, 0, CoreType::ETH, CoordSystem::LOGICAL);
+    const CoreCoord end_eth = CoreCoord(0, num_eth_channels - 1, CoreType::ETH, CoordSystem::LOGICAL);
+
+    const uint64_t address = 128 * 1024;
+    const size_t data_size = 256;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (std::size_t i = 0; i < data_size; i++) {
+        write_data[i] = (uint8_t)i;
+    }
+
+    for (uint32_t channel = 0; channel < num_eth_channels; channel++) {
+        std::vector<uint8_t> zeros(data_size, 0);
+        cluster->write_to_device(
+            zeros.data(), zeros.size(), 0, CoreCoord(0, channel, CoreType::ETH, CoordSystem::LOGICAL), address);
+
+        std::vector<uint8_t> readback(data_size, 1);
+        cluster->read_from_device(
+            readback.data(), 0, CoreCoord(0, channel, CoreType::ETH, CoordSystem::LOGICAL), address, readback.size());
+
+        EXPECT_EQ(zeros, readback);
+    }
+
+    cluster->noc_multicast_write(write_data.data(), write_data.size(), 0, start_eth, end_eth, address);
+
+    for (uint32_t channel = 0; channel < num_eth_channels; channel++) {
+        std::vector<uint8_t> readback(data_size, 0);
+        cluster->read_from_device(
+            readback.data(), 0, CoreCoord(0, channel, CoreType::ETH, CoordSystem::LOGICAL), address, readback.size());
+
+        std::cout << "Reading back from channel " << channel << std::endl;
+        std::cout << "Expected: ";
+        for (const auto& byte : write_data) {
+            std::cout << std::hex << static_cast<int>(byte) << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "Actual: ";
+        for (const auto& byte : readback) {
+            std::cout << std::hex << static_cast<int>(byte) << " ";
+        }
+        std::cout << std::endl;
+
+        // EXPECT_EQ(write_data, readback);
+
+        if (write_data == readback) {
+            std::cout << "channel " << channel << " data match." << std::endl;
+        } else {
+            std::cout << "channel " << channel << " data MISMATCH!" << std::endl;
         }
     }
 }

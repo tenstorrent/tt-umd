@@ -287,7 +287,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
 
-        uint8_t* buffer_addr = (uint8_t*)(uintptr_t)src;
+        uint8_t* buffer_addr = const_cast<uint8_t*>(static_cast<const uint8_t*>(src));
         tlb_data config{};
         config.local_offset = l1_dest;
         config.x_end = translated_core.x;

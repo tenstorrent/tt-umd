@@ -78,23 +78,6 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: List build directory contents
-        run: |
-          ls -la ${{ env.TT_UMD_DIR_SHELL }}/build/
-          echo "space"
-          ls -la ${{ env.TT_UMD_DIR }}/
-          echo "space"
-          ls -la tt-umd/
-          echo "space"
-          ls -la ${{ env.TT_UMD_DIR }}/${{ env.BUILD_OUTPUT_DIR }}/
-          echo "space"
-          ls -la ${{ env.TT_UMD_DIR_SHELL }}/
-
-      - name: Show path after
-        run: |
-          echo "Path is:"
-          pwd
-
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,
       # enabling developers to reproduce the analysis locally and troubleshoot issues.
@@ -106,14 +89,10 @@ jobs:
             clang-tidy-compile-commands-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
-      - name: Prepare config file for upload
+      - name: Prepare clang-tidy config file for upload
         run: |
-          echo "1. Ensure file is readable by the runner user"
           chmod a+r ${{ env.TT_UMD_DIR }}/.clang-tidy-build
-          echo "2. Copy the file to a known temporary location"
-          cp ${{ env.TT_UMD_DIR }}/.clang-tidy-build $RUNNER_TEMP/clang-tidy-config-final
-          echo "3. Debug check of the new location"
-          ls -l $RUNNER_TEMP/clang-tidy-config-final
+          cp ${{ env.TT_UMD_DIR }}/.clang-tidy-build $RUNNER_TEMP/clang-tidy-build-config
 
       # Upload clang-tidy configuration files to show exactly which checks were enabled/disabled.
       # Provides transparency and allows developers to use the same settings locally
@@ -124,16 +103,7 @@ jobs:
         with:
           name: >
             clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
-          path: ${{ runner.temp }}/clang-tidy-config-final
-
-      - name: ls -la ${{ env.TT_UMD_DIR }}/
-        run: |
-          echo "ls -la ${{ env.TT_UMD_DIR }}/"
-          ls -la ${{ env.TT_UMD_DIR }}/
-
-      - name: List all files recursively
-        run: find ${{ env.TT_UMD_DIR }} -name ".clang-tidy*"
-
+          path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Install device library
         run: |

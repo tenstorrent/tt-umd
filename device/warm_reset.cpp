@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "utils.hpp"
 #include "api/umd/device/warm_reset.hpp"
 
 #include <chrono>

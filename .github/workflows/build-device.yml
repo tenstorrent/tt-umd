@@ -100,6 +100,25 @@ jobs:
             clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
+      - name: Generate .deb package
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
+        run: |
+          cpack -G DEB
+
+      - name: CPack .rpm package
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
+        run: |
+          cpack -G RPM
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-cpack-${{ matrix.ubuntu-docker-version }}
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}/*.deb
+            ${{ env.BUILD_OUTPUT_DIR }}/*.rpm
+          if-no-files-found: error
+
       - name: Install device library
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}

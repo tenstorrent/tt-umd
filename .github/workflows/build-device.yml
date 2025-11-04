@@ -73,6 +73,7 @@ jobs:
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
+          pwd
 
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,
@@ -102,13 +103,15 @@ jobs:
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package
-        working-directory: ${{ env.BUILD_OUTPUT_DIR_NO_DOT }}
         run: |
+          pwd
+          cd ${{ env.TT_UMD_DIR }}/build
           cpack -G DEB
 
       - name: Generate .rpm package
-        working-directory: ${{ env.BUILD_OUTPUT_DIR_NO_DOT }}
+        working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
+          pwd
           cpack -G RPM
 
       - name: Upload packages

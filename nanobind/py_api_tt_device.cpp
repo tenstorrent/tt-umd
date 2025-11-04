@@ -214,6 +214,35 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4).")
         .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done,
+               uint32_t arg0,
+               uint32_t arg1,
+               uint32_t timeout = 1) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> args = {arg0, arg1};
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done"),
+            nb::arg("arg0"),
+            nb::arg("arg1"),
+            nb::arg("timeout") = 1,
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.")
+        .def(
             "get_spi_fw_bundle_version",
             &TTDevice::get_spi_fw_bundle_version,
             "Get firmware bundle version from SPI (Blackhole only). "

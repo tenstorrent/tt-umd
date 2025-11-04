@@ -68,7 +68,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("pci_target_devices") = std::unordered_set<int>{},
             "Enumerates PCI device information, optionally filtering by target devices.")
         .def("get_device_info", &PCIDevice::get_device_info)
-        .def("get_device_num", &PCIDevice::get_device_num);
+        .def("get_device_num", &PCIDevice::get_device_num)
+        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.");
 
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(

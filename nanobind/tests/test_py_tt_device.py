@@ -201,4 +201,12 @@ class TestTTDevice(unittest.TestCase):
             component = (fw_version >> 24) & 0xFF
             
             print(f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}")
+
+    def test_read_kmd_version(self):
+        # Test reading KMD version
+        kmd_version = tt_umd.PCIDevice.read_kmd_version()
+        print(f"\nKMD version: {kmd_version.to_string()}")
+        print(f"  Major: {kmd_version.major}")
+        print(f"  Minor: {kmd_version.minor}")
+        print(f"  Patch: {kmd_version.patch}")
         

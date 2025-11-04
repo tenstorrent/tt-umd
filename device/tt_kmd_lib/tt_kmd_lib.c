@@ -493,6 +493,11 @@ int tt_tlb_get_mmio(tt_tlb_t* tlb, void** out_mmio) {
     return 0;
 }
 
+int tt_tlb_get_id(tt_tlb_t* tlb, uint32_t* out_id) {
+    *out_id = tlb->id;
+    return 0;
+}
+
 int tt_tlb_map(tt_device_t* dev, tt_tlb_t* tlb, tt_noc_addr_config_t* config) {
     struct tenstorrent_configure_tlb configure_tlb = {0};
 

@@ -613,7 +613,7 @@ semver_t PCIDevice::read_kmd_version() {
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
-    return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
+    return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
 }
 
 void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {

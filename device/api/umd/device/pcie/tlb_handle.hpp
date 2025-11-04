@@ -19,12 +19,10 @@ public:
      * Constructor for TlbHandle.
      * Allocates a TLB from KMD of the specified size and maps it to the user space.
      *
-     * @param fd File descriptor of the PCI device.
+     * @param tt_device Pointer to the tt_device structure representing the PCI device.
      * @param size Size of the TLB to allocate.
      * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
      */
-    TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
-
     TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     ~TlbHandle() noexcept;
@@ -68,7 +66,6 @@ private:
     uint8_t* tlb_base;
     size_t tlb_size;
     tlb_data tlb_config;
-    uint32_t fd;
     tt_device_t* tt_device_;
     TlbMapping tlb_mapping;
     tt_tlb_t* tlb_handle_ = nullptr;

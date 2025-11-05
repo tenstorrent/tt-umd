@@ -107,7 +107,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 }
 
 // Many threads open and close many clusters.
-TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
+TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {

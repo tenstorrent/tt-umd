@@ -72,7 +72,6 @@ jobs:
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
-          pwd
 
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,

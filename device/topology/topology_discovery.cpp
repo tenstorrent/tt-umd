@@ -129,6 +129,12 @@ void TopologyDiscovery::get_connected_chips() {
 void TopologyDiscovery::discover_remote_chips() {
     std::set<uint64_t> discovered_chips = {};
 
+    for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
+        discovered_chips.insert(current_chip_asic_id);
+        remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
+        active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
+    }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;

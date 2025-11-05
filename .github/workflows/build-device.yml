@@ -186,6 +186,9 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
 
     steps:
+      - name: Ensure git is installed
+        run: dnf install -y git git-lfs
+
       - uses: actions/checkout@v4
         with:
           # Clone under tt-umd directory

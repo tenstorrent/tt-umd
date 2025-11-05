@@ -221,22 +221,13 @@ jobs:
           PKG_DIR="./downloaded-artifact/${{ matrix.target.artifact_pkg }}-package"
           mkdir -p ./umd_so_lib
           bash -lc "${{ matrix.target.extract }}"
-          ls -la .
-          pwd
-          ls -la ./umd_so_lib
-
-          echo "ls -la ./tt-umd/examples"
-          ls -la ./tt-umd/examples
 
           mkdir -p ./example_test
           cp -r ./tt-umd/examples/* ./example_test
 
-          echo "Copy from .cmake files file"
           mkdir -p ./cmake
           cp ./downloaded-artifact/${{ matrix.target.artifact_examples }}-example/* ./cmake
 
           cd ./example_test
-          echo "Starting CMake"
-          ls -la .
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_so_lib/usr
           cmake --build ./build

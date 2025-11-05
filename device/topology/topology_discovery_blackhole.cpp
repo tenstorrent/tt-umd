@@ -13,6 +13,7 @@
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -21,14 +22,14 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    std::unordered_set<ChipId> pci_target_devices, const std::string& sdesc_path) :
-    TopologyDiscovery(pci_target_devices, sdesc_path) {}
+TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options) :
+    TopologyDiscovery(options) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
     std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    return RemoteChip::create(dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, sdesc_path);
+    return RemoteChip::create(
+        dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, options.soc_descriptor_path);
 }
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
@@ -166,10 +167,17 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, 
     uint8_t remote_logical_eth_id;
     chip->get_tt_device()->read_from_device(
         &remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
-    // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
-    // the first 4 ethernet channels (these channels are using SerDes for PCIe)
-    // These channels are visible to UMD, and are thus accounted for in this API.
-    return remote_logical_eth_id + 4;
+
+    auto fw_bundle_version = chip->get_tt_device()->get_firmware_version();
+
+    if (fw_bundle_version >= semver_t(18, 12, 0)) {
+        return remote_logical_eth_id;
+    } else {
+        // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
+        // the first 4 ethernet channels (these channels are using SerDes for PCIe)
+        // These channels are visible to UMD, and are thus accounted for in this API.
+        return remote_logical_eth_id + 4;
+    }
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
@@ -210,16 +218,6 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
     }
 }
 
-std::vector<uint32_t> TopologyDiscoveryBlackhole::extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) {
-    // This function is not important for Blackhole.
-    return {};
-}
-
-bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
-    // This function is not important for Blackhole.
-    return false;
-}
-
 void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
     // We don't want to initialize lite fabric on non-P300 boards. For all configurations we have at the moment,
     // we would need to init lite fabric just on LocalChips of P300 boards.
@@ -250,7 +248,7 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
 
 void TopologyDiscoveryBlackhole::init_topology_discovery() {
     int device_id = 0;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
             if (!device_cnt) {
@@ -274,9 +272,45 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
             TT_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
+}
+
+bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
+    static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
+    static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
+    static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint8_t patch = 0;
+
+    chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint8_t));
+    chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint8_t));
+    chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint8_t));
+    semver_t eth_fw_version = semver_t(major, minor, patch);
+
+    bool eth_fw_problem = false;
+    if (!first_eth_fw_version.has_value()) {
+        log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
+        log_debug(LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        first_eth_fw_version = eth_fw_version;
+        if (BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+            log_warning(LogUMD, "ETH FW version is older than UMD supported version");
+            eth_fw_problem = true;
+        }
+    }
+
+    if (eth_fw_version != first_eth_fw_version) {
+        log_warning(
+            LogUMD,
+            "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str(),
+            eth_fw_version.to_string());
+        eth_fw_problem = true;
+    }
+    return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
@@ -285,5 +319,8 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
+
+void TopologyDiscoveryBlackhole::validate_routing_firmware_state(
+    const std::map<uint64_t, std::unique_ptr<Chip>>& chips) {}
 
 }  // namespace tt::umd

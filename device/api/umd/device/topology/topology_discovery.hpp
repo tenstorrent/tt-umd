@@ -5,38 +5,56 @@
  */
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
 class ClusterDescriptor;
 
+struct TopologyDiscoveryOptions {
+    // Path to custom SoC descriptor when creating chips. See ClusterOptions.
+    std::string soc_descriptor_path = "";
+
+    // I/O device type to use when discovering. See ClusterOptions.
+    IODeviceType io_device_type = IODeviceType::PCIe;
+
+    // Skip discovery of chips connected via Ethernet.
+    bool no_remote_discovery = false;
+
+    // Skip waiting for ETH training. TODO: Currently unimplemented.
+    bool no_wait_for_eth_training = false;
+
+    // Allow unsupported ETH firmware versions and do not fail when
+    // cores have different ETH firmware versions.
+    bool no_eth_firmware_strictness = false;
+};
+
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::unordered_set<ChipId> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType io_device_type = IODeviceType::PCIe);
-    TopologyDiscovery(
-        std::unordered_set<ChipId> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType io_device_type = IODeviceType::PCIe);
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> discover(
+        const TopologyDiscoveryOptions& options);
+
     virtual ~TopologyDiscovery() = default;
-    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
 protected:
+    TopologyDiscovery(const TopologyDiscoveryOptions& options);
+
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
+
+    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
+
     void get_connected_chips();
 
     void discover_remote_chips();
 
-    void fill_cluster_descriptor_info();
+    std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -99,18 +117,11 @@ protected:
 
     virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
 
+    virtual void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) = 0;
+
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
-
-    // Intermesh links are ethernet links that are turned off during UMD's topology discovery but are
-    // otherwise physically connected. This is done since not all tools support limiting the discovery as
-    // UMD does. Once all the tools start supporting this, this feature won't be used anymore and this
-    // function will return empty set.
-    // This will extract the list of intermesh links from a config in L1.
-    virtual std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) = 0;
-
-    virtual bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) = 0;
 
     // This function is going to be implemented for Blackhole since it needs to load communication
     // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW
@@ -127,10 +138,6 @@ protected:
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
         ethernet_connections_to_remote_devices;
 
-    std::unique_ptr<ClusterDescriptor> cluster_desc;
-
-    std::unordered_set<ChipId> target_devices = {};
-
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;
 
@@ -139,11 +146,15 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
 
-    const std::string sdesc_path;
-
-    const IODeviceType io_device_type;
+    TopologyDiscoveryOptions options;
 
     bool is_running_on_6u = false;
+
+    virtual bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) = 0;
+
+    // The ETH FW version found on the first discovered local chip, that needs
+    // to match with all of the other discovered ETH FW versions on all chips.
+    std::optional<semver_t> first_eth_fw_version;
 };
 
 }  // namespace tt::umd

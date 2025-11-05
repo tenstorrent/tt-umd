@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/chrono.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
@@ -31,7 +32,7 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
-    return TTDevice::create(std::move(remote_communication), target_chip);
+    return TTDevice::create(std::move(remote_communication));
 }
 
 void bind_tt_device(nb::module_ &m) {
@@ -70,10 +71,11 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::rv_policy::take_ownership)
-        .def("init_tt_device", &TTDevice::init_tt_device)
+        .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
+        .def("get_board_type", &TTDevice::get_board_type)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def(
             "noc_read32",

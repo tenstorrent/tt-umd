@@ -17,35 +17,44 @@
 #include "api/umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-void WarmReset::warm_reset(bool reset_m3) {
+void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
+    if constexpr (is_arm_platform()) {
+        log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
+        return;
+    }
+    // If pci_device_ids is empty, enumerate all devices
+    if (pci_device_ids.empty()) {
+        pci_device_ids = PCIDevice::enumerate_devices();
+    }
+
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
     log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            warm_reset_wormhole(reset_m3);
+            warm_reset_wormhole(pci_device_ids, reset_m3);
             return;
         case ARCH::BLACKHOLE:
             if (reset_m3) {
                 log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
             }
-            warm_reset_blackhole();
+            warm_reset_blackhole(pci_device_ids);
             return;
         default:
             return;
     }
 }
 
-void WarmReset::warm_reset_blackhole() {
-    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
-
-    auto pci_device_ids = PCIDevice::enumerate_devices();
+void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
+    std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
 
     std::map<int, bool> reset_bits;
 
@@ -56,7 +65,7 @@ void WarmReset::warm_reset_blackhole() {
     bool all_reset_bits_set{true};
 
     auto start = std::chrono::steady_clock::now();
-    auto timeout_duration = std::chrono::milliseconds(2000);
+    auto timeout_duration = timeout::BH_WARM_RESET_TIMEOUT;
 
     while (std::chrono::steady_clock::now() - start < timeout_duration) {
         for (const auto& pci_device_id : pci_device_ids) {
@@ -79,7 +88,7 @@ void WarmReset::warm_reset_blackhole() {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    sleep(POST_RESET_WAIT);
+    std::this_thread::sleep_for(POST_RESET_WAIT);
 
     if (!all_reset_bits_set) {
         for (auto& [chip, reset_bit] : reset_bits) {
@@ -92,25 +101,24 @@ void WarmReset::warm_reset_blackhole() {
     if (all_reset_bits_set) {
         log_info(tt::LogUMD, "Reset succesfully completed.");
     }
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 }
 
-void WarmReset::warm_reset_wormhole(bool reset_m3) {
+void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3) {
     bool reset_ok = true;
     static constexpr uint16_t default_arg_value = 0xFFFF;
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
-
-    auto pci_device_ids = PCIDevice::enumerate_devices();
+    std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     tt_devices.reserve(pci_device_ids.size());
 
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
-        if (!tt_device->wait_arc_post_reset(300'000)) {
+        if (!tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
             log_warning(tt::LogUMD, "Reset failed for PCI id {} - ARC core init failed", i);
             continue;
         }
@@ -142,12 +150,12 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
         }
     }
 
-    sleep(POST_RESET_WAIT);
+    std::this_thread::sleep_for(POST_RESET_WAIT);
 
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());
 
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
         refclk_current.emplace_back(tt_device->get_refclk_counter());
@@ -218,12 +226,11 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
     log_warning(tt::LogUMD, "Reset failed! Program terminated for an unknown reason (status: 0x{:x})", status);
 }
 
-void WarmReset::ubb_wait_for_driver_load(uint64_t timeout_s) {
+void WarmReset::ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms) {
     static constexpr size_t NUMBER_OF_PCIE_DEVICES = 32;
     auto pci_devices = PCIDevice::enumerate_devices();
     auto start = std::chrono::steady_clock::now();
-    auto timeout_duration = std::chrono::seconds(timeout_s);
-    while (std::chrono::steady_clock::now() - start < timeout_duration) {
+    while (std::chrono::steady_clock::now() - start < timeout_ms) {
         if (pci_devices.size() == NUMBER_OF_PCIE_DEVICES) {
             log_info(tt::LogUMD, "Found all {} PCIe devices", NUMBER_OF_PCIE_DEVICES);
             return;
@@ -236,7 +243,7 @@ void WarmReset::ubb_wait_for_driver_load(uint64_t timeout_s) {
         tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
 }
 
-void WarmReset::ubb_warm_reset(uint64_t timeout_s) {
+void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     static int constexpr UBB_NUM = 0xF;
     static int constexpr DEV_NUM = 0xFF;
     static int constexpr OP_MODE = 0x0;
@@ -244,9 +251,9 @@ void WarmReset::ubb_warm_reset(uint64_t timeout_s) {
 
     wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
     log_info(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
-    sleep(30);
+    std::this_thread::sleep_for(UBB_POST_RESET_WAIT);
     log_info(tt::LogUMD, "30 seconds elapsed after reset execution.");
-    ubb_wait_for_driver_load(timeout_s);
+    ubb_wait_for_driver_load(timeout_ms);
 }
 
 }  // namespace tt::umd

@@ -263,7 +263,7 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
         throw std::runtime_error("Write Invalid BAR address for this device.");
     }
     addr -= bar0_offset;
-    *reinterpret_cast<volatile uint32_t *>(*reinterpret_cast<volatile uint8_t *>(get_pci_device()->bar0) + addr) = data;
+    *reinterpret_cast<volatile uint32_t *>(reinterpret_cast<volatile uint8_t *>(get_pci_device()->bar0) + addr) = data;
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
@@ -272,7 +272,7 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
         throw std::runtime_error("Read Invalid BAR address for this device.");
     }
     addr -= bar0_offset;
-    return *reinterpret_cast<volatile uint32_t *>(*reinterpret_cast<volatile uint8_t *>(get_pci_device()->bar0) + addr);
+    return *reinterpret_cast<volatile uint32_t *>(reinterpret_cast<volatile uint8_t *>(get_pci_device()->bar0) + addr);
 }
 
 ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }

@@ -19,7 +19,8 @@ $DNFC \
     rpm-build \
     python3-pip \
     yamllint \
-    xxd
+    xxd \
+    cpio
 
 # Add Kitware repository for latest CMake
 echo "Adding Kitware repository for latest CMake..."

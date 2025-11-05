@@ -175,45 +175,52 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
-  test-deb-build:
+  test-packages:
     needs: build
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [
+          {name: deb, runner: ubuntu-22.04, container: tt-umd-ci-ubuntu-22.04:latest,
+           artifact_pkg: tt-umd-ubuntu-22.04-clang,
+           artifact_examples: tt-umd-examples-ubuntu-22.04-clang,
+           extract: 'dpkg-deb --extract "$PKG_DIR/umd-dev-0.4.0-Linux.deb" ./umd_so_lib'},
+          {name: rpm, runner: ubuntu-22.04, container: tt-umd-ci-fedora-39:latest,
+           artifact_pkg: tt-umd-ubuntu-22.04-clang,
+           artifact_examples: tt-umd-examples-ubuntu-22.04-clang,
+           extract: 'rpm2cpio "$PKG_DIR/umd-dev-0.4.0-Linux.rpm" | (cd ./umd_so_lib && cpio -idmv)'}
+        ]
 
-    # Pick one of the matrix combinations to run the test on a compatible runner.
-    runs-on: ubuntu-22.04
+    name: Test ${{ matrix.target.name }} package on ${{ matrix.target.container }}
+    runs-on: ${{ matrix.target.runner }}
     container:
-      # Use a similar environment to the build to ensure compatibility.
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
+      image: ghcr.io/${{ github.repository }}/${{ matrix.target.container }}
 
     steps:
       - uses: actions/checkout@v4
         with:
-          # Clone under tt-umd directory
           path: tt-umd
           submodules: recursive
 
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          # Use the artifact name created in the build job for the specific matrix combination you want to test.
-          # Example for ubuntu-22.04 with clang:
-          name: tt-umd-ubuntu-22.04-clang
-          path: ./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package
+          name: ${{ matrix.target.artifact_pkg }}
+          path: ./downloaded-artifact/${{ matrix.target.artifact_pkg }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          # Use the artifact name created in the build job for the specific matrix combination you want to test.
-          # Example for ubuntu-22.04 with clang:
-          name: tt-umd-examples-ubuntu-22.04-clang
-          path: ./downloaded-artifact/tt-umd-examples-ubuntu-22.04-clang-example
+          name: ${{ matrix.target.artifact_examples }}
+          path: ./downloaded-artifact/${{ matrix.target.artifact_examples }}-example
 
       - name: Run test on example and package
         run: |
-          echo "Extract from .deb file"
-          PACKAGE_DIR="./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package"
+          echo "Extract from .${{ matrix.target.name }} file"
+          PKG_DIR="./downloaded-artifact/${{ matrix.target.artifact_pkg }}-package"
           mkdir -p ./umd_so_lib
-          dpkg-deb --extract $PACKAGE_DIR/umd-dev-0.4.0-Linux.deb ./umd_so_lib
+          bash -lc "${{ matrix.target.extract }}"
           ls -la .
           pwd
           ls -la ./umd_so_lib
@@ -226,69 +233,7 @@ jobs:
 
           echo "Copy from .cmake files file"
           mkdir -p ./cmake
-          cp ./downloaded-artifact/tt-umd-examples-ubuntu-22.04-clang-example/* ./cmake
-
-          cd ./example_test
-          echo "Starting CMake"
-          ls -la .
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_so_lib/usr
-          cmake --build ./build
-
-  test-rpm-build:
-    needs: build
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-
-    # Pick one of the matrix combinations to run the test on a compatible runner.
-    runs-on: ubuntu-22.04
-    container:
-      # Use a similar environment to the build to ensure compatibility.
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-fedora-39:latest
-
-    steps:
-      - name: Ensure git is installed
-        run: dnf install -y git git-lfs
-
-      - uses: actions/checkout@v4
-        with:
-          # Clone under tt-umd directory
-          path: tt-umd
-          submodules: recursive
-
-      - name: Download Packages Artifact
-        uses: actions/download-artifact@v4
-        with:
-          # Use the artifact name created in the build job for the specific matrix combination you want to test.
-          # Example for ubuntu-22.04 with clang:
-          name: tt-umd-ubuntu-22.04-clang
-          path: ./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package
-
-      - name: Download Examples Artifact
-        uses: actions/download-artifact@v4
-        with:
-          # Use the artifact name created in the build job for the specific matrix combination you want to test.
-          # Example for ubuntu-22.04 with clang:
-          name: tt-umd-examples-ubuntu-22.04-clang
-          path: ./downloaded-artifact/tt-umd-examples-ubuntu-22.04-clang-example
-
-      - name: Run test on example and package
-        run: |
-          echo "Extract from .rpm file"
-          PACKAGE_DIR="./downloaded-artifact/tt-umd-ubuntu-22.04-clang-package"
-          mkdir -p ./umd_so_lib
-          rpm2cpio "$PACKAGE_DIR/umd-dev-0.4.0-Linux.rpm" | (cd ./umd_so_lib && cpio -idmv)
-          ls -la .
-          pwd
-          ls -la ./umd_so_lib
-
-          echo "ls -la ./tt-umd/examples"
-          ls -la ./tt-umd/examples
-
-          mkdir -p ./example_test
-          cp -r ./tt-umd/examples/* ./example_test
-
-          echo "Copy from .cmake files file"
-          mkdir -p ./cmake
-          cp ./downloaded-artifact/tt-umd-examples-ubuntu-22.04-clang-example/* ./cmake
+          cp ./downloaded-artifact/${{ matrix.target.artifact_examples }}-example/* ./cmake
 
           cd ./example_test
           echo "Starting CMake"

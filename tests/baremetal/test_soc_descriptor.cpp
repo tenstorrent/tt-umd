@@ -110,12 +110,15 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToNOC0) {
 TEST(SocDescriptor, SocDescriptorDRAMChannels) {
     SocDescriptor soc_desc(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
 
-    // Core type with no separate channels
-    EXPECT_THROW(soc_desc.get_cores(tt::CoreType::ARC, tt::CoordSystem::LOGICAL, 10), std::runtime_error);
-    // Invalid channel
-    EXPECT_THROW(soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, 10), std::runtime_error);
+    int num_dram_channels = soc_desc.get_num_dram_channels();
 
-    for (int channel = 0; channel < 2; channel++) {
+    // Core type with no separate channels
+    EXPECT_THROW(soc_desc.get_cores(tt::CoreType::ARC, tt::CoordSystem::LOGICAL, 0), std::runtime_error);
+    // Invalid channel
+    EXPECT_THROW(
+        soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, num_dram_channels + 1), std::runtime_error);
+
+    for (int channel = 0; channel < num_dram_channels; channel++) {
         for (auto core : soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, channel)) {
             EXPECT_EQ(core.y, channel);
         }

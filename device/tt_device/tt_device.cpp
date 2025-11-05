@@ -628,7 +628,7 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
         throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(dst);
+    uint8_t *buffer_addr = static_cast<uint8_t *>(dst);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
     while (size > 0) {

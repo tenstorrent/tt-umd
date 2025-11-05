@@ -5,11 +5,14 @@
  */
 #include <gtest/gtest.h>
 
+#include <stdexcept>
+
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -101,6 +104,21 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToNOC0) {
         EXPECT_EQ(eth_cores[index].y, wormhole_eth_cores[index].y);
 
         index++;
+    }
+}
+
+TEST(SocDescriptor, SocDescriptorDRAMChannels) {
+    SocDescriptor soc_desc(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
+
+    // Core type with no separate channels
+    EXPECT_THROW(soc_desc.get_cores(tt::CoreType::ARC, tt::CoordSystem::LOGICAL, 10), std::runtime_error);
+    // Invalid channel
+    EXPECT_THROW(soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, 10), std::runtime_error);
+
+    for (int channel = 0; channel < 2; channel++) {
+        for (auto core : soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, channel)) {
+            EXPECT_EQ(core.y, channel);
+        }
     }
 }
 

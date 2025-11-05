@@ -699,12 +699,15 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
     auto cores_map_it = cores_map.find(core_type);
     std::vector<CoreCoord> cores = cores_map_it->second;
 
-    // Filter cores by DRAM channel if specified
-    if (channel.has_value() && core_type == CoreType::DRAM) {
+    // Filter cores by channel if specified.
+    // At this time, only applicable for DRAM cores.
+    if (channel.has_value()) {
+        TT_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
         TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
         std::vector<CoreCoord> filtered_cores;
         for (const auto &core : cores) {
-            if (core.y == channel.value()) {
+            auto logical_core = translate_coord_to(core, CoordSystem::LOGICAL);
+            if (logical_core.y == channel.value()) {
                 filtered_cores.push_back(core);
             }
         }

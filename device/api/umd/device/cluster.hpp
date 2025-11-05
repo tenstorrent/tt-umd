@@ -79,6 +79,7 @@ struct ClusterOptions {
     /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
+     * Uses logical IDs.
      */
     std::unordered_set<ChipId> target_devices = {};
 
@@ -699,8 +700,6 @@ private:
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
-
-    static void verify_cluster_options(const ClusterOptions& options);
 
     // State variables
     std::set<ChipId> all_chip_ids_ = {};

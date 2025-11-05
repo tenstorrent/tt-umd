@@ -97,7 +97,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
         // Make sure that Cluster construction is without exceptions.
         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{});
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
         if (!target_pci_device_ids.empty()) {
             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.

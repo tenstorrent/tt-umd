@@ -415,10 +415,7 @@ HarvestingMasks Cluster::get_harvesting_masks(
     return cluster_harvesting_masks | simulated_harvesting_masks;
 }
 
-void Cluster::verify_cluster_options(const ClusterOptions& options) {}
-
 Cluster::Cluster(ClusterOptions options) {
-    Cluster::verify_cluster_options(options);
     // If the cluster descriptor is not provided, create a new one.
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;

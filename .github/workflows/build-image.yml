@@ -24,6 +24,7 @@ jobs:
         build: [
           {name: ubuntu-22.04},
           {name: ubuntu-24.04},
+          {name: fedora-39},
         ]
 
     name: Building docker image ${{ matrix.build.name }}

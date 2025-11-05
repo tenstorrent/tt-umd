@@ -239,7 +239,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
 
     # Pick one of the matrix combinations to run the test on a compatible runner.
-    runs-on: fedora-39
+    runs-on: ubuntu-22.04
     container:
       # Use a similar environment to the build to ensure compatibility.
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-fedora-39:latest

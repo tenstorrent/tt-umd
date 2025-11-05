@@ -10,7 +10,6 @@ dnf update -y
 # '@Development Tools' provides the equivalent of 'build-essential' (gcc, g++, make).
 # We install EPEL (Extra Packages for Enterprise Linux) to access more dev tools on RHEL/AlmaLinux.
 $DNFC \
-    epel-release \
     @Development\ Tools \
     git \
     git-lfs \
@@ -24,6 +23,7 @@ $DNFC \
 
 # Add Kitware repository for latest CMake
 echo "Adding Kitware repository for latest CMake..."
+dnf install -y 'dnf-command(config-manager)' || true
 rpm --import https://apt.kitware.com/keys/kitware-archive-latest.asc || true
 dnf config-manager --add-repo https://apt.kitware.com/kitware-yum-releases.repo || true
 dnf makecache -y || true
@@ -33,7 +33,7 @@ echo "Installing C++ development dependencies..."
 $DNFC \
     cmake \
     ninja-build \
-    libhwloc-devel \
+    hwloc-devel \
     gtest-devel \
     yaml-cpp-devel \
     boost-devel \

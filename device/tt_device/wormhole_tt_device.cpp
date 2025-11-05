@@ -43,7 +43,6 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
-    wait_arc_core_start();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -85,30 +84,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
         CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
 
     return chip_info;
-}
-
-void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    uint32_t bar_read_initial = 0;
-    read_from_arc_apb(&bar_read_initial, wormhole::ARC_RESET_SCRATCH_OFFSET + 3 * 4, sizeof(uint32_t));
-    //  TODO: figure out 325 and 500 constants meaning and put it in variable.
-    uint32_t arg = bar_read_initial == 500 ? 325 : 500;
-    uint32_t bar_read_again;
-    std::vector<uint32_t> ret_vals(1);
-    uint32_t arc_msg_return = get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_test(), ret_vals, arg, 0, timeout_ms);
-    bar_read_again = ret_vals[0];
-    if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-        uint32_t postcode = 0;
-        read_from_arc_apb(&postcode, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(uint32_t));
-        throw std::runtime_error(fmt::format(
-            "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
-            "bar_read_again: {}",
-            postcode,
-            arc_msg_return,
-            arg,
-            bar_read_initial,
-            bar_read_again));
-    }
 }
 
 uint32_t WormholeTTDevice::get_clock() {
@@ -355,14 +330,14 @@ void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t s
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
     }
-    dma_h2d_transfer(dst, (uint64_t)(uintptr_t)src, size);
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
 void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
     }
-    dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
 }
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -535,7 +510,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         erisc_remote_eth_id_offset};
 }
 
-bool WormholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -559,9 +534,6 @@ bool WormholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeo
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    // DMA request address
-    constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
-
     auto start = std::chrono::steady_clock::now();
     while (true) {
         auto now = std::chrono::steady_clock::now();
@@ -571,12 +543,26 @@ bool WormholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeo
             return false;
         }
 
-        uint32_t bar_read_arc_reset_scratch_status =
-            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
-        uint32_t bar_read_arc_post_code = bar_read32(
-            architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-            architecture_impl_->get_arc_reset_scratch_offset());
-        uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
+        uint32_t bar_read_arc_reset_scratch_status;
+
+        read_from_arc_apb(
+            &bar_read_arc_reset_scratch_status,
+            wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
+            sizeof(bar_read_arc_reset_scratch_status));
+
+        uint32_t bar_read_arc_post_code;
+
+        read_from_arc_apb(
+            &bar_read_arc_post_code,
+            architecture_impl_->get_arc_reset_scratch_offset(),
+            sizeof(bar_read_arc_post_code));
+
+        uint32_t bar_read_arc_csm_pcie_dma_request;
+
+        read_from_arc_csm(
+            &bar_read_arc_csm_pcie_dma_request,
+            wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
+            sizeof(bar_read_arc_csm_pcie_dma_request));
 
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {

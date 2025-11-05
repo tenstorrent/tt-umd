@@ -21,7 +21,8 @@ public:
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
 private:
-    static constexpr int POST_RESET_WAIT = 2;
+    static constexpr auto POST_RESET_WAIT = std::chrono::milliseconds(2'000);
+    static constexpr auto UBB_POST_RESET_WAIT = std::chrono::milliseconds(30'000);
 
     static void warm_reset_blackhole(std::vector<int> pci_device_ids);
 

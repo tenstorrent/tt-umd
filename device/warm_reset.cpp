@@ -25,6 +25,10 @@ namespace tt::umd {
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
 void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
+    if constexpr (is_arm_platform()) {
+        log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
+        return;
+    }
     // If pci_device_ids is empty, enumerate all devices
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
@@ -84,7 +88,7 @@ void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    sleep(POST_RESET_WAIT);
+    std::this_thread::sleep_for(POST_RESET_WAIT);
 
     if (!all_reset_bits_set) {
         for (auto& [chip, reset_bit] : reset_bits) {
@@ -114,7 +118,7 @@ void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_
 
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
-        if (!tt_device->wait_arc_post_reset(timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
+        if (!tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
             log_warning(tt::LogUMD, "Reset failed for PCI id {} - ARC core init failed", i);
             continue;
         }
@@ -146,7 +150,7 @@ void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_
         }
     }
 
-    sleep(POST_RESET_WAIT);
+    std::this_thread::sleep_for(POST_RESET_WAIT);
 
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());
@@ -247,7 +251,7 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
 
     wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
     log_info(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
-    sleep(30);
+    std::this_thread::sleep_for(UBB_POST_RESET_WAIT);
     log_info(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
 }

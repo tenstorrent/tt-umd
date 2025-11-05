@@ -16,6 +16,7 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
@@ -66,34 +67,16 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair e
         return get_local_asic_id(chip, eth_core);
     }
 
-    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
-        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint32_t board_id_lo;
-    TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
-
-    uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
-
-    return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
+    return chip->get_tt_device()->get_firmware_info_provider()->get_board_id();
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        return get_local_asic_id(chip, eth_core);
+    }
     tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-
     TTDevice* tt_device = chip->get_tt_device();
-
-    if (is_running_on_6u) {
-        uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFD4, sizeof(asic_id_hi));
-
-        uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFD8, sizeof(asic_id_lo));
-
-        return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
-    }
-
     uint64_t board_id = get_local_board_id(chip, eth_core);
     uint8_t asic_location;
     tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
@@ -150,7 +133,7 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(Chip* chip, tt_xy_pair lo
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
     // This function is not important for Blackhole, so we can return any value here.
-    return 0;
+    return BoardType::UNKNOWN;
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {

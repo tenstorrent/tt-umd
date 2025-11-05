@@ -193,8 +193,8 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: >-
-        ${{ matrix.pkg == 'deb' && format('ghcr.io/{0}/tt-umd-ci-ubuntu-22.04:latest', github.repository)
-        || format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository) }}
+        ${{ matrix.pkg == 'rpm' && format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)
+        || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
 
     steps:
       - uses: actions/checkout@v4

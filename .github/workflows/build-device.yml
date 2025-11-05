@@ -181,21 +181,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [
-          {name: deb, runner: ubuntu-22.04, container: tt-umd-ci-ubuntu-22.04:latest,
-           artifact_pkg: tt-umd-ubuntu-22.04-clang,
-           artifact_examples: tt-umd-examples-ubuntu-22.04-clang,
-           extract: 'dpkg-deb --extract "$PKG_DIR/umd-dev-0.4.0-Linux.deb" ./umd_so_lib'},
-          {name: rpm, runner: ubuntu-22.04, container: tt-umd-ci-fedora-39:latest,
-           artifact_pkg: tt-umd-ubuntu-22.04-clang,
-           artifact_examples: tt-umd-examples-ubuntu-22.04-clang,
-           extract: 'rpm2cpio "$PKG_DIR/umd-dev-0.4.0-Linux.rpm" | (cd ./umd_so_lib && cpio -idmv)'}
+        build: [
+          {os: ubuntu-22.04, compiler: clang},
+          {os: ubuntu-22.04, compiler: gcc-12},
+          {os: ubuntu-24.04, compiler: clang},
+          {os: ubuntu-24.04, compiler: gcc-12}
         ]
+        pkg: [deb, rpm]
 
-    name: Test ${{ matrix.target.name }} package on ${{ matrix.target.container }}
-    runs-on: ${{ matrix.target.runner }}
+    name: Test ${{ matrix.pkg }} from ${{ matrix.build.os }}-${{ matrix.build.compiler }}
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.target.container }}
+      image: >-
+        ${{ matrix.pkg == 'deb' && format('ghcr.io/{0}/tt-umd-ci-ubuntu-22.04:latest', github.repository)
+        || format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -206,27 +205,31 @@ jobs:
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.target.artifact_pkg }}
-          path: ./downloaded-artifact/${{ matrix.target.artifact_pkg }}-package
+          name: tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.target.artifact_examples }}
-          path: ./downloaded-artifact/${{ matrix.target.artifact_examples }}-example
+          name: tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example
 
       - name: Run test on example and package
         run: |
-          echo "Extract from .${{ matrix.target.name }} file"
-          PKG_DIR="./downloaded-artifact/${{ matrix.target.artifact_pkg }}-package"
+          echo "Extract from .${{ matrix.pkg }} file"
+          PKG_DIR="./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
           mkdir -p ./umd_so_lib
-          bash -lc "${{ matrix.target.extract }}"
+          if [ "${{ matrix.pkg }}" = "deb" ]; then
+            dpkg-deb --extract "$PKG_DIR/umd-dev-0.4.0-Linux.deb" ./umd_so_lib
+          else
+            rpm2cpio "$PKG_DIR/umd-dev-0.4.0-Linux.rpm" | (cd ./umd_so_lib && cpio -idmv)
+          fi
 
           mkdir -p ./example_test
           cp -r ./tt-umd/examples/* ./example_test
 
           mkdir -p ./cmake
-          cp ./downloaded-artifact/${{ matrix.target.artifact_examples }}-example/* ./cmake
+          cp ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example/* ./cmake
 
           cd ./example_test
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_so_lib/usr

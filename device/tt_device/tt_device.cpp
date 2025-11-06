@@ -622,4 +622,25 @@ TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     cached_tlb_window->configure(config);
     return cached_tlb_window.get();
 }
+
+void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
+    }
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    uint8_t *buffer_addr = static_cast<uint8_t *>(dst);
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
+
+    while (size > 0) {
+        auto [mapped_address, tlb_size] =
+            set_dynamic_tlb_broadcast(tlb_index, addr, core_start, core_end, tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        write_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
 }  // namespace tt::umd

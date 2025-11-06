@@ -6,6 +6,7 @@
 
 #include "umd/device/simulation/simulation_chip.hpp"
 
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -60,6 +61,11 @@ void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord
 
 void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
+}
+
+void SimulationChip::noc_multicast_write(
+    void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    throw std::runtime_error("SimulationChip::noc_multicast_write is not implemented.");
 }
 
 void SimulationChip::wait_for_non_mmio_flush() {}

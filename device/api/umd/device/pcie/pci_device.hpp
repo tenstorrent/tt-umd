@@ -259,9 +259,6 @@ public:
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
 
-    void *bar4_wc = nullptr;
-    uint64_t bar4_wc_size;
-
     // TODO: let's get rid of this unless we need to run UMD on WH systems with
     // shrunk BAR0.  If we don't (and we shouldn't), then we can just use BAR0
     // and simplify the code.
@@ -274,7 +271,7 @@ public:
 
     template <typename T>
     T *get_register_address(uint32_t register_offset) {
-        // Right now, address can either be exposed register in BAR, or TLB window in BAR0 (BAR4 for Blackhole).
+        // Right now, address can either be exposed register in BAR, or TLB window in BAR0.
         // Should clarify this interface
         void *reg_mapping;
         if (system_reg_mapping != nullptr && register_offset >= system_reg_start_offset) {

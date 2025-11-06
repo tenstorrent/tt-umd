@@ -172,8 +172,8 @@ inline constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
 
 inline constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
 
-inline constexpr uint32_t TLB_COUNT_4G = 8;
-inline constexpr uint32_t TLB_BASE_4G = 0;  // 0 in BAR4
+inline constexpr uint32_t TLB_COUNT_4G = 8;  // NB: Unused, and assumes a 32 GiB BAR4.
+inline constexpr uint32_t TLB_BASE_4G = 0;   // 0 in BAR4
 inline constexpr uint32_t TLB_BASE_INDEX_4G = TLB_COUNT_2M;
 inline constexpr uint64_t TLB_4G_SIZE = 4ULL * 1024ULL * 1024ULL * 1024ULL;
 inline constexpr uint64_t DYNAMIC_TLB_4G_SIZE = TLB_4G_SIZE;

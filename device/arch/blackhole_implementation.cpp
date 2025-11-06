@@ -30,17 +30,10 @@ std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_p
 }
 
 tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
-    if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
-        return tlb_configuration{
-            .size = blackhole::DYNAMIC_TLB_4G_SIZE,
-            .base = blackhole::DYNAMIC_TLB_4G_BASE,
-            .cfg_addr = blackhole::DYNAMIC_TLB_4G_CFG_ADDR,
-            .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_4G,
-            .tlb_offset = blackhole::DYNAMIC_TLB_4G_BASE +
-                          (tlb_index - blackhole::TLB_BASE_INDEX_4G) * blackhole::DYNAMIC_TLB_4G_SIZE,
-            .offset = blackhole::TLB_4G_OFFSET,
-        };
+    if (tlb_index >= blackhole::TLB_COUNT_2M) {
+        // 4G TLBs windows are not supported by the UMD due to variable size BAR4 as a feature.
+        // If/when support is needed, the suggestion is to use the KMD API to allocate/map the 4G TLBs.
+        throw std::runtime_error(fmt::format("Invalid TLB index: {}", tlb_index));
     }
 
     return tlb_configuration{

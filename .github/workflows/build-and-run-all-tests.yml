@@ -72,18 +72,18 @@ jobs:
       matrix:
         test-group: [
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
           # TODO: To be added when available.
           # {arch: blackhole, card: tt-ubuntu-2204-p100a-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
           # bh-gh-07 is a P300 runner.
-          # {arch: blackhole, card: bh-gh-07},
+          {arch: blackhole, card: bh-gh-07},
           {arch: baremetal, card: ubuntu-22.04},
         ]
         ubuntu-docker-version: [

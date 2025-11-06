@@ -5,9 +5,9 @@ on:
   push:
     branches:
       - main
-      - brosko/manylinux
     paths:
       - 'VERSION'
+  pull_request:
 
 env:
   RELEASE_BUILD_TYPE: Release

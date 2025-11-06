@@ -54,13 +54,3 @@ TT_UMD_BUILD_PYTHON = "ON"
 provider = "scikit_build_core.metadata.regex"
 input = "VERSION"
 regex = "(?P<value>.*)"
-
-[tool.cibuildwheel]
-# Build for Python 3.8-3.12 on Linux (manylinux)
-build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
-# Skip PyPy builds
-skip = "pp*"
-# Build for x86_64 and aarch64 on Linux
-archs-linux = "x86_64 aarch64"
-# Build verbosity
-build-verbosity = 1

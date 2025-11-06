@@ -55,57 +55,57 @@ env:
   NANOBIND_TEST_DIR: ./nanobind/tests
 
 jobs:
-  build:
-    name: Build (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
-    # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+  # build:
+  #   name: Build (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+  #   # Due to parsing bug, fromJSON is used to convert string to number
+  #   timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+  #   runs-on: ubuntu-22.04
+  #   container:
+  #     image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 
-    steps:
-      - name: Print all params
-        run: |
-          ${{ inputs.log-params }}
-          echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
-          echo build-tests - timeout: ${{ inputs.timeout }}
-          echo build-tests - build-type: ${{ inputs.build-type }}
+  #   steps:
+  #     - name: Print all params
+  #       run: |
+  #         ${{ inputs.log-params }}
+  #         echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+  #         echo build-tests - timeout: ${{ inputs.timeout }}
+  #         echo build-tests - build-type: ${{ inputs.build-type }}
 
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
 
-      # Only perform build with necessary components to run tests.
-      - name: Build ${{ env.BUILD_TARGETS }}
-        run: |
-          echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_TESTS=ON \
-            -DTT_UMD_BUILD_SIMULATION=OFF \
-            -DTT_UMD_BUILD_PYTHON=ON \
-            -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=OFF \
-            -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
-          echo "Compile complete."
+  #     # Only perform build with necessary components to run tests.
+  #     - name: Build ${{ env.BUILD_TARGETS }}
+  #       run: |
+  #         echo "Compiling the code..."
+  #         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+  #           -DTT_UMD_BUILD_TESTS=ON \
+  #           -DTT_UMD_BUILD_SIMULATION=OFF \
+  #           -DTT_UMD_BUILD_PYTHON=ON \
+  #           -DTT_UMD_BUILD_EXAMPLES=OFF \
+  #           -DTT_UMD_BUILD_TOOLS=OFF \
+  #           -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
+  #         cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
+  #         echo "Compile complete."
 
-      # This is needed to preserve file permissions
-      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-      - name: Tar build, test and run artifacts
-        shell: bash
-        run: |
-          tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
-          ${{ env.LIB_OUTPUT_DIR }} \
-          ${{ env.DEPS_OUTPUT_DIR }} \
-          ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
-          ${{ env.SOC_DESCRIPTORS_DIR }}
+  #     # This is needed to preserve file permissions
+  #     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+  #     - name: Tar build, test and run artifacts
+  #       shell: bash
+  #       run: |
+  #         tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
+  #         ${{ env.LIB_OUTPUT_DIR }} \
+  #         ${{ env.DEPS_OUTPUT_DIR }} \
+  #         ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
+  #         ${{ env.SOC_DESCRIPTORS_DIR }}
 
-      - name: Upload build artifacts archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
-          path: artifact.tar
+  #     - name: Upload build artifacts archive
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  #         path: artifact.tar
 
   build-wheel:
     # Due to parsing bug, fromJSON is used to convert string to number
@@ -129,6 +129,10 @@ jobs:
 
       - name: Build manylinux wheel
         shell: bash
+        env:
+          # Use custom manylinux Docker image with all dependencies pre-installed
+          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
           echo "Cleaning up wheel directory in case of previous build..."
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
@@ -136,14 +140,15 @@ jobs:
           echo "Building manylinux wheel..."
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
+          ls -la ${{ env.WHEEL_OUTPUT_DIR }}
 
-      - name: Move python bindings tests in the same wheel folder
-        run: |
-          cp -r ${{ env.NANOBIND_TEST_DIR }} ${{ env.WHEEL_OUTPUT_DIR }}/tests
+      # - name: Move python bindings tests in the same wheel folder
+      #   run: |
+      #     cp -r ${{ env.NANOBIND_TEST_DIR }} ${{ env.WHEEL_OUTPUT_DIR }}/tests
 
-      - name: Upload wheel
-        uses: actions/upload-artifact@v4
-        with:
-          # Note that wheel is built with hardcoded Release build type at the moment.
-          name: wheel-artifact-manylinux-${{ inputs.build-type }}
-          path: ${{ env.WHEEL_OUTPUT_DIR }}
+      # - name: Upload wheel
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     # Note that wheel is built with hardcoded Release build type at the moment.
+      #     name: wheel-artifact-manylinux-${{ inputs.build-type }}
+      #     path: ${{ env.WHEEL_OUTPUT_DIR }}

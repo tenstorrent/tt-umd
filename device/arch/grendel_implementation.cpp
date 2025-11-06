@@ -157,14 +157,17 @@ uint32_t grendel_implementation::get_soft_reset_reg_value(tt::umd::RiscType risc
     if ((risc_type & RiscType::DM7) != RiscType::NONE) {
         soft_reset_reg_value |= grendel::SOFT_RESET_DM7;
     }
-    if ((risc_type & RiscType::TRISC0) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_NEO0_TRISCS) != RiscType::NONE) {
         soft_reset_reg_value |= grendel::SOFT_RESET_TRISC0;
     }
-    if ((risc_type & RiscType::TRISC1) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_NEO1_TRISCS) != RiscType::NONE) {
         soft_reset_reg_value |= grendel::SOFT_RESET_TRISC1;
     }
-    if ((risc_type & RiscType::TRISC2) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_NEO2_TRISCS) != RiscType::NONE) {
         soft_reset_reg_value |= grendel::SOFT_RESET_TRISC2;
+    }
+    if ((risc_type & RiscType::ALL_NEO3_TRISCS) != RiscType::NONE) {
+        soft_reset_reg_value |= grendel::SOFT_RESET_TRISC3;
     }
 
     return soft_reset_reg_value;
@@ -197,23 +200,26 @@ RiscType grendel_implementation::get_soft_reset_risc_type(uint32_t soft_reset_re
         risc_type |= RiscType::DM7;
     }
     if (soft_reset_reg_value & grendel::SOFT_RESET_TRISC0) {
-        risc_type |= RiscType::TRISC0;
+        risc_type |= RiscType::ALL_NEO0_TRISCS;
     }
     if (soft_reset_reg_value & grendel::SOFT_RESET_TRISC1) {
-        risc_type |= RiscType::TRISC1;
+        risc_type |= RiscType::ALL_NEO1_TRISCS;
     }
     if (soft_reset_reg_value & grendel::SOFT_RESET_TRISC2) {
-        risc_type |= RiscType::TRISC2;
+        risc_type |= RiscType::ALL_NEO2_TRISCS;
+    }
+    if (soft_reset_reg_value & grendel::SOFT_RESET_TRISC3) {
+        risc_type |= RiscType::ALL_NEO3_TRISCS;
     }
 
     // Set arhitecture agnostic bits based on tensix bits.
-    if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         risc_type |= RiscType::ALL;
     }
-    if ((risc_type & RiscType::ALL_TENSIX_TRISCS) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         risc_type |= RiscType::ALL_TRISCS;
     }
-    if ((risc_type & RiscType::ALL_TENSIX_DMS) != RiscType::NONE) {
+    if ((risc_type & RiscType::ALL_NEO_DMS) != RiscType::NONE) {
         risc_type |= RiscType::ALL_DATA_MOVEMENT;
     }
 

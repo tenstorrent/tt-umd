@@ -25,6 +25,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
+  WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
   build:
@@ -145,3 +146,38 @@ jobs:
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
+
+  build-manylinux-wheels:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+
+    name: Build umd manylinux wheel
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build manylinux wheel
+        shell: bash
+        env:
+          # Use custom manylinux Docker image with all dependencies pre-installed
+          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
+        run: |
+          echo "Cleaning up wheel directory in case of previous build..."
+          rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
+          mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Building manylinux wheel..."
+          python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Build complete."

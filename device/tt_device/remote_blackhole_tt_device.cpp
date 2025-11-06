@@ -38,4 +38,15 @@ RemoteCommunication* RemoteBlackholeTTDevice::get_remote_communication() { retur
 // ARC tile access over AXI is not supported for remote devices.
 bool RemoteBlackholeTTDevice::is_arc_available_over_axi() { return false; }
 
+void RemoteBlackholeTTDevice::noc_multicast_write(
+    void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    // TODO: implement multicast over remote communication.
+    // For now, we fallback to unicast for all cores.
+    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+            write_to_device(dst, tt_xy_pair(x, y), addr, size);
+        }
+    }
+}
+
 }  // namespace tt::umd

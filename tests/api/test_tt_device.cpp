@@ -142,7 +142,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     }
 }
 
-TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
+TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

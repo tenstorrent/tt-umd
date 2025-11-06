@@ -119,8 +119,11 @@ TEST(SocDescriptor, SocDescriptorDRAMChannels) {
         soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, num_dram_channels + 1), std::runtime_error);
 
     for (int channel = 0; channel < num_dram_channels; channel++) {
-        for (auto core : soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, channel)) {
-            EXPECT_EQ(core.y, channel);
+        size_t core_index = 0;
+        for (auto core : soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::NOC0, channel)) {
+            EXPECT_EQ(core.x, wormhole::DRAM_CORES_NOC0[core_index][channel].x);
+            EXPECT_EQ(core.y, wormhole::DRAM_CORES_NOC0[core_index][channel].y);
+            core_index++;
         }
     }
 }

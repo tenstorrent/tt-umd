@@ -186,17 +186,11 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair loc
     return remote_eth_id;
 }
 
-std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(Chip* chip) {
-    std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    if (eth_cores.empty()) {
-        return std::nullopt;
-    }
+std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
 
     uint32_t current_chip_eth_coord_info;
-    tt_device->read_from_device(
-        &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
+    tt_device->read_from_device(&current_chip_eth_coord_info, eth_core, eth_addresses.node_info + 8, sizeof(uint32_t));
 
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;

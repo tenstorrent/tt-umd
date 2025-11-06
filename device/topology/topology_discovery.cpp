@@ -130,18 +130,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
-
         remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
-
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
-
-        if (is_using_eth_coords()) {
-            auto local_eth_coord = get_local_eth_coord(chip.get());
-            if (local_eth_coord.has_value()) {
-                eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
-            }
-        }
     }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -168,6 +160,14 @@ void TopologyDiscovery::discover_remote_chips() {
             if (!is_eth_trained(chip, eth_core)) {
                 channel++;
                 continue;
+            }
+
+            if (is_using_eth_coords()) {
+                auto local_eth_coord = get_local_eth_coord(chip, eth_core);
+                if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
+                    eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
+                    log_debug(LogUMD, "Chip {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());
+                }
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 

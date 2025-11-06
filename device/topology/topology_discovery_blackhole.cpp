@@ -32,7 +32,9 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
         dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, options.soc_descriptor_path);
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) {
+    return std::nullopt;
+}
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) {
     return std::nullopt;

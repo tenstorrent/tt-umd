@@ -50,6 +50,8 @@ public:
 
     TTDevice* get_local_device();
 
+    tt_xy_pair get_active_remote_transfer_eth_core();
+
 protected:
     tt_xy_pair get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();

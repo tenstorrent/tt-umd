@@ -149,7 +149,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
@@ -157,7 +157,7 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
-            return;
+            return true;
         }
 
         utils::check_timeout(
@@ -274,8 +274,6 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     }
     return time_taken;
 }
-
-bool BlackholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) { return true; }
 
 bool BlackholeTTDevice::is_hardware_hung() {
     // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");

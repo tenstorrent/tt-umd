@@ -100,3 +100,19 @@ static void check_timeout(
 }
 
 }  // namespace tt::umd::utils
+
+constexpr bool is_arm_platform() {
+#if defined(__aarch64__) || defined(__arm__)
+    return true;
+#else
+    return false;
+#endif
+}
+
+constexpr bool is_riscv_platform() {
+#if defined(__riscv)
+    return true;
+#else
+    return false;
+#endif
+}

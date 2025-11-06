@@ -29,7 +29,7 @@ protected:
 
     uint64_t get_unconnected_chip_id(TTDevice* tt_device) override;
 
-    std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device) override;
+    std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 

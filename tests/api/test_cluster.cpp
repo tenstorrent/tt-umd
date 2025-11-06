@@ -106,21 +106,6 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         }
         std::cout << std::endl;
 
-        // Make sure that Cluster construction is without exceptions.
-        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = target_pci_device_ids,
-        });
-
-        if (!target_pci_device_ids.empty()) {
-            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
-            // Check that the cluster has the expected number of chips.
-            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
-            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
-            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
-            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
-        }
-
         std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
 
         if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
@@ -129,9 +114,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
         // Make sure that Cluster construction is without exceptions.
         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = {},
-        });
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
         if (!target_pci_device_ids.empty()) {
             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
@@ -608,6 +591,9 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 }
 
 TEST(TestCluster, WarmReset) {
+    if constexpr (is_arm_platform()) {
+        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+    }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

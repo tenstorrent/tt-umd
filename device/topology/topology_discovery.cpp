@@ -28,7 +28,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
     switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            auto pci_devices_info = PCIDevice::enumerate_devices_info(options.target_devices);
+            auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
                 return nullptr;
             }
@@ -87,12 +87,11 @@ void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
     switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            device_ids = PCIDevice::enumerate_devices(options.target_devices);
+            device_ids = PCIDevice::enumerate_devices();
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt =
-                JtagDevice::create(JtagDevice::jtag_library_path, options.target_devices)->get_device_cnt();
+            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path)->get_device_cnt();
             device_ids = std::vector<int>(device_cnt);
             std::iota(device_ids.begin(), device_ids.end(), 0);
             break;
@@ -133,18 +132,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
-
         remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
-
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
-
-        if (is_using_eth_coords()) {
-            auto local_eth_coord = get_local_eth_coord(chip.get());
-            if (local_eth_coord.has_value()) {
-                eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
-            }
-        }
     }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -170,6 +161,14 @@ void TopologyDiscovery::discover_remote_chips() {
             if (!is_eth_trained(tt_device, eth_core)) {
                 channel++;
                 continue;
+            }
+
+            if (is_using_eth_coords()) {
+                auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
+                if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
+                    eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
+                    log_debug(LogUMD, "Chip {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());
+                }
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 

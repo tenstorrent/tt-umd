@@ -246,6 +246,7 @@ inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_OFFSET_END - 
 
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
+inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 
 // ARC APB absolute addresses in BAR0 memory space.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;

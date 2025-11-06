@@ -39,7 +39,9 @@ std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_chip(
     return remote_tt_device;
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device) { return std::nullopt; }
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+    return std::nullopt;
+}
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
     return std::nullopt;

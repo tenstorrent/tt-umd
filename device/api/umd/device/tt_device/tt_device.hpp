@@ -257,18 +257,11 @@ public:
     semver_t get_firmware_version();
 
     /**
-     * Waits for ARC core hardware initialization after reset.
-     * Must be called after device reset and before init_tt_device().
-     * This ensures the ARC core hardware is ready for further initialization.
-     */
-    virtual bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) = 0;
-
-    /**
      * Waits for ARC core to be fully ready for communication.
-     * Must be called after init_tt_device() and before using ArcMessenger.
+     * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -314,7 +307,7 @@ public:
 
     bool is_remote();
 
-    void init_tt_device();
+    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 

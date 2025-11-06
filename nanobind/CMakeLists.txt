@@ -16,7 +16,7 @@ endif()
 find_package(Python REQUIRED COMPONENTS Development.Module)
 
 # Define the Python interface target
-nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp)
+nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp)
 
 # Set properties for the Python module
 set_target_properties(
@@ -25,6 +25,28 @@ set_target_properties(
         OUTPUT_NAME
             "tt_umd" # Name of the Python module
 )
+
+# Do not run clang-tidy on the Python module (pulls third-party sources via CPM)
+set_target_properties(
+    nanobind_tt_umd
+    PROPERTIES
+        CXX_CLANG_TIDY
+            ""
+        C_CLANG_TIDY
+            ""
+)
+
+# Also disable clang-tidy for the underlying third-party static lib if present
+if(TARGET nanobind-static)
+    set_target_properties(
+        nanobind-static
+        PROPERTIES
+            CXX_CLANG_TIDY
+                ""
+            C_CLANG_TIDY
+                ""
+    )
+endif()
 
 # The problem that RPATH is solving is the following:
 # Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.

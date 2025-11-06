@@ -86,17 +86,33 @@ std::string to_hex_string(T value) {
 }
 
 static void check_timeout(
-    const std::chrono::steady_clock::time_point start_ms, const uint64_t timeout_ms, const std::string& error_msg) {
-    if (timeout_ms == 0) {
+    const std::chrono::steady_clock::time_point start_time,
+    const std::chrono::milliseconds timeout,
+    const std::string& error_msg) {
+    if (timeout.count() == 0) {
         return;
     }
     auto now = std::chrono::steady_clock::now();
-    auto elapsed_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch() - start_ms.time_since_epoch())
-            .count();
-    if (elapsed_ms > timeout_ms) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
+    if (elapsed > timeout) {
         throw std::runtime_error(error_msg);
     }
 }
 
 }  // namespace tt::umd::utils
+
+constexpr bool is_arm_platform() {
+#if defined(__aarch64__) || defined(__arm__)
+    return true;
+#else
+    return false;
+#endif
+}
+
+constexpr bool is_riscv_platform() {
+#if defined(__riscv)
+    return true;
+#else
+    return false;
+#endif
+}

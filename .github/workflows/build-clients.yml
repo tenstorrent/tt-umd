@@ -50,7 +50,7 @@ jobs:
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
-          ./build_metal.sh --build-all --enable-ccache --enable-profiler
+          ./build_metal.sh --build-all --enable-ccache
           cd ../
 
   build-tt-exalens:
@@ -147,11 +147,8 @@ jobs:
 
       - name: Build tt-sim
         run: |
-          cd ttsim/src
-          ../scripts/make.py _out/release_wh/libttsim.so
-          ../scripts/make.py _out/release_bh/libttsim.so
-          ../scripts/make.py _out/release_qsr/libttsim.so
-          cd ../../
+          cd ttsim
+          ./make.py src/_out/release_wh/libttsim.so src/_out/release_bh/libttsim.so src/_out/release_qsr/libttsim.so
 
       - name: Build tt-metal
         run: |

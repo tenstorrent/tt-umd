@@ -77,23 +77,11 @@ struct ClusterOptions {
      */
     std::string sdesc_path = "";
     /**
-     * If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
-     * will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
-     * skipped, and you can create chips regardless of the devices on the system.
+     * Used to constrain Cluster by specifying which chips should be present.
+     * For chip_type == ChipType::MOCK, used to specify list of mock chips.
+     * Uses logical IDs.
      */
     std::unordered_set<ChipId> target_devices = {};
-    /**
-     * If set, Cluster will target only boards that have the IDs of the chips specified in this set.
-     * If not set, all discovered boards will be used. This can only be used with SILICON chip type.
-     * Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
-     * of the PCIE chips on certain board is specified, UMD will take all chips from the board.
-     */
-    std::unordered_set<ChipId> pci_target_devices = {};
-
-    /**
-     * Same rules apply here as for pci_target_devices. The only difference is the protocol type (jtag).
-     */
-    std::unordered_set<ChipId> jtag_target_devices = {};
 
     /**
      * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
@@ -148,9 +136,7 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = "",
-        std::unordered_set<ChipId> target_devices = {},
-        IODeviceType device_type = IODeviceType::PCIe);
+        std::string sdesc_path = "", IODeviceType device_type = IODeviceType::PCIe);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
@@ -593,7 +579,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 
@@ -611,9 +597,8 @@ public:
 
     /**
      * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
-     * Will return a bogus version if no remote chips are supported for the device.
      */
-    std::optional<tt_version> get_ethernet_fw_version() const;
+    std::optional<semver_t> get_ethernet_firmware_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -684,11 +669,10 @@ private:
         const std::set<ChipId>& chips_to_exclude);
 
     // Test functions
+    // TODO: Move this check to TopologyDiscovery.
     void verify_fw_bundle_version();
     void log_device_summary();
     void log_pci_device_summary();
-    void verify_eth_fw();
-    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
     void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
@@ -715,8 +699,6 @@ private:
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
-    static void verify_cluster_options(const ClusterOptions& options);
-
     // State variables
     std::set<ChipId> all_chip_ids_ = {};
     std::set<ChipId> remote_chip_ids_ = {};
@@ -729,9 +711,7 @@ private:
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
-    tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
-    // ERISC FW Version Required by UMD
-    static constexpr std::uint32_t SW_VERSION = 0x06060000;
+    std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.
 };
 
 }  // namespace tt::umd

@@ -76,19 +76,20 @@ jobs:
   #       with:
   #         submodules: recursive
 
-  #     # Only perform build with necessary components to run tests.
-  #     - name: Build ${{ env.BUILD_TARGETS }}
-  #       run: |
-  #         echo "Compiling the code..."
-  #         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-  #           -DTT_UMD_BUILD_TESTS=ON \
-  #           -DTT_UMD_BUILD_SIMULATION=OFF \
-  #           -DTT_UMD_BUILD_PYTHON=ON \
-  #           -DTT_UMD_BUILD_EXAMPLES=OFF \
-  #           -DTT_UMD_BUILD_TOOLS=OFF \
-  #           -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
-  #         cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
-  #         echo "Compile complete."
+      # # Only perform build with necessary components to run tests.
+      # - name: Build ${{ env.BUILD_TARGETS }}
+      #   run: |
+      #     echo "Compiling the code..."
+      #     cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+      #       -DTT_UMD_BUILD_TESTS=ON \
+      #       -DTT_UMD_BUILD_SIMULATION=OFF \
+      #       -DTT_UMD_BUILD_PYTHON=ON \
+      #       -DTT_UMD_BUILD_EXAMPLES=OFF \
+      #       -DTT_UMD_BUILD_TOOLS=OFF \
+      #       -DENABLE_CLANG_TIDY=OFF \
+      #       -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
+      #     cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
+      #     echo "Compile complete."
 
   #     # This is needed to preserve file permissions
   #     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss

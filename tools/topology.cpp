@@ -17,10 +17,6 @@ int main(int argc, char *argv[]) {
         "l,logical_devices",
         "List of logical device ids to filter cluster descriptor for.",
         cxxopts::value<std::vector<std::string>>())(
-        "d,devices",
-        "List of device(PCIe by default) ids to perform topology discovery on. If not provided, all connected devices "
-        "will be used.",
-        cxxopts::value<std::vector<std::string>>())(
         "j,jtag",
         "Use JTAG mode for device communication. If not provided, PCIe will be used by default.",
         cxxopts::value<bool>()->default_value("false"))("h,help", "Print usage");
@@ -49,12 +45,7 @@ int main(int argc, char *argv[]) {
         device_type = IODeviceType::JTAG;
     }
 
-    if (result.count("devices")) {
-        device_ids = extract_int_set(result["devices"]);
-    }
-
-    std::unique_ptr<ClusterDescriptor> cluster_descriptor =
-        Cluster::create_cluster_descriptor("", device_ids, device_type);
+    std::unique_ptr<ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", device_type);
 
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);

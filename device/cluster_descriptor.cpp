@@ -494,6 +494,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
+        desc->chip_unique_ids.insert({logical_id, logical_id});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
         desc->fill_mock_hardcoded_data(logical_id);
@@ -658,11 +659,11 @@ void ClusterDescriptor::fill_galaxy_connections() {
                 auto &galaxy_shelf_exit_chip_coords_per_y_dim =
                     galaxy_shelves_exit_chip_coords_per_y_dim[lower_shelf_id];
 
-                TT_ASSERT(
-                    galaxy_shelf_exit_chip_coords_per_y_dim.find(lower_shelf_y) ==
-                            galaxy_shelf_exit_chip_coords_per_y_dim.end() ||
-                        galaxy_shelf_exit_chip_coords_per_y_dim[lower_shelf_y].source_chip_coord == lower_shelf_coord,
-                    "Expected a single exit chip on each shelf row");
+                if (!(galaxy_shelf_exit_chip_coords_per_y_dim.find(lower_shelf_y) ==
+                          galaxy_shelf_exit_chip_coords_per_y_dim.end() ||
+                      galaxy_shelf_exit_chip_coords_per_y_dim[lower_shelf_y].source_chip_coord == lower_shelf_coord)) {
+                    log_warning(LogUMD, "Expected a single exit chip on each shelf row");
+                }
                 galaxy_shelf_exit_chip_coords_per_y_dim[lower_shelf_y].source_chip_coord = lower_shelf_coord;
                 galaxy_shelf_exit_chip_coords_per_y_dim[lower_shelf_y].destination_chip_coords.insert(
                     higher_shelf_coord);
@@ -679,11 +680,11 @@ void ClusterDescriptor::fill_galaxy_connections() {
 
                 auto &galaxy_rack_exit_chip_coords_per_x_dim = galaxy_racks_exit_chip_coords_per_x_dim[lower_rack_id];
 
-                TT_ASSERT(
-                    galaxy_rack_exit_chip_coords_per_x_dim.find(lower_rack_x) ==
-                            galaxy_rack_exit_chip_coords_per_x_dim.end() ||
-                        galaxy_rack_exit_chip_coords_per_x_dim[lower_rack_x].source_chip_coord == lower_rack_coord,
-                    "Expected a single exit chip on each rack column");
+                if (!(galaxy_rack_exit_chip_coords_per_x_dim.find(lower_rack_x) ==
+                          galaxy_rack_exit_chip_coords_per_x_dim.end() ||
+                      galaxy_rack_exit_chip_coords_per_x_dim[lower_rack_x].source_chip_coord == lower_rack_coord)) {
+                    log_warning(LogUMD, "Expected a single exit chip on each rack column");
+                }
                 galaxy_rack_exit_chip_coords_per_x_dim[lower_rack_x].source_chip_coord = lower_rack_coord;
                 galaxy_rack_exit_chip_coords_per_x_dim[lower_rack_x].destination_chip_coords.insert(higher_rack_coord);
             }
@@ -694,10 +695,10 @@ void ClusterDescriptor::fill_galaxy_connections() {
     // this means that we expect the shelves to be connected linearly in a daisy-chain fashion.
     // shelf0->shelf1->shelf2->...->shelfN
     for (int shelf_id = 0; shelf_id < highest_shelf_id; shelf_id++) {
-        TT_ASSERT(
-            galaxy_shelves_exit_chip_coords_per_y_dim.find(shelf_id) != galaxy_shelves_exit_chip_coords_per_y_dim.end(),
-            "Expected shelf {} to be connected to the next shelf",
-            shelf_id);
+        if (galaxy_shelves_exit_chip_coords_per_y_dim.find(shelf_id) ==
+            galaxy_shelves_exit_chip_coords_per_y_dim.end()) {
+            log_warning(LogUMD, "Expected shelf {} to be connected to the next shelf", shelf_id);
+        }
     }
 
     // this prints the exit chip coordinates for each shelf
@@ -716,10 +717,9 @@ void ClusterDescriptor::fill_galaxy_connections() {
     // this means that we expect the racks to be connected linearly in a daisy-chain fashion.
     // rack0->rack1->rack2->...->rackN
     for (int rack_id = 0; rack_id < highest_rack_id; rack_id++) {
-        TT_ASSERT(
-            galaxy_racks_exit_chip_coords_per_x_dim.find(rack_id) != galaxy_racks_exit_chip_coords_per_x_dim.end(),
-            "Expected rack {} to be connected to the next rack",
-            rack_id);
+        if (galaxy_racks_exit_chip_coords_per_x_dim.find(rack_id) == galaxy_racks_exit_chip_coords_per_x_dim.end()) {
+            log_warning(LogUMD, "Expected rack {} to be connected to the next rack", rack_id);
+        }
     }
 
     // this prints the exit chip coordinates for each rack

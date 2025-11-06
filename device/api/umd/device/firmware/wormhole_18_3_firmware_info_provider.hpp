@@ -27,7 +27,7 @@ public:
 
     double get_asic_temperature() const override;
 
-    DramTrainingStatus get_dram_training_status(uint32_t dram_channel) const override;
+    std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const override;
 
     uint32_t get_max_clock_freq() const override;
 

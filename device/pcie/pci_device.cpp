@@ -197,8 +197,8 @@ static PciDeviceInfo read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_devices(uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices()) {
+static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint32_t flags) {
+    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
             continue;
@@ -363,7 +363,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             LogUMD,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,
-            (void *)mappings.mapping_array[i].mapping_base,
+            reinterpret_cast<void *>(mappings.mapping_array[i].mapping_base),
             mappings.mapping_array[i].mapping_size);
     }
 
@@ -708,7 +708,9 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
 }
 
-void PCIDevice::reset_devices(TenstorrentResetDevice flag) { umd::reset_devices(static_cast<uint32_t>(flag)); }
+void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {
+    umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
+}
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
     int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
@@ -739,8 +741,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
     try {
         uint64_t iova = map_for_dma(dma_buf_mapping, dma_buf_alloc_size);
 
-        dma_buffer.buffer = (uint8_t *)dma_buf_mapping;
-        dma_buffer.completion = (uint8_t *)dma_buf_mapping + dma_buf_size;
+        dma_buffer.buffer = static_cast<uint8_t *>(dma_buf_mapping);
+        dma_buffer.completion = static_cast<uint8_t *>(dma_buf_mapping) + dma_buf_size;
         dma_buffer.buffer_pa = iova;
         dma_buffer.completion_pa = iova + dma_buf_size;
         dma_buffer.size = dma_buf_size;
@@ -781,8 +783,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
         } else {
             log_debug(
                 LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
-            dma_buffer.buffer = (uint8_t *)buffer;
-            dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
+            dma_buffer.buffer = static_cast<uint8_t *>(buffer);
+            dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
             dma_buffer.buffer_pa = dma_buf.out.physical_address;
             dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
             dma_buffer.size = dma_buf_size;

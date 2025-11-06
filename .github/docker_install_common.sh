@@ -50,3 +50,6 @@ wget https://apt.llvm.org/llvm.sh && \
 # Install clang-format
 apt install -y clang-format-17 && \
     ln -s /usr/bin/clang-format-17 /usr/bin/clang-format
+
+# Install clang-tidy-17
+apt-get install -y clang-tidy-17

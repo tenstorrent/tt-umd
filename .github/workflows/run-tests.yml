@@ -34,7 +34,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   TT_LOGGER_LEVEL: ${{ inputs.log-level }}
-  WHEEL_ARTIFACT_NAME: wheel-artifact-manylinux-${{ inputs.build-type }}
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
 jobs:
   test:
@@ -114,7 +114,7 @@ jobs:
       - name: Clean up old wheel artifacts
         run: |
           echo "Cleaning up old wheel artifacts in case of previous downloads..."
-          rm -f tt_umd-*.whl tt-umd-*.whl
+          rm -f tt_umd-*.whl
           rm -rf tests/
 
       - name: Use wheel artifact
@@ -136,7 +136,7 @@ jobs:
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel pytest
           echo "Installing the wheel..."
-          pip install *.whl --force-reinstall
+          pip install tt_umd-*.whl --force-reinstall
           echo "Installation complete."
           echo "Running tests..."
           .venv/bin/python -m pytest -s tests

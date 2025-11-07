@@ -8,7 +8,7 @@ Clang-tidy is a clang-based C++ "linter" tool that provides static analysis to f
 
 ### 1. CMake Integration
 
-A new build option `ENABLE_CLANG_TIDY` has been added to `CMakeLists.txt` that allows enabling clang-tidy checks during compilation:
+A new build option `TT_UMD_ENABLE_CLANG_TIDY` has been added to `CMakeLists.txt` that allows enabling clang-tidy checks during compilation:
 
 
 
@@ -45,7 +45,7 @@ The project uses two seprate configuration files:
 To enable clang-tidy both during the build process (applies the rules from `.clang-tidy-build`) and with clangd in the IDE (applies the rules from `.clang-tidy`) use the command:
 
 ```bash
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DENABLE_CLANG_TIDY=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DTT_UMD_ENABLE_CLANG_TIDY=ON
 ```
 
 To enable clang-tidy with clangd only in the IDE (applies the rules from `.clang-tidy`):
@@ -81,4 +81,4 @@ Note: The flag `TT_UMD_BUILD_TESTS` isn't necessary, but it's almost always used
 ### Performance Considerations
 
 - Clang-tidy analysis adds compilation time
-- Use `ENABLE_CLANG_TIDY=OFF` or omit the flag completely for faster development builds
+- Use `TT_UMD_ENABLE_CLANG_TIDY=OFF` or omit the flag completely for faster development builds

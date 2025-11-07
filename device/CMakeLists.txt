@@ -66,6 +66,7 @@ target_sources(
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp
         arch/blackhole_implementation.cpp
+        arch/grendel_implementation.cpp
         hugepage.cpp
         logging/config.cpp
         pcie/pci_device.cpp
@@ -216,6 +217,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 api/umd/device/tt_kmd_lib/tt_kmd_lib.h
+                api/umd/device/arch/grendel_implementation.hpp
     )
 endif()
 

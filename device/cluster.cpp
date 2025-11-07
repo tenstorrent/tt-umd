@@ -43,6 +43,7 @@
 #include "hugepage.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -1025,7 +1026,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     }
 
     // MT Initial BH - ARC messages not supported in Blackhole
-    if (arch_name != tt::ARCH::BLACKHOLE) {
+    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
             get_chip(chip)->enable_ethernet_queue();
         }

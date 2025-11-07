@@ -23,7 +23,11 @@ public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     static std::unique_ptr<SimulationChip> create(
-        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ClusterDescriptor* cluster_desc, ChipId chip_id, std::unordered_map<ChipId, std::unique_ptr<Chip>> * chips_to_clock);
+        const std::filesystem::path& simulator_directory,
+        SocDescriptor soc_descriptor,
+        ClusterDescriptor* cluster_desc,
+        ChipId chip_id,
+        std::unordered_map<ChipId, std::unique_ptr<Chip>>* chips_to_clock);
 
     virtual ~SimulationChip() = default;
 

@@ -7,12 +7,12 @@
 #include "tt_sim_chip_impl.hpp"
 
 #include <dlfcn.h>
+#include <fmt/format.h>
 
 #include <cstdlib>
 #include <filesystem>
-#include <fmt/format.h>
-#include <tuple>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
 
@@ -30,11 +30,14 @@ namespace tt::umd {
 static_assert(!std::is_abstract<TTSimChipImpl>(), "TTSimChipImpl must be non-abstract.");
 
 TTSimChipImpl::TTSimChipImpl(
-    const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc, ChipId chip_id, bool duplicate_simulator_directory) :
+    const std::filesystem::path& simulator_directory,
+    ClusterDescriptor* cluster_desc,
+    ChipId chip_id,
+    bool duplicate_simulator_directory) :
     chip_id_(chip_id),
     cluster_desc_(cluster_desc),
     architecture_impl_(architecture_implementation::create(cluster_desc_->get_arch(chip_id_))),
-    simulator_directory_ (simulator_directory) {
+    simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
@@ -62,7 +65,10 @@ TTSimChipImpl::TTSimChipImpl(
     }
 
     // dlopen the copied simulator library and dlsym the entry points.
-    libttsim_handle = dlopen(duplicate_simulator_directory ? copied_simulator_directory_.string().c_str() : simulator_directory_.string().c_str(), RTLD_LAZY);
+    libttsim_handle = dlopen(
+        duplicate_simulator_directory ? copied_simulator_directory_.string().c_str()
+                                      : simulator_directory_.string().c_str(),
+        RTLD_LAZY);
     if (!libttsim_handle) {
         TT_THROW("Failed to dlopen simulator library: ", dlerror());
     }
@@ -78,14 +84,17 @@ TTSimChipImpl::TTSimChipImpl(
 }
 
 void TTSimChipImpl::setup_ethernet_connections() {
-    auto get_remote_address = [](uint64_t unique_chip_id, EthernetChannel channel, uint64_t remote_chip_id, EthernetChannel remote_channel) -> std::tuple<std::string, bool> {
+    auto get_remote_address = [](uint64_t unique_chip_id,
+                                 EthernetChannel channel,
+                                 uint64_t remote_chip_id,
+                                 EthernetChannel remote_channel) -> std::tuple<std::string, bool> {
         // TODO: We need to uniquify the directory per test to avoid collisions
         // Currently this will only work for one test per host (the test could be simulating multi-host scenarios)
         // but separate individual tests could conflict
 
         // Create a deterministic ordering: smaller chip_id first, then smaller channel
-        bool is_server = (unique_chip_id < remote_chip_id) ||
-                        (unique_chip_id == remote_chip_id && channel < remote_channel);
+        bool is_server =
+            (unique_chip_id < remote_chip_id) || (unique_chip_id == remote_chip_id && channel < remote_channel);
 
         if (is_server) {
             return {fmt::format("{}_{}_{}_{}", unique_chip_id, channel, remote_chip_id, remote_channel), true};
@@ -98,16 +107,20 @@ void TTSimChipImpl::setup_ethernet_connections() {
         for (const auto& [channel, remote_chip_channel] : cluster_desc_->get_ethernet_connections().at(chip_id_)) {
             auto remote_chip_id = cluster_desc_->get_chip_unique_ids().at(std::get<0>(remote_chip_channel));
             auto remote_channel = std::get<1>(remote_chip_channel);
-            auto [remote_address, is_server] = get_remote_address(unique_chip_id, channel, remote_chip_id, remote_channel);
+            auto [remote_address, is_server] =
+                get_remote_address(unique_chip_id, channel, remote_chip_id, remote_channel);
             eth_connections_[channel].create_socket(remote_address, true, is_server);
         }
     }
-    if (cluster_desc_->get_ethernet_connections_to_remote_devices().find(chip_id_) != cluster_desc_->get_ethernet_connections_to_remote_devices().end()) {
+    if (cluster_desc_->get_ethernet_connections_to_remote_devices().find(chip_id_) !=
+        cluster_desc_->get_ethernet_connections_to_remote_devices().end()) {
         auto unique_chip_id = cluster_desc_->get_chip_unique_ids().at(chip_id_);
-        for (const auto& [channel, remote_chip_channel] : cluster_desc_->get_ethernet_connections_to_remote_devices().at(chip_id_)) {
+        for (const auto& [channel, remote_chip_channel] :
+             cluster_desc_->get_ethernet_connections_to_remote_devices().at(chip_id_)) {
             auto remote_chip_id = std::get<0>(remote_chip_channel);
             auto remote_channel = std::get<1>(remote_chip_channel);
-            auto [remote_address, is_server] = get_remote_address(unique_chip_id, channel, remote_chip_id, remote_channel);
+            auto [remote_address, is_server] =
+                get_remote_address(unique_chip_id, channel, remote_chip_id, remote_channel);
             eth_connections_[channel].create_socket(remote_address, true, is_server);
         }
     }
@@ -156,7 +169,12 @@ void TTSimChipImpl::close_device() {
 }
 
 void TTSimChipImpl::write_to_device(tt_xy_pair translated_core, const void* src, uint64_t l1_dest, uint32_t size) {
-    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, translated_core.str());
+    log_debug(
+        tt::LogEmulationDriver,
+        "Device writing {} bytes to l1_dest {} in core {}",
+        size,
+        l1_dest,
+        translated_core.str());
     pfn_libttsim_tile_wr_bytes(translated_core.x, translated_core.y, l1_dest, src, size);
 }
 
@@ -164,9 +182,7 @@ void TTSimChipImpl::read_from_device(tt_xy_pair translated_core, void* dest, uin
     pfn_libttsim_tile_rd_bytes(translated_core.x, translated_core.y, l1_src, dest, size);
 }
 
-void TTSimChipImpl::clock(uint32_t clock) {
-    pfn_libttsim_clock(clock);
-}
+void TTSimChipImpl::clock(uint32_t clock) { pfn_libttsim_clock(clock); }
 
 void TTSimChipImpl::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     if ((libttsim_pci_device_id == 0x401E) || (libttsim_pci_device_id == 0xB140)) {  // WH/BH
@@ -211,7 +227,8 @@ void TTSimChipImpl::assert_risc_reset(tt_xy_pair translated_core, const RiscType
     }
 }
 
-void TTSimChipImpl::deassert_risc_reset(tt_xy_pair translated_core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimChipImpl::deassert_risc_reset(
+    tt_xy_pair translated_core, const RiscType selected_riscs, bool staggered_start) {
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);

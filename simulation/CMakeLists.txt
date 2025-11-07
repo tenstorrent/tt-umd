@@ -20,7 +20,12 @@ target_link_libraries(
 target_include_directories(simulation_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../common)
 
 add_executable(child_process_tt_sim_chip ../device/simulation/child_process_tt_sim_chip.cpp)
-target_link_libraries(child_process_tt_sim_chip PRIVATE simulation_common device)
+target_link_libraries(
+    child_process_tt_sim_chip
+    PRIVATE
+        simulation_common
+        device
+)
 set_target_properties(
     child_process_tt_sim_chip
     PROPERTIES
@@ -30,8 +35,4 @@ set_target_properties(
             child_process_tt_sim_chip
 )
 
-add_custom_target(
-    umd_simulation
-    DEPENDS
-        child_process_tt_sim_chip
-)
+add_custom_target(umd_simulation DEPENDS child_process_tt_sim_chip)

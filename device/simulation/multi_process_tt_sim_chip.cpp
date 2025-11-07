@@ -5,14 +5,14 @@
  */
 
 #include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
-#include "process_manager.hpp"
-#include "message_data.hpp"
 
 #include <filesystem>
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "message_data.hpp"
+#include "process_manager.hpp"
 
 namespace tt::umd {
 
@@ -55,7 +55,8 @@ void MultiProcessTTSimChip::write_to_device(CoreCoord core, const void* src, uin
     msg_data.translated_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     msg_data.l1_dest = l1_dest;
     msg_data.size = size;
-    process_manager_->send_message_with_data_and_response(MessageType::WRITE_TO_DEVICE, &msg_data, sizeof(WriteMessageData), src, size);
+    process_manager_->send_message_with_data_and_response(
+        MessageType::WRITE_TO_DEVICE, &msg_data, sizeof(WriteMessageData), src, size);
 }
 
 void MultiProcessTTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
@@ -64,16 +65,18 @@ void MultiProcessTTSimChip::read_from_device(CoreCoord core, void* dest, uint64_
     msg_data.translated_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     msg_data.l1_src = l1_src;
     msg_data.size = size;
-    process_manager_->send_message_with_response(MessageType::READ_FROM_DEVICE, &msg_data, sizeof(ReadMessageData), dest, size);
+    process_manager_->send_message_with_response(
+        MessageType::READ_FROM_DEVICE, &msg_data, sizeof(ReadMessageData), dest, size);
 }
 
-
-void MultiProcessTTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
+void MultiProcessTTSimChip::send_tensix_risc_reset(
+    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::mutex> lock(device_lock);
     TensixResetMessageData msg_data;
     msg_data.translated_core = translated_core;
     msg_data.soft_resets = soft_resets;
-    process_manager_->send_message_with_response(MessageType::SEND_TENSIX_RISC_RESET, &msg_data, sizeof(TensixResetMessageData), nullptr, 0);
+    process_manager_->send_message_with_response(
+        MessageType::SEND_TENSIX_RISC_RESET, &msg_data, sizeof(TensixResetMessageData), nullptr, 0);
 }
 
 void MultiProcessTTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
@@ -85,7 +88,8 @@ void MultiProcessTTSimChip::assert_risc_reset(CoreCoord core, const RiscType sel
     AssertResetMessageData msg_data;
     msg_data.translated_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     msg_data.selected_riscs = selected_riscs;
-    process_manager_->send_message_with_response(MessageType::ASSERT_RISC_RESET, &msg_data, sizeof(AssertResetMessageData), nullptr, 0);
+    process_manager_->send_message_with_response(
+        MessageType::ASSERT_RISC_RESET, &msg_data, sizeof(AssertResetMessageData), nullptr, 0);
 }
 
 void MultiProcessTTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
@@ -95,7 +99,8 @@ void MultiProcessTTSimChip::deassert_risc_reset(CoreCoord core, const RiscType s
     msg_data.selected_riscs = selected_riscs;
     msg_data.staggered_start = staggered_start;
 
-    process_manager_->send_message_with_response(MessageType::DEASSERT_RISC_RESET, &msg_data, sizeof(DeassertResetMessageData), nullptr, 0);
+    process_manager_->send_message_with_response(
+        MessageType::DEASSERT_RISC_RESET, &msg_data, sizeof(DeassertResetMessageData), nullptr, 0);
 }
 
 bool MultiProcessTTSimChip::connect_eth_links() {

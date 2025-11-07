@@ -6,29 +6,26 @@
 
 #include "process_manager.hpp"
 
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
 #include <spawn.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <vector>
 
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "assert.hpp"
 #include "message_data.hpp"
 
 namespace tt::umd {
 
-ProcessManager::ProcessManager(ChipId chip_id)
-    : chip_id_(chip_id), child_running_(false), child_pid_(-1), parent_fd_(-1), child_fd_(-1) {
-}
+ProcessManager::ProcessManager(ChipId chip_id) :
+    chip_id_(chip_id), child_running_(false), child_pid_(-1), parent_fd_(-1), child_fd_(-1) {}
 
-ProcessManager::~ProcessManager() {
-    stop_child_process();
-}
+ProcessManager::~ProcessManager() { stop_child_process(); }
 
 void ProcessManager::create_sockets() {
     int fds[2];
@@ -46,8 +43,8 @@ void ProcessManager::close_fd() {
     }
 }
 
-void ProcessManager::start_child_process(const std::filesystem::path& simulator_directory,
-                                       ClusterDescriptor* cluster_desc) {
+void ProcessManager::start_child_process(
+    const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc) {
     if (child_running_) {
         log_warning(tt::LogEmulationDriver, "Child process already running for chip {}", chip_id_);
         return;
@@ -66,12 +63,12 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
     // Prepare command line arguments for the executable
     // Note: Arguments must match the expected format in child_process.cpp main()
     std::vector<std::string> args = {
-        child_process_executable,                      // argv[0] - executable path
-        std::to_string(child_fd_),                     // argv[1] - read fd
-        std::to_string(child_fd_),                     // argv[2] - write fd
-        std::to_string(chip_id_),                      // argv[3] - chip ID
-        simulator_directory.string(),                  // argv[4] - simulator directory
-        cluster_desc_file.string()                     // argv[5] - cluster descriptor file (mock)
+        child_process_executable,      // argv[0] - executable path
+        std::to_string(child_fd_),     // argv[1] - read fd
+        std::to_string(child_fd_),     // argv[2] - write fd
+        std::to_string(chip_id_),      // argv[3] - chip ID
+        simulator_directory.string(),  // argv[4] - simulator directory
+        cluster_desc_file.string()     // argv[5] - cluster descriptor file (mock)
     };
 
     // Convert to char* array for posix_spawn
@@ -79,7 +76,7 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
     for (auto& arg : args) {
         argv.push_back(const_cast<char*>(arg.c_str()));
     }
-    argv.push_back(nullptr); // null terminator
+    argv.push_back(nullptr);  // null terminator
 
     // Set up file actions for posix_spawn
     posix_spawn_file_actions_t file_actions;
@@ -89,8 +86,8 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
     posix_spawn_file_actions_addclose(&file_actions, parent_fd_);
 
     // Spawn the child process
-    int result = posix_spawn(&child_pid_, child_process_executable.c_str(), &file_actions,
-                            nullptr, argv.data(), environ);
+    int result =
+        posix_spawn(&child_pid_, child_process_executable.c_str(), &file_actions, nullptr, argv.data(), environ);
 
     posix_spawn_file_actions_destroy(&file_actions);
 
@@ -123,9 +120,8 @@ void ProcessManager::stop_child_process() {
     child_running_ = false;
 }
 
-
-void ProcessManager::send_message_with_response(MessageType type, const void* data, uint32_t data_size,
-                                              void* response_data, uint32_t response_size) {
+void ProcessManager::send_message_with_response(
+    MessageType type, const void* data, uint32_t data_size, void* response_data, uint32_t response_size) {
     if (!child_running_) {
         TT_THROW("Child process not running");
     }
@@ -189,9 +185,8 @@ void ProcessManager::send_message_with_response(MessageType type, const void* da
     }
 }
 
-
-void ProcessManager::send_message_with_data_and_response(MessageType type, const void* header_data, uint32_t header_size,
-                                                       const void* payload_data, uint32_t payload_size) {
+void ProcessManager::send_message_with_data_and_response(
+    MessageType type, const void* header_data, uint32_t header_size, const void* payload_data, uint32_t payload_size) {
     if (!child_running_) {
         TT_THROW("Child process not running");
     }
@@ -247,6 +242,5 @@ void ProcessManager::send_message_with_data_and_response(MessageType type, const
         TT_THROW("Invalid response message");
     }
 }
-
 
 }  // namespace tt::umd

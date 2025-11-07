@@ -19,7 +19,11 @@ namespace tt::umd {
 // TTSIM implementation using dynamic library (.so files).
 class TTSimChipImpl {
 public:
-    TTSimChipImpl(const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc, ChipId chip_id, bool duplicate_simulator_directory);
+    TTSimChipImpl(
+        const std::filesystem::path& simulator_directory,
+        ClusterDescriptor* cluster_desc,
+        ChipId chip_id,
+        bool duplicate_simulator_directory);
     ~TTSimChipImpl();
 
     void start_device();

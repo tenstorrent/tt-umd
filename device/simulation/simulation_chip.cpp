@@ -10,20 +10,25 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
-#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ClusterDescriptor* cluster_desc, ChipId chip_id, std::unordered_map<ChipId, std::unique_ptr<Chip>> * chips_to_clock) {
+    const std::filesystem::path& simulator_directory,
+    SocDescriptor soc_descriptor,
+    ClusterDescriptor* cluster_desc,
+    ChipId chip_id,
+    std::unordered_map<ChipId, std::unique_ptr<Chip>>* chips_to_clock) {
     if (simulator_directory.extension() == ".so") {
         if (utils::is_multiproc_sim_enabled()) {
             return std::make_unique<MultiProcessTTSimChip>(simulator_directory, soc_descriptor, cluster_desc, chip_id);
         } else {
-            return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, cluster_desc, chip_id, chips_to_clock);
+            return std::make_unique<TTSimChip>(
+                simulator_directory, soc_descriptor, cluster_desc, chip_id, chips_to_clock);
         }
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id);

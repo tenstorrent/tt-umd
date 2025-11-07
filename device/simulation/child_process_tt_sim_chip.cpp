@@ -4,66 +4,75 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "message_data.hpp"
-#include "tt_sim_chip_impl.hpp"
-
-#include <filesystem>
 #include <poll.h>
 #include <unistd.h>
+
 #include <cstring>
+#include <filesystem>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include <tt-logger/tt-logger.hpp>
-
 #include "assert.hpp"
+#include "message_data.hpp"
+#include "tt_sim_chip_impl.hpp"
+#include "umd/device/chip/chip.hpp"
+#include "umd/device/cluster.hpp"
 
 namespace tt::umd {
 
 // ChildProcessTTSimChip runs in the child process and handles the .so file interaction
 class ChildProcessTTSimChip {
-    public:
-        ChildProcessTTSimChip(ChipId chip_id, const std::filesystem::path& simulator_directory,
-                    ClusterDescriptor* cluster_desc,
-                    int read_fd, int write_fd);
-        ~ChildProcessTTSimChip();
+public:
+    ChildProcessTTSimChip(
+        ChipId chip_id,
+        const std::filesystem::path& simulator_directory,
+        ClusterDescriptor* cluster_desc,
+        int read_fd,
+        int write_fd);
+    ~ChildProcessTTSimChip();
 
-        // Main loop for the child process
-        int run();
+    // Main loop for the child process
+    int run();
 
-        // Message handlers
-        void handle_start_device();
-        void handle_close_device();
-        void handle_write_to_device(const void* data, uint32_t data_size);
-        std::vector<uint8_t> handle_read_from_device(const void* data, uint32_t data_size);
-        void handle_send_tensix_risc_reset(const void* data, uint32_t data_size);
-        void handle_assert_risc_reset(const void* data, uint32_t data_size);
-        void handle_deassert_risc_reset(const void* data, uint32_t data_size);
-        bool handle_connect_eth_links();
+    // Message handlers
+    void handle_start_device();
+    void handle_close_device();
+    void handle_write_to_device(const void* data, uint32_t data_size);
+    std::vector<uint8_t> handle_read_from_device(const void* data, uint32_t data_size);
+    void handle_send_tensix_risc_reset(const void* data, uint32_t data_size);
+    void handle_assert_risc_reset(const void* data, uint32_t data_size);
+    void handle_deassert_risc_reset(const void* data, uint32_t data_size);
+    bool handle_connect_eth_links();
 
-    private:
-        std::unique_ptr<TTSimChipImpl> impl_;
+private:
+    std::unique_ptr<TTSimChipImpl> impl_;
 
-        // Communication socket file descriptor (bidirectional)
-        int read_fd_;
-        int write_fd_;
+    // Communication socket file descriptor (bidirectional)
+    int read_fd_;
+    int write_fd_;
 
-        bool device_started_;
-        bool should_exit_;
+    bool device_started_;
+    bool should_exit_;
 
-        // Helper methods
-        void send_response(bool success = true, const void* data = nullptr, uint32_t data_size = 0);
+    // Helper methods
+    void send_response(bool success = true, const void* data = nullptr, uint32_t data_size = 0);
 
-        // Message reading helpers
-        bool read_message(Message& msg, std::vector<uint8_t>& data_buffer);
-        void process_message(const Message& msg, const std::vector<uint8_t>& data_buffer);
-    };
+    // Message reading helpers
+    bool read_message(Message& msg, std::vector<uint8_t>& data_buffer);
+    void process_message(const Message& msg, const std::vector<uint8_t>& data_buffer);
+};
 
-ChildProcessTTSimChip::ChildProcessTTSimChip(ChipId chip_id, const std::filesystem::path& simulator_directory, ClusterDescriptor* cluster_desc,
-                          int read_fd, int write_fd)
-    : impl_(std::make_unique<TTSimChipImpl>(simulator_directory, cluster_desc, chip_id, false)), read_fd_(read_fd), write_fd_(write_fd), device_started_(false), should_exit_(false) {
-}
+ChildProcessTTSimChip::ChildProcessTTSimChip(
+    ChipId chip_id,
+    const std::filesystem::path& simulator_directory,
+    ClusterDescriptor* cluster_desc,
+    int read_fd,
+    int write_fd) :
+    impl_(std::make_unique<TTSimChipImpl>(simulator_directory, cluster_desc, chip_id, false)),
+    read_fd_(read_fd),
+    write_fd_(write_fd),
+    device_started_(false),
+    should_exit_(false) {}
 
 ChildProcessTTSimChip::~ChildProcessTTSimChip() {
     should_exit_ = true;
@@ -160,12 +169,10 @@ void ChildProcessTTSimChip::process_message(const Message& msg, const std::vecto
             send_response();
             break;
 
-        case MessageType::READ_FROM_DEVICE:
-            {
-                std::vector<uint8_t> read_data = handle_read_from_device(data_buffer.data(), msg.size);
-                send_response(true, read_data.data(), read_data.size());
-            }
-            break;
+        case MessageType::READ_FROM_DEVICE: {
+            std::vector<uint8_t> read_data = handle_read_from_device(data_buffer.data(), msg.size);
+            send_response(true, read_data.data(), read_data.size());
+        } break;
 
         case MessageType::SEND_TENSIX_RISC_RESET:
             handle_send_tensix_risc_reset(data_buffer.data(), msg.size);
@@ -182,12 +189,10 @@ void ChildProcessTTSimChip::process_message(const Message& msg, const std::vecto
             send_response();
             break;
 
-        case MessageType::CONNECT_ETH_LINKS:
-            {
-                bool result = handle_connect_eth_links();
-                send_response(true, &result, sizeof(bool));
-            }
-            break;
+        case MessageType::CONNECT_ETH_LINKS: {
+            bool result = handle_connect_eth_links();
+            send_response(true, &result, sizeof(bool));
+        } break;
 
         case MessageType::EXIT:
             should_exit_ = true;
@@ -265,7 +270,10 @@ std::vector<uint8_t> ChildProcessTTSimChip::handle_read_from_device(const void* 
 
 void ChildProcessTTSimChip::handle_send_tensix_risc_reset(const void* data, uint32_t data_size) {
     if (data_size != sizeof(TensixResetMessageData)) {
-        TT_THROW("Invalid data size for tensix reset message: expected {}, got {}", sizeof(TensixResetMessageData), data_size);
+        TT_THROW(
+            "Invalid data size for tensix reset message: expected {}, got {}",
+            sizeof(TensixResetMessageData),
+            data_size);
     }
     const TensixResetMessageData* msg_data = static_cast<const TensixResetMessageData*>(data);
     impl_->send_tensix_risc_reset(msg_data->translated_core, msg_data->soft_resets);
@@ -273,7 +281,10 @@ void ChildProcessTTSimChip::handle_send_tensix_risc_reset(const void* data, uint
 
 void ChildProcessTTSimChip::handle_assert_risc_reset(const void* data, uint32_t data_size) {
     if (data_size != sizeof(AssertResetMessageData)) {
-        TT_THROW("Invalid data size for assert reset message: expected {}, got {}", sizeof(AssertResetMessageData), data_size);
+        TT_THROW(
+            "Invalid data size for assert reset message: expected {}, got {}",
+            sizeof(AssertResetMessageData),
+            data_size);
     }
     const AssertResetMessageData* msg_data = static_cast<const AssertResetMessageData*>(data);
     impl_->assert_risc_reset(msg_data->translated_core, msg_data->selected_riscs);
@@ -281,15 +292,16 @@ void ChildProcessTTSimChip::handle_assert_risc_reset(const void* data, uint32_t 
 
 void ChildProcessTTSimChip::handle_deassert_risc_reset(const void* data, uint32_t data_size) {
     if (data_size != sizeof(DeassertResetMessageData)) {
-        TT_THROW("Invalid data size for deassert reset message: expected {}, got {}", sizeof(DeassertResetMessageData), data_size);
+        TT_THROW(
+            "Invalid data size for deassert reset message: expected {}, got {}",
+            sizeof(DeassertResetMessageData),
+            data_size);
     }
     const DeassertResetMessageData* msg_data = static_cast<const DeassertResetMessageData*>(data);
     impl_->deassert_risc_reset(msg_data->translated_core, msg_data->selected_riscs, msg_data->staggered_start);
 }
 
-bool ChildProcessTTSimChip::handle_connect_eth_links() {
-    return impl_->connect_eth_links();
-}
+bool ChildProcessTTSimChip::handle_connect_eth_links() { return impl_->connect_eth_links(); }
 
 int child_process_main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -309,6 +321,4 @@ int child_process_main(int argc, char* argv[]) {
 }  // namespace tt::umd
 
 // Global main function for the executable
-int main(int argc, char* argv[]) {
-    return tt::umd::child_process_main(argc, argv);
-}
+int main(int argc, char* argv[]) { return tt::umd::child_process_main(argc, argv); }

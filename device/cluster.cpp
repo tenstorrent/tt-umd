@@ -51,7 +51,9 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
@@ -65,8 +67,6 @@
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
-#include "umd/device/simulation/tt_sim_chip.hpp"
-#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 
 extern bool umd_use_noc1;
 

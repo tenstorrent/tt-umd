@@ -5,20 +5,24 @@
  */
 
 #include "umd/device/simulation/tt_sim_chip.hpp"
-#include "tt_sim_chip_impl.hpp"
 
 #include <filesystem>
 #include <mutex>
 #include <unordered_map>
+
+#include "tt_sim_chip_impl.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
 
 TTSimChip::TTSimChip(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ClusterDescriptor* cluster_desc, ChipId chip_id, std::unordered_map<ChipId, std::unique_ptr<Chip>> * chips_to_clock) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id),
-    chips_to_clock_(chips_to_clock) {
+    const std::filesystem::path& simulator_directory,
+    SocDescriptor soc_descriptor,
+    ClusterDescriptor* cluster_desc,
+    ChipId chip_id,
+    std::unordered_map<ChipId, std::unique_ptr<Chip>>* chips_to_clock) :
+    SimulationChip(simulator_directory, soc_descriptor, chip_id), chips_to_clock_(chips_to_clock) {
     impl_ = std::make_unique<TTSimChipImpl>(simulator_directory, cluster_desc, chip_id, true);
 }
 
@@ -27,9 +31,7 @@ bool TTSimChip::connect_eth_links() {
     return impl_->connect_eth_links();
 }
 
-TTSimChip::~TTSimChip() {
-    impl_.reset();
-}
+TTSimChip::~TTSimChip() { impl_.reset(); }
 
 void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);

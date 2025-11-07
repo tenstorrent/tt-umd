@@ -19,10 +19,11 @@ class ProcessManager;
 // TTSIM implementation using dynamic library (.so files) with one process per chip.
 class MultiProcessTTSimChip : public SimulationChip {
 public:
-    MultiProcessTTSimChip(const std::filesystem::path& simulator_directory,
-                         SocDescriptor soc_descriptor,
-                         ClusterDescriptor* cluster_desc,
-                         ChipId chip_id);
+    MultiProcessTTSimChip(
+        const std::filesystem::path& simulator_directory,
+        SocDescriptor soc_descriptor,
+        ClusterDescriptor* cluster_desc,
+        ChipId chip_id);
     ~MultiProcessTTSimChip() override;
 
     void start_device() override;

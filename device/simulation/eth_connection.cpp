@@ -6,8 +6,6 @@
 
 #include "eth_connection.hpp"
 
-#include <cstddef>
-#include <cstring>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -15,13 +13,14 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <cstddef>
+#include <cstring>
+
 #include "assert.hpp"
 
 namespace tt::umd {
 
-EthConnection::~EthConnection() {
-    disconnect();
-}
+EthConnection::~EthConnection() { disconnect(); }
 
 void EthConnection::create_socket(const std::string& address, bool abstract_socket, bool is_server) {
     if (state_ != ConnectionState::DISCONNECTED) {
@@ -177,12 +176,8 @@ void EthConnection::disconnect() {
     state_ = ConnectionState::DISCONNECTED;
 }
 
-bool EthConnection::is_connected() const {
-    return state_ == ConnectionState::CONNECTED;
-}
+bool EthConnection::is_connected() const { return state_ == ConnectionState::CONNECTED; }
 
-std::pair<int, int> EthConnection::get_fds() const {
-    return std::make_pair(client_fd_, client_fd_);
-}
+std::pair<int, int> EthConnection::get_fds() const { return std::make_pair(client_fd_, client_fd_); }
 
 }  // namespace tt::umd

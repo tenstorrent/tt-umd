@@ -6,19 +6,16 @@
 
 #pragma once
 
-#include <string>
-#include <cstddef>
-#include <cstdint>
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+
 namespace tt::umd {
 
-enum class ConnectionState {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED
-};
+enum class ConnectionState { DISCONNECTED, CONNECTING, CONNECTED };
 
 class EthConnection {
 public:
@@ -30,6 +27,7 @@ public:
     bool is_connected() const;
     // Returns the write_fd and read_fd
     std::pair<int, int> get_fds() const;
+
 private:
     int client_fd_ = -1;
     int server_fd_ = -1;

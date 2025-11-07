@@ -8,5 +8,10 @@ Diagnostics:
     # 'CheckOptions:' must be a map (key: value), not a list.
     CheckOptions:
       readability-identifier-naming.ClassCase: CamelCase
-      readability-identifier-naming.ConstantCase: UPPER_CASE
+      # readability-identifier-naming.ConstantCase: UPPER_CASE
       readability-identifier-naming.FunctionCase: snake_case
+      readability-identifier-naming.ParameterCase: snake_case
+      readability-identifier-naming.ConstantParameterCase: snake_case
+      readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+      # readability-identifier-naming.LocalConstantCase: UPPER_CASE
+      readability-identifier-naming.ClassStaticConstantCase: UPPER_CASE

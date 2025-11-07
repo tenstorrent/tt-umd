@@ -50,8 +50,11 @@ public:
 
     TTDevice* get_local_device();
 
-protected:
+    // Get the active eth core that will be used for the next remote communication.
+    // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
+
+protected:
     void update_active_eth_core_idx();
 
     std::vector<tt_xy_pair> remote_transfer_eth_cores_;

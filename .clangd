@@ -1,3 +1,12 @@
-ClangTidy:
-  CheckOptions:
-    configfile: '.clang-tidy-ide'
+Diagnostics:
+  ClangTidy:
+    # 'Add:' is the correct key.
+    # To replace all default checks (which is what your 'Checks:' did),
+    # we first add '-*' to disable everything, then add the check you want.
+    Add: ['-*', 'readability-identifier-naming']
+
+    # 'CheckOptions:' must be a map (key: value), not a list.
+    CheckOptions:
+      readability-identifier-naming.ClassCase: CamelCase
+      readability-identifier-naming.ConstantCase: UPPER_CASE
+      readability-identifier-naming.FunctionCase: snake_case

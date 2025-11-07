@@ -67,7 +67,7 @@ TTSimChipImpl::TTSimChipImpl(
         TT_THROW("Failed to dlopen simulator library: ", dlerror());
     }
     DLSYM_FUNCTION(libttsim_init)
-    DLSYM_FUNCTION(libttsim_configure_eth_socket)
+    DLSYM_FUNCTION(libttsim_configure_eth_link)
     DLSYM_FUNCTION(libttsim_exit)
     DLSYM_FUNCTION(libttsim_pci_config_rd32)
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
@@ -113,7 +113,7 @@ void TTSimChipImpl::setup_ethernet_connections() {
     }
 }
 
-bool TTSimChipImpl::connect_eth_sockets() {
+bool TTSimChipImpl::connect_eth_links() {
     bool result = true;
     for (auto& [channel, eth_connection] : eth_connections_) {
         if (eth_connection.is_connected()) {
@@ -122,7 +122,7 @@ bool TTSimChipImpl::connect_eth_sockets() {
         bool connected = eth_connection.connect();
         if (connected) {
             auto [write_fd, read_fd] = eth_connection.get_fds();
-            pfn_libttsim_configure_eth_socket(channel, write_fd, read_fd);
+            pfn_libttsim_configure_eth_link(channel, write_fd, read_fd);
         } else {
             result = false;
         }
@@ -131,6 +131,7 @@ bool TTSimChipImpl::connect_eth_sockets() {
 }
 
 TTSimChipImpl::~TTSimChipImpl() {
+    eth_connections_.clear();
     dlclose(libttsim_handle);
     // Clean up the copied .so file
     if (!copied_simulator_directory_.empty() && std::filesystem::exists(copied_simulator_directory_)) {

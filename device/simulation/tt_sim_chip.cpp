@@ -22,13 +22,12 @@ TTSimChip::TTSimChip(
     impl_ = std::make_unique<TTSimChipImpl>(simulator_directory, cluster_desc, chip_id, true);
 }
 
-bool TTSimChip::connect_eth_sockets() {
+bool TTSimChip::connect_eth_links() {
     std::lock_guard<std::mutex> lock(device_lock);
-    return impl_->connect_eth_sockets();
+    return impl_->connect_eth_links();
 }
 
 TTSimChip::~TTSimChip() {
-    std::lock_guard<std::mutex> lock(device_lock);
     impl_.reset();
 }
 

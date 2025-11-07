@@ -34,7 +34,6 @@ MultiProcessTTSimChip::MultiProcessTTSimChip(
 }
 
 MultiProcessTTSimChip::~MultiProcessTTSimChip() {
-    std::lock_guard<std::mutex> lock(device_lock);
     if (process_manager_) {
         process_manager_->stop_child_process();
     }
@@ -99,10 +98,10 @@ void MultiProcessTTSimChip::deassert_risc_reset(CoreCoord core, const RiscType s
     process_manager_->send_message_with_response(MessageType::DEASSERT_RISC_RESET, &msg_data, sizeof(DeassertResetMessageData), nullptr, 0);
 }
 
-bool MultiProcessTTSimChip::connect_eth_sockets() {
+bool MultiProcessTTSimChip::connect_eth_links() {
     std::lock_guard<std::mutex> lock(device_lock);
     bool result = false;
-    process_manager_->send_message_with_response(MessageType::CONNECT_ETH_SOCKETS, nullptr, 0, &result, sizeof(bool));
+    process_manager_->send_message_with_response(MessageType::CONNECT_ETH_LINKS, nullptr, 0, &result, sizeof(bool));
     return result;
 }
 

@@ -33,7 +33,7 @@ public:
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets);
     void assert_risc_reset(tt_xy_pair translated_core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair translated_core, const RiscType selected_riscs, bool staggered_start);
-    bool connect_eth_sockets();
+    bool connect_eth_links();
 
 private:
     ChipId chip_id_;
@@ -47,7 +47,7 @@ private:
 
     void* libttsim_handle = nullptr;
     uint32_t libttsim_pci_device_id = 0;
-    void (*pfn_libttsim_configure_eth_socket)(uint32_t tile_id, int write_fd, int read_fd) = nullptr;
+    void (*pfn_libttsim_configure_eth_link)(uint32_t tile_id, int write_fd, int read_fd) = nullptr;
     void (*pfn_libttsim_init)() = nullptr;
     void (*pfn_libttsim_exit)() = nullptr;
     uint32_t (*pfn_libttsim_pci_config_rd32)(uint32_t bus_device_function, uint32_t offset) = nullptr;

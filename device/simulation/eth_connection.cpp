@@ -58,6 +58,13 @@ void EthConnection::create_socket(const std::string& address, bool abstract_sock
 
     if (!is_server) {
         client_fd_ = fd;
+        // Configure socket buffer sizes for client socket
+        if (setsockopt(client_fd_, SOL_SOCKET, SO_SNDBUF, &default_buffer_size_, sizeof(default_buffer_size_)) < 0) {
+            TT_THROW("Failed to set send buffer size for client socket: {}", strerror(errno));
+        }
+        if (setsockopt(client_fd_, SOL_SOCKET, SO_RCVBUF, &default_buffer_size_, sizeof(default_buffer_size_)) < 0) {
+            TT_THROW("Failed to set receive buffer size for client socket: {}", strerror(errno));
+        }
         return;
     }
 
@@ -145,7 +152,13 @@ bool EthConnection::connect() {
                 TT_THROW("Server socket failed to accept socket connection: {}", strerror(errno));
             }
         }
-
+        // Configure socket buffer sizes for accepted client socket
+        if (setsockopt(client_fd_, SOL_SOCKET, SO_SNDBUF, &default_buffer_size_, sizeof(default_buffer_size_)) < 0) {
+            TT_THROW("Failed to set send buffer size for accepted socket: {}", strerror(errno));
+        }
+        if (setsockopt(client_fd_, SOL_SOCKET, SO_RCVBUF, &default_buffer_size_, sizeof(default_buffer_size_)) < 0) {
+            TT_THROW("Failed to set receive buffer size for accepted socket: {}", strerror(errno));
+        }
         state_ = ConnectionState::CONNECTED;
         return true;
     }

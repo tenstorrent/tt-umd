@@ -19,7 +19,7 @@ enum class MessageType : uint32_t {
     SEND_TENSIX_RISC_RESET = 5,
     ASSERT_RISC_RESET = 6,
     DEASSERT_RISC_RESET = 7,
-    CONNECT_ETH_SOCKETS = 8,
+    CONNECT_ETH_LINKS = 8,
     EXIT = 9,
     RESPONSE = 10
 };

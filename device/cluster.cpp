@@ -516,9 +516,9 @@ Cluster::Cluster(ClusterOptions options) {
             initialized = true;
             for (const auto& [chip_id, chip] : chips_) {
                 if (utils::is_multiproc_sim_enabled()) {
-                    initialized = static_cast<MultiProcessTTSimChip*>(chip.get())->connect_eth_sockets() && initialized;
+                    initialized = static_cast<MultiProcessTTSimChip*>(chip.get())->connect_eth_links() && initialized;
                 } else {
-                    initialized = static_cast<TTSimChip*>(chip.get())->connect_eth_sockets() && initialized;
+                    initialized = static_cast<TTSimChip*>(chip.get())->connect_eth_links() && initialized;
                 }
             }
         }

@@ -8,6 +8,7 @@
 
 #include <string>
 #include <cstddef>
+#include <cstdint>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -36,6 +37,7 @@ private:
     bool is_server_ = false;
     struct sockaddr_un addr_;
     socklen_t addr_len_ = 0;
+    static constexpr uint32_t default_buffer_size_ = 5 * 1024;
 };
 
 }  // namespace tt::umd

@@ -102,8 +102,6 @@ void ProcessManager::start_child_process(const std::filesystem::path& simulator_
     }
 
     child_running_ = true;
-
-    log_info(tt::LogEmulationDriver, "Started child process {} for chip {}", child_pid_, chip_id_);
 }
 
 void ProcessManager::stop_child_process() {
@@ -123,8 +121,6 @@ void ProcessManager::stop_child_process() {
 
     close_fd();
     child_running_ = false;
-
-    log_info(tt::LogEmulationDriver, "Stopped child process for chip {}", chip_id_);
 }
 
 

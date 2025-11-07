@@ -35,7 +35,7 @@ public:
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
-    bool connect_eth_sockets();
+    bool connect_eth_links();
 
 private:
     std::unique_ptr<ProcessManager> process_manager_;

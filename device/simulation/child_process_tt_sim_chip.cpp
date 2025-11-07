@@ -40,7 +40,7 @@ class ChildProcessTTSimChip {
         void handle_send_tensix_risc_reset(const void* data, uint32_t data_size);
         void handle_assert_risc_reset(const void* data, uint32_t data_size);
         void handle_deassert_risc_reset(const void* data, uint32_t data_size);
-        bool handle_connect_eth_sockets();
+        bool handle_connect_eth_links();
 
     private:
         std::unique_ptr<TTSimChipImpl> impl_;
@@ -182,9 +182,9 @@ void ChildProcessTTSimChip::process_message(const Message& msg, const std::vecto
             send_response();
             break;
 
-        case MessageType::CONNECT_ETH_SOCKETS:
+        case MessageType::CONNECT_ETH_LINKS:
             {
-                bool result = handle_connect_eth_sockets();
+                bool result = handle_connect_eth_links();
                 send_response(true, &result, sizeof(bool));
             }
             break;
@@ -287,8 +287,8 @@ void ChildProcessTTSimChip::handle_deassert_risc_reset(const void* data, uint32_
     impl_->deassert_risc_reset(msg_data->translated_core, msg_data->selected_riscs, msg_data->staggered_start);
 }
 
-bool ChildProcessTTSimChip::handle_connect_eth_sockets() {
-    return impl_->connect_eth_sockets();
+bool ChildProcessTTSimChip::handle_connect_eth_links() {
+    return impl_->connect_eth_links();
 }
 
 int child_process_main(int argc, char* argv[]) {
@@ -301,9 +301,6 @@ int child_process_main(int argc, char* argv[]) {
     ChipId chip_id = std::stoi(argv[3]);
     const std::filesystem::path simulator_directory = argv[4];
     const std::filesystem::path cluster_descriptor_file = argv[5];
-    // TODO: cluster descriptor is only used for setting up ethernet connections
-    // Can we avoid serializing and deserializing the cluster descriptor here if we create the eth fds in the parent process
-    // and pass the eth core/fd map to the child process?
     auto cluster_desc = ClusterDescriptor::create_from_yaml(cluster_descriptor_file);
     ChildProcessTTSimChip child_process(chip_id, simulator_directory, cluster_desc.get(), read_fd, write_fd);
     return child_process.run();

@@ -81,4 +81,12 @@ void bind_basic_types(nb::module_ &m) {
         .def("__ge__", &semver_t::operator>=)
         .def("__eq__", &semver_t::operator==)
         .def("__ne__", &semver_t::operator!=);
+
+    // Utility functions for BoardType
+    m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
+    m.def(
+        "board_type_from_string",
+        &tt::board_type_from_string,
+        nb::arg("board_type_str"),
+        "Convert string to BoardType");
 }

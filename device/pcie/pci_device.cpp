@@ -674,7 +674,11 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     unpin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
-        TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
+        TT_THROW(
+            "Failed to unpin pages for DMA buffer at virtual address {:#x} and size {:#x}: {}",
+            vaddr,
+            size,
+            strerror(errno));
     }
 
     log_info(

@@ -180,62 +180,6 @@ void Cluster::log_pci_device_summary() {
     log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
-void Cluster::verify_fw_bundle_version() {
-    if (chips_.empty()) {
-        return;
-    }
-    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_firmware_version();
-
-    semver_t minimal_compatible_fw_version = FirmwareInfoProvider::get_minimum_compatible_firmware_version(
-        chips_.begin()->second->get_tt_device()->get_arch());
-
-    int compare_fw_bundles_result = semver_t::compare_firmware_bundle(fw_bundle_version, minimal_compatible_fw_version);
-
-    if (compare_fw_bundles_result == -1) {
-        throw std::runtime_error(fmt::format(
-            "Firmware version {} on the system is older than the minimum compatible version {} for {} architecture.",
-            fw_bundle_version.to_string(),
-            minimal_compatible_fw_version.to_string(),
-            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
-    }
-
-    semver_t latest_supported_fw_version = FirmwareInfoProvider::get_latest_supported_firmware_version(
-        chips_.begin()->second->get_tt_device()->get_arch());
-
-    int compare_fw_bundle_with_latest =
-        semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
-
-    if (compare_fw_bundle_with_latest == 1) {
-        log_warning(
-            LogUMD,
-            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
-            "features may not be supported.",
-            fw_bundle_version.to_string(),
-            latest_supported_fw_version.to_string(),
-            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
-    }
-
-    // TODO: Add a check for running proper FW version on Blackhole galaxy when the feature for unique ID on ETH core is
-    // properly released.
-
-    bool all_device_same_fw_bundle_version = true;
-    for (const auto& [chip_id, chip] : chips_) {
-        if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
-            log_warning(
-                LogUMD,
-                fmt::format(
-                    "Firmware bundle version mismatch for chip {}: expected {}, got {}",
-                    chip_id,
-                    fw_bundle_version.to_string(),
-                    chip->get_tt_device()->get_firmware_version().to_string()));
-            all_device_same_fw_bundle_version = false;
-        }
-    }
-    if (all_device_same_fw_bundle_version) {
-        log_info(LogUMD, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
-    }
-}
-
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
@@ -255,7 +199,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
-        verify_fw_bundle_version();
         log_device_summary();
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {

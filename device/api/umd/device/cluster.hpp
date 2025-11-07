@@ -669,8 +669,6 @@ private:
         const std::set<ChipId>& chips_to_exclude);
 
     // Test functions
-    // TODO: Move this check to TopologyDiscovery.
-    void verify_fw_bundle_version();
     void log_device_summary();
     void log_pci_device_summary();
     void verify_sysmem_initialized();

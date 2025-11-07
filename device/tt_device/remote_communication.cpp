@@ -66,8 +66,4 @@ void RemoteCommunication::update_active_eth_core_idx() {
     active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
 }
 
-tt_xy_pair RemoteCommunication::get_active_remote_transfer_eth_core() {
-    return remote_transfer_eth_cores_.at(active_eth_core_idx);
-}
-
 }  // namespace tt::umd

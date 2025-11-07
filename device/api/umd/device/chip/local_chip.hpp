@@ -111,6 +111,9 @@ private:
     TlbWindow* get_cached_uc_tlb_window(tlb_data config);
     TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
 
+    void enter_powersave();
+    void exit_powersave();
+
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;

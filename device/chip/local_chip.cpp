@@ -201,6 +201,7 @@ void LocalChip::start_device() {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();
     }
+    exit_powersave();
     initialize_membars();
 }
 
@@ -215,6 +216,7 @@ void LocalChip::close_device() {
             sysmem_manager_->unpin_or_unmap_sysmem();
         }
     }
+    enter_powersave();
     chip_started_lock_.reset();
 };
 
@@ -737,4 +739,31 @@ TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
     cached_pcie_dma_tlb_window->configure(config);
     return cached_pcie_dma_tlb_window.get();
 }
+
+void LocalChip::enter_powersave() {
+    switch (soc_descriptor_.arch) {
+        case tt::ARCH::BLACKHOLE: {
+            uint32_t ret = get_tt_device()->get_arc_messenger()->send_message(
+                ((uint32_t)blackhole::ArcMessageType::POWER_SETTING) | (0x3 << 8) | (0b000 << 16));
+            TT_ASSERT(ret == 0, "Failed to set power setting with exit code: {}", ret);
+          break;
+        }
+        default:
+          break;
+    }
+}
+
+void LocalChip::exit_powersave() {
+    switch (soc_descriptor_.arch) {
+        case tt::ARCH::BLACKHOLE: {
+            uint32_t ret = get_tt_device()->get_arc_messenger()->send_message(
+                ((uint32_t)blackhole::ArcMessageType::POWER_SETTING) | (0x3 << 8) | (0b111 << 16));
+            TT_ASSERT(ret == 0, "Failed to set power setting with exit code: {}", ret);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 }  // namespace tt::umd

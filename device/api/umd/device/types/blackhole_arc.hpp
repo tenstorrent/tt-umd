@@ -29,6 +29,7 @@ enum class ArcMessageType : uint8_t {
     READ_VM = 0x1D,
     I2C_MESSAGE = 0x1E,
     EFUSE_BURN_BITS = 0x1F,
+    POWER_SETTING = 0x21,
     FORCE_AICLK = 0x33,
     FORCE_VDD = 0x39,
     AICLK_GO_BUSY = 0x52,

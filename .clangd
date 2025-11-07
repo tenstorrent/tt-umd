@@ -1,0 +1,3 @@
+ClangTidy:
+  CheckOptions:
+    configfile: '.clang-tidy-ide'

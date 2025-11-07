@@ -525,6 +525,13 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        log_warning(
+            LogUMD,
+            "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin_pages.in.virtual_address),
+            fmt::format("{:#x}", pin_pages.in.size),
+            fmt::format("{:#x}", pin_pages.in.flags),
+            strerror(errno));
         return 0;
     }
 
@@ -567,7 +574,12 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+        TT_THROW(
+            "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin.in.virtual_address),
+            fmt::format("{:#x}", pin.in.size),
+            fmt::format("{:#x}", pin.in.flags),
+            strerror(errno));
     }
 
     log_info(
@@ -614,7 +626,12 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {} {}", strerror(errno), pin.in.flags);
+        TT_THROW(
+            "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin.in.virtual_address),
+            fmt::format("{:#x}", pin.in.size),
+            fmt::format("{:#x}", pin.in.flags),
+            strerror(errno));
     }
 
     log_info(
@@ -646,7 +663,12 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+        TT_THROW(
+            "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin_pages.in.virtual_address),
+            fmt::format("{:#x}", pin_pages.in.size),
+            fmt::format("{:#x}", pin_pages.in.flags),
+            strerror(errno));
     }
 
     log_info(
@@ -675,9 +697,9 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
         TT_THROW(
-            "Failed to unpin pages for DMA buffer at virtual address {:#x} and size {:#x}: {}",
-            vaddr,
-            size,
+            "Failed to unpin pages for DMA buffer at virtual address {} and size {}: {}",
+            fmt::format("{:#x}", vaddr),
+            fmt::format("{:#x}", size),
             strerror(errno));
     }
 

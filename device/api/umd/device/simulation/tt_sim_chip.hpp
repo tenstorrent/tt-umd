@@ -24,8 +24,7 @@ public:
         const std::filesystem::path& simulator_directory,
         SocDescriptor soc_descriptor,
         ClusterDescriptor* cluster_desc,
-        ChipId chip_id,
-        std::unordered_map<ChipId, std::unique_ptr<Chip>>* chips_to_clock);
+        ChipId chip_id);
     ~TTSimChip() override;
 
     void start_device() override;
@@ -42,11 +41,13 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
     bool connect_eth_links();
 
+    void set_chips_to_clock(std::unordered_map<ChipId, TTSimChip*> chips_to_clock);
+
 private:
     std::unique_ptr<TTSimChipImpl> impl_;
     // Used to clock all other chips in the cluster
     // This is used to ensure that we can make progress if there are any dependencies between chips
-    std::unordered_map<ChipId, std::unique_ptr<Chip>>* chips_to_clock_ = nullptr;
+    std::unordered_map<ChipId, TTSimChip*> chips_to_clock_;
 };
 
 }  // namespace tt::umd

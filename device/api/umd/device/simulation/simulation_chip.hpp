@@ -26,8 +26,7 @@ public:
         const std::filesystem::path& simulator_directory,
         SocDescriptor soc_descriptor,
         ClusterDescriptor* cluster_desc,
-        ChipId chip_id,
-        std::unordered_map<ChipId, std::unique_ptr<Chip>>* chips_to_clock);
+        ChipId chip_id);
 
     virtual ~SimulationChip() = default;
 

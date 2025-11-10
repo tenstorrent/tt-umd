@@ -423,6 +423,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
     desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, target_chip_ids);
     desc->io_device_type = full_cluster_desc->io_device_type;
+    desc->eth_fw_version = full_cluster_desc->eth_fw_version;
+    desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {

@@ -111,7 +111,7 @@ int wait_for_pci_bdf_to_reappear(
     }
 
     if (!device_reappeared) {
-        log_error(tt::LogUMD, "Timeout waiting for device at BDF {} to reappear.", bdf);
+        log_warning(tt::LogUMD, "Timeout waiting for device at BDF {} to reappear.", bdf);
         return -1;
     }
 
@@ -137,20 +137,22 @@ void WarmReset::warm_reset_arch_agnostic(
         PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_RESET);
     }
 
+    // Calculate post-reset wait time: use provided M3 timeout if M3 reset, otherwise scale based on device count
+    // (minimum 2 seconds, 0.4 seconds per device)
     auto post_reset_wait =
         reset_m3 ? reset_m3_timeout
                  : std::chrono::milliseconds(static_cast<int>(std::max(2.0, 0.4 * pci_devices_info.size()) * 1000));
 
     std::chrono::duration<double> post_reset_wait_seconds = post_reset_wait;
 
-    log_info(tt::LogUMD, "Waiting for {} seconds after reset execution.", post_reset_wait_seconds.count());
+    log_debug(tt::LogUMD, "Waiting for {} seconds after reset execution.", post_reset_wait_seconds.count());
     std::this_thread::sleep_for(post_reset_wait);
-    log_info(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
+    log_debug(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
 
     for (auto& pci_bdf : pci_bdfs) {
         auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
         if (new_id == -1) {
-            log_info(tt::LogUMD, "Reset failed.");
+            log_error(tt::LogUMD, "Reset failed.");
             return;
         }
     }

@@ -48,22 +48,8 @@ if(TARGET nanobind-static)
     )
 endif()
 
-# The problem that RPATH is solving is the following:
-# Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.
-# When the third party package tries to include tt_umd module, it will correctly find it. The module will then include the python bindings .so file
-# which is in the same folder and will be correctly found. However, the .so file itself requires libdevice.so (the umd library) file. The system tries to
-# find this in the default system lib directory, but it is not there. The RunPATH variable will say to this lib loading system that it should look for the
-# libdevice.so file in the same folder as the tt_umd module, which is where it is located.
-set_target_properties(
-    nanobind_tt_umd
-    PROPERTIES
-        BUILD_WITH_INSTALL_RPATH
-            true
-        INSTALL_RPATH
-            "$ORIGIN"
-)
-
 # Link the Python interface target to libdevice and nanobind
+# This is needed by BOTH build types, so it goes before the if/else.
 target_link_libraries(
     nanobind_tt_umd
     PRIVATE
@@ -71,23 +57,68 @@ target_link_libraries(
         fmt::fmt-header-only
 )
 
-# Install the Python module
-install(
-    TARGETS
-        nanobind_tt_umd
-    LIBRARY
-        DESTINATION .
-        COMPONENT python
-)
+if(TT_UMD_BUILD_PIP)
+    # --- PIP WHEEL LOGIC ---
+    # This is your original, correct logic for a pip wheel.
 
-# Install device library to root for Python package (co-located with the module)
-# Only when building Python bindings to avoid conflicts with main install
-if(TT_UMD_BUILD_PYTHON)
+    message(STATUS "Configuring Python bindings for pip wheel")
+
+    # The problem that RPATH is solving is the following:
+    # Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.
+    # When the third party package tries to include tt_umd module, it will correctly find it. The module will then include the python bindings .so file
+    # which is in the same folder and will be correctly found. However, the .so file itself requires libdevice.so (the umd library) file. The system tries to
+    # find this in the default system lib directory, but it is not there. The RunPATH variable will say to this lib loading system that it should look for the
+    # libdevice.so file in the same folder as the tt_umd module, which is where it is located.
+    set_target_properties(
+        nanobind_tt_umd
+        PROPERTIES
+            BUILD_WITH_INSTALL_RPATH
+                true
+            INSTALL_RPATH
+                "$ORIGIN"
+    )
+
+    # Install the Python module
+    install(
+        TARGETS
+            nanobind_tt_umd
+        LIBRARY
+            DESTINATION .
+            COMPONENT pip_wheel
+    )
+
+    # Install device library to root for Python package (co-located with the module)
+    # Only when building Python bindings to avoid conflicts with main install
     install(
         TARGETS
             device
         LIBRARY
             DESTINATION .
-            COMPONENT python
+            COMPONENT pip_wheel
     )
+else()
+    # --- FHS/CPACK LOGIC ---
+    # Configures the build for a .deb/.rpm package.
+    # RPATH is set to the system lib dir to find the 'umd-runtime' package.
+
+    message(STATUS "Configuring Python bindings for FHS package")
+
+    set_target_properties(
+        nanobind_tt_umd
+        PROPERTIES
+            INSTALL_RPATH
+                "${CMAKE_INSTALL_LIBDIR}"
+    )
+
+    # Install the Python module to the system-wide dist-packages directory.
+    install(
+        TARGETS
+            nanobind_tt_umd
+        LIBRARY
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/python3.10/dist-packages
+            COMPONENT umd-python
+    )
+
+    # We DO NOT install 'device' here.
+    # device/CMakeLists.txt already installs it for 'umd-runtime'.
 endif()

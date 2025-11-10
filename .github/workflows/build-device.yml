@@ -218,21 +218,21 @@ jobs:
 
       - name: Run test on example and package
         run: |
-          echo "Install .${{ matrix.pkg }} package"
+          echo "Install .${{ matrix.pkg.package }} package"
           PKG_DIR="./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
-          if [ "${{ matrix.pkg }}" = "deb" ]; then
-            sudo apt install $PKG_DIR/umd-dev-0.4.0-Linux.deb"
+
+          DEV_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-dev.${{ matrix.pkg.package }}"
+          RUNTIME_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-runtime.${{ matrix.pkg.package }}"
+
+          if [ "${{ matrix.pkg.package }}" = "deb" ]; then
+            sudo apt install -y "$DEV_PKG" "$RUNTIME_PKG"
           else
-            sudo dnf install "$PKG_DIR/umd-dev-0.4.0-Linux.rpm"
+            sudo dnf install -y "$DEV_PKG" "$RUNTIME_PKG"
           fi
 
           echo "Copy UMD examples"
           mkdir -p ./example_test
           cp -r ./tt-umd/examples/* ./example_test
-
-          echo "Copy CMake configuration"
-          mkdir -p ./cmake
-          cp ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example/* ./cmake
 
           echo "Build UMD examples (which are dependent on libdevice.so)"
           cd ./example_test

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core", "nanobind", "setuptools"]
+requires = ["scikit-build-core>=0.11", "nanobind", "setuptools"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -36,12 +36,12 @@ classifiers = [
 [tool.scikit-build]
 cmake.build-type = "Release"
 build-dir = "build/"
-# Only build the Python-related targets
-cmake.targets = ["nanobind_tt_umd", "device"]
+# Only build the Python-related targets (new key in scikit-build-core >= 0.10)
+build.targets = ["nanobind_tt_umd", "device"]
 # Exclude development files from the wheel
 wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
-# Install only Python components (exclude lib/, include/, etc.)
-install.components = ["python"]
+# Install only the 'pip_wheel' component defined in CMake (new key path)
+install.components = ["pip_wheel"]
 
 [tool.scikit-build.cmake.define]
 TT_UMD_BUILD_TOOLS = "OFF"

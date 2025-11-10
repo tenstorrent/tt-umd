@@ -67,7 +67,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     }
 }
 
-int wait_for_device_to_reappear(
+int wait_for_pci_bdf_to_reappear(
     const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
     log_info(tt::LogUMD, "Waiting for devices to reappear on pci bus.");
 
@@ -94,7 +94,6 @@ int wait_for_device_to_reappear(
                 std::string id_str = filename.substr(prefix.length());
                 interface_id = std::stoi(id_str);
 
-                // Check if device path exists.
                 std::string dev_path = fmt::format("/dev/tenstorrent/{}", interface_id);
                 if (std::filesystem::exists(dev_path)) {
                     device_reappeared = true;
@@ -149,7 +148,7 @@ void WarmReset::warm_reset_arch_agnostic(
     log_info(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
 
     for (auto& pci_bdf : pci_bdfs) {
-        auto new_id = wait_for_device_to_reappear(pci_bdf.second);
+        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
         if (new_id == -1) {
             log_info(tt::LogUMD, "Reset failed.");
             return;

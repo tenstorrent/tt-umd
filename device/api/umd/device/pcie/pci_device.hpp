@@ -278,6 +278,12 @@ public:
      */
     static tt::ARCH get_pcie_arch();
 
+    /**
+     * Checks if architecture-agnostic reset is supported by the device by checking the KMD version which enables this
+     * feature.
+     */
+    static bool is_arch_agnostic_reset_supported();
+
 public:
     // TODO: we can and should make all of these private.
     void *bar0_uc = nullptr;

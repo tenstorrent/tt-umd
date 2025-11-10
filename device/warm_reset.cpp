@@ -40,11 +40,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
 
-    // Perfrom check of driver version.
-    semver_t KMD_VERSION_WITH_NEW_RESET{2, 4, 1};
-
-    auto kmd_version = PCIDevice::read_kmd_version();
-    if (kmd_version >= KMD_VERSION_WITH_NEW_RESET) {
+    if (PCIDevice::is_arch_agnostic_reset_supported()) {
         warm_reset_arch_agnostic(pci_device_ids, reset_m3);
         return;
     }

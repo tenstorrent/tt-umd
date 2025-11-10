@@ -39,8 +39,9 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
-static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+static constexpr semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
+static constexpr semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+static constexpr semver_t kmd_ver_for_arch_agnostic_reset = semver_t{2, 4, 1};
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -870,6 +871,13 @@ tt::ARCH PCIDevice::get_pcie_arch() {
     }
 
     return cached_arch;
+}
+
+bool PCIDevice::is_arch_agnostic_reset_supported() {
+    if (PCIDevice::read_kmd_version() >= kmd_ver_for_arch_agnostic_reset) {
+        return true;
+    }
+    return false;
 }
 
 }  // namespace tt::umd

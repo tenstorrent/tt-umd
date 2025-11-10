@@ -148,6 +148,8 @@ void TopologyDiscovery::discover_remote_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
+        verify_fw_bundle_version(chip);
+
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             if (!verify_eth_core_fw_version(chip, eth_core)) {

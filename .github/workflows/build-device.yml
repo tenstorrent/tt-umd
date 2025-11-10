@@ -234,6 +234,10 @@ jobs:
           mkdir -p ./example_test
           cp -r ./tt-umd/examples/* ./example_test
 
+          echo "Copy CMake configuration"
+          mkdir -p ./cmake
+          cp ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example/* ./cmake
+
           echo "Build UMD examples (which are dependent on libdevice.so)"
           cd ./example_test
           cmake -B build -G Ninja

@@ -181,14 +181,17 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {os: ubuntu-22.04, compiler: clang},
           {os: ubuntu-22.04, compiler: gcc-12},
-          {os: ubuntu-24.04, compiler: clang},
           {os: ubuntu-24.04, compiler: gcc-12}
         ]
-        pkg: [deb, rpm]
+        pkg: [
+          {package: deb, distro: ubuntu},
+          {package: rpm, distro: fedora}
+        ]
 
-    name: Test ${{ matrix.pkg }} from ${{ matrix.build.os }}-${{ matrix.build.compiler }}
+    name: >-
+      Test ${{ matrix.pkg.package }} package on ${{ matrix.pkg.distro }} distro
+      (which was generated via ${{ matrix.build.os }}-${{ matrix.build.compiler }})
     runs-on: ubuntu-22.04
     container:
       image: >-
@@ -215,21 +218,23 @@ jobs:
 
       - name: Run test on example and package
         run: |
-          echo "Extract from .${{ matrix.pkg }} file"
+          echo "Install .${{ matrix.pkg }} package"
           PKG_DIR="./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
-          mkdir -p ./umd_so_lib
           if [ "${{ matrix.pkg }}" = "deb" ]; then
-            dpkg-deb --extract "$PKG_DIR/umd-dev-0.4.0-Linux.deb" ./umd_so_lib
+            sudo apt install $PKG_DIR/umd-dev-0.4.0-Linux.deb"
           else
-            rpm2cpio "$PKG_DIR/umd-dev-0.4.0-Linux.rpm" | (cd ./umd_so_lib && cpio -idmv)
+            sudo dnf install "$PKG_DIR/umd-dev-0.4.0-Linux.rpm"
           fi
 
+          echo "Copy UMD examples"
           mkdir -p ./example_test
           cp -r ./tt-umd/examples/* ./example_test
 
+          echo "Copy CMake configuration"
           mkdir -p ./cmake
           cp ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example/* ./cmake
 
+          echo "Build UMD examples (which are dependent on libdevice.so)"
           cd ./example_test
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_so_lib/usr
+          cmake -B build -G Ninja
           cmake --build ./build

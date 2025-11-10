@@ -16,6 +16,9 @@
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
@@ -338,5 +341,54 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
+
+bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
+    TTDevice* tt_device = chip->get_tt_device();
+
+    semver_t fw_bundle_version = tt_device->get_firmware_version();
+    if (!first_fw_bundle_version.has_value()) {
+        first_fw_bundle_version = fw_bundle_version;
+        log_info(LogUMD, "Established cluster firmware bundle version: {}", fw_bundle_version.to_string());
+        semver_t minimum_compatible_fw_bundle_version =
+            FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device->get_arch());
+        semver_t latest_supported_fw_bundle_version =
+            FirmwareInfoProvider::get_latest_supported_firmware_version(tt_device->get_arch());
+        log_debug(
+            LogUMD,
+            "UMD supported firmware bundle versions: {} - {}",
+            minimum_compatible_fw_bundle_version.to_string(),
+            latest_supported_fw_bundle_version.to_string());
+
+        TT_ASSERT(
+            semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) < 0,
+            "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
+            "architecture.",
+            fw_bundle_version.to_string(),
+            minimum_compatible_fw_bundle_version.to_string(),
+            arch_to_str(tt_device->get_arch()));
+
+        if (semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_bundle_version) > 0) {
+            log_warning(
+                LogUMD,
+                "Firmware bundle version {} on the system is newer than the maximum supported version {} for {} "
+                "architecture. New features may not be supported.",
+                fw_bundle_version.to_string(),
+                latest_supported_fw_bundle_version.to_string(),
+                arch_to_str(tt_device->get_arch()));
+        }
+    } else {
+        if (fw_bundle_version != first_fw_bundle_version.value()) {
+            log_warning(
+                LogUMD,
+                fmt::format(
+                    "Firmware bundle version mismatch for device {}: expected {}, got {}",
+                    get_asic_id(chip),
+                    fw_bundle_version.to_string(),
+                    chip->get_tt_device()->get_firmware_version().to_string()));
+            return false;
+        }
+    }
+    return true;
+}
 
 }  // namespace tt::umd

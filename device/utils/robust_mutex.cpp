@@ -15,7 +15,7 @@
 #include <sys/file.h>  // flock
 #include <sys/stat.h>  // for fstat
 #include <time.h>      // clock_gettime, timespec
-#include <unistd.h>    // ftruncate, close, getpid
+#include <unistd.h>    // ftruncate, close, gettid
 
 #include <chrono>
 #include <stdexcept>
@@ -249,7 +249,7 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
     // Initialize owner PID to 0 (no owner).
-    mutex_wrapper_ptr_->owner_pid = 0;
+    mutex_wrapper_ptr_->owner_tid = 0;
 }
 
 size_t RobustMutex::get_file_size(int fd) {
@@ -281,7 +281,7 @@ void RobustMutex::close_mutex() noexcept {
 
 void RobustMutex::unlock() {
     // Clear the owner PID before unlocking.
-    mutex_wrapper_ptr_->owner_pid = 0;
+    mutex_wrapper_ptr_->owner_tid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         TT_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
@@ -312,7 +312,7 @@ void RobustMutex::lock() {
         } else if (lock_res == ETIMEDOUT) {
             // Timeout occurred - log a message about waiting.
             // Note that we can enter here only as a result of timedlock version.
-            pid_t owner = mutex_wrapper_ptr_->owner_pid;
+            pid_t owner = mutex_wrapper_ptr_->owner_tid;
             log_warning(LogUMD, "Waiting for lock '{}' which is currently held by process PID: {}", mutex_name_, owner);
 
             // Now block until we get the lock.
@@ -325,7 +325,7 @@ void RobustMutex::lock() {
     }
 
     // lock_res is 0, so this is a success case.
-    mutex_wrapper_ptr_->owner_pid = getpid();
+    mutex_wrapper_ptr_->owner_tid = gettid();
 }
 
 }  // namespace tt::umd

@@ -49,7 +49,7 @@ private:
     struct pthread_mutex_wrapper {
         pthread_mutex_t mutex;
         uint64_t initialized;
-        pid_t owner_pid;  // PID of the process holding the lock, 0 if no owner
+        pid_t owner_tid;  // PID of the process holding the lock, 0 if no owner
     };
 
     // Closes the mutex, doesn't remove the backing mutex file.

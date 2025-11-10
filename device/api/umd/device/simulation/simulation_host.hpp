@@ -23,6 +23,7 @@ public:
     void start_host();
     void send_to_device(uint8_t *buf, size_t buf_size);
     size_t recv_from_device(void **data_ptr);
+    bool try_recv_from_device_with_timeout(void **data_ptr, size_t *data_size, int timeout_ms);
 
 private:
     std::unique_ptr<nng_socket> host_socket;

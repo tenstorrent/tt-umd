@@ -126,12 +126,39 @@ void RtlSimulationChip::start_device() {
 
     host.start_host();
 
-    log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote...");
-    size_t buf_size = host.recv_from_device(&buf_ptr);
+    log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote (timeout: 5 minutes)...");
+
+    // 5 minutes timeout with 100ms polling intervals
+    const int timeout_ms = 5 * 60 * 1000;  // 5 minutes in milliseconds
+    const int poll_interval_ms = 100;      // Poll every 100ms
+    const int max_attempts = timeout_ms / poll_interval_ms;
+
+    size_t buf_size = 0;
+    bool received = false;
+
+    for (int attempt = 0; attempt < max_attempts; ++attempt) {
+        if (host.try_recv_from_device_with_timeout(&buf_ptr, &buf_size, poll_interval_ms)) {
+            received = true;
+            break;
+        }
+
+        // Log progress every 30 seconds
+        if (attempt > 0 && (attempt * poll_interval_ms) % 30000 == 0) {
+            int elapsed_seconds = (attempt * poll_interval_ms) / 1000;
+            log_info(tt::LogEmulationDriver, "Still waiting for client connection... ({}s elapsed)", elapsed_seconds);
+        }
+    }
+
+    if (!received) {
+        TT_THROW("Timeout waiting for simulator client to connect after 5 minutes");
+    }
+
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
     TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
+
+    log_info(tt::LogEmulationDriver, "Successfully connected to simulator client");
 }
 
 void RtlSimulationChip::close_device() {

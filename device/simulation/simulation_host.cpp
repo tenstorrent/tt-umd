@@ -135,4 +135,29 @@ size_t SimulationHost::recv_from_device(void **data_ptr) {
     return data_size;
 }
 
+bool SimulationHost::try_recv_from_device_with_timeout(void **data_ptr, size_t *data_size, int timeout_ms) {
+    int rv;
+    log_info(tt::LogEmulationDriver, "Trying to receive message from remote with timeout {}ms...", timeout_ms);
+
+    // Set receive timeout
+    nng_duration timeout = timeout_ms;
+    rv = nng_socket_set_ms(*host_socket, NNG_OPT_RECVTIMEO, timeout);
+    if (rv != 0) {
+        log_info(tt::LogEmulationDriver, "Failed to set receive timeout: {}", nng_strerror(rv));
+        return false;
+    }
+
+    rv = nng_recv(*host_socket, data_ptr, data_size, NNG_FLAG_ALLOC);
+    if (rv == 0) {
+        log_info(tt::LogEmulationDriver, "Message received successfully.");
+        return true;
+    } else if (rv == NNG_ETIMEDOUT) {
+        log_info(tt::LogEmulationDriver, "Receive timeout occurred.");
+        return false;
+    } else {
+        log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
+        return false;
+    }
+}
+
 }  // namespace tt::umd

@@ -69,7 +69,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
 
 int wait_for_pci_bdf_to_reappear(
     const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
-    log_info(tt::LogUMD, "Waiting for devices to reappear on pci bus.");
+    log_debug(tt::LogUMD, "Waiting for devices to reappear on pci bus.");
 
     auto deadline = std::chrono::steady_clock::now() + timeout_ms;
     bool device_reappeared = false;
@@ -290,7 +290,7 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
     log_info(
         tt::LogUMD,
-        "Executing command: {}",
+        "Starting reset. Executing command: {}",
         utils::convert_to_space_separated_string(
             ipmi_tool_command,
             utils::to_hex_string(ubb_num),
@@ -340,7 +340,7 @@ void WarmReset::ubb_wait_for_driver_load(const std::chrono::milliseconds timeout
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::steady_clock::now() - start < timeout_ms) {
         if (pci_devices.size() == NUMBER_OF_PCIE_DEVICES) {
-            log_info(tt::LogUMD, "Found all {} PCIe devices", NUMBER_OF_PCIE_DEVICES);
+            log_debug(tt::LogUMD, "Found all {} PCIe devices", NUMBER_OF_PCIE_DEVICES);
             return;
         }
         sleep(1);
@@ -358,9 +358,9 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     static int constexpr RESET_TIME = 0xF;
 
     wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
-    log_info(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
-    std::this_thread::sleep_for(UBB_POST_RESET_WAIT);
-    log_info(tt::LogUMD, "30 seconds elapsed after reset execution.");
+    log_debug(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
+    sleep(30);
+    log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
 }
 

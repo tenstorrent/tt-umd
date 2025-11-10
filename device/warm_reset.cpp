@@ -45,7 +45,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
 
     auto kmd_version = PCIDevice::read_kmd_version();
     if (kmd_version >= KMD_VERSION_WITH_NEW_RESET) {
-        warm_reset_new(pci_device_ids, reset_m3);
+        warm_reset_arch_agnostic(pci_device_ids, reset_m3);
         return;
     }
 
@@ -54,13 +54,13 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            warm_reset_wormhole(pci_device_ids, reset_m3);
+            warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
             return;
         case ARCH::BLACKHOLE:
             if (reset_m3) {
                 log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
             }
-            warm_reset_blackhole(pci_device_ids);
+            warm_reset_blackhole_legacy(pci_device_ids);
             return;
         default:
             return;
@@ -119,7 +119,7 @@ int wait_for_device_to_reappear(
     return interface_id;
 }
 
-void WarmReset::warm_reset_new(
+void WarmReset::warm_reset_arch_agnostic(
     std::vector<int> pci_device_ids, bool reset_m3, std::chrono::milliseconds reset_m3_timeout) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
@@ -159,7 +159,7 @@ void WarmReset::warm_reset_new(
     PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::POST_RESET);
 }
 
-void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
+void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
     PCIDevice::reset_device_ioctl(pci_device_ids_set, tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
 
@@ -211,7 +211,7 @@ void WarmReset::warm_reset_blackhole(std::vector<int> pci_device_ids) {
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 }
 
-void WarmReset::warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3) {
+void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3) {
     bool reset_ok = true;
     static constexpr uint16_t default_arg_value = 0xFFFF;
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;

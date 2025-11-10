@@ -24,11 +24,11 @@ private:
     static constexpr auto POST_RESET_WAIT = std::chrono::milliseconds(2'000);
     static constexpr auto UBB_POST_RESET_WAIT = std::chrono::milliseconds(30'000);
 
-    static void warm_reset_blackhole(std::vector<int> pci_device_ids);
+    static void warm_reset_blackhole_legacy(std::vector<int> pci_device_ids);
 
-    static void warm_reset_wormhole(std::vector<int> pci_device_ids, bool reset_m3);
+    static void warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3);
 
-    static void warm_reset_new(
+    static void warm_reset_arch_agnostic(
         std::vector<int> pci_device_ids,
         bool reset_m3,
         std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT);

@@ -225,9 +225,9 @@ jobs:
           RUNTIME_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-runtime.${{ matrix.pkg.package }}"
 
           if [ "${{ matrix.pkg.package }}" = "deb" ]; then
-            sudo apt install -y "$DEV_PKG" "$RUNTIME_PKG"
+            apt install -y "$DEV_PKG" "$RUNTIME_PKG"
           else
-            sudo dnf install -y "$DEV_PKG" "$RUNTIME_PKG"
+            dnf install -y "$DEV_PKG" "$RUNTIME_PKG"
           fi
 
           echo "Copy UMD examples"

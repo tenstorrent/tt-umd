@@ -104,7 +104,7 @@ int wait_for_pci_bdf_to_reappear(
         globfree(&glob_result);
 
         if (!device_reappeared) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL);
             continue;
         }
         break;

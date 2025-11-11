@@ -116,9 +116,6 @@ void SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     int rv;
     log_debug(tt::LogEmulationDriver, "Sending messsage to remote..");
 
-    void *msg = nng_alloc(buf_size);
-    std::memcpy(msg, buf, buf_size);
-
     // Set timeout for send operations
     nng_duration timeout = SEND_TIMEOUT_MS;
     rv = nng_socket_set_ms(*host_socket, NNG_OPT_SENDTIMEO, timeout);
@@ -126,22 +123,36 @@ void SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
         log_info(tt::LogEmulationDriver, "Failed to set send timeout: {}", nng_strerror(rv));
     }
 
-    rv = nng_send(*host_socket, msg, buf_size, NNG_FLAG_ALLOC);
+    int attempt = 0;
+    while (true) {
+        void *msg = nng_alloc(buf_size);
+        std::memcpy(msg, buf, buf_size);
 
-    if (rv == NNG_ETIMEDOUT) {
-        // Check if child process is still alive on timeout
-        if (!is_child_process_alive()) {
-            TT_THROW("Send timeout: Simulator child process has terminated unexpectedly");
-        } else {
-            TT_THROW("Send timeout after {}ms: Failed to send message to remote", SEND_TIMEOUT_MS);
+        rv = nng_send(*host_socket, msg, buf_size, NNG_FLAG_ALLOC);
+
+        if (rv == 0) {
+            log_debug(tt::LogEmulationDriver, "Message sent successfully{}", attempt > 0 ? " after retry" : "");
+            return;
         }
-    } else if (rv != 0) {
-        log_info(tt::LogEmulationDriver, "Failed to send message to remote: {}", nng_strerror(rv));
-        TT_THROW("Failed to send message to remote: {}", nng_strerror(rv));
-    }
 
-    if (rv == 0) {
-        log_debug(tt::LogEmulationDriver, "Message sent.");
+        if (rv == NNG_ETIMEDOUT) {
+            // Check if child process is still alive on timeout
+            if (!is_child_process_alive()) {
+                TT_THROW("Send timeout: Simulator child process has terminated unexpectedly");
+            } else {
+                ++attempt;
+                log_info(
+                    tt::LogEmulationDriver,
+                    "Send timeout after {}ms, retrying... (attempt {})",
+                    SEND_TIMEOUT_MS,
+                    attempt);
+                continue;  // Retry forever while process is alive
+            }
+        } else {
+            // Other errors - don't retry, just throw
+            log_info(tt::LogEmulationDriver, "Failed to send message to remote: {}", nng_strerror(rv));
+            TT_THROW("Failed to send message to remote: {}", nng_strerror(rv));
+        }
     }
 }
 
@@ -157,24 +168,34 @@ size_t SimulationHost::recv_from_device(void **data_ptr) {
         log_info(tt::LogEmulationDriver, "Failed to set receive timeout: {}", nng_strerror(rv));
     }
 
-    rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
+    int attempt = 0;
+    while (true) {
+        rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
 
-    if (rv == NNG_ETIMEDOUT) {
-        // Check if child process is still alive on timeout
-        if (!is_child_process_alive()) {
-            TT_THROW("Receive timeout: Simulator child process has terminated unexpectedly");
-        } else {
-            TT_THROW("Receive timeout after {}ms: Failed to receive message from remote", RECV_TIMEOUT_MS);
+        if (rv == 0) {
+            log_debug(tt::LogEmulationDriver, "Message received successfully{}", attempt > 0 ? " after retry" : "");
+            return data_size;
         }
-    } else if (rv != 0) {
-        log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
-        TT_THROW("Failed to receive message from remote: {}", nng_strerror(rv));
-    }
 
-    if (rv == 0) {
-        log_debug(tt::LogEmulationDriver, "Message received.");
+        if (rv == NNG_ETIMEDOUT) {
+            // Check if child process is still alive on timeout
+            if (!is_child_process_alive()) {
+                TT_THROW("Receive timeout: Simulator child process has terminated unexpectedly");
+            } else {
+                ++attempt;
+                log_info(
+                    tt::LogEmulationDriver,
+                    "Receive timeout after {}ms, retrying... (attempt {})",
+                    RECV_TIMEOUT_MS,
+                    attempt);
+                continue;  // Retry forever while process is alive
+            }
+        } else {
+            // Other errors - don't retry, just throw
+            log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
+            TT_THROW("Failed to receive message from remote: {}", nng_strerror(rv));
+        }
     }
-    return data_size;
 }
 
 void SimulationHost::start_simulator(const std::filesystem::path &simulator_directory) {

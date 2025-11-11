@@ -57,6 +57,7 @@ target_link_libraries(
         fmt::fmt-header-only
 )
 
+option(TT_UMD_BUILD_PIP "By default build pip package" ON)
 if(TT_UMD_BUILD_PIP)
     # --- PIP WHEEL LOGIC ---
     # This is your original, correct logic for a pip wheel.

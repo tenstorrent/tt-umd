@@ -230,13 +230,30 @@ jobs:
           path: tt-umd
           submodules: recursive
 
-      - name: Download Packages Artifact
+      # For RPM tests, prefer artifacts built on ubuntu-24.04 (Python 3.12) to match Fedora's ABI.
+      - name: Download Packages Artifact (RPM uses ubuntu-24.04)
+        if: ${{ matrix.pkg.package == 'rpm' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: tt-umd-ubuntu-24.04-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-ubuntu-24.04-${{ matrix.build.compiler }}-package
+
+      - name: Download Packages Artifact (DEB uses matrix OS)
+        if: ${{ matrix.pkg.package == 'deb' }}
         uses: actions/download-artifact@v4
         with:
           name: tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}
           path: ./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package
 
-      - name: Download Examples Artifact
+      - name: Download Examples Artifact (RPM uses ubuntu-24.04)
+        if: ${{ matrix.pkg.package == 'rpm' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: tt-umd-examples-ubuntu-24.04-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-examples-ubuntu-24.04-${{ matrix.build.compiler }}-example
+
+      - name: Download Examples Artifact (DEB uses matrix OS)
+        if: ${{ matrix.pkg.package == 'deb' }}
         uses: actions/download-artifact@v4
         with:
           name: tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}
@@ -252,8 +269,14 @@ jobs:
       - name: Run test on example and python with packages
         run: |
           echo "Install .${{ matrix.pkg.package }} package"
-          PKG_DIR="./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
-          PY_PKG_DIR="./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
+          # Select package dir based on package format (rpm pulls from ubuntu-24.04 artifacts)
+          if [ "${{ matrix.pkg.package }}" = "rpm" ]; then
+            PKG_DIR="./downloaded-artifact/tt-umd-ubuntu-24.04-${{ matrix.build.compiler }}-package"
+            PY_PKG_DIR="./downloaded-artifact/tt-umd-python-ubuntu-24.04-${{ matrix.build.compiler }}-package"
+          else
+            PKG_DIR="./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
+            PY_PKG_DIR="./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
+          fi
 
           DEV_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-dev.${{ matrix.pkg.package }}"
           RUNTIME_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-runtime.${{ matrix.pkg.package }}"

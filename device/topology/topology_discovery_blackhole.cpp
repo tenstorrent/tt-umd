@@ -12,6 +12,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"

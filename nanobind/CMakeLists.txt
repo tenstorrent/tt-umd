@@ -60,7 +60,6 @@ target_link_libraries(
 option(TT_UMD_BUILD_PIP "By default build pip package" ON)
 if(TT_UMD_BUILD_PIP)
     # --- PIP WHEEL LOGIC ---
-    # This is your original, correct logic for a pip wheel.
 
     message(STATUS "Configuring Python bindings for pip wheel")
 
@@ -88,9 +87,16 @@ if(TT_UMD_BUILD_PIP)
             COMPONENT pip_wheel
     )
 
+    # Make co-locating libdevice optional to mirror previous behavior
+    if(NOT DEFINED TT_UMD_BUILD_PYTHON)
+        option(TT_UMD_BUILD_PYTHON "Install libdevice next to Python module" ON)
+    endif()
+
     # Install device library to root for Python package (co-located with the module)
     # Only when building Python bindings to avoid conflicts with main install
-    install(FILES $<TARGET_FILE:umd::device> DESTINATION . COMPONENT pip_wheel)
+    if(TT_UMD_BUILD_PYTHON)
+        install(FILES $<TARGET_FILE:umd::device> DESTINATION . COMPONENT pip_wheel)
+    endif()
 else()
     # --- FHS/CPACK LOGIC ---
     # Configures the build for a .deb/.rpm package.

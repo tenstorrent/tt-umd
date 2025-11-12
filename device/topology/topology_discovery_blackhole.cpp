@@ -294,16 +294,16 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     semver_t eth_fw_version = semver_t(major, minor, patch);
 
     bool eth_fw_problem = false;
-    if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Found ETH FW version from first core: {}", eth_fw_version.to_string());
-        first_eth_fw_version = eth_fw_version;
+    if (!expected_eth_fw_version.has_value()) {
+        log_info(LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
+        expected_eth_fw_version = eth_fw_version;
         if (BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
     }
 
-    if (eth_fw_version != first_eth_fw_version) {
+    if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
             "ETH FW version mismatch for chip {} ETH core {}, found: {}.",

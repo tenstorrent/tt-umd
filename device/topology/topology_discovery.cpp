@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -140,6 +141,7 @@ void TopologyDiscovery::discover_remote_chips() {
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
     }
 
+    bool eth_core_exists = false;
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -150,6 +152,9 @@ void TopologyDiscovery::discover_remote_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
+        if (eth_cores.size() > 0) {
+            eth_core_exists = true;
+        }
 
         verify_fw_bundle_version(chip);
 
@@ -216,6 +221,10 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             channel++;
         }
+    }
+    // Do not pass an ETH FW version to ClusterDescriptor if there are no ETH cores discovered.
+    if (!eth_core_exists) {
+        expected_eth_fw_version = std::nullopt;
     }
 
     patch_eth_connections();
@@ -307,7 +316,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         }
     }
     cluster_desc->io_device_type = options.io_device_type;
-    cluster_desc->eth_fw_version = first_eth_fw_version;
+    cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();
 
@@ -399,7 +408,11 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
     auto expected_eth_fw_version = get_expected_erisc_fw_version_from_fw_bundle(fw_bundle_version);
     if (expected_eth_fw_version.has_value()) {
         log_info(LogUMD, "Established ETH FW version: {}", expected_eth_fw_version->to_string());
-        first_eth_fw_version = expected_eth_fw_version;
+    } else {
+        log_warning(
+            LogUMD,
+            "Could not find matching ETH FW version for firmware bundle version. Will assume ETH FW version from first "
+            "discovered ETH core.");
     }
     return true;
 }

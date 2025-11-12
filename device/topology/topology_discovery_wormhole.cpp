@@ -322,16 +322,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
     semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
 
     bool eth_fw_problem = false;
-    if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Found ETH FW version from first ETH core: {}", eth_fw_version.to_string());
-        first_eth_fw_version = eth_fw_version;
+    if (!expected_eth_fw_version.has_value()) {
+        log_info(LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
+        expected_eth_fw_version = eth_fw_version;
         if (WH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
     }
 
-    if (eth_fw_version != first_eth_fw_version) {
+    if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
             "ETH FW version mismatch for chip {} ETH core {}, found: {}.",

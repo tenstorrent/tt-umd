@@ -278,9 +278,17 @@ jobs:
             PY_PKG_DIR="./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
           fi
 
-          DEV_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-dev.${{ matrix.pkg.package }}"
-          RUNTIME_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-runtime.${{ matrix.pkg.package }}"
-          PYTHON_PKG="$PY_PKG_DIR/umd-0.4.0-Linux-umd-python.${{ matrix.pkg.package }}"
+          # Resolve packages robustly across all downloaded artifacts
+          PKG_ROOT="./downloaded-artifact"
+          DEV_PKG="$(find "$PKG_ROOT" -type f \
+            -name "umd-0.4.0-Linux-umd-dev.${{ matrix.pkg.package }}" \
+            -print -quit)"
+          RUNTIME_PKG="$(find "$PKG_ROOT" -type f \
+            -name "umd-0.4.0-Linux-umd-runtime.${{ matrix.pkg.package }}" \
+            -print -quit)"
+          PYTHON_PKG="$(find "$PKG_ROOT" -type f \
+            -name "umd-0.4.0-Linux-umd-python.${{ matrix.pkg.package }}" \
+            -print -quit || true)"
 
           if [ "${{ matrix.pkg.package }}" = "deb" ]; then
             apt update
@@ -310,10 +318,10 @@ jobs:
           cmake -B build -G Ninja
           cmake --build ./build
 
-          # If the Python FHS package is present (and we're on DEB), sanity check import
-          if [ "${{ matrix.pkg.package }}" = "deb" ] && [ -f "$PYTHON_PKG" ]; then
+          # If the Python FHS package is present, sanity check import (for both DEB and RPM)
+          if [ -f "$PYTHON_PKG" ]; then
             echo "Run Python import test for FHS-installed module"
             python3 -c "import tt_umd; print('Python import tt_umd: OK')"
           else
-            echo "Skipping Python import test for this matrix leg"
+            echo "Skipping Python import test: umd-python package not present"
           fi

@@ -174,7 +174,7 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
-      - name: Rebuild for python without wheel
+      - name: Rebuild package for .deb python without wheel
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Recompiling the code..."
@@ -185,18 +185,42 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Generate package for umd-python
+      - name: Generate .deb package for umd-python
         working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G DEB
-          cpack -G RPM
 
-      - name: Upload packages for umd-python
+      - name: Upload .deb packages for umd-python
         uses: actions/upload-artifact@v4
         with:
           name: tt-umd-python-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
+          if-no-files-found: error
+
+      - name: Rebuild .rpm package for umd-python without wheel
+        run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          echo "Recompiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_ALL=ON \
+            -DTT_UMD_BUILD_PIP=OFF \
+            -DPython_EXECUTABLE=/usr/bin/python3.12 \
+            -DTT_UMD_PYTHON_SITE_DEST=/usr/lib64/python3.12/site-packages \
+            -DENABLE_CLANG_TIDY=ON
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          echo "Compile complete."
+
+      - name: Generate .rpm package for umd-python
+        working-directory: ${{ env.TT_UMD_DIR }}/build
+        run: |
+          cpack -G RPM
+
+      - name: Upload .rpm packages for umd-python
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-python-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}-rpm
+          path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
 

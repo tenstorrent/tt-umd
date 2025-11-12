@@ -111,12 +111,26 @@ else()
                 "${CMAKE_INSTALL_LIBDIR}"
     )
 
-    # Install the Python module to the system-wide dist-packages directory.
+    # Decide Python install destination (to be consistent with ABI/path requirements for different distros):
+    # 1) TT_UMD_PYTHON_SITE_DEST if explicitly provided (e.g., Fedora: /usr/lib64/python3.12/site-packages)
+    # 2) Python_SITEARCH if available from FindPython
+    # 3) Fallback to Debian-style dist-packages with detected Python version
+    if(DEFINED TT_UMD_PYTHON_SITE_DEST)
+        set(TT_UMD_PY_DEST "${TT_UMD_PYTHON_SITE_DEST}")
+    elseif(DEFINED Python_SITEARCH)
+        set(TT_UMD_PY_DEST "${Python_SITEARCH}")
+    else()
+        set(TT_UMD_PY_DEST
+            "${CMAKE_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/dist-packages"
+        )
+    endif()
+
+    # Install the Python module to the computed destination
     install(
         TARGETS
             nanobind_tt_umd
         LIBRARY
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}/python3.10/dist-packages
+            DESTINATION ${TT_UMD_PY_DEST}
             COMPONENT umd-python
     )
 

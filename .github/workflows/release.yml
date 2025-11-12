@@ -260,6 +260,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_TESTS=OFF \
             -DTT_UMD_BUILD_SIMULATION=OFF \
+            -DTT_UMD_BUILD_PIP=OFF \
             -DTT_UMD_BUILD_PYTHON=OFF \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
@@ -295,6 +296,21 @@ jobs:
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}
           path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}.tar
+
+      - name: Generate packages
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
+        run: |
+          cpack -G DEB
+          cpack -G RPM
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}/*.deb
+            ${{ env.BUILD_OUTPUT_DIR }}/*.rpm
+          if-no-files-found: error
 
   build-python-wheels:
     name: Build Python Wheel (${{ matrix.ubuntu-docker-version }})

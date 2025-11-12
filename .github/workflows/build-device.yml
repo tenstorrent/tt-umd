@@ -348,10 +348,10 @@ jobs:
           mkdir -p ./cmake
           if [ "${{ matrix.pkg.package }}" = "rpm" ]; then
             EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-ubuntu-24.04-\
-            ${{ matrix.build.compiler }}-${{ matrix.pkg.package }}-example"
+            ${{ matrix.build.compiler }}-example"
           else
             EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-\
-            ${{ matrix.build.compiler }}-${{ matrix.pkg.package }}-example"
+            ${{ matrix.build.compiler }}-example"
           fi
           cp "$EXAMPLE_DIR"/* ./cmake
 

@@ -406,6 +406,8 @@ jobs:
           # Copy and organize all artifacts
           find ./release-artifacts -type f -name "*.tar" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.whl" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.deb" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.rpm" -exec cp {} ./final-assets/ \;
 
           # List all assets that will be included
           echo "Release assets:"

@@ -206,7 +206,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
-            -DPython_EXECUTABLE=/usr/bin/python3.12 \
+            -DPython_EXECUTABLE=/usr/bin/python3 \
             -DTT_UMD_PYTHON_SITE_DEST=/usr/lib64/python3.12/site-packages \
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -286,12 +286,20 @@ jobs:
           name: tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}
           path: ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example
 
-      - name: Download Python Packages Artifact (if split)
+      - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}
           path: ./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package
+
+      - name: Download Python RPM Artifact
+        if: ${{ matrix.pkg.package == 'rpm' }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: tt-umd-python-ubuntu-24.04-${{ matrix.build.compiler }}-rpm
+          path: ./downloaded-artifact/tt-umd-python-ubuntu-24.04-${{ matrix.build.compiler }}-package
 
       - name: Run test on example and python with packages
         run: |
@@ -338,7 +346,14 @@ jobs:
 
           echo "Copy CMake configuration"
           mkdir -p ./cmake
-          cp ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example/* ./cmake
+          if [ "${{ matrix.pkg.package }}" = "rpm" ]; then
+            EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-ubuntu-24.04-\
+            ${{ matrix.build.compiler }}-${{ matrix.pkg.package }}-example"
+          else
+            EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-\
+            ${{ matrix.build.compiler }}-${{ matrix.pkg.package }}-example"
+          fi
+          cp "$EXAMPLE_DIR"/* ./cmake
 
           echo "Build UMD examples (which are dependent on libdevice.so)"
           cd ./example_test

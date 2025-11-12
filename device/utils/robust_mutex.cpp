@@ -313,7 +313,7 @@ void RobustMutex::lock() {
             // Timeout occurred - log a message about waiting.
             // Note that we can enter here only as a result of timedlock version.
             pid_t owner = mutex_wrapper_ptr_->owner_tid;
-            log_warning(LogUMD, "Waiting for lock '{}' which is currently held by process PID: {}", mutex_name_, owner);
+            log_warning(LogUMD, "Waiting for lock '{}' which is currently held by thread TID: {}", mutex_name_, owner);
 
             // Now block until we get the lock.
             lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));

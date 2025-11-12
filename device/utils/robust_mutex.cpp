@@ -280,7 +280,7 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::unlock() {
-    // Clear the owner PID before unlocking.
+    // Clear the owner TID before unlocking.
     mutex_wrapper_ptr_->owner_tid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {

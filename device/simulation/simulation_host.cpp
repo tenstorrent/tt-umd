@@ -16,7 +16,9 @@
 #include <cassert>
 #include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -235,20 +237,53 @@ void SimulationHost::start_simulator(const std::filesystem::path &simulator_dire
 
 bool SimulationHost::is_child_process_alive() const {
     if (child_process_pid == -1) {
+        log_info(tt::LogEmulationDriver, "No child process PID set, assuming alive");
         return true;  // No child process to check, assume alive
     }
 
-    // Check if process is still running using kill(pid, 0)
-    // This doesn't actually send a signal, just checks if process exists
+    // First check if process exists at all
     int result = kill(child_process_pid, 0);
-    if (result == 0) {
-        return true;  // Process exists
-    } else if (errno == ESRCH) {
-        return false;  // Process doesn't exist
-    } else {
-        // Other error (like EPERM) - assume process exists but we can't check
+    if (result != 0) {
+        if (errno == ESRCH) {
+            log_debug(tt::LogEmulationDriver, "Child process {} is dead (ESRCH)", child_process_pid);
+            return false;  // Process doesn't exist
+        } else {
+            log_debug(
+                tt::LogEmulationDriver,
+                "Cannot check child process {} status: {} - assuming alive",
+                child_process_pid,
+                strerror(errno));
+            return true;
+        }
+    }
+
+    // Process exists, but check if it's a zombie by reading /proc/PID/stat
+    std::string stat_path = "/proc/" + std::to_string(child_process_pid) + "/stat";
+    std::ifstream stat_file(stat_path);
+    if (!stat_file.is_open()) {
+        log_debug(tt::LogEmulationDriver, "Cannot open {}, assuming process {} is alive", stat_path, child_process_pid);
         return true;
     }
+
+    std::string line;
+    if (std::getline(stat_file, line)) {
+        // Parse the stat line: PID (comm) state ...
+        // Find the state field (3rd field after the closing parenthesis)
+        size_t paren_pos = line.rfind(')');
+        if (paren_pos != std::string::npos && paren_pos + 2 < line.length()) {
+            char state = line[paren_pos + 2];  // Skip ") " to get state
+            if (state == 'Z') {
+                log_debug(tt::LogEmulationDriver, "Child process {} is zombie (state: Z)", child_process_pid);
+                return false;  // Zombie process is effectively dead
+            }
+            log_debug(tt::LogEmulationDriver, "Child process {} is alive (state: {})", child_process_pid, state);
+            return true;
+        }
+    }
+
+    // If we can't parse the state, assume dead (fail fast)
+    log_info(tt::LogEmulationDriver, "Cannot parse state for process {} - assuming dead for safety", child_process_pid);
+    return false;
 }
 
 }  // namespace tt::umd

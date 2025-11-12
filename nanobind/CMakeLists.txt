@@ -90,13 +90,7 @@ if(TT_UMD_BUILD_PIP)
 
     # Install device library to root for Python package (co-located with the module)
     # Only when building Python bindings to avoid conflicts with main install
-    install(
-        TARGETS
-            device
-        LIBRARY
-            DESTINATION .
-            COMPONENT pip_wheel
-    )
+    install(FILES $<TARGET_FILE:umd::device> DESTINATION . COMPONENT pip_wheel)
 else()
     # --- FHS/CPACK LOGIC ---
     # Configures the build for a .deb/.rpm package.

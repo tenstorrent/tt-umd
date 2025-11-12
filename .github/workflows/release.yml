@@ -430,6 +430,11 @@ jobs:
 
             Contains: Compiled C++ libraries, public headers, CMake config files, and dependencies.
 
+            ### System Packages (.deb / .rpm)
+            - **Ubuntu 22.04**: DEB and RPM packages are attached under Assets
+            - **Ubuntu 24.04**: DEB and RPM packages are attached under Assets
+            - Includes: `umd-runtime` and `umd-dev` packages
+
             ### Python Wheels
             - **Python wheels** for Ubuntu 22.04 and 24.04
             - Includes Python bindings for tt-umd

@@ -1041,7 +1041,6 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     TopologyDiscoveryOptions options;
     options.soc_descriptor_path = sdesc_path;
     options.io_device_type = device_type;
-    options.no_eth_firmware_strictness = true;
     return TopologyDiscovery::discover(std::move(options)).first;
 }
 

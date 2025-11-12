@@ -347,11 +347,11 @@ jobs:
           echo "Copy CMake configuration"
           mkdir -p ./cmake
           if [ "${{ matrix.pkg.package }}" = "rpm" ]; then
-            EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-ubuntu-24.04-\
-            ${{ matrix.build.compiler }}-example"
+            EXAMPLE_DIR="$(find ./downloaded-artifact -maxdepth 1 -type d \
+              -name 'tt-umd-examples-ubuntu-24.04-*-example' -print -quit)"
           else
-            EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-\
-            ${{ matrix.build.compiler }}-example"
+            EXAMPLE_DIR="$(find ./downloaded-artifact -maxdepth 1 -type d \
+              -name 'tt-umd-examples-${{ matrix.build.os }}-*-example' -print -quit)"
           fi
           cp "$EXAMPLE_DIR"/* ./cmake
 

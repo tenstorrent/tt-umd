@@ -186,7 +186,7 @@ jobs:
           echo "Compile complete."
 
       - name: Generate package for umd-python
-        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
+        working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G DEB
           cpack -G RPM

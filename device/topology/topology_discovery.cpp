@@ -16,6 +16,7 @@
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -66,11 +67,11 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : options(options) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
-    log_info(LogUMD, "Starting topology discovery.");
+    log_debug(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
     get_connected_chips();
     discover_remote_chips();
-    log_info(LogUMD, "Completed topology discovery.");
+    log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
 
@@ -392,6 +393,13 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
             fw_bundle_version.to_string(),
             latest_supported_fw_bundle_version.to_string(),
             arch_to_str(tt_device->get_arch()));
+    }
+
+    // Try to infer expected ERISC FW version from FW bundle version
+    auto expected_eth_fw_version = get_expected_erisc_fw_version_from_fw_bundle(fw_bundle_version);
+    if (expected_eth_fw_version.has_value()) {
+        log_info(LogUMD, "Established ETH FW version: {}", expected_eth_fw_version->to_string());
+        first_eth_fw_version = expected_eth_fw_version;
     }
     return true;
 }

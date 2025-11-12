@@ -295,8 +295,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
 
     bool eth_fw_problem = false;
     if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        log_info(LogUMD, "Found ETH FW version from first core: {}", eth_fw_version.to_string());
         first_eth_fw_version = eth_fw_version;
         if (BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
@@ -314,6 +313,21 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
         eth_fw_problem = true;
     }
     return options.no_eth_firmware_strictness || !eth_fw_problem;
+}
+
+std::optional<semver_t> TopologyDiscoveryBlackhole::get_expected_erisc_fw_version_from_fw_bundle(
+    semver_t fw_bundle_version) const {
+    auto it = std::upper_bound(
+        BH_ERISC_FW_VERSION_MAP.begin(),
+        BH_ERISC_FW_VERSION_MAP.end(),
+        fw_bundle_version,
+        [](const semver_t& version, const std::pair<semver_t, semver_t>& entry) { return version < entry.first; });
+
+    if (it != BH_ERISC_FW_VERSION_MAP.begin()) {
+        --it;
+        return it->second;
+    }
+    return std::nullopt;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {

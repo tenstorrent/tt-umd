@@ -154,6 +154,8 @@ protected:
 
     virtual bool verify_fw_bundle_version(Chip* chip);
 
+    virtual std::optional<semver_t> get_expected_erisc_fw_version_from_fw_bundle(semver_t fw_bundle_version) const = 0;
+
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.
     std::optional<semver_t> first_eth_fw_version;

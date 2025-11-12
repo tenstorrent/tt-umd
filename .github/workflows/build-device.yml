@@ -318,10 +318,19 @@ jobs:
           cmake -B build -G Ninja
           cmake --build ./build
 
-          # If the Python FHS package is present, sanity check import (for both DEB and RPM)
-          if [ -f "$PYTHON_PKG" ]; then
-            echo "Run Python import test for FHS-installed module"
-            python3 -c "import tt_umd; print('Python import tt_umd: OK')"
+          # Sanity check Python import if the package is installed
+          if [ "${{ matrix.pkg.package }}" = "deb" ]; then
+            if dpkg -s umd-umd-python >/dev/null 2>&1; then
+              echo "Run Python import test for FHS-installed module (DEB)"
+              python3 -c "import tt_umd; print('Python import tt_umd: OK')"
+            else
+              echo "Skipping Python import test: umd-umd-python not installed (DEB)"
+            fi
           else
-            echo "Skipping Python import test: umd-python package not present"
+            if rpm -q umd-umd-python >/dev/null 2>&1; then
+              echo "Run Python import test for FHS-installed module (RPM)"
+              python3 -c "import tt_umd; print('Python import tt_umd: OK')"
+            else
+              echo "Skipping Python import test: umd-umd-python not installed (RPM)"
+            fi
           fi

@@ -25,7 +25,7 @@ static const std::vector<std::pair<semver_t, semver_t>> WH_ERISC_FW_VERSION_MAP 
     {{18, 6, 0}, {7, 0, 0}},
     {{18, 12, 0}, {7, 1, 0}},
     {{19, 0, 0}, {7, 2, 0}}};
-static const std::vector<std::pair<semver_t, semver_t>> WH_LEGACY_ERISC_FW_VERSION_MAP = {{{80, 17, 0}, {6, 6, 14}}};
+static const std::vector<std::pair<semver_t, semver_t>> WH_LEGACY_ERISC_FW_VERSION_MAP = {{{80, 17, 0}, {6, 14, 0}}};
 static const std::vector<std::pair<semver_t, semver_t>> BH_ERISC_FW_VERSION_MAP = {
     {{18, 5, 0}, {1, 4, 1}},
     {{18, 6, 0}, {1, 4, 2}},

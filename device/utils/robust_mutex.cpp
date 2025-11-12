@@ -248,7 +248,7 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     // When we open an existing pthread in the future, there is no other way to check if it was initialized or not, so
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
-    // Initialize owner PID to 0 (no owner).
+    // Initialize owner TID to 0 (no owner).
     mutex_wrapper_ptr_->owner_tid = 0;
 }
 

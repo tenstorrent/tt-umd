@@ -38,6 +38,18 @@ class TestTTDevice(unittest.TestCase):
             read_data = dev.noc_read(9, 0, 0x200, 16)
             print(f"noc_write/read: wrote {test_data.hex()}, read {read_data.hex()}")
             dev.noc_write(9, 0, 0x200, original_data)  # Restore
+            
+            # Test noc_read with buffer parameter
+            buffer_size = 32
+            buffer = bytearray(buffer_size)
+            dev.noc_read(0, 9, 0, 0x300, buffer)
+            print(f"noc_read with buffer: read {buffer.hex()}")
+            
+            # Verify buffer version matches the original version
+            data_via_original = dev.noc_read(9, 0, 0x300, buffer_size)
+            self.assertEqual(bytes(buffer), data_via_original, 
+                           "Buffer-based noc_read should match original noc_read")
+            print(f"noc_read buffer version verified against original version")
 
     def test_remote_tt_device(self):
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()

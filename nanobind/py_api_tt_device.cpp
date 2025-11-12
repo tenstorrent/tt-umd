@@ -122,6 +122,24 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
         .def(
+            "noc_read",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+                -> void {
+                if (noc_id != 0) {
+                    throw std::runtime_error("noc_id must be 0");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
+                size_t data_size = buffer.size();
+                self.read_from_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("buffer"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+        .def(
             "noc_write",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
                 tt_xy_pair core = {core_x, core_y};

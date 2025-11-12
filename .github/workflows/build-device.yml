@@ -242,14 +242,22 @@ jobs:
           name: tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}
           path: ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example
 
-      - name: Run test on example and package
+      - name: Download Python Packages Artifact (if split)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package
+
+      - name: Run test on example and python with packages
         run: |
           echo "Install .${{ matrix.pkg.package }} package"
           PKG_DIR="./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
+          PY_PKG_DIR="./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package"
 
           DEV_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-dev.${{ matrix.pkg.package }}"
           RUNTIME_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-runtime.${{ matrix.pkg.package }}"
-          PYTHON_PKG="$PKG_DIR/umd-0.4.0-Linux-umd-python.${{ matrix.pkg.package }}"
+          PYTHON_PKG="$PY_PKG_DIR/umd-0.4.0-Linux-umd-python.${{ matrix.pkg.package }}"
 
           if [ "${{ matrix.pkg.package }}" = "deb" ]; then
             apt update

@@ -104,12 +104,23 @@ else()
 
     message(STATUS "Configuring Python bindings for FHS package")
 
-    set_target_properties(
-        nanobind_tt_umd
-        PROPERTIES
-            INSTALL_RPATH
-                "${CMAKE_INSTALL_LIBDIR}"
-    )
+    # Fedora/RHEL (lib64) rpmbuild forbids relative RUNPATH like 'lib64'.
+    # Keep Ubuntu's previous behavior; clear RUNPATH only on lib64 platforms.
+    if(CMAKE_INSTALL_LIBDIR MATCHES "lib64")
+        set_target_properties(
+            nanobind_tt_umd
+            PROPERTIES
+                INSTALL_RPATH
+                    ""
+        )
+    else()
+        set_target_properties(
+            nanobind_tt_umd
+            PROPERTIES
+                INSTALL_RPATH
+                    "${CMAKE_INSTALL_LIBDIR}"
+        )
+    endif()
 
     # Decide Python install destination (robust across distros/CMake versions):
     # 1) Python-provided site-arch variables

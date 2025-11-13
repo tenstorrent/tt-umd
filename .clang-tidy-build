@@ -1,6 +1,7 @@
 ---
 Checks: >
     -*,
+    modernize-use-override,
     -clang-diagnostic-unknown-warning-option,
     bugprone-use-after-move,
     bugprone-redundant-branch-condition,

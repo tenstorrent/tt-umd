@@ -44,6 +44,8 @@ void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core,
 
 void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
 
+void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
+
 int MockChip::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,

@@ -39,8 +39,9 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
-static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+static constexpr semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
+static constexpr semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+static constexpr semver_t kmd_ver_for_arch_agnostic_reset = semver_t{2, 4, 1};
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -525,6 +526,13 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        log_warning(
+            LogUMD,
+            "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin_pages.in.virtual_address),
+            fmt::format("{:#x}", pin_pages.in.size),
+            fmt::format("{:#x}", pin_pages.in.flags),
+            strerror(errno));
         return 0;
     }
 
@@ -538,12 +546,7 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() {
-    // return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc;
-    // TODO: This feature is turned off for now. We'll enable it once all machines have smoothly transitioned to IOMMU.
-    // Also change other places in this function which have the same check.
-    return false;
-}
+bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc; }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
     if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
@@ -572,7 +575,12 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+        TT_THROW(
+            "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin.in.virtual_address),
+            fmt::format("{:#x}", pin.in.size),
+            fmt::format("{:#x}", pin.in.flags),
+            strerror(errno));
     }
 
     log_info(
@@ -619,7 +627,12 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {} {}", strerror(errno), pin.in.flags);
+        TT_THROW(
+            "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin.in.virtual_address),
+            fmt::format("{:#x}", pin.in.size),
+            fmt::format("{:#x}", pin.in.flags),
+            strerror(errno));
     }
 
     log_info(
@@ -651,7 +664,12 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+        TT_THROW(
+            "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin_pages.in.virtual_address),
+            fmt::format("{:#x}", pin_pages.in.size),
+            fmt::format("{:#x}", pin_pages.in.flags),
+            strerror(errno));
     }
 
     log_info(
@@ -679,7 +697,11 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     unpin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
-        TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
+        TT_THROW(
+            "Failed to unpin pages for DMA buffer at virtual address {} and size {}: {}",
+            fmt::format("{:#x}", vaddr),
+            fmt::format("{:#x}", size),
+            strerror(errno));
     }
 
     log_info(
@@ -849,6 +871,13 @@ tt::ARCH PCIDevice::get_pcie_arch() {
     }
 
     return cached_arch;
+}
+
+bool PCIDevice::is_arch_agnostic_reset_supported() {
+    if (PCIDevice::read_kmd_version() >= kmd_ver_for_arch_agnostic_reset) {
+        return true;
+    }
+    return false;
 }
 
 }  // namespace tt::umd

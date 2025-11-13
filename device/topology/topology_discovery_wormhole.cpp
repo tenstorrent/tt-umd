@@ -186,17 +186,11 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair loc
     return remote_eth_id;
 }
 
-std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(Chip* chip) {
-    std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    if (eth_cores.empty()) {
-        return std::nullopt;
-    }
+std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
 
     uint32_t current_chip_eth_coord_info;
-    tt_device->read_from_device(
-        &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
+    tt_device->read_from_device(&current_chip_eth_coord_info, eth_core, eth_addresses.node_info + 8, sizeof(uint32_t));
 
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
@@ -289,8 +283,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     for (auto& device_id : device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->wait_arc_post_reset(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-        tt_device->init_tt_device();
+        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
@@ -328,8 +321,8 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
 
     bool eth_fw_problem = false;
     if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
+        log_debug(LogUMD, "UMD supported minimum WH ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
         first_eth_fw_version = eth_fw_version;
         if (ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");

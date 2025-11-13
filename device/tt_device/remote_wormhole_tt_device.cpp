@@ -70,16 +70,23 @@ void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
-bool RemoteWormholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) {
-    throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
-}
-
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
     remote_communication_->get_local_device()->detect_hang_read(data_read);
 }
 
 bool RemoteWormholeTTDevice::is_hardware_hung() {
     return remote_communication_->get_local_device()->is_hardware_hung();
+}
+
+void RemoteWormholeTTDevice::noc_multicast_write(
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    // TODO: implement multicast over remote communication.
+    // For now, we fallback to unicast for all cores.
+    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+            write_to_device(dst, tt_xy_pair(x, y), addr, size);
+        }
+    }
 }
 
 }  // namespace tt::umd

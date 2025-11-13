@@ -18,9 +18,6 @@ namespace tt::umd {
 class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
-    // Filter discovery by device. See ClusterOptions.
-    std::unordered_set<ChipId> target_devices = {};
-
     // Path to custom SoC descriptor when creating chips. See ClusterOptions.
     std::string soc_descriptor_path = "";
 
@@ -88,7 +85,7 @@ protected:
 
     virtual uint64_t get_unconnected_chip_id(Chip* chip) = 0;
 
-    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip) = 0;
+    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
 
     virtual std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
 
@@ -155,9 +152,15 @@ protected:
 
     virtual bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) = 0;
 
+    virtual bool verify_fw_bundle_version(Chip* chip);
+
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.
     std::optional<semver_t> first_eth_fw_version;
+
+    // The FW bundle version found on the first discovered local chip, that needs
+    // to match with all of the other discovered FW bundle versions on all chips.
+    std::optional<semver_t> first_fw_bundle_version;
 };
 
 }  // namespace tt::umd

@@ -25,6 +25,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
+  WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
   build:
@@ -69,7 +70,7 @@ jobs:
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
-            -DENABLE_CLANG_TIDY=ON
+            -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -227,6 +228,42 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
 
+  build-manylinux-wheels:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+
+    name: Build umd manylinux wheel
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+        submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build manylinux wheels
+        shell: bash
+        env:
+          # Use custom manylinux Docker image with all dependencies pre-installed
+          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          # This command will be executed for each wheel build to verify that the wheel is functional.
+          CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
+        run: |
+          echo "Cleaning up wheel directory in case of previous build..."
+          rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
+          mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Building manylinux wheel..."
+          python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Build complete."
+
   test-packages:
     needs: build
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
@@ -254,7 +291,6 @@ jobs:
     env:
       ARTIFACT_OS: ${{ (matrix.pkg.package == 'rpm' && 'ubuntu-24.04') || matrix.build.os }}
       PYTHON_SUFFIX: ${{ (matrix.pkg.package == 'rpm' && '-rpm') || '' }}
-
     steps:
       - uses: actions/checkout@v4
         with:

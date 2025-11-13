@@ -137,6 +137,19 @@ public:
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
+     * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
+     * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
+     * will ensure that the write will land on the correct cores.
+     *
+     * @param dst pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    /**
      * Read function that will send read message to the ARC core APB peripherals.
      *
      * @param mem_ptr pointer to memory which will receive the data
@@ -257,18 +270,11 @@ public:
     semver_t get_firmware_version();
 
     /**
-     * Waits for ARC core hardware initialization after reset.
-     * Must be called after device reset and before init_tt_device().
-     * This ensures the ARC core hardware is ready for further initialization.
-     */
-    virtual bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) = 0;
-
-    /**
      * Waits for ARC core to be fully ready for communication.
-     * Must be called after init_tt_device() and before using ArcMessenger.
+     * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -314,7 +320,7 @@ public:
 
     bool is_remote();
 
-    void init_tt_device();
+    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 

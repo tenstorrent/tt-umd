@@ -66,6 +66,8 @@ public:
     int get_clock() override;
     int get_numa_node() override;
 
+    RemoteCommunication* get_remote_communication();
+
 private:
     RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
 

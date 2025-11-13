@@ -24,6 +24,7 @@
 #include "ioctl.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -38,10 +39,6 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
-
-static constexpr semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
-static constexpr semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
-static constexpr semver_t kmd_ver_for_arch_agnostic_reset = semver_t{2, 4, 1};
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -287,14 +284,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
-    if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
-        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
+    if (iommu_enabled && kmd_version < KMD_IOMMU) {
+        TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
-    if (iommu_enabled && kmd_version < kmd_ver_for_map_to_noc) {
+    if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
         log_warning(
             LogUMD,
             "Running with IOMMU support prior to KMD version {} is of limited support.",
-            kmd_ver_for_map_to_noc.to_string());
+            KMD_MAP_TO_NOC.to_string());
     }
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
@@ -546,10 +543,10 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc; }
+bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
         TT_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
     }
 
@@ -596,7 +593,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
         TT_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
     }
 
@@ -874,7 +871,7 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() {
-    if (PCIDevice::read_kmd_version() >= kmd_ver_for_arch_agnostic_reset) {
+    if (PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET) {
         return true;
     }
     return false;

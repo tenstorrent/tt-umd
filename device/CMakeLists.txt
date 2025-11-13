@@ -157,6 +157,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/driver_atomics.hpp
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
+                api/umd/device/utils/kmd_versions.hpp
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/tlb_window.hpp

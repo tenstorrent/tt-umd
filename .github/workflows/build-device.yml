@@ -330,7 +330,7 @@ jobs:
           set -euo pipefail
           PKG_FMT="${{ matrix.pkg.package }}"
           ART_OS="${{ env.ARTIFACT_OS }}"
-          COMP="${{ matrix.build.compiler }}"
+          COMP="${{ env.ARTIFACT_COMPILER }}"
 
           # Directories from downloaded artifacts
           PACKAGE_DIR="./downloaded-artifact/tt-umd-${ART_OS}-${COMP}-package"

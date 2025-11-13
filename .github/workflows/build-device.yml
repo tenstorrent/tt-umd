@@ -119,7 +119,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+          name: tt-umd-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.deb
           if-no-files-found: error
@@ -128,7 +128,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+          name: tt-umd-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.rpm
           if-no-files-found: error
@@ -136,7 +136,7 @@ jobs:
       - name: Upload example config files
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-examples-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+          name: tt-umd-examples-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
           path: |
             ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
             ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
@@ -209,7 +209,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+          name: tt-umd-python-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
           if-no-files-found: error
@@ -224,7 +224,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}-rpm
+          name: tt-umd-python-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}-rpm
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
@@ -290,7 +290,9 @@ jobs:
         || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
 
     env:
-      ARTIFACT_OS: ${{ (matrix.pkg.package == 'rpm' && 'ubuntu-24.04') || matrix.build.os }}
+      ARTIFACT_OS: >-
+        ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39') ||
+        format('tt-umd-ci-{0}', matrix.build.os) }}
       PYTHON_SUFFIX: ${{ (matrix.pkg.package == 'rpm' && '-rpm') || '' }}
     steps:
       - uses: actions/checkout@v4

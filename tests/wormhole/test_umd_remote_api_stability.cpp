@@ -44,9 +44,9 @@ protected:
         }
     }
 
-    virtual int get_detected_num_chips() { return detected_num_chips; }
+    int get_detected_num_chips() override { return detected_num_chips; }
 
-    virtual bool is_test_skipped() { return skip_tests; }
+    bool is_test_skipped() override { return skip_tests; }
 };
 
 int WormholeNebulaX2TestFixture::detected_num_chips = -1;

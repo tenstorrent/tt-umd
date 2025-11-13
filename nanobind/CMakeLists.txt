@@ -111,7 +111,27 @@ else()
                 "${CMAKE_INSTALL_LIBDIR}"
     )
 
-    set(TT_UMD_PY_DEST "${Python_SITEARCH}")
+    # Decide Python install destination (robust across distros/CMake versions):
+    # 1) Python-provided site-arch variables
+    # 2) Fallback based on libdir heuristic (site-packages for lib64, dist-packages otherwise)
+    if(DEFINED Python_SITEARCH AND NOT Python_SITEARCH STREQUAL "")
+        set(TT_UMD_PY_DEST "${Python_SITEARCH}")
+    elseif(DEFINED Python3_SITEARCH AND NOT Python3_SITEARCH STREQUAL "")
+        set(TT_UMD_PY_DEST "${Python3_SITEARCH}")
+    else()
+        # Heuristic fallback:
+        # - RPM/RHEL/Fedora typically use 'site-packages' and lib64 on x86_64
+        # - Debian/Ubuntu typically use 'dist-packages' and lib
+        if(CMAKE_INSTALL_LIBDIR MATCHES "lib64")
+            set(TT_UMD_PY_DEST
+                "${CMAKE_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages"
+            )
+        else()
+            set(TT_UMD_PY_DEST
+                "${CMAKE_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/dist-packages"
+            )
+        endif()
+    endif()
 
     # Install the Python module to the computed destination
     install(

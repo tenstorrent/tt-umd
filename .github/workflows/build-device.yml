@@ -110,7 +110,7 @@ jobs:
         run: |
           cpack -G RPM
 
-      - name: Upload packages
+      - name: Upload dev and runtime packages
         uses: actions/upload-artifact@v4
         with:
           name: tt-umd-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
@@ -251,55 +251,33 @@ jobs:
         ${{ matrix.pkg.package == 'rpm' && format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)
         || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
 
+    env:
+      ARTIFACT_OS: ${{ (matrix.pkg.package == 'rpm' && 'ubuntu-24.04') || matrix.build.os }}
+      PYTHON_SUFFIX: ${{ (matrix.pkg.package == 'rpm' && '-rpm') || '' }}
+
     steps:
       - uses: actions/checkout@v4
         with:
           path: tt-umd
           submodules: recursive
-
-      # For RPM tests, prefer artifacts built on ubuntu-24.04 (Python 3.12) to match Fedora's ABI.
-      - name: Download Packages Artifact (RPM uses ubuntu-24.04)
-        if: ${{ matrix.pkg.package == 'rpm' }}
+      - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-ubuntu-24.04-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-ubuntu-24.04-${{ matrix.build.compiler }}-package
+          name: tt-umd-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-package
 
-      - name: Download Packages Artifact (DEB uses matrix OS)
-        if: ${{ matrix.pkg.package == 'deb' }}
+      - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package
-
-      - name: Download Examples Artifact (RPM uses ubuntu-24.04)
-        if: ${{ matrix.pkg.package == 'rpm' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: tt-umd-examples-ubuntu-24.04-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-examples-ubuntu-24.04-${{ matrix.build.compiler }}-example
-
-      - name: Download Examples Artifact (DEB uses matrix OS)
-        if: ${{ matrix.pkg.package == 'deb' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-examples-${{ matrix.build.os }}-${{ matrix.build.compiler }}-example
+          name: tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}
+          path: ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-python-${{ matrix.build.os }}-${{ matrix.build.compiler }}-package
-
-      - name: Download Python RPM Artifact
-        if: ${{ matrix.pkg.package == 'rpm' }}
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: tt-umd-python-ubuntu-24.04-${{ matrix.build.compiler }}-rpm
-          path: ./downloaded-artifact/tt-umd-python-ubuntu-24.04-${{ matrix.build.compiler }}-package
+          name: tt-umd-python-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}${{ env.PYTHON_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-package
 
       - name: Run test on example and python with packages
         run: |

@@ -283,7 +283,10 @@ jobs:
 
     name: >-
       Test ${{ matrix.pkg.package }} package on ${{ matrix.pkg.distro }} distro
-      (which was generated via ${{ matrix.build.os }}-${{ matrix.build.compiler }})
+      (which was generated via
+      ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39')
+      || format('tt-umd-ci-{0}', matrix.build.os) }}-${{
+      (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }})
     runs-on: ubuntu-22.04
     container:
       image: >-
@@ -294,6 +297,8 @@ jobs:
       ARTIFACT_OS: >-
         ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39') ||
         format('tt-umd-ci-{0}', matrix.build.os) }}
+      ARTIFACT_COMPILER: >-
+        ${{ (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }}
       PYTHON_SUFFIX: ${{ (matrix.pkg.package == 'rpm' && '-rpm') || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -303,21 +308,21 @@ jobs:
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-package
+          name: tt-umd-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}
+          path: ./downloaded-artifact/tt-umd-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}
-          path: ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-example
+          name: tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}
+          path: ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: tt-umd-python-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}${{ env.PYTHON_SUFFIX }}
-          path: ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-package
+          name: tt-umd-python-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}${{ env.PYTHON_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}-package
 
       - name: Run test on example and python with packages
         shell: bash

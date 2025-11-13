@@ -316,6 +316,7 @@ jobs:
           path: ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_OS }}-${{ matrix.build.compiler }}-package
 
       - name: Run test on example and python with packages
+        shell: bash
         run: |
           set -euo pipefail
           PKG_FMT="${{ matrix.pkg.package }}"

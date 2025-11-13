@@ -34,7 +34,7 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION);
 }
 
-semver_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
+std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
     return get_eth_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION),
         tt_device->get_arch());
@@ -162,29 +162,29 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ARC0_HEALTH);
 }
 
-semver_t Wormhole_18_3_FirmwareInfoProvider::get_gddr_fw_version() const {
+std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_gddr_fw_version() const {
     // Seems like GDDR FW version is not available in Wormhole 18.3.x firmware.
-    return semver_t(0, 0, 0);
+    return std::nullopt;
 }
 
-semver_t Wormhole_18_3_FirmwareInfoProvider::get_cm_fw_version() const {
+std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_cm_fw_version() const {
     // Seems like CM FW version is not available in Wormhole 18.3.x firmware.
-    return semver_t(0, 0, 0);
+    return std::nullopt;
 }
 
-semver_t Wormhole_18_3_FirmwareInfoProvider::get_dm_app_fw_version() const {
+std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_dm_app_fw_version() const {
     return get_dm_app_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DM_APP_FW_VERSION),
         tt::ARCH::WORMHOLE_B0);
 }
 
-semver_t Wormhole_18_3_FirmwareInfoProvider::get_dm_bl_fw_version() const {
+std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_dm_bl_fw_version() const {
     return get_dm_bl_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DM_BL_FW_VERSION),
         tt::ARCH::WORMHOLE_B0);
 }
 
-semver_t Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version() const {
+std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
 }

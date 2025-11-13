@@ -117,9 +117,9 @@ void TopologyDiscovery::get_connected_chips() {
             }
         }
 
-        initialize_remote_communication(chip.get());
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
+        initialize_remote_communication(chip.get());
         log_debug(
             LogUMD,
             "Discovered {} chip with {} ID {} and asic ID {}",

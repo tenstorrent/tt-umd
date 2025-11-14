@@ -236,19 +236,20 @@ jobs:
           } >> $GITHUB_OUTPUT
 
   build-cpp-artifacts:
-    name: Build C++ Artifacts (${{ matrix.ubuntu-docker-version }})
+    name: Build C++ Artifacts (${{ matrix.docker-version }})
     runs-on: ubuntu-22.04
     needs: prepare-release
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-docker-version: [
+        docker-version: [
           'ubuntu-22.04',
           'ubuntu-24.04',
+          'fedora-39',
         ]
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.docker-version }}:latest
 
     steps:
       - uses: actions/checkout@v4
@@ -283,7 +284,7 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
-          UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
+          UBUNTU_VERSION="${{ matrix.docker-version }}"
           ARTIFACT_NAME="tt-umd-v${VERSION}-${UBUNTU_VERSION}.tar"
 
           echo "Creating release archive with proper install structure..."
@@ -295,21 +296,36 @@ jobs:
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}
-          path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}.tar
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
+          path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}.tar
 
-      - name: Generate packages
+      - name: Generate .deb packages
+        if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
         working-directory: ${{ env.BUILD_OUTPUT_DIR }}
         run: |
           cpack -G DEB
+
+      - name: Generate .rpm packages
+        if: ${{ contains(matrix.docker-version, 'fedora-') }}
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
+        run: |
           cpack -G RPM
 
-      - name: Upload packages
+      - name: Upload .deb packages
+        if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
           path: |
             ${{ env.BUILD_OUTPUT_DIR }}/*.deb
+          if-no-files-found: error
+
+      - name: Upload .rpm packages
+        if: ${{ contains(matrix.docker-version, 'fedora-') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
+          path: |
             ${{ env.BUILD_OUTPUT_DIR }}/*.rpm
           if-no-files-found: error
 

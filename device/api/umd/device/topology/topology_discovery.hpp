@@ -18,9 +18,6 @@ namespace tt::umd {
 class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
-    // Filter discovery by device. See ClusterOptions.
-    std::unordered_set<ChipId> target_devices = {};
-
     // Path to custom SoC descriptor when creating chips. See ClusterOptions.
     std::string soc_descriptor_path = "";
 
@@ -88,7 +85,7 @@ protected:
 
     virtual uint64_t get_unconnected_chip_id(Chip* chip) = 0;
 
-    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip) = 0;
+    virtual std::optional<EthCoord> get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
 
     virtual std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;
 
@@ -120,18 +117,11 @@ protected:
 
     virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
 
+    virtual void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) = 0;
+
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
-
-    // Intermesh links are ethernet links that are turned off during UMD's topology discovery but are
-    // otherwise physically connected. This is done since not all tools support limiting the discovery as
-    // UMD does. Once all the tools start supporting this, this feature won't be used anymore and this
-    // function will return empty set.
-    // This will extract the list of intermesh links from a config in L1.
-    virtual std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) = 0;
-
-    virtual bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) = 0;
 
     // This function is going to be implemented for Blackhole since it needs to load communication
     // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW
@@ -162,9 +152,15 @@ protected:
 
     virtual bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) = 0;
 
+    virtual bool verify_fw_bundle_version(Chip* chip);
+
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.
     std::optional<semver_t> first_eth_fw_version;
+
+    // The FW bundle version found on the first discovered local chip, that needs
+    // to match with all of the other discovered FW bundle versions on all chips.
+    std::optional<semver_t> first_fw_bundle_version;
 };
 
 }  // namespace tt::umd

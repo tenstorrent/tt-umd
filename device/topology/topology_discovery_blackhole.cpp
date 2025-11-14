@@ -32,7 +32,9 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
         dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, options.soc_descriptor_path);
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip) { return std::nullopt; }
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) {
+    return std::nullopt;
+}
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) {
     return std::nullopt;
@@ -218,16 +220,6 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
     }
 }
 
-std::vector<uint32_t> TopologyDiscoveryBlackhole::extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) {
-    // This function is not important for Blackhole.
-    return {};
-}
-
-bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
-    // This function is not important for Blackhole.
-    return false;
-}
-
 void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
     // We don't want to initialize lite fabric on non-P300 boards. For all configurations we have at the moment,
     // we would need to init lite fabric just on LocalChips of P300 boards.
@@ -302,7 +294,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
 
     bool eth_fw_problem = false;
     if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
+        log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
         log_debug(LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
         first_eth_fw_version = eth_fw_version;
         if (BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
@@ -329,5 +321,8 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
+
+void TopologyDiscoveryBlackhole::validate_routing_firmware_state(
+    const std::map<uint64_t, std::unique_ptr<Chip>>& chips) {}
 
 }  // namespace tt::umd

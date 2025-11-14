@@ -4,20 +4,23 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
-#include <assert.h>
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
+#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
 // #include "l1_address_map.h"
@@ -323,6 +326,25 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .dram_bank_size = blackhole::DRAM_BANK_SIZE,
                 .noc0_x_to_noc1_x = blackhole::NOC0_X_TO_NOC1_X,
                 .noc0_y_to_noc1_y = blackhole::NOC0_Y_TO_NOC1_Y};
+            break;
+        }
+        case tt::ARCH::QUASAR: {
+            return SocDescriptorInfo{
+                .arch = tt::ARCH::QUASAR,
+                .grid_size = grendel::GRID_SIZE,
+                .tensix_cores = grendel::TENSIX_CORES_NOC0,
+                .dram_cores = grendel::DRAM_CORES_NOC0,
+                .eth_cores = grendel::ETH_CORES_NOC0,
+                .arc_cores = grendel::ARC_CORES_NOC0,
+                .pcie_cores = grendel::PCIE_CORES_NOC0,
+                .router_cores = grendel::ROUTER_CORES_NOC0,
+                .security_cores = grendel::SECURITY_CORES_NOC0,
+                .l2cpu_cores = grendel::L2CPU_CORES_NOC0,
+                .worker_l1_size = grendel::TENSIX_L1_SIZE,
+                .eth_l1_size = grendel::ETH_L1_SIZE,
+                .dram_bank_size = grendel::DRAM_BANK_SIZE,
+                .noc0_x_to_noc1_x = grendel::NOC0_X_TO_NOC1_X,
+                .noc0_y_to_noc1_y = grendel::NOC0_Y_TO_NOC1_Y};
             break;
         }
         default:
@@ -632,6 +654,10 @@ std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch.yaml");
         }
+        case tt::ARCH::QUASAR: {
+            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+            return tt::umd::utils::get_abs_path("tests/soc_descs/quasar_simulation_1x1.yaml");
+        }
         default:
             throw std::runtime_error("Invalid architecture");
     }
@@ -692,12 +718,30 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     return translated_cores;
 }
 
-std::vector<CoreCoord> SocDescriptor::get_cores(const CoreType core_type, const CoordSystem coord_system) const {
+std::vector<CoreCoord> SocDescriptor::get_cores(
+    const CoreType core_type, const CoordSystem coord_system, std::optional<uint32_t> channel) const {
     auto cores_map_it = cores_map.find(core_type);
-    if (coord_system != CoordSystem::NOC0) {
-        return translate_coordinates(cores_map_it->second, coord_system);
+    std::vector<CoreCoord> cores = cores_map_it->second;
+
+    // Filter cores by channel if specified.
+    // At this time, only applicable for DRAM cores.
+    if (channel.has_value()) {
+        TT_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
+        TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
+        std::vector<CoreCoord> filtered_cores;
+        for (const auto &core : cores) {
+            auto logical_core = translate_coord_to(core, CoordSystem::LOGICAL);
+            if (logical_core.y == channel.value()) {
+                filtered_cores.push_back(core);
+            }
+        }
+        cores = filtered_cores;
     }
-    return cores_map_it->second;
+
+    if (coord_system != CoordSystem::NOC0) {
+        return translate_coordinates(cores, coord_system);
+    }
+    return cores;
 }
 
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(

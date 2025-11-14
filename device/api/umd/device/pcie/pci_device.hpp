@@ -78,7 +78,38 @@ enum class TenstorrentResetDevice : uint32_t {
      * Commands the device to generate an immediate interrupt by writing to a
      * control register.
      */
-    CONFIG_WRITE = 2
+    CONFIG_WRITE = 2,
+
+    /**
+     * @brief Initiates a user-triggered device reset.
+     *
+     * Performs a reset operation initiated by user-level software to restore
+     * the device to a known state.
+     */
+    USER_RESET = 3,
+
+    /**
+     * @brief Performs a complete ASIC reset.
+     *
+     * Resets the entire ASIC chip, restoring all internal logic and state
+     * machines to their default state.
+     */
+    ASIC_RESET = 4,
+
+    /**
+     * @brief Resets the ASIC's DMC
+     *
+     * Specifically targets the device management controller.
+     */
+    ASIC_DMC_RESET = 5,
+
+    /**
+     * @brief Executes post-reset initialization procedures.
+     *
+     * Performs necessary cleanup and initialization tasks that must occur
+     * after a device reset has completed.
+     */
+    POST_RESET = 6,
 };
 
 class PCIDevice {
@@ -246,6 +277,12 @@ public:
      * It also caches the value so subsequent calls are faster.
      */
     static tt::ARCH get_pcie_arch();
+
+    /**
+     * Checks if architecture-agnostic reset is supported by the device by checking the KMD version which enables this
+     * feature.
+     */
+    static bool is_arch_agnostic_reset_supported();
 
 public:
     // TODO: we can and should make all of these private.

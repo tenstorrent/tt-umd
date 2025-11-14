@@ -16,6 +16,9 @@
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
@@ -27,7 +30,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
     switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            auto pci_devices_info = PCIDevice::enumerate_devices_info(options.target_devices);
+            auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
                 return nullptr;
             }
@@ -63,9 +66,11 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : options(options) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+    log_info(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
     get_connected_chips();
     discover_remote_chips();
+    log_info(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
 
@@ -86,12 +91,11 @@ void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
     switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            device_ids = PCIDevice::enumerate_devices(options.target_devices);
+            device_ids = PCIDevice::enumerate_devices();
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt =
-                JtagDevice::create(JtagDevice::jtag_library_path, options.target_devices)->get_device_cnt();
+            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path)->get_device_cnt();
             device_ids = std::vector<int>(device_cnt);
             std::iota(device_ids.begin(), device_ids.end(), 0);
             break;
@@ -131,18 +135,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
-
         remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
-
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
-
-        if (is_using_eth_coords()) {
-            auto local_eth_coord = get_local_eth_coord(chip.get());
-            if (local_eth_coord.has_value()) {
-                eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
-            }
-        }
     }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -153,6 +149,8 @@ void TopologyDiscovery::discover_remote_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
+
+        verify_fw_bundle_version(chip);
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
@@ -169,6 +167,14 @@ void TopologyDiscovery::discover_remote_chips() {
             if (!is_eth_trained(chip, eth_core)) {
                 channel++;
                 continue;
+            }
+
+            if (is_using_eth_coords()) {
+                auto local_eth_coord = get_local_eth_coord(chip, eth_core);
+                if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
+                    eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
+                    log_debug(LogUMD, "Chip {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());
+                }
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
@@ -212,6 +218,7 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     patch_eth_connections();
+    validate_routing_firmware_state(chips);
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -338,5 +345,55 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
+
+bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
+    TTDevice* tt_device = chip->get_tt_device();
+    semver_t fw_bundle_version = tt_device->get_firmware_version();
+
+    if (first_fw_bundle_version.has_value()) {
+        if (fw_bundle_version != first_fw_bundle_version.value()) {
+            log_warning(
+                LogUMD,
+                fmt::format(
+                    "Firmware bundle version mismatch for device {}: expected {}, got {}",
+                    get_asic_id(chip),
+                    fw_bundle_version.to_string(),
+                    chip->get_tt_device()->get_firmware_version().to_string()));
+            return false;
+        }
+        return true;
+    }
+
+    first_fw_bundle_version = fw_bundle_version;
+    log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
+    semver_t minimum_compatible_fw_bundle_version =
+        FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device->get_arch());
+    semver_t latest_supported_fw_bundle_version =
+        FirmwareInfoProvider::get_latest_supported_firmware_version(tt_device->get_arch());
+    log_debug(
+        LogUMD,
+        "UMD supported firmware bundle versions: {} - {}",
+        minimum_compatible_fw_bundle_version.to_string(),
+        latest_supported_fw_bundle_version.to_string());
+
+    TT_ASSERT(
+        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) > 0,
+        "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
+        "architecture.",
+        fw_bundle_version.to_string(),
+        minimum_compatible_fw_bundle_version.to_string(),
+        arch_to_str(tt_device->get_arch()));
+
+    if (semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_bundle_version) > 0) {
+        log_warning(
+            LogUMD,
+            "Firmware bundle version {} on the system is newer than the maximum supported version {} for {} "
+            "architecture. New features may not be supported.",
+            fw_bundle_version.to_string(),
+            latest_supported_fw_bundle_version.to_string(),
+            arch_to_str(tt_device->get_arch()));
+    }
+    return true;
+}
 
 }  // namespace tt::umd

@@ -57,12 +57,15 @@ TTDevice::TTDevice() {}
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
-void TTDevice::init_tt_device() {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
+    if (!wait_arc_core_start(timeout_ms)) {
+        throw std::runtime_error(fmt::format(
+            "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
+    }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    wait_arc_core_start();
     post_init_hook();
 }
 
@@ -276,7 +279,13 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
     }
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    bool use_safe_memcpy = false;
+    if constexpr (is_arm_platform() || is_riscv_platform()) {
+        use_safe_memcpy = true;
+    } else {
+        use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
+    }
+    if (use_safe_memcpy) {
         memcpy_to_device(dest, src, num_bytes);
     } else {
         memcpy(dest, src, num_bytes);
@@ -296,7 +305,13 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    bool use_safe_memcpy = false;
+    if constexpr (is_arm_platform() || is_riscv_platform()) {
+        use_safe_memcpy = true;
+    } else {
+        use_safe_memcpy = (arch == tt::ARCH::WORMHOLE_B0);
+    }
+    if (use_safe_memcpy) {
         memcpy_from_device(dest, src, num_bytes);
     } else {
         memcpy(dest, src, num_bytes);
@@ -333,7 +348,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         return;
     }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
     while (size > 0) {
@@ -357,15 +372,17 @@ void TTDevice::write_tlb_reg(
         TT_THROW("write_tlb_reg is not applicable for JTAG communication type.");
     }
 
-    volatile uint64_t *dest_qw = pci_device_->get_register_address<uint64_t>(byte_addr);
+    volatile uint32_t *dest_dw = pci_device_->get_register_address<uint32_t>(byte_addr);
     volatile uint32_t *dest_extra_dw = pci_device_->get_register_address<uint32_t>(byte_addr + 8);
-#if defined(__ARM_ARCH) || defined(__riscv)
+
     // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
     // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory
     // accesses. Insert an explicit full memory barrier for ARM. Do the same for RISC-V.
-    tt_driver_atomics::mfence();
-#endif
-    *dest_qw = value_lower;
+    if constexpr (is_arm_platform() || is_riscv_platform()) {
+        tt_driver_atomics::mfence();
+    }
+    dest_dw[0] = static_cast<uint32_t>(value_lower);
+    dest_dw[1] = static_cast<uint32_t>(value_lower >> 32);
     if (tlb_cfg_reg_size > 8) {
         uint32_t *p_value_upper = reinterpret_cast<uint32_t *>(&value_upper);
         *dest_extra_dw = p_value_upper[0];
@@ -474,7 +491,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
     }
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
+        std::vector<DramTrainingStatus> dram_training_status =
+            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
 
         if (dram_training_status.empty()) {
             log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
@@ -553,36 +571,16 @@ BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_b
 
 uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
-    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     if (high2_addr > high1_addr) {
-        read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+        read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
 
 uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id(); }
-
-std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
-    if (!telemetry->is_entry_available(TelemetryTag::DDR_STATUS)) {
-        return {};
-    }
-
-    std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
-    // Format of the dram training status is as follows:
-    // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
-    // Lower of the two bits is for training error and higher of the two bits is for training status.
-    // Example: 0b 00 00 00 00 00 00 01 10
-    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
-    // errors. If some channel is harvested the bits are always going to be zero.
-    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-        dram_training_status.push_back(get_firmware_info_provider()->get_dram_training_status(dram_channel));
-    }
-
-    return dram_training_status;
-}
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 
@@ -624,4 +622,25 @@ TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     cached_tlb_window->configure(config);
     return cached_tlb_window.get();
 }
+
+void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
+    }
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    uint8_t *buffer_addr = static_cast<uint8_t *>(dst);
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
+
+    while (size > 0) {
+        auto [mapped_address, tlb_size] =
+            set_dynamic_tlb_broadcast(tlb_index, addr, core_start, core_end, tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        write_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
 }  // namespace tt::umd

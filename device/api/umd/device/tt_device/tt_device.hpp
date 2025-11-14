@@ -137,36 +137,85 @@ public:
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
-     * Read function that will send read message to the ARC core.
+     * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
+     * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
+     * will ensure that the write will land on the correct cores.
      *
-     * @param mem_ptr pointer to memory which will receive the data
-     * @param arc_addr_offset address offset in ARC core
+     * @param dst pointer to memory from which the data is sent
      * @param size number of bytes
-     *
-     * NOTE: This function on Wormhole will use the
-     * AXI interface to read the data if the chip is local/PCIe, while the remote chip will use the
-     * the NOC interface to read the data. Blackhole for now, will only use the NOC interface to read data,
-     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
-     * chips.
-     *
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
      */
-    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**
-     * Write function that will send write message to the ARC core.
+     * Read function that will send read message to the ARC core APB peripherals.
      *
-     * @param mem_ptr pointer to memory from which the data is sent
-     * @param arc_addr_offset address offset in ARC core
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core APB peripherals
      * @param size number of bytes
      *
-     * NOTE: This function on Wormhole will use the
-     * AXI interface to write the data if the chip is local/PCIe, while the remote chip will use the
-     * the NOC interface to write the data. Blackhole for now, will only use the NOC interface to write data,
-     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * NOTE: This function will read from APB peripherals. It will use the AXI interface to read the data if the chip is
+     * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
+     * where the ARC is not available over AXI, hence in this situations, the NOC interface will be used even for local
      * chips.
      *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core APB peripherals.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core APB peripherals
+     * @param size number of bytes
+     *
+     * NOTE: This function will write to APB peripherals. It will use the AXI interface to write the data if the chip is
+     * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
+     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
+     * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Read function that will send read message to the ARC core CSM.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core CSM
+     * @param size number of bytes
+     *
+     * NOTE: This function will read from CSM. It will use the AXI interface to read the data if the chip is local/PCIe,
+     * while the remote chip will use the NOC interface to read the data. Blackhole has board
+     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
+     * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core CSM.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core CSM
+     * @param size number of bytes
+     *
+     * NOTE: This function will write to CSM. It will use the AXI interface to write the data if the chip is local/PCIe,
+     * while the remote chip will use the NOC interface to write the data. Blackhole has board
+     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
+     * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -221,18 +270,11 @@ public:
     semver_t get_firmware_version();
 
     /**
-     * Waits for ARC core hardware initialization after reset.
-     * Must be called after device reset and before init_tt_device().
-     * This ensures the ARC core hardware is ready for further initialization.
-     */
-    virtual bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) = 0;
-
-    /**
      * Waits for ARC core to be fully ready for communication.
-     * Must be called after init_tt_device() and before using ArcMessenger.
+     * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -274,17 +316,11 @@ public:
 
     double get_asic_temperature();
 
-    // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
-    // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status();
-
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();
 
-    virtual uint64_t get_arc_noc_base_address() const = 0;
-
-    void init_tt_device();
+    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 

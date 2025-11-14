@@ -14,9 +14,12 @@
 #include <pthread.h>   // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
 #include <sys/file.h>  // flock
 #include <sys/stat.h>  // for fstat
-#include <unistd.h>    // ftruncate, close
+#include <time.h>      // clock_gettime, timespec
+#include <unistd.h>    // ftruncate, close, getpid
 
+#include <chrono>
 #include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 
 namespace tt::umd {
@@ -223,7 +226,7 @@ void RobustMutex::open_pthread_mutex() {
     // Create a pthread_mutex based on the shared memory file descriptor
     void* addr = mmap(NULL, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
     TT_ASSERT(addr != MAP_FAILED, "mmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
-    mutex_wrapper_ptr_ = (pthread_mutex_wrapper*)addr;
+    mutex_wrapper_ptr_ = static_cast<pthread_mutex_wrapper*>(addr);
 }
 
 void RobustMutex::initialize_pthread_mutex_first_use() {
@@ -245,6 +248,8 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     // When we open an existing pthread in the future, there is no other way to check if it was initialized or not, so
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
+    // Initialize owner PID to 0 (no owner).
+    mutex_wrapper_ptr_->owner_pid = 0;
 }
 
 size_t RobustMutex::get_file_size(int fd) {
@@ -275,6 +280,8 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::unlock() {
+    // Clear the owner PID before unlocking.
+    mutex_wrapper_ptr_->owner_pid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         TT_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
@@ -282,20 +289,43 @@ void RobustMutex::unlock() {
 }
 
 void RobustMutex::lock() {
-    int lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));
+    // Try to acquire the lock with a 1-second timeout first.
+    struct timespec timeout;
+    clock_gettime(CLOCK_REALTIME, &timeout);
+    timeout.tv_sec += 1;  // 1 second timeout
 
-    if (lock_res == EOWNERDEAD) {
-        // Some other process crashed before unlocking the mutex.
-        // We can recover the mutex state.
-        int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
-        if (err != 0) {
-            TT_THROW(fmt::format(
-                "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+    int lock_res = pthread_mutex_timedlock(&(mutex_wrapper_ptr_->mutex), &timeout);
+
+    // First lock attempt is there so that we can log something to the user in case they aren't able to acquire the lock
+    // immediately. Note that since the call inside this loop is blocking, this code will loop at most once, but it is
+    // still more concise than to write duplicate code for handling the first lock try attempt and the second one.
+    while (lock_res != 0) {
+        if (lock_res == EOWNERDEAD) {
+            // Process crashed before unlocking the mutex. Recover it.
+            int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
+            if (err != 0) {
+                TT_THROW(fmt::format(
+                    "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+            }
+            // Break out of the loop as we can now successfully lock.
+            lock_res = 0;
+        } else if (lock_res == ETIMEDOUT) {
+            // Timeout occurred - log a message about waiting.
+            // Note that we can enter here only as a result of timedlock version.
+            pid_t owner = mutex_wrapper_ptr_->owner_pid;
+            log_warning(LogUMD, "Waiting for lock '{}' which is currently held by process PID: {}", mutex_name_, owner);
+
+            // Now block until we get the lock.
+            lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));
+        } else {
+            // Lock operation failed, either after first or second attempt.
+            TT_THROW(
+                fmt::format("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
         }
-    } else if (lock_res != 0) {
-        TT_THROW(
-            fmt::format("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
     }
+
+    // lock_res is 0, so this is a success case.
+    mutex_wrapper_ptr_->owner_pid = getpid();
 }
 
 }  // namespace tt::umd

@@ -10,6 +10,8 @@
 
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
@@ -323,9 +325,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
-        expected_eth_fw_version = eth_fw_version;
-        if (WH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+        expected_eth_fw_version =
+            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::WORMHOLE_B0);
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        } else {
+            expected_eth_fw_version = eth_fw_version;
+            log_debug(
+                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
+        }
+        if (erisc_firmware::WH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
@@ -342,27 +351,6 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
     }
 
     return options.no_eth_firmware_strictness || !eth_fw_problem;
-}
-
-std::optional<semver_t> TopologyDiscoveryWormhole::get_expected_erisc_fw_version_from_fw_bundle(
-    semver_t fw_bundle_version) const {
-    if (fw_bundle_version.major >= 80) {
-        if (fw_bundle_version >= WH_LEGACY_ERISC_FW_VERSION_MAP[0].first) {
-            return WH_ERISC_FW_VERSION_MAP[0].second;
-        }
-        return std::nullopt;
-    }
-    auto it = std::upper_bound(
-        WH_ERISC_FW_VERSION_MAP.begin(),
-        WH_ERISC_FW_VERSION_MAP.end(),
-        fw_bundle_version,
-        [](const semver_t& version, const std::pair<semver_t, semver_t>& entry) { return version < entry.first; });
-
-    if (it != WH_ERISC_FW_VERSION_MAP.begin()) {
-        --it;
-        return it->second;
-    }
-    return std::nullopt;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {

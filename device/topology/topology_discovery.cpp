@@ -403,17 +403,6 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
             latest_supported_fw_bundle_version.to_string(),
             arch_to_str(tt_device->get_arch()));
     }
-
-    // Try to infer expected ERISC FW version from FW bundle version
-    auto expected_eth_fw_version = get_expected_erisc_fw_version_from_fw_bundle(fw_bundle_version);
-    if (expected_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established ETH FW version: {}", expected_eth_fw_version->to_string());
-    } else {
-        log_warning(
-            LogUMD,
-            "Could not find matching ETH FW version for firmware bundle version. Will assume ETH FW version from first "
-            "discovered ETH core.");
-    }
     return true;
 }
 

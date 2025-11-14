@@ -154,8 +154,6 @@ protected:
 
     virtual bool verify_fw_bundle_version(Chip* chip);
 
-    virtual std::optional<semver_t> get_expected_erisc_fw_version_from_fw_bundle(semver_t fw_bundle_version) const = 0;
-
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local chip.
     std::optional<semver_t> expected_eth_fw_version;

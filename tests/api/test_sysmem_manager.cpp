@@ -207,8 +207,6 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }
 
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
-
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {

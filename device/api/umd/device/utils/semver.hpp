@@ -80,7 +80,7 @@ public:
     bool operator>(const semver_t& other) const { return other < *this; }
 
     bool operator==(const semver_t& other) const {
-        return std::tie(major, minor, patch, pre_release) == 
+        return std::tie(major, minor, patch, pre_release) ==
                std::tie(other.major, other.minor, other.patch, other.pre_release);
     }
 

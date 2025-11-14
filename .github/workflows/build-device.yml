@@ -36,13 +36,13 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, compiler: clang},
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04,
+          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, artifact-distro: ubuntu-22.04, compiler: clang},
+          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, artifact-distro: ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, compiler: clang},
-          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04,
+          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, artifact-distro: ubuntu-24.04, compiler: clang},
+          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, artifact-distro: ubuntu-24.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-fedora-39,
+          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-fedora-39, artifact-distro: fedora-39,
            compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
         ]
 
@@ -50,6 +50,9 @@ jobs:
     runs-on: ${{ matrix.image.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image.docker-image }}:latest
+    env:
+      ARTIFACT_DISTRO_VER: ${{ matrix.image.artifact-distro }}
+      ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
 
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +123,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
+          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.deb
           if-no-files-found: error
@@ -129,7 +132,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
+          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.rpm
           if-no-files-found: error
@@ -137,7 +140,7 @@ jobs:
       - name: Upload example config files
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-examples-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
+          name: tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
             ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
             ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
@@ -210,7 +213,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}
+          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
           if-no-files-found: error
@@ -225,7 +228,7 @@ jobs:
         if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.docker-image }}-${{ matrix.image.compiler }}-rpm
+          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
@@ -294,12 +297,10 @@ jobs:
         || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
 
     env:
-      ARTIFACT_OS: >-
-        ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39') ||
-        format('tt-umd-ci-{0}', matrix.build.os) }}
+      ARTIFACT_DISTRO_VER: >-
+        ${{ (matrix.pkg.package == 'rpm' && 'fedora-39') || matrix.build.os }}
       ARTIFACT_COMPILER: >-
         ${{ (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }}
-      PYTHON_SUFFIX: ${{ (matrix.pkg.package == 'rpm' && '-rpm') || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -308,34 +309,37 @@ jobs:
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}
-          path: ./downloaded-artifact/tt-umd-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}-package
+          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: >-
+            ./downloaded-artifact/tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}
-          path: ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}-example
+          name: tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: >-
+            ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: tt-umd-python-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}${{ env.PYTHON_SUFFIX }}
-          path: ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_OS }}-${{ env.ARTIFACT_COMPILER }}-package
+          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: >-
+            ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-package
 
       - name: Run test on example and python with packages
         shell: bash
         run: |
           set -euo pipefail
           PKG_FMT="${{ matrix.pkg.package }}"
-          ART_OS="${{ env.ARTIFACT_OS }}"
+          DISTRO_VER="${{ env.ARTIFACT_DISTRO_VER }}"
           COMP="${{ env.ARTIFACT_COMPILER }}"
 
           # Directories from downloaded artifacts
-          PACKAGE_DIR="./downloaded-artifact/tt-umd-${ART_OS}-${COMP}-package"
-          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${ART_OS}-${COMP}-package"
-          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${ART_OS}-${COMP}-example"
+          PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${DISTRO_VER}-${COMP}-package"
+          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${DISTRO_VER}-${COMP}-package"
+          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${DISTRO_VER}-${COMP}-example"
 
           echo "Install .${PKG_FMT} packages from ${PACKAGE_DIR}"
           DEV_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \

@@ -24,6 +24,7 @@ install(
 
 set(CPACK_GENERATOR "DEB;RPM")
 set(CPACK_PACKAGE_VENDOR "Tenstorrent, Inc.")
+set(CPACK_PACKAGE_NAME "tt_umd")
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Tenstorrent User Mode Driver")
 set(CPACK_PACKAGE_CONTACT "support@tenstorrent.com")

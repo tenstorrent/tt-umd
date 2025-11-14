@@ -343,11 +343,11 @@ jobs:
 
           echo "Install .${PKG_FMT} packages from ${PACKAGE_DIR}"
           DEV_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \
-            -name "umd-*-Linux-umd-dev.${PKG_FMT}" -print -quit)"
+            -name "tt_umd-*-Linux-umd-dev.${PKG_FMT}" -print -quit)"
           RUNTIME_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \
-            -name "umd-*-Linux-umd-runtime.${PKG_FMT}" -print -quit)"
+            -name "tt_umd-*-Linux-umd-runtime.${PKG_FMT}" -print -quit)"
           PYTHON_PKG="$(find "${PY_PACKAGE_DIR}" -maxdepth 1 -type f \
-            -name "umd-*-Linux-umd-python.${PKG_FMT}" -print -quit || true)"
+            -name "tt_umd-*-Linux-umd-python.${PKG_FMT}" -print -quit || true)"
 
           if [ -z "${DEV_PKG}" ] || [ -z "${RUNTIME_PKG}" ]; then
             echo "Required packages not found in ${PACKAGE_DIR}"

@@ -15,6 +15,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -48,6 +49,7 @@ protected:
         for (uint32_t jlink_device_id = 0; jlink_device_id < jlink_device_count_; ++jlink_device_id) {
             DeviceData device_data;
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
+            device_data.tt_device_->init_tt_device();
             auto soc_descriptor =
                 SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
             device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];

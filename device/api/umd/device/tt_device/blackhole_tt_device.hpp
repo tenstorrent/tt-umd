@@ -52,6 +52,7 @@ public:
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     bool is_hardware_hung() override;
 

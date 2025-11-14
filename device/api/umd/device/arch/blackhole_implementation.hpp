@@ -227,6 +227,7 @@ static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
 inline constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
+inline constexpr uint64_t ARC_NOC_TO_ARC_XBAR_MAP_ADDRESS_START = 0x800000000;
 
 inline constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
 inline constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0060;
@@ -254,6 +255,9 @@ inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
 inline constexpr uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
 inline constexpr uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
+
+inline constexpr uint64_t NIU_CFG_NOC0_ARC_ADDR = 0x80050100;
+inline constexpr uint64_t NIU_CFG_NOC1_ARC_ADDR = 0x80058100;
 
 inline constexpr uint32_t AICLK_BUSY_VAL = 1350;
 inline constexpr uint32_t AICLK_IDLE_VAL = 800;

@@ -36,22 +36,22 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, artifact-distro: ubuntu-22.04, compiler: clang},
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, artifact-distro: ubuntu-22.04,
+          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, compiler: clang},
+          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, artifact-distro: ubuntu-24.04, compiler: clang},
-          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, artifact-distro: ubuntu-24.04,
+          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, compiler: clang},
+          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-fedora-39, artifact-distro: fedora-39,
+          {runs-on: ubuntu-22.04, container-distro: fedora-39,
            compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
         ]
 
-    name: Build device for any arch in ${{ matrix.image.docker-image }} with ${{ matrix.image.compiler }}
+    name: Build device for any arch in ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
     runs-on: ${{ matrix.image.runs-on }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.image.docker-image }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
     env:
-      ARTIFACT_DISTRO_VER: ${{ matrix.image.artifact-distro }}
+      ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
       ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
 
     steps:
@@ -108,19 +108,19 @@ jobs:
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package
-        if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
         working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G DEB
 
       - name: Generate .rpm package
-        if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
         working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G RPM
 
       - name: Upload DEB dev and runtime packages
-        if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
           name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
@@ -129,7 +129,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload RPM dev and runtime packages
-        if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
           name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
@@ -204,13 +204,13 @@ jobs:
           echo "Compile complete."
 
       - name: Generate .deb package for umd-python
-        if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
         working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G DEB
 
       - name: Upload .deb packages for umd-python
-        if: ${{ contains(matrix.image.docker-image, 'ubuntu-') }}
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
           name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
@@ -219,13 +219,13 @@ jobs:
           if-no-files-found: error
 
       - name: Generate .rpm package for umd-python
-        if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
         working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G RPM
 
       - name: Upload .rpm packages for umd-python
-        if: ${{ contains(matrix.image.docker-image, 'fedora-') }}
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
           name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}

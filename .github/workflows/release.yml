@@ -270,35 +270,6 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Install libraries and headers
-        run: |
-          echo "Installing libraries and public headers..."
-          cmake --install ${{ env.BUILD_OUTPUT_DIR }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
-          echo "Install complete."
-          echo "Installed files:"
-          find ${{ env.INSTALL_OUTPUT_DIR }} -type f | head -20
-
-      # This is needed to preserve file permissions
-      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-      - name: Tar build and install artifacts
-        shell: bash
-        run: |
-          VERSION="${{ needs.prepare-release.outputs.version }}"
-          UBUNTU_VERSION="${{ matrix.docker-version }}"
-          ARTIFACT_NAME="tt-umd-v${VERSION}-${UBUNTU_VERSION}.tar"
-
-          echo "Creating release archive with proper install structure..."
-          tar cvf "$ARTIFACT_NAME" \
-            --transform 's,^build/install/,,' \
-            ${{ env.INSTALL_OUTPUT_DIR }} \
-            ${{ env.LIB_OUTPUT_DIR }}
-
-      - name: Upload build artifacts archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
-          path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}.tar
-
       - name: Generate .deb packages
         if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
         working-directory: ${{ env.BUILD_OUTPUT_DIR }}
@@ -446,7 +417,6 @@ jobs:
           mkdir -p ./final-assets
 
           # Copy and organize all artifacts
-          find ./release-artifacts -type f -name "*.tar" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.whl" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.deb" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.rpm" -exec cp {} ./final-assets/ \;
@@ -467,15 +437,13 @@ jobs:
             ## 📦 What's Included
 
             ### C++ Build Artifacts
-            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-ubuntu-22.04.tar** - Ubuntu 22.04 build
-            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-ubuntu-24.04.tar** - Ubuntu 24.04 build
-
             Contains: Compiled C++ libraries, public headers, CMake config files, and dependencies.
 
             ### System Packages (.deb / .rpm)
-            - **Ubuntu 22.04**: DEB and RPM packages are attached under Assets
-            - **Ubuntu 24.04**: DEB and RPM packages are attached under Assets
-            - Includes: `umd-runtime` and `umd-dev` packages
+            - **Ubuntu 22.04**: DEB packages are attached under Assets
+            - **Ubuntu 24.04**: DEB packages are attached under Assets
+            - **Fedora 39**: RPM packages are attached under Assets
+            - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
 
             ### Python Wheels
             - **manylinux_2_34 wheels** for Python 3.8-3.13 (x86_64)

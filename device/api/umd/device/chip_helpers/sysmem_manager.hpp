@@ -20,10 +20,11 @@ static constexpr size_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
 class SysmemManager {
 public:
     SysmemManager(TLBManager* tlb_manager, uint32_t num_host_mem_channels);
-    ~SysmemManager();
+    SysmemManager();
+    virtual ~SysmemManager();
 
-    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
-    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
+    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
+    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     /**
      * Further initializes system memory for usage.
@@ -34,23 +35,24 @@ public:
      * - For KMD version >= 2.0.0 this will pin the memory and map it to the device. Device IO address is not
      * needed further by the driver.
      */
-    bool pin_or_map_sysmem_to_device();
+    virtual bool pin_or_map_sysmem_to_device();
 
-    void unpin_or_unmap_sysmem();
+    virtual void unpin_or_unmap_sysmem();
 
     size_t get_num_host_mem_channels() const;
     HugepageMapping get_hugepage_mapping(size_t channel) const;
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(size_t sysmem_buffer_size, const bool map_to_noc = false);
+    virtual std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
+        size_t sysmem_buffer_size, const bool map_to_noc = false);
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+    virtual std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false);
 
-private:
+protected:
     /**
      * Allocate sysmem with hugepages.
      */
-    bool init_hugepages(uint32_t num_host_mem_channels);
+    virtual bool init_hugepages(uint32_t num_host_mem_channels);
     /**
      * Allocate sysmem without hugepages and map it through IOMMU.
      * This is used when the system is protected by an IOMMU.  The mappings will
@@ -58,17 +60,18 @@ private:
      * @param num_fake_mem_channels number of fake mem channels to allocate
      * @return whether allocation/mapping succeeded.
      */
-    bool init_iommu(uint32_t num_fake_mem_channels);
+    virtual bool init_iommu(uint32_t num_fake_mem_channels);
 
-    bool pin_or_map_hugepages();
-    bool pin_or_map_iommu();
+    virtual bool pin_or_map_hugepages();
+    virtual bool pin_or_map_iommu();
 
     // For debug purposes when various stages fails.
-    void print_file_contents(std::string filename, std::string hint = "");
+    virtual void print_file_contents(std::string filename, std::string hint = "");
 
     TLBManager* tlb_manager_;
     TTDevice* tt_device_;
-    const uint64_t pcie_base_;
+    // const uint64_t pcie_base_;
+    uint64_t pcie_base_;
 
     std::vector<HugepageMapping> hugepage_mapping_per_channel;
     void* iommu_mapping = nullptr;

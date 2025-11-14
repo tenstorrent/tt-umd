@@ -37,6 +37,8 @@ SysmemManager::SysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_chan
     }
 }
 
+SysmemManager::SysmemManager() {}
+
 bool SysmemManager::pin_or_map_sysmem_to_device() {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
         return pin_or_map_iommu();

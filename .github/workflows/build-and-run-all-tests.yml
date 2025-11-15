@@ -77,6 +77,8 @@ jobs:
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
+          # g04glx01 is a 6U runner in CIv1
+          {arch: wormhole_b0, card: g04glx01},
           # TODO: To be added when available.
           # {arch: blackhole, card: tt-ubuntu-2204-p100a-stable},
           {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},

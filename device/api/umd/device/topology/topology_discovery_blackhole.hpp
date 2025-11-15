@@ -60,6 +60,8 @@ protected:
     void init_topology_discovery() override;
 
     bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) override;
+
+    std::optional<semver_t> get_expected_erisc_fw_version_from_fw_bundle(semver_t fw_bundle_version) const override;
 };
 
 }  // namespace tt::umd

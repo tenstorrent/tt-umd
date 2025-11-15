@@ -49,6 +49,20 @@ public:
 
     virtual uint32_t get_eth_fw_version() const;
 
+    // TODO: remove semver suffix from this function when client code is changed to use semver_t directly.
+    // Remove version of the function that returns uint32_t accordingly.
+    virtual std::optional<semver_t> get_eth_fw_version_semver() const;
+
+    virtual std::optional<semver_t> get_gddr_fw_version() const;
+
+    virtual std::optional<semver_t> get_cm_fw_version() const;
+
+    virtual std::optional<semver_t> get_dm_app_fw_version() const;
+
+    virtual std::optional<semver_t> get_dm_bl_fw_version() const;
+
+    virtual std::optional<semver_t> get_tt_flash_version() const;
+
     /*
      * Get ASIC temperature in Celsius.
      * @returns ASIC temperature [Celsius]

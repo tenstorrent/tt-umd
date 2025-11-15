@@ -135,7 +135,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
         mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     // It's important that this offset is not a multiple of the page size.
     const size_t unaligned_offset = 100;
-    void* mapping_buffer = (uint8_t*)mapping + unaligned_offset;  // Offset by 1MB
+    void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
@@ -199,15 +199,13 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     // Size is not multiple of page size.
     void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
 
-    void* mapped_buffer = (uint8_t*)mapping + buf_size;  // Offset by 10 bytes
+    void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_size;  // Offset by 10 bytes
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
 
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }
-
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
 
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -217,8 +215,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
-    // TODO: Switch to PCIDevice->is_mapping_buffer_to_noc_supported once we flip it on.
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (!PCIDevice(pci_device_ids[0]).is_mapping_buffer_to_noc_supported()) {
         GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
     }
 

@@ -172,4 +172,5 @@ TLBManager* RemoteChip::get_tlb_manager() {
     throw std::runtime_error("RemoteChip::get_tlb_manager is not available for this chip.");
 }
 
+RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }
 }  // namespace tt::umd

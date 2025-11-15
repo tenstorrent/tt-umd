@@ -7,6 +7,7 @@
 #include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
+#include <unistd.h>  // For access()
 
 #include <algorithm>
 #include <cstdint>
@@ -24,6 +25,7 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -59,6 +61,22 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     return options;
 }
 
+// Small helper function to check if the ipmitool is ready.
+bool is_ipmitool_ready() {
+    if (system("which ipmitool > /dev/null 2>&1") != 0) {
+        std::cout << "ipmitool executable not found." << std::endl;
+        return false;
+    }
+
+    if ((access("/dev/ipmi0", F_OK) != 0) && (access("/dev/ipmi/0", F_OK) != 0) &&
+        (access("/dev/ipmidev/0", F_OK) != 0)) {
+        std::cout << "IPMI device file not found (/dev/ipmi0, /dev/ipmi/0, or /dev/ipmidev/0)." << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 // This test should be one line only.
 TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
 
@@ -89,21 +107,6 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         }
         std::cout << std::endl;
 
-        // Make sure that Cluster construction is without exceptions.
-        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = target_pci_device_ids,
-        });
-
-        if (!target_pci_device_ids.empty()) {
-            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
-            // Check that the cluster has the expected number of chips.
-            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
-            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
-            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
-            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
-        }
-
         std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
 
         if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
@@ -112,9 +115,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
         // Make sure that Cluster construction is without exceptions.
         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = {},
-        });
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
         if (!target_pci_device_ids.empty()) {
             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
@@ -558,6 +559,10 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
         GTEST_SKIP() << "Only test Wormhole architecture for Galaxy UBB reset.";
     }
 
+    if (!is_ipmitool_ready()) {
+        GTEST_SKIP() << "Only test warm reset on systems that have the ipmi tool.";
+    }
+
     static constexpr uint32_t write_test_data = 0xDEADBEEF;
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
@@ -587,6 +592,9 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 }
 
 TEST(TestCluster, WarmReset) {
+    if constexpr (is_arm_platform()) {
+        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+    }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
@@ -818,6 +826,52 @@ TEST(TestCluster, GetEthernetFirmware) {
         EXPECT_FALSE(eth_version.has_value());
     } else {
         EXPECT_TRUE(eth_version.has_value());
+    }
+}
+
+TEST(TestCluster, TestMulticastWrite) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    const tt_xy_pair grid_size = {8, 8};
+
+    const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+    const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    const uint64_t address = 0;
+    const size_t data_size = 256;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (std::size_t i = 0; i < data_size; i++) {
+        write_data[i] = (uint8_t)i;
+    }
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> zeros(data_size, 0);
+            cluster->write_to_device(
+                zeros.data(), zeros.size(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address);
+
+            std::vector<uint8_t> readback(data_size, 1);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(zeros, readback);
+        }
+    }
+
+    cluster->noc_multicast_write(write_data.data(), write_data.size(), 0, start_tensix, end_tensix, address);
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> readback(data_size, 0);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(write_data, readback);
+        }
     }
 }
 
@@ -1105,7 +1159,7 @@ TEST(TestCluster, SysmemReadWrite) {
     // cluster.start_device(device_params{});
 
     for (uint32_t channel = 0; channel < channels; channel++) {
-        uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(mmio_chip_id, 0, channel);
+        uint8_t* sysmem = static_cast<uint8_t*>(cluster.host_dma_address(mmio_chip_id, 0, channel));
 
         ASSERT_NE(sysmem, nullptr);
         test_utils::fill_with_random_bytes(sysmem, ONE_GIG);

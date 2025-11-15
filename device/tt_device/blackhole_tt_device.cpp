@@ -29,11 +29,19 @@ BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     spi_ = std::make_unique<BlackholeSPI>(this);
 }
 
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+    TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+}
+
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
     // application crashes -- this is a good example of why userspace should not
     // be touching this hardware resource directly -- but it's a good idea to
     // clean up after ourselves.
+    if (get_communication_device_type() != IODeviceType::PCIe) {
+        return;
+    }
     if (pci_device_->bar2_uc != nullptr && pci_device_->bar2_uc != MAP_FAILED) {
         auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
 
@@ -98,14 +106,20 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 }
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
     uint32_t niu_cfg;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-    } else {
-        read_regs(addr, 1, &niu_cfg);
-    }
+    uint64_t addr;
 
+    if (get_communication_device_type() == IODeviceType::JTAG) {
+        // Target arc core.
+        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+    } else {
+        addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+        if (addr < get_pci_device()->bar0_uc_offset) {
+            read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
+        } else {
+            read_regs(addr, 1, &niu_cfg);
+        }
+    }
     return ((niu_cfg >> 14) & 0x1) != 0;
 }
 
@@ -151,15 +165,15 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
-            return;
+            return true;
         }
 
         utils::check_timeout(
@@ -199,9 +213,9 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range");
+        throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -214,16 +228,16 @@ void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, s
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+        read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 };
 
-void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range");
+        throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -236,11 +250,19 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+        write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
         blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+}
+
+void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    throw std::runtime_error("CSM write not supported for Blackhole.");
+}
+
+void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    throw std::runtime_error("CSM read not supported for Blackhole.");
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
@@ -268,10 +290,6 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     }
     return time_taken;
 }
-
-uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
-
-bool BlackholeTTDevice::wait_arc_post_reset(const std::chrono::milliseconds timeout_ms) { return true; }
 
 bool BlackholeTTDevice::is_hardware_hung() {
     // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");

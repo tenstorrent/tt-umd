@@ -21,7 +21,7 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
 
     uint32_t get_clock() override;
 
@@ -37,23 +37,24 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
-    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    uint64_t get_arc_noc_base_address() const override;
-
-    bool wait_arc_post_reset(const std::chrono::milliseconds timeout_ms = timeout::ARC_POST_RESET_TIMEOUT) override;
-
     uint32_t get_spi_fw_bundle_version() override;
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     bool is_hardware_hung() override;
 

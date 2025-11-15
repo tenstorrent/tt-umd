@@ -274,11 +274,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
         EXPORT ${PROJECT_NAME}Targets
         ARCHIVE
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT umd-dev
         LIBRARY
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
             COMPONENT umd-runtime
         FILE_SET
         api
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
             COMPONENT umd-dev
     )
 
@@ -305,22 +307,11 @@ add_custom_command(
     COMMENT "Copying device library to build/lib"
 )
 
-# No separation of public and private header files
-# I can only assume everything is public
-install(
-    DIRECTORY
-        ${PROJECT_SOURCE_DIR}/device
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device
-    FILES_MATCHING
-    PATTERN
-    "*.h"
-    PATTERN
-    "*.hpp"
-)
 install(
     DIRECTORY
         ${PROJECT_SOURCE_DIR}/common
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
+    COMPONENT umd-dev
     FILES_MATCHING
     PATTERN
     "*.h"

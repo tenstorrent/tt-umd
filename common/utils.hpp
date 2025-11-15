@@ -74,6 +74,16 @@ static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>
                : target_devices;
 }
 
+#ifdef TT_UMD_BUILD_SIMULATION
+inline constexpr std::string_view TT_MULTIPROC_SIM_ENABLE_ENV = "TT_MULTIPROC_SIM_ENABLE";
+
+static bool is_multiproc_sim_enabled() {
+    const std::optional<std::string> env_var_value =
+        tt::umd::utils::get_env_var_value(TT_MULTIPROC_SIM_ENABLE_ENV.data());
+    return env_var_value.has_value() && env_var_value.value() == "1";
+}
+#endif
+
 template <typename... Args>
 inline std::string convert_to_space_separated_string(Args&&... args) {
     return fmt::format("{}", fmt::join({fmt::to_string(std::forward<Args>(args))...}, " "));

@@ -7,7 +7,6 @@
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 
 #include <nng/nng.h>
-#include <uv.h>
 
 #include <iostream>
 #include <string>
@@ -86,38 +85,7 @@ RtlSimulationChip::RtlSimulationChip(
     }
 
     host.init();
-
-    // Start simulator process
-    uv_loop_t* loop = uv_default_loop();
-    std::string simulator_path_string = simulator_directory / "run.sh";
-    if (!std::filesystem::exists(simulator_path_string)) {
-        TT_THROW("Simulator binary not found at: ", simulator_path_string);
-    }
-
-    uv_stdio_container_t child_stdio[3];
-    child_stdio[0].flags = UV_IGNORE;
-    child_stdio[1].flags = UV_INHERIT_FD;
-    child_stdio[1].data.fd = 1;
-    child_stdio[2].flags = UV_INHERIT_FD;
-    child_stdio[2].data.fd = 2;
-
-    uv_process_options_t child_options = {0};
-    child_options.file = simulator_path_string.c_str();
-    child_options.flags = UV_PROCESS_DETACHED;
-    child_options.stdio_count = 3;
-    child_options.stdio = child_stdio;
-
-    uv_process_t child_p;
-    int rv = uv_spawn(loop, &child_p, &child_options);
-    if (rv) {
-        TT_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
-    } else {
-        log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
-    }
-
-    uv_unref(reinterpret_cast<uv_handle_t*>(&child_p));
-    uv_run(loop, UV_RUN_DEFAULT);
-    uv_loop_close(loop);
+    host.start_simulator(simulator_directory);
 }
 
 void RtlSimulationChip::start_device() {

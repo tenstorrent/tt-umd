@@ -64,6 +64,7 @@ TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescri
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
+    DLSYM_FUNCTION(libttsim_set_debug_core)
 }
 
 TTSimChip::~TTSimChip() {
@@ -177,6 +178,11 @@ void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_risc
         pfn_libttsim_tile_wr_bytes(
             translate_core.x, translate_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
     }
+}
+
+void TTSimChip::set_debug_core(uint32_t x, uint32_t y) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    pfn_libttsim_set_debug_core(x, y);
 }
 
 }  // namespace tt::umd

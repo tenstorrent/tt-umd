@@ -124,82 +124,82 @@ uint32_t WormholeSPI::get_clock() {
 void WormholeSPI::init(uint32_t clock_div) {
     // std::cout << "clock_div: " << clock_div << std::endl;
     uint32_t reg;
-    tt_device_->read_from_arc(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
+    tt_device_->read_from_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
 
     reg |= 1 << 2;     // Enable tristate for SPI data in PAD
     reg &= ~(1 << 5);  // Disable tristate for SPI chip select PAD
     reg &= ~(1 << 6);  // Disable tristate for SPI clock PAD
-    tt_device_->write_to_arc(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
+    tt_device_->write_to_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
 
     uint32_t val = 0xffffffff;
-    tt_device_->write_to_arc(&val, GPIO2_PAD_DRV_CNTL, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, GPIO2_PAD_DRV_CNTL, sizeof(val));
 
     // Enable RX for all SPI PADS
-    tt_device_->read_from_arc(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
+    tt_device_->read_from_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
     reg |= 0x3f << 1;  // PADs 1 to 6 are used for SPI quad SCPH support
-    tt_device_->write_to_arc(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
+    tt_device_->write_to_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
 
     val = SPI_CNTL_SPI_ENABLE;
-    tt_device_->write_to_arc(&val, SPI_CNTL, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val));
 
     val = SPI_SSIENR_DISABLE;
-    tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    tt_device_->write_to_arc(&val, SPI_CTRLR0, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
 
     val = 0;
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     val = spi_baudr_sckdv(clock_div);
-    tt_device_->write_to_arc(&val, SPI_BAUDR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_BAUDR, sizeof(val));
 
     val = SPI_SSIENR_ENABLE;
-    tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 }
 
 void WormholeSPI::disable() {
     uint32_t val = SPI_CNTL_CLK_DISABLE | SPI_CNTL_SPI_DISABLE;
-    tt_device_->write_to_arc(&val, SPI_CNTL, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val));
 }
 
 uint8_t WormholeSPI::read_status(uint8_t register_addr) {
     uint32_t val;
 
     val = SPI_SSIENR_DISABLE;
-    tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    tt_device_->write_to_arc(&val, SPI_CTRLR0, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
 
     val = spi_ctrl1_ndf(0);
-    tt_device_->write_to_arc(&val, SPI_CTRLR1, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_CTRLR1, sizeof(val));
 
     val = SPI_SSIENR_ENABLE;
-    tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
     val = spi_ser_slave_disable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Write status register to read
     val = register_addr;
-    tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
 
     val = spi_ser_slave_enable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Wait for data to be available
     do {
-        tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
+        tt_device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
     } while ((val & SPI_SR_RFNE) == 0);
 
-    tt_device_->read_from_arc(&val, SPI_DR, sizeof(val));
+    tt_device_->read_from_arc_apb(&val, SPI_DR, sizeof(val));
     uint8_t read_buf = val & 0xff;
 
     val = spi_ser_slave_disable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     return read_buf;
 }
@@ -209,41 +209,41 @@ void WormholeSPI::lock(uint8_t sections) {
 
     // Set slave address
     val = SPI_SSIENR_DISABLE;
-    tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
     val = SPI_CTRL0_TMOD_TRANSMIT_ONLY | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    tt_device_->write_to_arc(&val, SPI_CTRLR0, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
 
     val = SPI_SSIENR_ENABLE;
-    tt_device_->write_to_arc(&val, SPI_SSIENR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
     val = spi_ser_slave_disable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Enable write
     val = SPI_WR_EN_CMD;
-    tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
 
     val = spi_ser_slave_enable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Wait for TX FIFO empty
     do {
-        tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
+        tt_device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
 
     // Wait for not busy
     do {
-        tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
+        tt_device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
 
     val = spi_ser_slave_disable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Write sectors to lock
     val = SPI_WR_STATUS_CMD;
-    tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
 
     // Determine board type to figure out which SPI to use
     uint64_t board_id = tt_device_->get_board_id();
@@ -258,23 +258,23 @@ void WormholeSPI::lock(uint8_t sections) {
     } else {
         val = (0x1 << 5) | ((static_cast<uint32_t>(sections) - 5) << 2);
     }
-    tt_device_->write_to_arc(&val, SPI_DR, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
 
     val = spi_ser_slave_enable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Wait for TX FIFO empty
     do {
-        tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
+        tt_device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
 
     // Wait for not busy
     do {
-        tt_device_->read_from_arc(&val, SPI_SR, sizeof(val));
+        tt_device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
 
     val = spi_ser_slave_disable(0);
-    tt_device_->write_to_arc(&val, SPI_SER, sizeof(val));
+    tt_device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Wait for lock operation to complete
     uint8_t status_val;

@@ -134,7 +134,7 @@ void BlackholeSPI::read(uint32_t addr, uint8_t* data, size_t size) {
     // Get SPI buffer info from SCRATCH_RAM[10]
     // The Rust code reads from spi_buffer_addr which is arc_ss.reset_unit.SCRATCH_RAM[10]
     uint32_t buffer_info;
-    tt_device_->read_from_arc(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
+    tt_device_->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
 
     // Parse buffer info: lower 24 bits = address offset, upper 8 bits = size (as power of 2)
     uint32_t buffer_addr = (buffer_info & 0xFFFFFF) + 0x10000000;  // magic offset to translate
@@ -175,7 +175,7 @@ void BlackholeSPI::write(uint32_t addr, const uint8_t* data, size_t size, bool s
     // Get SPI buffer info from SCRATCH_RAM[10]
     // The Rust code reads from spi_buffer_addr which is arc_ss.reset_unit.SCRATCH_RAM[10]
     uint32_t buffer_info;
-    tt_device_->read_from_arc(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
+    tt_device_->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
 
     // Parse buffer info: lower 24 bits = address offset, upper 8 bits = size (as power of 2)
     uint32_t buffer_addr = (buffer_info & 0xFFFFFF) + 0x10000000;  // magic offset to translate

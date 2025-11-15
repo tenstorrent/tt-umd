@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -74,6 +75,7 @@ void bind_soc_descriptor(nb::module_ &m) {
             &SocDescriptor::get_cores,
             nb::arg("core_type"),
             nb::arg("coord_system") = CoordSystem::NOC0,
+            nb::arg("channel") = std::nullopt,
             "Get all cores of a specific type in the specified coordinate system")
         .def(
             "get_harvested_cores",

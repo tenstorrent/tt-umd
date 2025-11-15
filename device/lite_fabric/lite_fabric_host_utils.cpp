@@ -4,12 +4,14 @@
 
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 
+#include <chrono>
 #include <fstream>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/lite_fabric/lf_dev_mem_map.hpp"
 #include "umd/device/lite_fabric/lite_fabric.hpp"
+#include "utils.hpp"
 
 static const uint8_t lite_fabric_bin[] = {
 #include "lite_fabric.embed"
@@ -60,11 +62,21 @@ void set_pc(Chip* chip, CoreCoord eth_core, uint32_t pc_addr, uint32_t pc_val) {
     chip->write_to_device(eth_core, (void*)&pc_val, pc_addr, sizeof(uint32_t));
 }
 
-void wait_for_state(Chip* chip, CoreCoord eth_core, uint32_t addr, uint32_t state) {
-    std::vector<uint32_t> readback{0xdeadbeef};
-    while (readback[0] != state) {
+void wait_for_state(
+    Chip* chip,
+    CoreCoord eth_core,
+    uint32_t addr,
+    uint32_t state,
+    std::chrono::milliseconds timeout_ms = timeout::BH_LITE_FABRIC_STATE_CHANGE_TIMEOUT) {
+    uint32_t readback = 0xDEADBEEF;
+    auto start_time = std::chrono::steady_clock::now();
+    while (readback != state) {
+        utils::check_timeout(
+            start_time,
+            timeout_ms,
+            fmt::format("Timed out waiting on Lite Fabric state change for {}", eth_core.str()));
+        chip->read_from_device(eth_core, &readback, addr, sizeof(uint32_t));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        chip->read_from_device(eth_core, readback.data(), addr, sizeof(uint32_t));
     }
 }
 
@@ -88,6 +100,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     auto config_addr = get_config_address();
 
     for (const auto& tunnel_1x : eth_cores) {
+        log_debug(LogUMD, "Launching Lite Fabric on core: {}", tunnel_1x.str());
         set_reset_state(chip, tunnel_1x, true);
         set_pc(chip, tunnel_1x, k_PcResetAddress, k_FirmwareStart);
 
@@ -106,7 +119,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
 
     for (auto tunnel_1x : eth_cores) {
         wait_for_state(chip, tunnel_1x, get_state_address(), static_cast<uint32_t>(InitState::READY));
-        log_debug(LogUMD, "Lite Fabric ready on core ({}, {})", tunnel_1x.x, tunnel_1x.y);
+        log_debug(LogUMD, "Lite Fabric ready on core: {}", tunnel_1x.str());
     }
 }
 

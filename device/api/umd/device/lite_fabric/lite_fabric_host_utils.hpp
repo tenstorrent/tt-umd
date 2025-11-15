@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <chrono>
 #include <vector>
 
 #include "umd/device/lite_fabric/lite_fabric.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -23,7 +25,12 @@ void set_reset_state(Chip* chip, tt_cxy_pair translated_core, bool assert_reset)
 
 void set_pc(Chip* chip, tt_cxy_pair translated_core, uint32_t pc_addr, uint32_t pc_val);
 
-void wait_for_state(Chip* chip, tt_cxy_pair translated_core, uint32_t addr, uint32_t state);
+void wait_for_state(
+    Chip* chip,
+    tt_cxy_pair translated_core,
+    uint32_t addr,
+    uint32_t state,
+    std::chrono::milliseconds timeout_ms = timeout::BH_LITE_FABRIC_STATE_CHANGE_TIMEOUT);
 
 void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores);
 

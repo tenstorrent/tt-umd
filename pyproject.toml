@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core", "nanobind", "setuptools"]
+requires = ["scikit-build-core>=0.11", "nanobind", "setuptools"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -36,21 +36,28 @@ classifiers = [
 [tool.scikit-build]
 cmake.build-type = "Release"
 build-dir = "build/"
-# Only build the Python-related targets
-cmake.targets = ["nanobind_tt_umd", "device"]
+# Only build the Python-related targets (new key in scikit-build-core >= 0.10)
+build.targets = ["nanobind_tt_umd", "device"]
 # Exclude development files from the wheel
 wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
-# Install only Python components (exclude lib/, include/, etc.)
-install.components = ["python"]
+# Install only the 'pip_wheel' component defined in CMake (new key path)
+install.components = ["pip_wheel"]
 
 [tool.scikit-build.cmake.define]
 TT_UMD_BUILD_TOOLS = "OFF"
 TT_UMD_BUILD_EXAMPLES = "OFF"
 TT_UMD_BUILD_TESTS = "OFF"
 TT_UMD_BUILD_SIMULATION = "OFF" 
+TT_UMD_BUILD_PIP = "ON"
 TT_UMD_BUILD_PYTHON = "ON"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
 input = "VERSION"
 regex = "(?P<value>.*)"
+
+[tool.cibuildwheel]
+build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+archs = "x86_64"
+skip = "*-musllinux_*"
+build-verbosity = 1

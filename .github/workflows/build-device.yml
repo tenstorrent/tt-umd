@@ -25,6 +25,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
+  WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
   build:
@@ -35,18 +36,23 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, compiler: clang},
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04,
+          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, compiler: clang},
+          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, compiler: clang},
-          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04,
+          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, compiler: clang},
+          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
+          {runs-on: ubuntu-22.04, container-distro: fedora-39,
+           compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
         ]
 
-    name: Build device for any arch on ${{ matrix.image.runs-on }} with ${{ matrix.image.compiler }}
+    name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
     runs-on: ${{ matrix.image.runs-on }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.image.docker-image }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
+    env:
+      ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
+      ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
 
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +75,7 @@ jobs:
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
+            -DTT_UMD_BUILD_PIP=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
@@ -99,6 +106,45 @@ jobs:
           name: >
             clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
           path: ${{ runner.temp }}/clang-tidy-build-config
+
+      - name: Generate .deb package
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
+        working-directory: ${{ env.TT_UMD_DIR }}/build
+        run: |
+          cpack -G DEB
+
+      - name: Generate .rpm package
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
+        working-directory: ${{ env.TT_UMD_DIR }}/build
+        run: |
+          cpack -G RPM
+
+      - name: Upload DEB dev and runtime packages
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: |
+            ${{ env.TT_UMD_DIR }}/build/*.deb
+          if-no-files-found: error
+
+      - name: Upload RPM dev and runtime packages
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: |
+            ${{ env.TT_UMD_DIR }}/build/*.rpm
+          if-no-files-found: error
+
+      - name: Upload example config files
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: |
+            ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
+            ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
+          if-no-files-found: error
 
       - name: Install device library
         run: |
@@ -145,3 +191,206 @@ jobs:
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
+
+      - name: Rebuild package for python without wheel
+        run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          echo "Recompiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_ALL=ON \
+            -DTT_UMD_BUILD_PIP=OFF \
+            -DENABLE_CLANG_TIDY=ON
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          echo "Compile complete."
+
+      - name: Generate .deb package for umd-python
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
+        working-directory: ${{ env.TT_UMD_DIR }}/build
+        run: |
+          cpack -G DEB
+
+      - name: Upload .deb packages for umd-python
+        if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: |
+            ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
+          if-no-files-found: error
+
+      - name: Generate .rpm package for umd-python
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
+        working-directory: ${{ env.TT_UMD_DIR }}/build
+        run: |
+          cpack -G RPM
+
+      - name: Upload .rpm packages for umd-python
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: |
+            ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
+          if-no-files-found: error
+
+  build-manylinux-wheels:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+
+    name: Build umd manylinux wheel
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build manylinux wheels
+        shell: bash
+        env:
+          # Use custom manylinux Docker image with all dependencies pre-installed
+          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          # This command will be executed for each wheel build to verify that the wheel is functional.
+          CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
+        run: |
+          echo "Cleaning up wheel directory in case of previous build..."
+          rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
+          mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Building manylinux wheel..."
+          python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Build complete."
+
+  test-packages:
+    needs: build
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [
+          {os: ubuntu-22.04, compiler: gcc-12},
+          {os: ubuntu-24.04, compiler: gcc-12}
+        ]
+        pkg: [
+          {package: deb, distro: ubuntu},
+          {package: rpm, distro: fedora}
+        ]
+
+    name: >-
+      Test ${{ matrix.pkg.package }} package on ${{ matrix.pkg.distro }} distro
+      (which was generated via
+      ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39')
+      || format('tt-umd-ci-{0}', matrix.build.os) }}-${{
+      (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }})
+    runs-on: ubuntu-22.04
+    container:
+      image: >-
+        ${{ matrix.pkg.package == 'rpm' && format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)
+        || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
+
+    env:
+      ARTIFACT_DISTRO_VER: >-
+        ${{ (matrix.pkg.package == 'rpm' && 'fedora-39') || matrix.build.os }}
+      ARTIFACT_COMPILER: >-
+        ${{ (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: tt-umd
+          submodules: recursive
+      - name: Download Packages Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: >-
+            ./downloaded-artifact/tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-package
+
+      - name: Download Examples Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: >-
+            ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-example
+
+      - name: Download Python Packages Artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          path: >-
+            ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-package
+
+      - name: Run test on example and python with packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_FMT="${{ matrix.pkg.package }}"
+          DISTRO_VER="${{ env.ARTIFACT_DISTRO_VER }}"
+          COMP="${{ env.ARTIFACT_COMPILER }}"
+
+          # Directories from downloaded artifacts
+          PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${DISTRO_VER}-${COMP}-package"
+          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${DISTRO_VER}-${COMP}-package"
+          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${DISTRO_VER}-${COMP}-example"
+
+          echo "Install .${PKG_FMT} packages from ${PACKAGE_DIR}"
+          DEV_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \
+            -name "tt_umd-*-Linux-umd-dev.${PKG_FMT}" -print -quit)"
+          RUNTIME_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \
+            -name "tt_umd-*-Linux-umd-runtime.${PKG_FMT}" -print -quit)"
+          PYTHON_PKG="$(find "${PY_PACKAGE_DIR}" -maxdepth 1 -type f \
+            -name "tt_umd-*-Linux-umd-python.${PKG_FMT}" -print -quit || true)"
+
+          if [ -z "${DEV_PKG}" ] || [ -z "${RUNTIME_PKG}" ]; then
+            echo "Required packages not found in ${PACKAGE_DIR}"
+            exit 1
+          fi
+
+          if [ "${PKG_FMT}" = "deb" ]; then
+            apt update
+            if [ -n "${PYTHON_PKG}" ]; then
+              apt install -y "${DEV_PKG}" "${RUNTIME_PKG}" "${PYTHON_PKG}"
+            else
+              apt install -y "${DEV_PKG}" "${RUNTIME_PKG}"
+            fi
+          else
+            if [ -n "${PYTHON_PKG}" ]; then
+              dnf install -y "${DEV_PKG}" "${RUNTIME_PKG}" "${PYTHON_PKG}"
+            else
+              dnf install -y "${DEV_PKG}" "${RUNTIME_PKG}"
+            fi
+          fi
+
+          echo "Copy UMD examples"
+          mkdir -p ./example_test
+          cp -r ./tt-umd/examples/* ./example_test
+
+          echo "Copy CMake configuration"
+          mkdir -p ./cmake
+          cp "${EXAMPLE_DIR}"/* ./cmake
+
+          echo "Build UMD examples (which are dependent on libdevice.so)"
+          cd ./example_test
+          cmake -B build -G Ninja
+          cmake --build ./build
+
+          # Sanity check Python import if the package is installed
+          if [ "${PKG_FMT}" = "deb" ]; then
+            CHECK_CMD="dpkg -s umd-umd-python"
+          else
+            CHECK_CMD="rpm -q umd-umd-python"
+          fi
+          if ${CHECK_CMD} >/dev/null 2>&1; then
+            echo "Run Python import test for FHS-installed module"
+            python3 -c "import tt_umd; print('Python import tt_umd: OK')"
+          else
+            echo "Skipping Python import test: umd-umd-python not installed"
+          fi

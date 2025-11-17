@@ -239,6 +239,14 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
         }
 
         uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
+        if (chips_to_discover.find(remote_asic_id) != chips_to_discover.end()) {
+            log_debug(
+                LogUMD,
+                "Chip {} found through ETH core {} already connected locally. Lite Fabric will not be loaded.",
+                remote_asic_id,
+                eth_core.str());
+            continue;
+        }
         remote_asic_ids_to_eth_cores[remote_asic_id].push_back(eth_core);
     }
 

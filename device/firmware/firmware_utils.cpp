@@ -57,10 +57,19 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
 std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
     semver_t fw_bundle_version, tt::ARCH arch) {
     const auto* version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
-    if (arch == ARCH::BLACKHOLE) {
-        version_map = &erisc_firmware::BH_ERISC_FW_VERSION_MAP;
+    switch (arch) {
+        case ARCH::WORMHOLE_B0:
+            version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
+            break;
+        case ARCH::BLACKHOLE:
+            version_map = &erisc_firmware::BH_ERISC_FW_VERSION_MAP;
+            break;
+        default:
+            return std::nullopt;
     }
 
+    // Find the most recently updated ERISC FW version from a given firmware
+    // bundle version.
     auto it = std::upper_bound(
         version_map->begin(),
         version_map->end(),

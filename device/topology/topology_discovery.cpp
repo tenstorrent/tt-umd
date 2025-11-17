@@ -141,7 +141,6 @@ void TopologyDiscovery::discover_remote_chips() {
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
     }
 
-    bool eth_core_exists = false;
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -152,9 +151,6 @@ void TopologyDiscovery::discover_remote_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
-        if (eth_cores.size() > 0) {
-            eth_core_exists = true;
-        }
 
         verify_fw_bundle_version(chip);
 
@@ -221,10 +217,6 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             channel++;
         }
-    }
-    // Do not pass an ETH FW version to ClusterDescriptor if there are no ETH cores discovered.
-    if (!eth_core_exists) {
-        expected_eth_fw_version = std::nullopt;
     }
 
     patch_eth_connections();

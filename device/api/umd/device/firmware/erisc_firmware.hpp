@@ -13,12 +13,14 @@
 
 namespace tt::umd::erisc_firmware {
 
-// ERISC FW version Required by UMD.
+// ERISC FW versions required by UMD.
 constexpr semver_t BH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(1, 4, 1);
 constexpr semver_t WH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(6, 0, 0);
 constexpr semver_t WH_ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = semver_t(6, 5, 0);
 constexpr semver_t WH_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = semver_t(6, 8, 0);
 
+// Maps firmware bundle versions to their corresponding ERISC firmware versions.
+// Bundle versions between entries inherit the ERISC version from the previous entry.
 static const std::vector<std::pair<semver_t, semver_t>> WH_ERISC_FW_VERSION_MAP = {
     {{80, 17, 0}, {6, 14, 0}},  // Legacy FW bundle version with major >= 80 is oldest.
     {{18, 2, 0}, {6, 14, 0}},

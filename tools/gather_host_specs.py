@@ -75,35 +75,87 @@ def get_pcie_gen(speed_str):
 
 def get_tenstorrent_pcie_info_manual():
     """
-    MANUAL FALLBACK: Finds ALL Tenstorrent cards and returns a list of config dicts.
+    MANUAL FALLBACK: Finds ALL *usable* Tenstorrent cards by checking
+    /dev/tenstorrent and mapping them to /sys/class/tenstorrent.
     """
-    tt_vendor_ids = {"0x1e52", "0x1e24"} 
-    pci_root = "/sys/bus/pci/devices"
+    dev_path = "/dev/tenstorrent"
+    class_path = "/sys/class/tenstorrent"
     results = []
-    if not os.path.exists(pci_root): return results
+
+    # 1. Find all minor numbers of usable devices in /dev/tenstorrent
+    if not os.path.exists(dev_path):
+        print(f"INFO: {dev_path} not found.", file=sys.stderr)
+        return results
+    
+    usable_minor_nums = set()
     try:
-        for device_id in os.listdir(pci_root):
-            dev_path = os.path.join(pci_root, device_id)
-            vendor_file = os.path.join(dev_path, "vendor")
-            if not os.path.exists(vendor_file): continue
+        for dev_name in os.listdir(dev_path):
+            try:
+                # Get stats on the character device file (e.g., /dev/tenstorrent/3)
+                # os.rdev gives the device number (major+minor)
+                device_stat = os.stat(os.path.join(dev_path, dev_name))
+                minor_num = os.minor(device_stat.st_rdev)
+                usable_minor_nums.add(str(minor_num))
+            except Exception as e:
+                print(f"INFO: Could not stat {os.path.join(dev_path, dev_name)}: {e}", file=sys.stderr)
+    
+    except Exception as e:
+        print(f"INFO: Could not list devices in {dev_path}: {e}", file=sys.stderr)
+        return results # Exit if we can't even list the dir
+
+    if not usable_minor_nums:
+        print(f"INFO: {dev_path} is empty.", file=sys.stderr)
+        return results
+
+    # 2. Scan /sys/class/tenstorrent to find matching devices
+    if not os.path.exists(class_path):
+        print(f"INFO: {class_path} not found.", file=sys.stderr)
+        return results
+        
+    try:
+        # Iterate /sys/class/tenstorrent/tenstorrent!0, tenstorrent!1, etc.
+        for device_dir in os.listdir(class_path):
+            dev_class_entry = os.path.join(class_path, device_dir)
             
-            with open(vendor_file, "r") as f:
-                vendor = f.read().strip()
-            
-            if vendor in tt_vendor_ids:
-                config = {"pcie_width": "N/A", "pcie_speed": 0}
-                width_path = os.path.join(dev_path, "current_link_width")
-                if os.path.exists(width_path):
-                    with open(width_path, "r") as wf:
-                        config["pcie_width"] = wf.read().strip()
+            try:
+                # 3. Read the dev file to get MAJOR:MINOR
+                dev_file_path = os.path.join(dev_class_entry, "dev")
+                if not os.path.exists(dev_file_path):
+                    continue
                 
-                speed_path = os.path.join(dev_path, "current_link_speed")
-                if os.path.exists(speed_path):
-                    with open(speed_path, "r") as sf:
-                        raw_speed = sf.read().strip()
-                        config["pcie_speed"] = get_pcie_gen(raw_speed)
-                results.append(config)
-    except: pass
+                with open(dev_file_path, "r") as f:
+                    major_minor = f.read().strip() # e.g., "241:3"
+                
+                minor_num = major_minor.split(':')[-1]
+
+                # 4. Check if this device is in our usable list
+                if minor_num in usable_minor_nums:
+                    # 5. This is a usable device. Get its PCIe info.
+                    pci_device_path = os.path.realpath(os.path.join(dev_class_entry, "device"))
+                    config = {"pcie_width": "N/A", "pcie_speed": 0}
+
+                    width_path = os.path.join(pci_device_path, "current_link_width")
+                    if os.path.exists(width_path):
+                        with open(width_path, "r") as wf:
+                            config["pcie_width"] = wf.read().strip()
+                    
+                    speed_path = os.path.join(pci_device_path, "current_link_speed")
+                    if os.path.exists(speed_path):
+                        with open(speed_path, "r") as sf:
+                            raw_speed = sf.read().strip()
+                            config["pcie_speed"] = get_pcie_gen(raw_speed)
+                    
+                    if config["pcie_speed"] > 0 and config["pcie_width"] != "N/A":
+                        results.append(config)
+
+            except Exception as e:
+                print(f"INFO: Error processing {dev_class_entry}: {e}", file=sys.stderr)
+                continue
+            
+    except Exception as e:
+        print(f"INFO: Error during manual PCIe scan: {e}", file=sys.stderr)
+        pass # Fallback to empty list
+        
     return results
 
 # --- Main Logic ---
@@ -151,6 +203,11 @@ def gather_specs_from_tt_smi(smi_json):
     device_list = smi_json.get("device_info", [])
     for device in device_list:
         board_info = device.get("board_info", {})
+        
+        # --- FIX: Filter out devices with no local bus_id ---
+        if board_info.get("bus_id", "N/A") == "N/A":
+            continue
+            
         pcie_speed_raw = board_info.get("pcie_speed", 0)
         
         config = {
@@ -175,7 +232,7 @@ def gather_specs():
     try:
         # Try to run tt-smi -s
         result = subprocess.run(
-            ["tt-smii", "-s"], 
+            ["tt-smi", "-s"],
             capture_output=True, 
             text=True, 
             check=True,

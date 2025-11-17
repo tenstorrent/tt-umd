@@ -109,3 +109,15 @@ private:
 };
 
 }  // namespace tt::umd
+
+namespace std {
+template <>
+struct hash<tt::umd::semver_t> {
+    std::size_t operator()(const tt::umd::semver_t& v) const noexcept {
+        std::size_t h1 = std::hash<uint64_t>{}(v.major);
+        std::size_t h2 = std::hash<uint64_t>{}(v.minor);
+        std::size_t h3 = std::hash<uint64_t>{}(v.patch);
+        return h1 ^ (h2 << 1) ^ (h3 << 2);
+    }
+};
+}  // namespace std

@@ -240,6 +240,7 @@ target_link_libraries(
         rt
         spdlog::spdlog_header_only
         fmt::fmt-header-only
+        picosha2::picosha2
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )

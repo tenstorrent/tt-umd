@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include <optional>
+
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -17,5 +20,8 @@ semver_t get_firmware_version_util(TTDevice* tt_device);
 
 std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
     semver_t fw_bundle_version, tt::ARCH arch);
+
+std::optional<bool> verify_eth_fw_integrity(
+    TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version, tt::ARCH arch);
 
 }  // namespace tt::umd

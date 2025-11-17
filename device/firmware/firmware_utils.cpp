@@ -5,11 +5,13 @@
  */
 #include "umd/device/firmware/firmware_utils.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
+#include "picosha2.h"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/types/arch.hpp"
@@ -85,5 +87,24 @@ std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
     }
 
     return std::nullopt;
+}
+
+std::optional<bool> verify_eth_fw_integrity(
+    TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version, tt::ARCH arch) {
+    // Skipping for non-Wormhole ETH FW.
+    if (arch != ARCH::WORMHOLE_B0) {
+        return std::nullopt;
+    }
+
+    if (erisc_firmware::WH_ERISC_FW_HASHES.find(eth_fw_version) == erisc_firmware::WH_ERISC_FW_HASHES.end()) {
+        return std::nullopt;
+    }
+
+    erisc_firmware::HashedAddressRange hashed_range = erisc_firmware::WH_ERISC_FW_HASHES.at(eth_fw_version);
+    std::vector<uint8_t> eth_fw_text(hashed_range.size);
+    tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
+    std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
+
+    return eth_fw_text_sha256_hash == hashed_range.sha256_hash;
 }
 }  // namespace tt::umd

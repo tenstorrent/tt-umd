@@ -248,8 +248,9 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     // When we open an existing pthread in the future, there is no other way to check if it was initialized or not, so
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
-    // Initialize owner TID to 0 (no owner).
+    // Initialize owner TID and PID to 0 (no owner).
     mutex_wrapper_ptr_->owner_tid = 0;
+    mutex_wrapper_ptr_->owner_pid = 0;
 }
 
 size_t RobustMutex::get_file_size(int fd) {
@@ -280,8 +281,9 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::unlock() {
-    // Clear the owner TID before unlocking.
+    // Clear the owner TID and PID before unlocking.
     mutex_wrapper_ptr_->owner_tid = 0;
+    mutex_wrapper_ptr_->owner_pid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         TT_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
@@ -312,8 +314,12 @@ void RobustMutex::lock() {
         } else if (lock_res == ETIMEDOUT) {
             // Timeout occurred - log a message about waiting.
             // Note that we can enter here only as a result of timedlock version.
-            pid_t owner = mutex_wrapper_ptr_->owner_tid;
-            log_warning(LogUMD, "Waiting for lock '{}' which is currently held by thread TID: {}", mutex_name_, owner);
+            log_warning(
+                LogUMD,
+                "Waiting for lock '{}' which is currently held by thread TID: {}, PID: {}",
+                mutex_name_,
+                mutex_wrapper_ptr_->owner_tid,
+                mutex_wrapper_ptr_->owner_pid);
 
             // Now block until we get the lock.
             lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));
@@ -326,6 +332,7 @@ void RobustMutex::lock() {
 
     // lock_res is 0, so this is a success case.
     mutex_wrapper_ptr_->owner_tid = gettid();
+    mutex_wrapper_ptr_->owner_pid = getpid();
 }
 
 }  // namespace tt::umd

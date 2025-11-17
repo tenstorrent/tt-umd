@@ -118,16 +118,17 @@ void TopologyDiscovery::get_connected_chips() {
             }
         }
 
-        initialize_remote_communication(tt_device.get());
         uint64_t asic_id = get_asic_id(tt_device.get());
         chips_to_discover.emplace(asic_id, std::move(tt_device));
         log_debug(
             LogUMD,
-            "Discovered {} chip with {} ID {} and asic ID {}",
-            DeviceTypeToString.at(options.io_device_type),
+            "Discovered {} chip with ID {} and asic ID {}",
             DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);
+    }
+    for (auto& [asic_id, tt_device] : chips_to_discover) {
+        initialize_remote_communication(tt_device.get());
     }
 }
 

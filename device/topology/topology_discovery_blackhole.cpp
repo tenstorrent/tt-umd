@@ -5,6 +5,7 @@
  */
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -237,12 +238,30 @@ void TopologyDiscoveryBlackhole::initialize_remote_communication(TTDevice* tt_de
         }
 
         uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
+        if (chips_to_discover.find(remote_asic_id) != chips_to_discover.end()) {
+            log_debug(
+                LogUMD,
+                "Chip {} found through ETH core {} already connected locally. Lite Fabric will not be loaded.",
+                remote_asic_id,
+                eth_core.str());
+            continue;
+        }
         remote_asic_ids_to_eth_cores[remote_asic_id].push_back(eth_core);
     }
 
     // TODO: be careful to not launch lite fabric on ETH cores that already have it running.
     for (const auto& [remote_asic_id, eth_cores] : remote_asic_ids_to_eth_cores) {
-        lite_fabric::launch_lite_fabric(tt_device, get_soc_descriptor(tt_device), eth_cores);
+        // HACK Lite Fabric can be loaded only with Chip until we add necessary
+        // methods to TTDevice.
+        int physical_device_id = -1;
+        if (tt_device->get_pci_device() != nullptr) {
+            physical_device_id = tt_device->get_pci_device()->get_device_num();
+        } else if (tt_device->get_jtag_device() != nullptr) {
+            physical_device_id = tt_device->get_jtag_device()->get_current_device_idx().value();
+        }
+        std::unique_ptr<LocalChip> chip =
+            LocalChip::create(physical_device_id, options.soc_descriptor_path, 0, options.io_device_type);
+        lite_fabric::launch_lite_fabric(chip.get(), eth_cores);
     }
 }
 

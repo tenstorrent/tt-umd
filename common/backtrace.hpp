@@ -44,11 +44,11 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void *cal
     std::vector<void *> array(size);
 
     if (caller_address != nullptr) {
-        array[1] = caller_address;
+        array.at(1) = caller_address;
     }
 
     size_t s = ::backtrace(array.data(), size);
-    std::unique_ptr<char *[]> strings(backtrace_symbols(array.data(), s));
+    std::unique_ptr<char *, decltype(&free)> strings(backtrace_symbols(array.data(), s), &free);
 
     if (strings == nullptr) {
         std::cout << "backtrace_symbols error." << std::endl;

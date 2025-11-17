@@ -86,6 +86,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_board_type", &TTDevice::get_board_type)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
+        .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
         .def(
             "noc_read32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {

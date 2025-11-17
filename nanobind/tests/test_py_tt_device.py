@@ -61,11 +61,15 @@ class TestTTDevice(unittest.TestCase):
                 print(f"Chip MMIO capable: {chip}")
                 umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
                 umd_tt_devices[chip].init_tt_device()
+                # Verify that MMIO capable device is not remote
+                self.assertFalse(umd_tt_devices[chip].is_remote(), f"MMIO capable device {chip} should not be remote")
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
                 umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(umd_tt_devices[closest_mmio], cluster_descriptor, chip)
                 umd_tt_devices[chip].init_tt_device()
+                # Verify that remote device is actually remote
+                self.assertTrue(umd_tt_devices[chip].is_remote(), f"Remote device {chip} should be remote")
                 
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")

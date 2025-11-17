@@ -105,6 +105,6 @@ std::optional<bool> verify_eth_fw_integrity(
     tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
     std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
 
-    return eth_fw_text_sha256_hash == hashed_range.sha256_hash;
+    return eth_fw_text_sha256_hash.compare(eth_fw_text_sha256_hash) == 0;
 }
 }  // namespace tt::umd

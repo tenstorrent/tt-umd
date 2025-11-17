@@ -321,8 +321,8 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
 
     bool eth_fw_problem = false;
     if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established cluster ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(LogUMD, "UMD supported minimum ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
+        log_debug(LogUMD, "UMD supported minimum WH ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
         first_eth_fw_version = eth_fw_version;
         if (ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");

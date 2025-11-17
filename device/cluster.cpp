@@ -43,6 +43,7 @@
 #include "hugepage.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -180,62 +181,6 @@ void Cluster::log_pci_device_summary() {
     log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
-void Cluster::verify_fw_bundle_version() {
-    if (chips_.empty()) {
-        return;
-    }
-    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_firmware_version();
-
-    semver_t minimal_compatible_fw_version = FirmwareInfoProvider::get_minimum_compatible_firmware_version(
-        chips_.begin()->second->get_tt_device()->get_arch());
-
-    int compare_fw_bundles_result = semver_t::compare_firmware_bundle(fw_bundle_version, minimal_compatible_fw_version);
-
-    if (compare_fw_bundles_result == -1) {
-        throw std::runtime_error(fmt::format(
-            "Firmware version {} on the system is older than the minimum compatible version {} for {} architecture.",
-            fw_bundle_version.to_string(),
-            minimal_compatible_fw_version.to_string(),
-            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
-    }
-
-    semver_t latest_supported_fw_version = FirmwareInfoProvider::get_latest_supported_firmware_version(
-        chips_.begin()->second->get_tt_device()->get_arch());
-
-    int compare_fw_bundle_with_latest =
-        semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_version);
-
-    if (compare_fw_bundle_with_latest == 1) {
-        log_warning(
-            LogUMD,
-            "Firmware version {} on the system is newer than the maximum supported version {} for {} architecture. New "
-            "features may not be supported.",
-            fw_bundle_version.to_string(),
-            latest_supported_fw_version.to_string(),
-            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch()));
-    }
-
-    // TODO: Add a check for running proper FW version on Blackhole galaxy when the feature for unique ID on ETH core is
-    // properly released.
-
-    bool all_device_same_fw_bundle_version = true;
-    for (const auto& [chip_id, chip] : chips_) {
-        if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
-            log_warning(
-                LogUMD,
-                fmt::format(
-                    "Firmware bundle version mismatch for chip {}: expected {}, got {}",
-                    chip_id,
-                    fw_bundle_version.to_string(),
-                    chip->get_tt_device()->get_firmware_version().to_string()));
-            all_device_same_fw_bundle_version = false;
-        }
-    }
-    if (all_device_same_fw_bundle_version) {
-        log_info(LogUMD, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
-    }
-}
-
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
@@ -255,7 +200,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
-        verify_fw_bundle_version();
         log_device_summary();
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
@@ -1025,7 +969,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     }
 
     // MT Initial BH - ARC messages not supported in Blackhole
-    if (arch_name != tt::ARCH::BLACKHOLE) {
+    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
             get_chip(chip)->enable_ethernet_queue();
         }
@@ -1082,6 +1026,8 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
 }
 
 std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
+
+std::optional<semver_t> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {

@@ -118,7 +118,13 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     tt_device->read_from_arc_apb(&queue_control_block_addr, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));
 
     uint64_t queue_control_block;
-    tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
+    if (tt_device->get_communication_device_type() == IODeviceType::JTAG) {
+        queue_control_block = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr).value();
+        queue_control_block |=
+            ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
+    } else {
+        tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
+    }
 
     uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
     uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;

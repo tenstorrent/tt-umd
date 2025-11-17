@@ -133,8 +133,6 @@ protected:
 
     SocDescriptor get_soc_descriptor(TTDevice* tt_device);
 
-    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
-
     std::map<uint64_t, std::unique_ptr<TTDevice>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<TTDevice>> chips;
 
@@ -157,9 +155,17 @@ protected:
 
     bool is_running_on_6u = false;
 
+    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
+
+    virtual bool verify_fw_bundle_version(TTDevice* tt_device);
+
     // The ETH FW version found on the first discovered local chip, that needs
     // to match with all of the other discovered ETH FW versions on all chips.
     std::optional<semver_t> first_eth_fw_version;
+
+    // The FW bundle version found on the first discovered local chip, that needs
+    // to match with all of the other discovered FW bundle versions on all chips.
+    std::optional<semver_t> first_fw_bundle_version;
 };
 
 }  // namespace tt::umd

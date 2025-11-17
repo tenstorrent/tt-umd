@@ -599,9 +599,14 @@ public:
     std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
 
     /**
-     * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
+     * Get the ethernet firmware version used by the physical cluster.
      */
     std::optional<semver_t> get_ethernet_firmware_version() const;
+
+    /**
+     * Get the firmware bundle version.
+     */
+    std::optional<semver_t> get_firmware_bundle_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -672,8 +677,6 @@ private:
         const std::set<ChipId>& chips_to_exclude);
 
     // Test functions
-    // TODO: Move this check to TopologyDiscovery.
-    void verify_fw_bundle_version();
     void log_device_summary();
     void log_pci_device_summary();
     void verify_sysmem_initialized();
@@ -715,6 +718,7 @@ private:
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
     std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.
+    std::optional<semver_t> fw_bundle_version;
 };
 
 }  // namespace tt::umd

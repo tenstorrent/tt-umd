@@ -207,8 +207,6 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }
 
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
-
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -217,8 +215,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
-    // TODO: Switch to PCIDevice->is_mapping_buffer_to_noc_supported once we flip it on.
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (!PCIDevice(pci_device_ids[0]).is_mapping_buffer_to_noc_supported()) {
         GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
     }
 

@@ -96,8 +96,8 @@ endif()
 add_subdirectory(third_party)
 
 # Configure clang-tidy AFTER third_party so dependencies are not linted
-option(ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
-if(ENABLE_CLANG_TIDY)
+option(TT_UMD_ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+if(TT_UMD_ENABLE_CLANG_TIDY)
     find_program(
         CLANG_TIDY_EXE
         NAMES

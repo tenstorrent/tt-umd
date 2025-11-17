@@ -66,6 +66,7 @@ target_sources(
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp
         arch/blackhole_implementation.cpp
+        arch/grendel_implementation.cpp
         hugepage.cpp
         logging/config.cpp
         pcie/pci_device.cpp
@@ -156,6 +157,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/driver_atomics.hpp
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
+                api/umd/device/utils/kmd_versions.hpp
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/tlb_window.hpp
@@ -216,6 +218,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 api/umd/device/tt_kmd_lib/tt_kmd_lib.h
+                api/umd/device/arch/grendel_implementation.hpp
     )
 endif()
 
@@ -271,11 +274,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
         EXPORT ${PROJECT_NAME}Targets
         ARCHIVE
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT umd-dev
         LIBRARY
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
             COMPONENT umd-runtime
         FILE_SET
         api
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
             COMPONENT umd-dev
     )
 
@@ -302,22 +307,11 @@ add_custom_command(
     COMMENT "Copying device library to build/lib"
 )
 
-# No separation of public and private header files
-# I can only assume everything is public
-install(
-    DIRECTORY
-        ${PROJECT_SOURCE_DIR}/device
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device
-    FILES_MATCHING
-    PATTERN
-    "*.h"
-    PATTERN
-    "*.hpp"
-)
 install(
     DIRECTORY
         ${PROJECT_SOURCE_DIR}/common
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
+    COMPONENT umd-dev
     FILES_MATCHING
     PATTERN
     "*.h"

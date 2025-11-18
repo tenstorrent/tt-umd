@@ -112,6 +112,7 @@ target_sources(
         lite_fabric/lite_fabric_host_utils.cpp
         ${LITE_FABRIC_EMBED} # include generated embed file
         tt_kmd_lib/tt_kmd_lib.c
+        arc/blackhole_spi.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

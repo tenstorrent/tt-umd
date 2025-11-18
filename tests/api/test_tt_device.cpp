@@ -323,9 +323,11 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
                   << std::endl;
 
         // Create local or remote TTDevice instance for the chip.
+        // Note that we have to enable SPI for the test to work.
+        bool allow_spi = true;
         if (cluster_desc->is_chip_mmio_capable(chip_id)) {
             int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
-            auto tt_device = TTDevice::create(physical_device_id);
+            auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe, allow_spi);
             tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(tt_device);
         } else {
@@ -339,7 +341,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
                 local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
             remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
-            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
+            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication), allow_spi);
             remote_tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(remote_tt_device);
         }

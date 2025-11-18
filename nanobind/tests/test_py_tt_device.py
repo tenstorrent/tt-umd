@@ -18,8 +18,38 @@ class TestTTDevice(unittest.TestCase):
             pci_dev = dev.get_pci_device()
             pci_info = pci_dev.get_device_info().pci_bdf
             print("pci bdf is ", pci_info)
-            val = dev.noc_read32(9, 0, 0)
-            print("Read value from device, core 9,0 addr 0x0: ", val)
+
+            # Test noc_read32
+            val = dev.noc_read32(9, 0, 0)	            val = dev.noc_read32(9, 0, 0)
+            print("Read value from device, core 9,0 addr 0x0: ", val)	            print("Read value from device, core 9,0 addr 0x0: ", val)
+
+            # Test noc_write32 and noc_read32
+            original = dev.noc_read32(9, 0, 0x100)
+            test_val = 0xABCD1234
+            dev.noc_write32(9, 0, 0x100, test_val)
+            read_back = dev.noc_read32(9, 0, 0x100)
+            print(f"noc_write32/read32: wrote 0x{test_val:08x}, read 0x{read_back:08x}")
+            dev.noc_write32(9, 0, 0x100, original)  # Restore
+
+            # Test noc_read and noc_write
+            original_data = dev.noc_read(9, 0, 0x200, 16)
+            test_data = bytes([i for i in range(16)])
+            dev.noc_write(9, 0, 0x200, test_data)
+            read_data = dev.noc_read(9, 0, 0x200, 16)
+            print(f"noc_write/read: wrote {test_data.hex()}, read {read_data.hex()}")
+            dev.noc_write(9, 0, 0x200, original_data)  # Restore
+
+            # Test noc_read with buffer parameter
+            buffer_size = 32
+            buffer = bytearray(buffer_size)
+            dev.noc_read(0, 9, 0, 0x300, buffer)
+            print(f"noc_read with buffer: read {buffer.hex()}")
+
+            # Verify buffer version matches the original version
+            data_via_original = dev.noc_read(9, 0, 0x300, buffer_size)
+            self.assertEqual(bytes(buffer), data_via_original, 
+                           "Buffer-based noc_read should match original noc_read")
+            print(f"noc_read buffer version verified against original version")
 
     def test_remote_tt_device(self):
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
@@ -31,12 +61,23 @@ class TestTTDevice(unittest.TestCase):
                 print(f"Chip MMIO capable: {chip}")
                 umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
                 umd_tt_devices[chip].init_tt_device()
+                # Verify that MMIO capable device is not remote
+                self.assertFalse(umd_tt_devices[chip].is_remote(), f"MMIO capable device {chip} should not be remote")
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
                 umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(umd_tt_devices[closest_mmio], cluster_descriptor, chip)
                 umd_tt_devices[chip].init_tt_device()
+                # Verify that remote device is actually remote
+                self.assertTrue(umd_tt_devices[chip].is_remote(), f"Remote device {chip} should be remote")
                 
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")
-        
+
+    def test_read_kmd_version(self):
+        # Test reading KMD version
+        kmd_version = tt_umd.PCIDevice.read_kmd_version()
+        print(f"\nKMD version: {kmd_version.to_string()}")
+        print(f"  Major: {kmd_version.major}")
+        print(f"  Minor: {kmd_version.minor}")
+        print(f"  Patch: {kmd_version.patch}")

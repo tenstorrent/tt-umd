@@ -72,12 +72,12 @@ jobs:
       - name: Gather host machine specification
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkTLB*
+          python ${{ env.TOOLS_DIR }}/gather_host_specs.py
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          python ${{ env.TOOLS_DIR }}/gather_host_specs.py
+          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkTLB*
 
       - name: Run PCIe benchmarks
         if: ${{ inputs.arch != 'baremetal' }}

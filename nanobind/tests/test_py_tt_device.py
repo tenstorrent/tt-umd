@@ -148,3 +148,31 @@ class TestTTDevice(unittest.TestCase):
                            f"First byte mismatch for device {chip_id}")
             self.assertEqual(wide_read[1], verify2[1], 
                            f"Second byte mismatch for device {chip_id}")
+
+    def test_get_spi_fw_bundle_version(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        for dev_id in dev_ids:
+            dev = tt_umd.TTDevice.create(dev_id, allow_spi = True)
+            dev.init_tt_device()
+            arch = dev.get_arch()
+            print(f"\nTesting get_spi_fw_bundle_version on device {dev_id} with arch {arch}")
+
+            # get_spi_fw_bundle_version is only supported on Blackhole
+            if arch != tt_umd.ARCH.BLACKHOLE:
+                print(f"Skipping get_spi_fw_bundle_version test for arch {arch} (only supported on Blackhole)")
+                continue
+
+            fw_version = dev.get_spi_fw_bundle_version()
+
+            # Access version components
+            patch = fw_version & 0xFF
+            minor = (fw_version >> 8) & 0xFF
+            major = (fw_version >> 16) & 0xFF
+            component = (fw_version >> 24) & 0xFF
+
+            print(f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}")

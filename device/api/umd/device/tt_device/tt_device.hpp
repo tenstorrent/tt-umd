@@ -305,6 +305,19 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
+    /**
+     * Get the firmware bundle version by reading from SPI flash (Blackhole only).
+     *
+     * The raw 32-bit value format: [component][major][minor][patch] (each 8 bits)
+     * Returns as semver_t with major.minor.patch (component byte is not included)
+     *
+     * @return The firmware bundle version as semver_t
+     * @throws std::runtime_error if not supported on this architecture or cannot read from SPI
+     *
+     * Note: This is only implemented for Blackhole devices.
+     */
+    virtual uint32_t get_spi_fw_bundle_version();
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();

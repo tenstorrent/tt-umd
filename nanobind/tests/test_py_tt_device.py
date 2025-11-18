@@ -115,14 +115,16 @@ class TestTTDevice(unittest.TestCase):
         chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
 
         # Create TTDevice instances for all chips (local and remote)
+        # Note that we have to enable SPI for the test to work.
+        allow_spi = True;
         for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):
             if cluster_descriptor.is_chip_mmio_capable(chip):
-                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
+                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip], allow_spi = allow_spi)
                 umd_tt_devices[chip].init_tt_device()
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(
-                    umd_tt_devices[closest_mmio], cluster_descriptor, chip)
+                    umd_tt_devices[closest_mmio], cluster_descriptor, chip, allow_spi)
                 umd_tt_devices[chip].init_tt_device()
 
         # Test SPI operations on each device

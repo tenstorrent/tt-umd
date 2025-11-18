@@ -643,4 +643,23 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     }
 }
 
+void TTDevice::spi_read(uint32_t addr, uint8_t *data, size_t size) {
+    if (!spi_) {
+        throw std::runtime_error("SPI not available for this device.");
+    }
+    spi_->read(addr, data, size);
+}
+
+void TTDevice::spi_write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi) {
+    if (!spi_) {
+        throw std::runtime_error("SPI not available for this device.");
+    }
+    spi_->write(addr, data, size, skip_write_to_spi);
+}
+
+uint32_t TTDevice::get_spi_fw_bundle_version() {
+    throw std::runtime_error(
+        "get_spi_fw_bundle_version is not supported on this architecture: " + std::to_string(static_cast<int>(arch)));
+}
+
 }  // namespace tt::umd

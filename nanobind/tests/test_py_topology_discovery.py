@@ -18,3 +18,9 @@ class TestTopologyDiscovery(unittest.TestCase):
         
         for chip in cluster_descriptor.get_all_chips():
             print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)}")
+            
+        # Test get_board_type and get_board_id_for_chip
+        for chip in cluster_descriptor.get_all_chips():
+            board_type = cluster_descriptor.get_board_type(chip)
+            board_id = cluster_descriptor.get_board_id_for_chip(chip)
+            print(f"Chip {chip}: board_type={board_type}, board_id={board_id}")

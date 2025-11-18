@@ -11,6 +11,7 @@
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/blackhole_spi.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -25,6 +26,7 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    spi_ = std::make_unique<BlackholeSPI>(this);
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
@@ -312,5 +314,12 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
+
+uint32_t BlackholeTTDevice::get_spi_fw_bundle_version() {
+    if (!spi_) {
+        throw std::runtime_error("SPI not available for this device.");
+    }
+    return static_cast<BlackholeSPI *>(spi_.get())->get_spi_fw_bundle_version();
+}
 
 }  // namespace tt::umd

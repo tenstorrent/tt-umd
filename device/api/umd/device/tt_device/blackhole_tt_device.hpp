@@ -50,6 +50,8 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
+    uint32_t get_spi_fw_bundle_version() override;
+
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

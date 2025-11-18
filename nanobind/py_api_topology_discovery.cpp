@@ -32,7 +32,13 @@ void bind_topology_discovery(nb::module_& m) {
         .def(
             "get_arch",
             static_cast<tt::ARCH (ClusterDescriptor::*)(ChipId) const>(&ClusterDescriptor::get_arch),
-            nb::arg("chip_id"));
+            nb::arg("chip_id"))
+        .def("get_board_type", &ClusterDescriptor::get_board_type, nb::arg("chip_id"), "Get board type for a chip")
+        .def(
+            "get_board_id_for_chip",
+            &ClusterDescriptor::get_board_id_for_chip,
+            nb::arg("chip"),
+            "Get board ID for a chip");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

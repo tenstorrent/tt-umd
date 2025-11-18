@@ -85,8 +85,7 @@ int SimulationChip::get_clock() { return 0; }
 int SimulationChip::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
+    const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {

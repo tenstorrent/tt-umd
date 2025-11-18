@@ -39,4 +39,24 @@ class TestTTDevice(unittest.TestCase):
                 
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")
-        
+
+    def test_arc_msg(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        for dev_id in dev_ids:
+            dev = tt_umd.TTDevice.create(dev_id)
+            dev.init_tt_device()
+            arch = dev.get_arch()
+            print(f"Testing arc_msg on device {dev_id} with arch {arch}")
+
+            # Send TEST message with args 0x1234 and 0x5678
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, [0x1234, 0x5678], 1000)
+            print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
+            self.assertEqual(exit_code, 0, "arc_msg should succeed")
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, 0x1234, 0x5678, 1000)
+            print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
+            self.assertEqual(exit_code, 0, "arc_msg should succeed")

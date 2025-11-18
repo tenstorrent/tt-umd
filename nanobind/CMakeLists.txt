@@ -55,6 +55,7 @@ target_link_libraries(
     PRIVATE
         umd::device
         fmt::fmt-header-only
+        tt-logger::tt-logger
 )
 
 option(TT_UMD_BUILD_PIP "By default build pip package" ON)

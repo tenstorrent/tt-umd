@@ -43,6 +43,7 @@ struct dynamic_tlb {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class SPI;
 
 class TTDevice {
 public:
@@ -52,9 +53,13 @@ public:
     /**
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
+     * By default, reads and writes to SPI are not allowed, you need to manually override this behavior if you want to
+     * use SPI.
      */
-    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool allow_spi = false);
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi = false);
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
@@ -343,6 +348,25 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    /**
+     * Read data from SPI flash memory.
+     *
+     * @param addr SPI address to read from
+     * @param data Buffer to store the read data
+     * @param size Number of bytes to read
+     */
+    void spi_read(uint32_t addr, uint8_t *data, size_t size);
+
+    /**
+     * Write data to SPI flash memory.
+     *
+     * @param addr SPI address to write to
+     * @param data Buffer containing data to write
+     * @param size Number of bytes to write
+     * @param skip_write_to_spi If true, the data will not be committed to SPI. This is useful for testing.
+     */
+    void spi_write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi = false);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -354,6 +378,7 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    std::unique_ptr<SPI> spi_ = nullptr;
 
     template <typename T>
     T *get_register_address(uint32_t register_offset);

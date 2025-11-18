@@ -69,10 +69,13 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
+      - name: Install python dependencies
+        run: python3 -m pip install --no-cache-dir pandas psutil tabulate
+
       - name: Gather host machine specification
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          python ${{ env.TOOLS_DIR }}/gather_host_specs.py
+          python3 ${{ env.TOOLS_DIR }}/gather_host_specs.py
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}

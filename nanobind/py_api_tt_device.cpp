@@ -393,7 +393,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             nb::arg("skip_write_to_spi") = false,
             "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
-            "SPI.");
+            "SPI.")
+        .def(
+            "get_spi_fw_bundle_version",
+            &SPITTDevice::get_spi_fw_bundle_version,
+            "Get firmware bundle version from SPI (Blackhole only). "
+            "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

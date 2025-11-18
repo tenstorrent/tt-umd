@@ -186,6 +186,37 @@ class TestSPITTDevice(unittest.TestCase):
                 wide_read[1], verify2[1], f"Second byte mismatch for device {chip_id}"
             )
 
+    @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    def test_get_spi_fw_bundle_version(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", pci_ids)
+        if (len(pci_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        for dev_id in pci_ids:
+            dev = tt_umd.TTDevice.create(dev_id, allow_spi = True)
+            dev.init_tt_device()
+            arch = dev.get_arch()
+            print(f"\nTesting get_spi_fw_bundle_version on device {dev_id} with arch {arch}")
+
+            # get_spi_fw_bundle_version is only supported on Blackhole
+            if arch != tt_umd.ARCH.BLACKHOLE:
+                print(f"Skipping get_spi_fw_bundle_version test for arch {arch} (only supported on Blackhole)")
+                continue
+
+            # Create SPITTDevice instance and call get_spi_fw_bundle_version on it
+            spi_impl = tt_umd.SPITTDevice.create(dev)
+            fw_version = spi_impl.get_spi_fw_bundle_version()
+
+            # Access version components
+            patch = fw_version & 0xFF
+            minor = (fw_version >> 8) & 0xFF
+            major = (fw_version >> 16) & 0xFF
+            component = (fw_version >> 24) & 0xFF
+
+            print(f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}")
+
 
 if __name__ == "__main__":
     unittest.main()

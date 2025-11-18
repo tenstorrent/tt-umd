@@ -25,7 +25,7 @@ void SmBusArcTelemetryReader::get_telemetry_address() {
         arc_msg_return_values,
         {0, 0});
 
-    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
+    static constexpr uint64_t noc_telemetry_offset = wormhole::ARC_CSM_OFFSET_NOC;
     telemetry_base_noc_addr = arc_msg_return_values[0] + noc_telemetry_offset;
 }
 

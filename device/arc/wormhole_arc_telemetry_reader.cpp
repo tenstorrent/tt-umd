@@ -20,7 +20,7 @@ WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) : Ar
 }
 
 void WormholeArcTelemetryReader::get_telemetry_address() {
-    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
+    static constexpr uint64_t noc_telemetry_offset = wormhole::ARC_CSM_OFFSET_NOC;
     uint32_t telemetry_table_addr_offset;
     tt_device->read_from_device(
         &telemetry_table_addr_offset,

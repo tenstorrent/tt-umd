@@ -9,6 +9,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/arc/wormhole_spi.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -31,8 +32,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool a
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     if (allow_spi) {
-        // TODO: To be implemented in the next PR.
-        // spi_ = std::make_unique<WormholeSPI>(this);
+        spi_ = std::make_unique<WormholeSPI>(this);
     }
 }
 
@@ -55,8 +55,7 @@ WormholeTTDevice::WormholeTTDevice(bool allow_spi) : TTDevice(std::make_unique<w
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     if (allow_spi) {
-        // TODO: To be implemented in the next PR.
-        // spi_ = std::make_unique<WormholeSPI>(this);
+        spi_ = std::make_unique<WormholeSPI>(this);
     }
     log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }

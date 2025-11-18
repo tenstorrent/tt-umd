@@ -298,14 +298,11 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
     void *src = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
-        std::cout << "read_block 1" << std::endl;
         byte_addr -= BAR0_BH_SIZE;
         src = reinterpret_cast<uint8_t *>(pci_device_->bar4_wc) + byte_addr;
     } else {
-        // std::cout << "read_block 2" << std::endl;
         src = pci_device_->get_register_address<uint8_t>(byte_addr);
     }
-    // std::cout << "Raw address that I'm reading from: 0x" << std::hex << src << std::dec << std::endl;
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
     bool use_safe_memcpy = false;
@@ -317,7 +314,6 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     if (use_safe_memcpy) {
         memcpy_from_device(dest, src, num_bytes);
     } else {
-        // std::cout << "read_block 3" << std::endl;
         memcpy(dest, src, num_bytes);
     }
 
@@ -335,8 +331,6 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
-    // std::cout << "Read from device at addr " << std::hex << addr << std::dec << " size " << size << " core " <<
-    // core.x << "," << core.y << std::endl;
     while (size > 0) {
         auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);

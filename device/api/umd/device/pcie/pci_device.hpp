@@ -10,7 +10,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <iostream>
 #include <map>
 #include <memory>
 #include <unordered_map>
@@ -316,26 +315,13 @@ public:
         // Should clarify this interface
         void *reg_mapping;
         if (system_reg_mapping != nullptr && register_offset >= system_reg_start_offset) {
-            // std::cout << "get_register_address 1" << std::endl;
             register_offset -= system_reg_offset_adjust;
             reg_mapping = system_reg_mapping;
         } else if (bar0_wc != bar0_uc && register_offset < bar0_wc_size) {
-            // std::cout << "get_register_address 2" << std::endl;
-            // std::cout << "checks " << (bar0_wc != bar0_uc) << " check2 " << (register_offset < bar0_wc_size) << "
-            // register_offset " << std::hex << register_offset << " bar0_wc_size " << bar0_wc_size << std::endl;
             reg_mapping = bar0_wc;
-            // std::cout << std::hex << "  requested access for " << register_offset << " bar0_wc " << bar0_wc << "
-            // final address " << (uint64_t)reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset)
-            // << std::endl;
         } else {
-            // std::cout << "get_register_address 3" << std::endl;
-            // std::cout << "checks " << (bar0_wc != bar0_uc) << " check2 " << (register_offset < bar0_wc_size) << "
-            // register_offset " << std::hex  << register_offset << " bar0_wc_size " << bar0_wc_size << std::endl;
             register_offset -= bar0_uc_offset;
             reg_mapping = bar0_uc;
-            // std::cout << std::hex << "  requested access for " << register_offset << " bar0_uc " << bar0_uc << "
-            // final address " << (uint64_t)reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset)
-            // << std::endl;
         }
         return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
     }

@@ -230,7 +230,7 @@ void Chip::set_power_state(DevicePowerState state) {
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
-        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {});
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {0, 0});
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == DevicePowerState::BUSY) {
             exit_code =

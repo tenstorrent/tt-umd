@@ -696,7 +696,7 @@ void LocalChip::deassert_risc_resets() {
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
             true,
-            {});
+            {0, 0});
     }
 }
 

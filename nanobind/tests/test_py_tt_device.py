@@ -74,6 +74,27 @@ class TestTTDevice(unittest.TestCase):
             val = umd_tt_devices[chip].noc_read32(9, 0, 0)
             print(f"Read value from device, core 9,0 addr 0x0: {val}")
 
+    def test_arc_msg(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        for dev_id in dev_ids:
+            dev = tt_umd.TTDevice.create(dev_id)
+            dev.init_tt_device()
+            arch = dev.get_arch()
+            print(f"Testing arc_msg on device {dev_id} with arch {arch}")
+
+            # Send TEST message with args 0x1234 and 0x5678
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, [0x1234, 0x5678], 1000)
+            print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
+            self.assertEqual(exit_code, 0, "arc_msg should succeed")
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, 0x1234, 0x5678, 1000)
+            print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
+            self.assertEqual(exit_code, 0, "arc_msg should succeed")
+
     @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
     def test_spi_read_write(self):
         """Test SPI read/write operations on discovered devices."""
@@ -160,36 +181,6 @@ class TestTTDevice(unittest.TestCase):
                            f"Second byte mismatch for device {chip_id}")
         
 
-    def test_arc_msg(self):
-        dev_ids = tt_umd.PCIDevice.enumerate_devices()
-        print("Devices found: ", dev_ids)
-        if (len(dev_ids) == 0):
-            print("No PCI devices found.")
-            return
-
-        for dev_id in dev_ids:
-            dev = tt_umd.TTDevice.create(dev_id)
-            dev.init_tt_device()
-            arch = dev.get_arch()
-            print(f"Testing arc_msg on device {dev_id} with arch {arch}")
-            
-            # TEST message code - 0x90 for Blackhole, 0xAA90 for Wormhole
-            if arch == tt_umd.ARCH.WORMHOLE_B0:
-                test_msg_code = 0xAA90
-            elif arch == tt_umd.ARCH.BLACKHOLE:
-                test_msg_code = 0x90
-            else:
-                print(f"Skipping arc_msg test for unsupported arch {arch}")
-                continue
-            
-            # Send TEST message with args 0x1234 and 0x5678
-            exit_code, return_3, return_4 = dev.arc_msg(test_msg_code, True, [0x1234, 0x5678], 1000)
-            print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
-            self.assertEqual(exit_code, 0, "arc_msg should succeed")
-            exit_code, return_3, return_4 = dev.arc_msg(test_msg_code, True, 0x1234, 0x5678, 1000)
-            print(f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}")
-            self.assertEqual(exit_code, 0, "arc_msg should succeed")
-
     def test_get_spi_fw_bundle_version(self):
         dev_ids = tt_umd.PCIDevice.enumerate_devices()
         print("Devices found: ", dev_ids)
@@ -225,4 +216,4 @@ class TestTTDevice(unittest.TestCase):
         print(f"  Major: {kmd_version.major}")
         print(f"  Minor: {kmd_version.minor}")
         print(f"  Patch: {kmd_version.patch}")
-        
+

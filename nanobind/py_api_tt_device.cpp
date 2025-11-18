@@ -83,6 +83,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
+        .def("board_id", &TTDevice::get_board_id)
         .def("get_board_type", &TTDevice::get_board_type)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)

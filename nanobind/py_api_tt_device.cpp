@@ -28,7 +28,7 @@ using namespace tt::umd;
 
 // Helper function for easy creation of RemoteWormholeTTDevice
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
-    TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
+    TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id, bool allow_spi = false) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
@@ -36,7 +36,7 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
-    return TTDevice::create(std::move(remote_communication));
+    return TTDevice::create(std::move(remote_communication), allow_spi);
 }
 
 void bind_tt_device(nb::module_ &m) {
@@ -75,9 +75,10 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType)>(&TTDevice::create),
+            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
+            nb::arg("allow_spi") = false,
             nb::rv_policy::take_ownership)
         .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
@@ -252,7 +253,41 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("arg0"),
             nb::arg("arg1"),
             nb::arg("timeout") = 1,
-            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.")
+        .def(
+            "spi_read",
+            [](TTDevice &self, uint32_t addr, nb::bytearray data) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.spi_read(addr, data_ptr, data_size);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Read data from SPI flash memory")
+        .def(
+            "spi_write",
+            [](TTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.spi_write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.")
+        .def(
+            "spi_write",
+            [](TTDevice &self, uint32_t addr, nb::bytearray data, bool skip_write_to_spi = false) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.spi_write(addr, data_ptr, data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
@@ -262,6 +297,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("local_chip"),
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
+        nb::arg("allow_spi") = false,
         nb::rv_policy::take_ownership,
         "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
 }

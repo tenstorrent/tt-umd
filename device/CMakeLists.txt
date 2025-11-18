@@ -219,6 +219,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag.hpp
                 api/umd/device/tt_kmd_lib/tt_kmd_lib.h
                 api/umd/device/arch/grendel_implementation.hpp
+                api/umd/device/arc/spi.hpp
     )
 endif()
 

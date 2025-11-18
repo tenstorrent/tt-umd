@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "noc_access.hpp"
+#include "umd/device/arc/blackhole_spi.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"

@@ -72,6 +72,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: false
+          path: tt-umd
+          clean: false
 
       - name: Install python dependencies
         run: python3 -m pip install --no-cache-dir pandas psutil tabulate
@@ -79,7 +81,7 @@ jobs:
       - name: Gather host machine specification
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          python3 $GITHUB_WORKSPACE/tools/gather_host_specs.py
+          python3 $GITHUB_WORKSPACE/tt-umd/tools/gather_host_specs.py
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}

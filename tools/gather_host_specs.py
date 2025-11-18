@@ -6,7 +6,6 @@ import json
 import platform
 import socket
 import psutil
-import pandas as pd
 import argparse
 import sys
 import subprocess

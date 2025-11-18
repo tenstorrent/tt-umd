@@ -50,6 +50,18 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
+    /**
+     * Get the firmware bundle version by reading from SPI flash (Blackhole only).
+     *
+     *
+     * This method:
+     * 1. Scans the boot filesystem table in SPI starting at address 0
+     * 2. Finds the "cmfwcfg" configuration entry
+     * 3. Reads and parses the protobuf data
+     * 4. Extracts the fw_bundle_version field
+     */
+    uint32_t get_spi_fw_bundle_version() override;
+
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool allow_spi = false);
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

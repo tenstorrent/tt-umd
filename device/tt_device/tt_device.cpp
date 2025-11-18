@@ -659,4 +659,10 @@ void TTDevice::spi_write(uint32_t addr, const uint8_t *data, size_t size, bool s
     spi_->write(addr, data, size, skip_write_to_spi);
 }
 
+uint32_t TTDevice::get_spi_fw_bundle_version() {
+    // TODO: This can be implemented through arc msgs on WH.
+    throw std::runtime_error(
+        "get_spi_fw_bundle_version is not supported on this architecture: " + std::to_string(static_cast<int>(arch)));
+}
+
 }  // namespace tt::umd

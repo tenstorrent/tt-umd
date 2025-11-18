@@ -24,6 +24,7 @@ on:
 env:
   BUILD_OUTPUT_DIR: ./build
   TEST_OUTPUT_DIR: ./build/test
+  TOOLS_DIR: ./tools
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   TT_UMD_LOGGER_LEVEL: info
 
@@ -68,10 +69,15 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Run TLB benchmarks
+      - name: Gather host machine specification
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkTLB*
+
+      - name: Run TLB benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          python ${{ env.TOOLS_DIR }}/gather_host_specs.py
 
       - name: Run PCIe benchmarks
         if: ${{ inputs.arch != 'baremetal' }}

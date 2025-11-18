@@ -14,7 +14,7 @@ A new build option `TT_UMD_ENABLE_CLANG_TIDY` has been added to `CMakeLists.txt`
 
 When enabled, the build system will:
 - Search for `clang-tidy` or `clang-tidy-17` executable
-- Configure CMake to run clang-tidy on each source file during compilation using the project-specific configuration file `.clang-tidy-build`
+- Configure CMake to run clang-tidy on each source file during compilation using the project-specific configuration file `.clang-tidy`
 - Enable real-time analysis through clangd in VSCode using the `.clang-tidy` configuration for immediate feedback during development
 
 ### 2. VSCode Configuration
@@ -35,14 +35,14 @@ The `.vscode/default.settings.json` contains configuration that allows the integ
 ### 3. Configuration Files
 
 The project uses two seprate configuration files: 
-- `.clang-tidy-build` for build-time static analysis configuration (which will be used on the CI)
+- `.clang-tidy` for build-time static analysis configuration (which will be used on the CI)
 - `.clang-tidy` for real-time analysis integrated with clangd in VSCode
 
 ## Usage
 
 ### Building with clang-tidy
 
-To enable clang-tidy both during the build process (applies the rules from `.clang-tidy-build`) and with clangd in the IDE (applies the rules from `.clang-tidy`) use the command:
+To enable clang-tidy both during the build process (applies the rules from `.clang-tidy`) and with clangd in the IDE (applies the rules from `.clang-tidy`) use the command:
 
 ```bash
 cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DTT_UMD_ENABLE_CLANG_TIDY=ON

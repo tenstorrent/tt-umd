@@ -105,7 +105,7 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
             clang-tidy-17
     )
     # These flags are needed because clang-tidy might reference warning options in
-    # .clang-tidy-build config file that aren't supported by your actual compiler
+    # .clang-tidy config file that aren't supported by your actual compiler
     # version, and without these flags the build would fail with "unknown warning
     # option" errors. The flags essentially tell the compiler to ignore unsupported
     # warning flags instead of treating them as fatal errors.

@@ -18,4 +18,16 @@ semver_t get_firmware_version_util(TTDevice* tt_device);
 std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
     semver_t fw_bundle_version, tt::ARCH arch);
 
+semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+
+semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
+
+semver_t get_cm_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+
+semver_t get_dm_app_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+
+semver_t get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+
+semver_t get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+
 }  // namespace tt::umd

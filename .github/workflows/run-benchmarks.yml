@@ -81,7 +81,7 @@ jobs:
       - name: Gather host machine specification
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          python3 $GITHUB_WORKSPACE/tt-umd/tools/gather_host_specs.py
+          python3 $GITHUB_WORKSPACE/tt-umd/tools/gather_host_specs.py --no-file --md
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}

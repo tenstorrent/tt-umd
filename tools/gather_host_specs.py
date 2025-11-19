@@ -1,6 +1,17 @@
 # SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+This script gathers machine specification information.
+
+It is divided into two parts based on the availability of the `tt-smi` tool:
+1. **If `tt-smi` is not available**, information is gathered manually.
+2. **If `tt-smi` is available**, information is gathered through it.
+
+Regardless of the method used, the script should always result in the same
+machine specification on a given machine.
+"""
+
 import os
 import json
 import platform
@@ -12,7 +23,7 @@ import sys
 import subprocess
 from datetime import datetime
 
-# --- Helper Functions (Manual Gathering) ---
+# Helper Functions (Manual Gathering)
 
 def get_distro_pretty_name():
     """Returns the pretty name (e.g., 'Ubuntu 22.04.5 LTS')"""
@@ -158,7 +169,7 @@ def get_tenstorrent_pcie_info_manual():
         
     return results
 
-# --- Main Logic ---
+# Main Logic
 
 def gather_specs_manual():
     """Aggregates all system info using manual sysfs/psutil methods."""
@@ -204,7 +215,7 @@ def gather_specs_from_tt_smi(smi_json):
     for device in device_list:
         board_info = device.get("board_info", {})
         
-        # --- FIX: Filter out devices with no local bus_id ---
+        # FIX: Filter out devices with no local bus_id
         if board_info.get("bus_id", "N/A") == "N/A":
             continue
             
@@ -260,7 +271,7 @@ def export_data(data, base_filename, do_json=False, do_csv=False, do_md=False):
     """Exports the data dictionary to specified file formats."""
     files_created = []
 
-    # --- 1. JSON Export ---
+    # 1. JSON Export
     if do_json:
         try:
             with open(f"{base_filename}.json", "w") as f:
@@ -269,7 +280,7 @@ def export_data(data, base_filename, do_json=False, do_csv=False, do_md=False):
         except Exception as e:
             print(f"Error writing JSON: {e}", file=sys.stderr)
 
-    # --- Flatten data for CSV/MD ---
+    # If the selected formt is not JSON, flatten data for CSV/MD
     if do_csv or do_md:
         flat_data = {"Timestamp": data["time"]}
         flat_data.update(data["host_info"]) 
@@ -285,7 +296,7 @@ def export_data(data, base_filename, do_json=False, do_csv=False, do_md=False):
         
         df = pd.DataFrame([flat_data])
 
-    # --- 2. CSV Export ---
+    # 2. CSV Export
     if do_csv:
         try:
             df.to_csv(f"{base_filename}.csv", index=False)
@@ -293,7 +304,7 @@ def export_data(data, base_filename, do_json=False, do_csv=False, do_md=False):
         except Exception as e:
             print(f"Error writing CSV: {e}", file=sys.stderr)
 
-    # --- 3. Markdown Export ---
+    # 3. Markdown Export
     if do_md:
         try:
             md_table = df.T.reset_index().to_markdown(
@@ -311,20 +322,48 @@ def export_data(data, base_filename, do_json=False, do_csv=False, do_md=False):
     if files_created:
         print(f"Successfully created: {', '.join(files_created)}")
 
+def format_data_as(data, fmt):
+    """Return a string representation of data in the requested format."""
+    if fmt == 'json':
+        return json.dumps(data, indent=4)
+    
+    # Flatten for CSV/MD
+    flat_data = {"Timestamp": data["time"]}
+    flat_data.update(data["host_info"])
+    pcie_list = data.get("tt_pcie_lane_info", [])
+    if pcie_list:
+        summary = ", ".join([f"x{c.get('pcie_width', '?')} Gen{c.get('pcie_speed', '?')}" for c in pcie_list])
+        flat_data["TT_PCIe_Info"] = summary
+    else:
+        flat_data["TT_PCIe_Info"] = "No Tenstorrent Card Found"
+    df = pd.DataFrame([flat_data])
+    
+    if fmt == 'csv':
+        return df.to_csv(index=False)
+    if fmt == 'md':
+        return df.T.reset_index().to_markdown(
+            index=False,
+            headers=["Metric", "Value"],
+            tablefmt="github"
+        )
+    # Fallback to JSON if unknown
+    return json.dumps(data, indent=4)
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Gather machine specifications. Default (no args) prints JSON to stdout."
+        description="Gather machine specifications. Default (no args) writes JSON to 'machine_host_spec.json'."
     )
     parser.add_argument(
         '-o', '--output', 
         type=str, 
         default=None, 
-        help="Base filename for output files. If not set, flags use 'machine_host_spec'."
+        help="Base filename for output files. If not set, defaults to 'machine_host_spec' unless --no-file is used."
     )
     parser.add_argument('--json', action='store_true', help="Output to JSON file.")
     parser.add_argument('--csv', action='store_true', help="Output to CSV file.")
     parser.add_argument('--md', action='store_true', help="Output to Markdown file.")
     parser.add_argument('--all', action='store_true', help="Output to all formats (JSON, CSV, MD).")
+    parser.add_argument('--no-file', action='store_true', help="Do not write files; print to stdout. Defaults to JSON unless a format is specified. Incompatible with --output/-o.")
     
     args = parser.parse_args()
     
@@ -338,28 +377,39 @@ def main():
     do_json = args.json or args.all
     do_csv = args.csv or args.all
     do_md = args.md or args.all
-    any_format_flag_set = do_json or do_csv or do_md
 
-    # --- 3. Execute logic based on your rules ---
-    
-    if base_filename is None and not any_format_flag_set:
-        # Rule 1: No flags. Print JSON to stdout.
-        print(json.dumps(specs, indent=4))
-    
-    else:
-        # Rules 2, 3, & 4: We are writing to file(s).
-        
-        if base_filename is None:
-            # Rule 2: Format flags given, but no name. Use default name.
-            base_filename = default_filename
-        
-        if not any_format_flag_set:
-            # Rule 3: Name given, but no format. Default to JSON.
-            do_json = True
-        
-        # Rule 4 (Name + flags) is handled by the initial flag setup.
-        
-        export_data(specs, base_filename, do_json, do_csv, do_md)
+    # 3. Validate incompatible options
+    if args.no_file and base_filename is not None:
+        print("Error: --no-file cannot be used together with --output/-o.", file=sys.stderr)
+        sys.exit(2)
+
+    # 4. Determine selected formats
+    selected_formats = []
+    if do_json: selected_formats.append('json')
+    if do_csv: selected_formats.append('csv')
+    if do_md: selected_formats.append('md')
+    if not selected_formats:
+        selected_formats = ['json']
+
+    # 5. Handle stdout-only mode
+    if args.no_file:
+        if len(selected_formats) > 1:
+            print("Error: With --no-file, specify only one of --json, --csv, or --md.", file=sys.stderr)
+            sys.exit(2)
+        fmt = selected_formats[0]
+        print(format_data_as(specs, fmt), end='' if fmt == 'csv' else '\n')
+        return
+
+    # 6. File output mode (use default filename if none provided)
+    if base_filename is None:
+        base_filename = default_filename
+    export_data(
+        specs,
+        base_filename,
+        do_json='json' in selected_formats,
+        do_csv='csv' in selected_formats,
+        do_md='md' in selected_formats
+    )
 
 if __name__ == "__main__":
     main()

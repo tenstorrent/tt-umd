@@ -9,11 +9,9 @@
 #include <fmt/core.h>
 
 #include <cassert>
-#include <optional>
 #include <ostream>
 #include <vector>
 
-#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -221,6 +219,12 @@ constexpr inline bool operator>=(const tt_version& a, const tt_version& b) {
     bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
     return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
 }
+
+// ERISC FW version Required by UMD.
+constexpr semver_t BH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(1, 0, 0);
+constexpr semver_t ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(6, 0, 0);
+constexpr semver_t ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = semver_t(6, 5, 0);
+constexpr semver_t ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = semver_t(6, 8, 0);
 
 struct HugepageMapping {
     void* mapping = nullptr;

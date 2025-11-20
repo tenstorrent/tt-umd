@@ -32,11 +32,7 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 
 SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
-    Chip(soc_descriptor), simulator_directory_(simulator_directory) {
-    soc_descriptor_per_chip.emplace(chip_id, soc_descriptor);
-    arch_name = soc_descriptor.arch;
-    target_devices_in_cluster = {chip_id};
-
+    Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory_);
     }

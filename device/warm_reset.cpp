@@ -30,8 +30,215 @@
 #include "utils.hpp"
 
 namespace tt::umd {
+
+// -------------------------------------------------------
+// START OF ASIO IMPLEMENTATION
+// -------------------------------------------------------
+
+const std::string LISTENER_DIR = "/tmp/tt_umd_listeners";
+
+// Global keep-alive for the listener thread to prevent it from going out of scope
+static std::unique_ptr<std::thread> monitor_thread;
+static std::atomic<bool> keep_monitoring{true};
+
 // Just a compile check, no logic needed yet
 void check_asio_version() { std::cout << "Asio linked. Version: " << ASIO_VERSION << std::endl; }
+
+bool WarmReset::start_monitoring(std::function<void()> on_cleanup_request) {
+    namespace fs = std::filesystem;
+
+    // Prevent starting monitoring twice in the same process
+    if (monitor_thread) {
+        log_warning(tt::LogUMD, "Reset monitoring is already running in this process.");
+        return false;
+    }
+
+    monitor_thread = std::make_unique<std::thread>([on_cleanup_request]() {
+        asio::io_context io;
+        std::error_code ec;
+
+        // 1. Ensure Directory Exists
+        if (!fs::exists(LISTENER_DIR)) {
+            fs::create_directories(LISTENER_DIR, ec);
+            fs::permissions(LISTENER_DIR, fs::perms::all, ec);  // Allow other users/groups
+        }
+
+        // 2. Create Unique Socket Name: client_<PID>.sock
+        // We use the PID so the invoker knows who this is
+        std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
+        fs::path socket_path = fs::path(LISTENER_DIR) / socket_name;
+
+        // Cleanup stale socket if we crashed previously
+        ::unlink(socket_path.c_str());
+
+        // 3. Setup Acceptor
+        asio::local::stream_protocol::acceptor acceptor(
+            io, asio::local::stream_protocol::endpoint(socket_path.string()));
+
+        // Ensure socket is writable by others (if running as different users)
+        fs::permissions(socket_path, fs::perms::all, ec);
+
+        // 4. Accept Loop
+        std::function<void()> do_accept;
+        do_accept = [&]() {
+            auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+            acceptor.async_accept(*sock, [sock, &do_accept, on_cleanup_request](std::error_code ec) {
+                if (!ec && keep_monitoring) {
+                    // A Reset Tool connected to us!
+
+                    auto buf = std::make_shared<std::vector<char>>(64);
+                    sock->async_read_some(
+                        asio::buffer(*buf), [sock, buf, on_cleanup_request](std::error_code ec, size_t len) {
+                            if (!ec) {
+                                std::string_view msg(buf->data(), len);
+                                if (msg.find("PRE_RESET") != std::string::npos) {
+                                    log_info(tt::LogUMD, "Received Pre-Reset Notification!");
+
+                                    // --- EXECUTE USER CLEANUP CALLBACK ---
+                                    if (on_cleanup_request) {
+                                        on_cleanup_request();
+                                    }
+                                    // -------------------------------------
+
+                                    // Send ACK
+                                    asio::write(*sock, asio::buffer("READY"));
+                                }
+                            }
+                        });
+
+                    // Continue listening for future resets
+                    do_accept();
+                }
+            });
+        };
+
+        do_accept();
+
+        // Run until application exit
+        while (keep_monitoring) {
+            io.run_one();
+        }
+
+        // Cleanup on exit
+        ::unlink(socket_path.c_str());
+    });
+
+    // Detach so it runs in background, or keep joinable if you want to manage lifecycle strictly
+    monitor_thread->detach();
+    return true;
+}
+
+// -------------------------------------------------------
+// INVOKER IMPLEMENTATION (With Self-Exclusion)
+// -------------------------------------------------------
+
+int WarmReset::extract_pid_from_socket_name(const std::string& filename) {
+    // Format: "client_12345.sock"
+    try {
+        size_t start = filename.find('_');
+        size_t end = filename.find('.');
+        if (start != std::string::npos && end != std::string::npos) {
+            std::string pid_str = filename.substr(start + 1, end - start - 1);
+            return std::stoi(pid_str);
+        }
+    } catch (...) {
+    }
+    return -1;
+}
+
+bool WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds timeout_ms) {
+    namespace fs = std::filesystem;
+
+    if (!fs::exists(LISTENER_DIR)) {
+        return true;
+    }
+
+    asio::io_context io;
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets;
+    int my_pid = getpid();
+
+    for (const auto& entry : fs::directory_iterator(LISTENER_DIR)) {
+        if (!entry.is_socket()) {
+            continue;
+        }
+
+        // --- SAFETY CHECK: IGNORE SELF ---
+        std::string filename = entry.path().filename().string();
+        int target_pid = extract_pid_from_socket_name(filename);
+
+        if (target_pid == my_pid) {
+            log_info(tt::LogUMD, "Skipping my own listener socket ({})", filename);
+            continue;
+        }
+        // ---------------------------------
+
+        auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+        try {
+            sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
+            active_sockets.push_back(sock);
+        } catch (...) {
+            // Stale socket
+        }
+    }
+
+    if (active_sockets.empty()) {
+        return true;
+    }
+
+    // ... (Rest of the broadcast/handshake logic logic from previous answer) ...
+    // Send PRE_RESET, wait for READY, handle timeout...
+    log_info(tt::LogUMD, "Handshaking with {} active clients...", active_sockets.size());
+
+    for (auto& sock : active_sockets) {
+        // Async write to avoid blocking if a client hangs on read
+        asio::async_write(*sock, asio::buffer("PRE_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
+    }
+
+    // 4. Wait for Handshakes (ACKs)
+    std::atomic<int> pending_acks = active_sockets.size();
+    asio::steady_timer timer(io, timeout_ms);
+
+    // Timeout Handler
+    timer.async_wait([&](std::error_code ec) {
+        if (!ec) {  // Timer expired
+            log_warning(tt::LogUMD, "Reset Handshake Timeout! Proceeding anyway.");
+            io.stop();
+        }
+    });
+
+    // Read Handler for each client
+    for (auto& sock : active_sockets) {
+        auto buf = std::make_shared<std::vector<char>>(64);  // Keep alive via lambda capture
+        sock->async_read_some(asio::buffer(*buf), [&io, &pending_acks, &timer, buf](std::error_code ec, size_t len) {
+            if (!ec) {
+                std::string_view msg(buf->data(), len);
+                // Check for "READY" string
+                if (msg.find("READY") != std::string::npos) {
+                    if (--pending_acks == 0) {
+                        timer.cancel();  // All clients ready -> Cancel timeout
+                        io.stop();       // Stop loop -> Proceed to reset
+                    }
+                }
+            }
+        });
+    }
+
+    io.run();  // Blocks until Timeout OR All Acks received
+
+    // 5. Final Cleanup
+    // Explicitly close sockets to be polite
+    for (auto& s : active_sockets) {
+        if (s->is_open()) {
+            s->close();
+        }
+    }
+
+    return true;
+}
+
+// -------------------------------------------------------
+// END OF ASIO IMPLEMENTATION
+// -------------------------------------------------------
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset

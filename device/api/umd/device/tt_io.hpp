@@ -10,8 +10,6 @@
 
 namespace tt::umd {
 
-class Cluster;
-
 /**
  * @brief Provides write access to a SoC core via a statically-mapped TLB.
  *

@@ -299,14 +299,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
-        if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-            // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
-            // to which we write so write_block knows it needs to target BAR4
-            tt_device_->write_block(
-                (tlb_description.tlb_offset + l1_dest % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
-        } else {
-            tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
-        }
+        tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
     } else {
         std::string fallback_tlb = "LARGE_WRITE_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
@@ -346,14 +339,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
-        if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-            // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
-            // from which we read so read_block knows it needs to target BAR4
-            tt_device_->read_block(
-                (tlb_description.tlb_offset + l1_src % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
-        } else {
-            tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
-        }
+        tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         log_trace(
             LogUMD,
             "  read_block called with tlb_offset: {}, tlb_size: {}",

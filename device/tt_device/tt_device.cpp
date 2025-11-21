@@ -270,13 +270,7 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("write_block is not applicable for JTAG communication type.");
     }
-    void *dest = nullptr;
-    if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
-        byte_addr -= BAR0_BH_SIZE;
-        dest = reinterpret_cast<uint8_t *>(pci_device_->bar4_wc) + byte_addr;
-    } else {
-        dest = pci_device_->get_register_address<uint8_t>(byte_addr);
-    }
+    void *dest = pci_device_->get_register_address<uint8_t>(byte_addr);
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
     bool use_safe_memcpy = false;
@@ -296,13 +290,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("read_block is not applicable for JTAG communication type.");
     }
-    void *src = nullptr;
-    if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
-        byte_addr -= BAR0_BH_SIZE;
-        src = reinterpret_cast<uint8_t *>(pci_device_->bar4_wc) + byte_addr;
-    } else {
-        src = pci_device_->get_register_address<uint8_t>(byte_addr);
-    }
+    void *src = pci_device_->get_register_address<uint8_t>(byte_addr);
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
     bool use_safe_memcpy = false;

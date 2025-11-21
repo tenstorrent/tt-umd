@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
@@ -337,6 +338,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
             get_local_asic_id(chip, eth_core),
             eth_core.str(),
             eth_fw_version.to_string());
+        eth_fw_problem = true;
+    }
+
+    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version, ARCH::WORMHOLE_B0);
+    if (hash_check.has_value() && hash_check.value() == false) {
+        log_warning(
+            LogUMD,
+            "ETH FW version hash check failed for chip {} ETH core {}",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str());
         eth_fw_problem = true;
     }
 

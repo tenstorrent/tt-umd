@@ -10,6 +10,7 @@
 
 #include <csignal>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <vector>
 
@@ -40,21 +41,23 @@ static std::string demangle(const char *str) {
  */
 inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void *caller_address = nullptr) {
     std::vector<std::string> bt;
-    void **array = (void **)malloc((sizeof(void *) * size));
+    std::vector<void *> array(size);
+
     if (caller_address != nullptr) {
-        array[1] = caller_address;
+        array.at(1) = caller_address;
     }
-    size_t s = ::backtrace(array, size);
-    char **strings = backtrace_symbols(array, s);
-    if (strings == NULL) {
+
+    size_t s = ::backtrace(array.data(), size);
+    std::unique_ptr<char *, decltype(&free)> strings(backtrace_symbols(array.data(), s), &free);
+
+    if (strings == nullptr) {
         std::cout << "backtrace_symbols error." << std::endl;
         return bt;
     }
+
     for (size_t i = skip; i < s; ++i) {
-        bt.push_back(demangle(strings[i]));
+        bt.push_back(demangle(strings.get()[i]));
     }
-    free(strings);
-    free(array);
 
     return bt;
 }

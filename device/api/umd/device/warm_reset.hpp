@@ -14,6 +14,8 @@
 
 namespace tt::umd {
 
+void check_asio_version();
+
 class WarmReset {
 public:
     static void warm_reset(std::vector<int> pci_device_ids = {}, bool reset_m3 = false);

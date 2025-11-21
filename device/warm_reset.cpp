@@ -9,9 +9,12 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <asio.hpp>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
+// delete iostream
+#include <iostream>
 #include <memory>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -27,6 +30,8 @@
 #include "utils.hpp"
 
 namespace tt::umd {
+// Just a compile check, no logic needed yet
+void check_asio_version() { std::cout << "Asio linked. Version: " << ASIO_VERSION << std::endl; }
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset

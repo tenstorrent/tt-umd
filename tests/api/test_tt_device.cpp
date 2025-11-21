@@ -17,6 +17,8 @@
 
 using namespace tt::umd;
 
+TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
+
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

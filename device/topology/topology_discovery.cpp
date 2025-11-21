@@ -196,6 +196,11 @@ void TopologyDiscovery::discover_remote_chips() {
             }
 
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
+            if (chips_to_discover.find(remote_asic_id) != chips_to_discover.end()) {
+                // Do not create links for chips already connected by PCIe/JTAG.
+                channel++;
+                continue;
+            }
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);

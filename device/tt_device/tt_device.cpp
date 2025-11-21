@@ -23,6 +23,42 @@
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
+#if defined(__x86_64__) || defined(__i386__)
+#include <emmintrin.h>
+#endif
+
+#define LOAD_STREAM_32()                                                                 \
+    do {                                                                                 \
+        _mm256_stream_si256((__m256i *)dst8, _mm256_loadu_si256((const __m256i *)src8)); \
+        src8 += sizeof(__m256i);                                                         \
+        dst8 += sizeof(__m256i);                                                         \
+    } while (0)
+
+#define LOAD_STREAM_16()                                                           \
+    do {                                                                           \
+        _mm_stream_si128((__m128i *)dst8, _mm_loadu_si128((const __m128i *)src8)); \
+        src8 += sizeof(__m128i);                                                   \
+        dst8 += sizeof(__m128i);                                                   \
+    } while (0)
+
+#define LOAD_STREAM_4()                                     \
+    do {                                                    \
+        _mm_stream_si32((int32_t *)dst8, *(int32_t *)src8); \
+        src8 += sizeof(int32_t);                            \
+        dst8 += sizeof(int32_t);                            \
+    } while (0)
+
+#define LOAD_STREAM_4_UNALIGNED()                 \
+    do {                                          \
+        int32_t val = 0;                          \
+        std::memcpy(&val, src8, sizeof(int32_t)); \
+        _mm_stream_si32((int32_t *)dst8, val);    \
+        src8 += sizeof(int32_t);                  \
+        dst8 += sizeof(int32_t);                  \
+    } while (0)
+
+static constexpr uint32_t MEMCPY_ALIGNMENT = 16;
+
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
 
@@ -174,6 +210,163 @@ void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
     }
 }
 
+void TTDevice::custom_memcpy(void *dst, const void *src, std::size_t size) {
+    if (size == 0) {
+        return;
+    }
+
+    uint8_t *d = static_cast<uint8_t *>(dst);
+    const uint8_t *s = static_cast<const uint8_t *>(src);
+
+    uintptr_t addr = reinterpret_cast<uintptr_t>(d);
+    size_t misalign = addr % 16;
+
+    if (misalign != 0) {
+        size_t prefix = 16 - misalign;
+        if (prefix > size) {
+            prefix = size;
+        }
+
+        std::memcpy(d, s, prefix);
+        d += prefix;
+        s += prefix;
+        size -= prefix;
+    }
+
+    size_t aligned_size = size & ~size_t(15);  // round down to multiple of 16
+    if (aligned_size > 0) {
+        custom_memcpy_aligned(d, s, aligned_size);
+        d += aligned_size;
+        s += aligned_size;
+        size -= aligned_size;
+    }
+
+    if (size > 0) {
+        std::memcpy(d, s, size);
+    }
+}
+
+void TTDevice::custom_memcpy_aligned(void *dst, const void *src, std::size_t n) {
+#if defined(__x86_64__) || defined(__i386__)
+    // Ensure destination is properly aligned for optimal SIMD performance
+    TT_ASSERT((uintptr_t)dst % MEMCPY_ALIGNMENT == 0);
+
+    // Configuration for bulk processing: inner loop processes 8 x 32-byte operations
+    // This creates 256-byte blocks (8 * 32 = 256 bytes) for maximum throughput
+    constexpr uint32_t inner_loop = 8;
+    constexpr uint32_t inner_blk_size = inner_loop * sizeof(__m256i);  // 256 bytes
+
+    const auto *src8 = static_cast<const uint8_t *>(src);
+    auto *dst8 = static_cast<uint8_t *>(dst);
+
+    size_t num_lines = n / inner_blk_size;  // Number of 256-byte blocks to process
+
+    // PHASE 1: Process 256-byte blocks 32 bytes at a time
+    // This is the main bulk processing phase for maximum efficiency
+    if (num_lines > 0) {
+        // Handle potential misalignment by processing a single 16-byte chunk first
+        // This ensures subsequent 32-byte operations are properly aligned
+        // WARNING: This does not cover the case where dst is not 16-byte aligned
+        if ((uintptr_t)dst8 % sizeof(__m256i) != 0) {
+            LOAD_STREAM_16();
+            n -= sizeof(__m128i);
+            num_lines = n / inner_blk_size;  // Recalculate after alignment adjustment
+        }
+
+        // Main bulk processing loop: Each iteration processes a 256 byte block. Blocks are processed 32 bytes at a
+        // time.
+        for (size_t i = 0; i < num_lines; ++i) {
+            for (size_t j = 0; j < inner_loop; ++j) {
+                LOAD_STREAM_32();
+            }
+            n -= inner_blk_size;
+        }
+    }
+
+    // PHASE 2: Process remaining data that doesn't fill a complete 256-byte block
+    if (n > 0) {
+        // Phase 2.1: Process remaining 32-byte chunks
+        num_lines = n / sizeof(__m256i);  // Number of 32-byte blocks to process
+        if (num_lines > 0) {
+            // Handle alignment for 32-byte operations if needed
+            // WARNING: This does not cover the case where dst is not 16-byte aligned
+            if ((uintptr_t)dst8 % sizeof(__m256i) != 0) {
+                LOAD_STREAM_16();
+                n -= sizeof(__m128i);
+                num_lines = n / sizeof(__m256i);  // Recalculate after alignment adjustment
+            }
+
+            // Process individual 32-byte blocks
+            for (size_t i = 0; i < num_lines; ++i) {
+                LOAD_STREAM_32();
+            }
+            n -= num_lines * sizeof(__m256i);
+        }
+
+        // PHASE 2.2: Process remaining 16-byte chunks
+        num_lines = n / sizeof(__m128i);  // Number of 16-byte blocks to process
+        if (num_lines > 0) {
+            for (size_t i = 0; i < num_lines; ++i) {
+                LOAD_STREAM_16();
+            }
+            n -= num_lines * sizeof(__m128i);
+        }
+
+        // PHASE 2.3: Process remaining 4-byte chunks
+        num_lines = n / sizeof(int32_t);  // Number of 4-byte blocks to process
+        if (num_lines > 0) {
+            if ((uintptr_t)src8 % sizeof(int32_t) != 0) {
+                for (size_t i = 0; i < num_lines; ++i) {
+                    LOAD_STREAM_4_UNALIGNED();
+                }
+            } else {
+                for (size_t i = 0; i < num_lines; ++i) {
+                    LOAD_STREAM_4();
+                }
+            }
+            n -= num_lines * sizeof(int32_t);
+        }
+
+        // PHASE 2.4: Handle the final few bytes (< 4 bytes)
+        // We are the ones in control of and allocating the dst buffer,
+        // so writing a few bytes extra is okay because we are guaranteeing the size is adequate.
+        if (n > 0) {
+            int32_t val = 0;
+            std::memcpy(&val, src8, n);
+            _mm_stream_si32((int32_t *)dst8, val);
+        }
+    }
+
+#else
+    std::memcpy(dest, src, num_bytes);
+#endif
+}
+
+void TTDevice::non_overlapping_memcpy(void *dst, const void *src, std::size_t n) {
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+
+    while (((uintptr_t)d & 7) && n) {
+        *d++ = *s++;
+        --n;
+    }
+
+    uint64_t *dw = (uint64_t *)d;
+    const uint64_t *sw = (const uint64_t *)s;
+
+    while (n >= 8) {
+        *dw++ = *sw++;
+        n -= 8;
+    }
+
+    d = (unsigned char *)dw;
+    s = (const unsigned char *)sw;
+
+    while (n--) {
+        *d++ = *s++;
+    }
+}
+
 void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("memcpy_to_device is not applicable for JTAG communication type.");
@@ -195,7 +388,7 @@ void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_byt
 
         auto leading_len = std::min(sizeof(tmp) - dest_misalignment, num_bytes);
 
-        std::memcpy(reinterpret_cast<char *>(&tmp) + dest_misalignment, src, leading_len);
+        custom_memcpy(reinterpret_cast<char *>(&tmp) + dest_misalignment, src, leading_len);
         num_bytes -= leading_len;
         src = static_cast<const char *>(src) + leading_len;
 
@@ -218,7 +411,7 @@ void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_byt
     if (trailing_len != 0) {
         copy_t tmp = *dp;
 
-        std::memcpy(&tmp, sp, trailing_len);
+        custom_memcpy(&tmp, sp, trailing_len);
 
         *dp++ = tmp;
     }
@@ -242,7 +435,7 @@ void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_b
         copy_t tmp = *sp++;
 
         auto leading_len = std::min(sizeof(tmp) - src_misalignment, num_bytes);
-        std::memcpy(dest, reinterpret_cast<char *>(&tmp) + src_misalignment, leading_len);
+        custom_memcpy(dest, reinterpret_cast<char *>(&tmp) + src_misalignment, leading_len);
         num_bytes -= leading_len;
         dest = static_cast<char *>(dest) + leading_len;
 
@@ -262,7 +455,7 @@ void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_b
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
         copy_t tmp = *sp;
-        std::memcpy(dp, &tmp, trailing_len);
+        custom_memcpy(dp, &tmp, trailing_len);
     }
 }
 
@@ -288,7 +481,7 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
     if (use_safe_memcpy) {
         memcpy_to_device(dest, src, num_bytes);
     } else {
-        memcpy(dest, src, num_bytes);
+        custom_memcpy(dest, src, num_bytes);
     }
 }
 
@@ -314,7 +507,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     if (use_safe_memcpy) {
         memcpy_from_device(dest, src, num_bytes);
     } else {
-        memcpy(dest, src, num_bytes);
+        custom_memcpy(dest, src, num_bytes);
     }
 
     if (num_bytes >= sizeof(std::uint32_t)) {

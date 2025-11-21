@@ -43,8 +43,8 @@ jobs:
         #                          github.event_name == 'push' && '["ASan", "TSan"]' ||
         #                          github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
         # TODO: Enable asan/tsan builds in CI, just uncomment lines above. For now we still run only Release builds
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
-                                 github.event_name == 'push' && '["Release"]' ||
+        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
+                                 github.event_name == 'push' && '["ASan"]' ||
                                  github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:

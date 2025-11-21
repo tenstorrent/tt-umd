@@ -67,4 +67,13 @@ static const std::unordered_map<semver_t, HashedAddressRange> WH_ERISC_FW_HASHES
     {{7, 2, 0}, {0x2000, 0x7000, "7e3697077d76ea8e3f66f5b2ca61a19baf3be8b5435b096fb6bb3e52e7033f9d"}},
 };
 
+static const std::unordered_map<semver_t, HashedAddressRange> BH_ERISC_FW_HASHES = {
+    {{1, 4, 2}, {0x70000, 0x78600, "c5385d26fc0aafa783cc5119711bff4c249ad869cd79ec03208cfa923ed26f70"}},
+    {{1, 5, 1}, {0x70000, 0x7a6b4, "b937deabb3d4525c5fa2910bcb62fa28097df3b647f69d0db5ef383fbe6ff7b2"}},
+    {{1, 6, 0}, {0x70000, 0x7a6b4, "b9b8fbc3d8204b02f1d32fade19cbc2abf2f7c4948d5901e25276efbc0865b0a"}},
+    {{1, 6, 1}, {0x70000, 0x7a6b4, "797d5f45828d71503ea597c890642778639cb204ae1c1ecc2d371ba6aa6ae369"}},
+    {{1, 6, 2}, {0x70000, 0x7a6b4, "0b8f858a44b4246ddb830cc91eca147044e0530a517007f0221f3b3fbb7b41c4"}},
+    {{1, 7, 0}, {0x70000, 0x7a6ec, "fe5620b007338f9c55854b1b76947c68dab63a5a1bfe8f4cbcfe1eb3620c4dc3"}},
+};
+
 }  // namespace tt::umd::erisc_firmware

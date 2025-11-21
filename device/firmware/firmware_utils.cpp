@@ -9,11 +9,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -64,16 +67,23 @@ semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
 
 std::optional<bool> verify_eth_fw_integrity(
     TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version, tt::ARCH arch) {
-    // Skipping for non-Wormhole ETH FW.
-    if (arch != ARCH::WORMHOLE_B0) {
+    const auto* eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
+    switch (arch) {
+        case ARCH::WORMHOLE_B0:
+            eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
+            break;
+        case ARCH::BLACKHOLE:
+            eth_fw_hashes = &erisc_firmware::BH_ERISC_FW_HASHES;
+            break;
+        default:
+            return std::nullopt;
+    }
+
+    if (eth_fw_hashes->find(eth_fw_version) == eth_fw_hashes->end()) {
         return std::nullopt;
     }
 
-    if (erisc_firmware::WH_ERISC_FW_HASHES.find(eth_fw_version) == erisc_firmware::WH_ERISC_FW_HASHES.end()) {
-        return std::nullopt;
-    }
-
-    erisc_firmware::HashedAddressRange hashed_range = erisc_firmware::WH_ERISC_FW_HASHES.at(eth_fw_version);
+    erisc_firmware::HashedAddressRange hashed_range = eth_fw_hashes->at(eth_fw_version);
     std::vector<uint8_t> eth_fw_text(hashed_range.size);
     tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
     std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);

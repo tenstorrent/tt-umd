@@ -12,6 +12,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
@@ -320,6 +321,17 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
+
+    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version, ARCH::BLACKHOLE);
+    if (hash_check.has_value() && hash_check.value() == false) {
+        log_warning(
+            LogUMD,
+            "ETH FW version hash check failed for chip {} ETH core {}",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str());
+        eth_fw_problem = true;
+    }
+
     return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 

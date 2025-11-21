@@ -51,7 +51,9 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
@@ -241,7 +243,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
+        return SimulationChip::create(simulator_directory, soc_desc, cluster_desc, chip_id);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -449,7 +451,31 @@ Cluster::Cluster(ClusterOptions options) {
                 options.num_host_mem_ch_per_mmio_device,
                 options.simulator_directory));
     }
-
+#ifdef TT_UMD_BUILD_SIMULATION
+    // TODO: Potentially avoid static casting here?
+    if (is_ttsim_simulation) {
+        if (!utils::is_multiproc_sim_enabled()) {
+            std::unordered_map<ChipId, TTSimChip*> chips_to_clock;
+            for (const auto& [chip_id, chip] : chips_) {
+                chips_to_clock[chip_id] = static_cast<TTSimChip*>(chip.get());
+            }
+            for (const auto& [chip_id, chip] : chips_to_clock) {
+                chip->set_chips_to_clock(chips_to_clock);
+            }
+        }
+        bool initialized = false;
+        while (!initialized) {
+            initialized = true;
+            for (const auto& [chip_id, chip] : chips_) {
+                if (utils::is_multiproc_sim_enabled()) {
+                    initialized = static_cast<MultiProcessTTSimChip*>(chip.get())->connect_eth_links() && initialized;
+                } else {
+                    initialized = static_cast<TTSimChip*>(chip.get())->connect_eth_links() && initialized;
+                }
+            }
+        }
+    }
+#endif
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
 }
 

@@ -243,14 +243,14 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     std::vector<uint32_t> arc_msg_return_values(1);
     for (const auto& tt_device : tt_devices) {
         tt_device->get_arc_messenger()->send_message(
-            MSG_TYPE_ARC_STATE3, arc_msg_return_values, default_arg_value, default_arg_value);
+            MSG_TYPE_ARC_STATE3, arc_msg_return_values, {default_arg_value, default_arg_value});
         usleep(30'000);
         if (reset_m3) {
             tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, 3, default_arg_value);
+                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {3, default_arg_value});
         } else {
             tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, default_arg_value, default_arg_value);
+                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {default_arg_value, default_arg_value});
         }
     }
 

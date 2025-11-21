@@ -73,8 +73,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     uint32_t ret_code = get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
         arc_msg_return_values,
-        0,
-        0);
+        {0, 0});
 
     if (ret_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
@@ -92,8 +91,7 @@ uint32_t WormholeTTDevice::get_clock() {
     auto exit_code = get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_get_aiclk(),
         arc_msg_return_values,
-        0xFFFF,
-        0xFFFF);
+        {0xFFFF, 0xFFFF});
     if (exit_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get AICLK value with exit code {}", exit_code));
     }
@@ -122,7 +120,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 2 * 4, dest_bar_hi);
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 3 * 4, region_size);
     arc_messenger_->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), 0, 0);
+        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), {0, 0});
 
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use * region_size;

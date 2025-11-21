@@ -570,8 +570,7 @@ public:
      * @param logical_device_id Chip to target.
      * @param msg_code Specifies type of ARC message.
      * @param wait_for_done Block until ARC responds.
-     * @param arg0 Message related argument.
-     * @param arg1 Message related argument.
+     * @param args Arguments for the message (device-specific limits apply).
      * @param timeout_ms Timeout in milliseconds.
      * @param return3 Return value from ARC.
      * @param return4 Return value from ARC.
@@ -580,8 +579,7 @@ public:
         int logical_device_id,
         uint32_t msg_code,
         bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
+        const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);

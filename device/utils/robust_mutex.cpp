@@ -15,7 +15,7 @@
 #include <sys/file.h>  // flock
 #include <sys/stat.h>  // for fstat
 #include <time.h>      // clock_gettime, timespec
-#include <unistd.h>    // ftruncate, close, getpid
+#include <unistd.h>    // ftruncate, close, gettid
 
 #include <chrono>
 #include <stdexcept>
@@ -248,7 +248,8 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     // When we open an existing pthread in the future, there is no other way to check if it was initialized or not, so
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
-    // Initialize owner PID to 0 (no owner).
+    // Initialize owner TID and PID to 0 (no owner).
+    mutex_wrapper_ptr_->owner_tid = 0;
     mutex_wrapper_ptr_->owner_pid = 0;
 }
 
@@ -280,7 +281,8 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::unlock() {
-    // Clear the owner PID before unlocking.
+    // Clear the owner TID and PID before unlocking.
+    mutex_wrapper_ptr_->owner_tid = 0;
     mutex_wrapper_ptr_->owner_pid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
@@ -312,8 +314,12 @@ void RobustMutex::lock() {
         } else if (lock_res == ETIMEDOUT) {
             // Timeout occurred - log a message about waiting.
             // Note that we can enter here only as a result of timedlock version.
-            pid_t owner = mutex_wrapper_ptr_->owner_pid;
-            log_warning(LogUMD, "Waiting for lock '{}' which is currently held by process PID: {}", mutex_name_, owner);
+            log_warning(
+                LogUMD,
+                "Waiting for lock '{}' which is currently held by thread TID: {}, PID: {}",
+                mutex_name_,
+                mutex_wrapper_ptr_->owner_tid,
+                mutex_wrapper_ptr_->owner_pid);
 
             // Now block until we get the lock.
             lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));
@@ -325,6 +331,7 @@ void RobustMutex::lock() {
     }
 
     // lock_res is 0, so this is a success case.
+    mutex_wrapper_ptr_->owner_tid = gettid();
     mutex_wrapper_ptr_->owner_pid = getpid();
 }
 

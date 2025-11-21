@@ -89,11 +89,9 @@ protected:
     // Simulator directory.
     // Common state variables.
     DriverNocParams noc_params;
-    std::set<ChipId> target_devices_in_cluster = {};
-    std::set<ChipId> target_remote_chips = {};
     tt::ARCH arch_name;
+    ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
-    std::unordered_map<ChipId, SocDescriptor> soc_descriptor_per_chip = {};
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <cstdint>
 #include <filesystem>
 
@@ -31,8 +33,14 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 private:
+    void create_simulator_binary();
+    off_t resize_simulator_binary(int src_fd);
+    void copy_simulator_binary();
+    void secure_simulator_binary();
+    void close_simulator_binary();
+    void load_simulator_library();
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    std::filesystem::path copied_simulator_directory_;
+    int copied_simulator_fd_ = -1;
 
     void* libttsim_handle = nullptr;
     uint32_t libttsim_pci_device_id = 0;

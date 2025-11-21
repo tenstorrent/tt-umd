@@ -1,25 +1,23 @@
 # Integration of clang-tidy and clangd into UMD
 
-This document describes the clang-tidy integration added to the UMD project for static code analysis and improved code quality.
+This document describes clang-tidy integration to the UMD project for static code analysis and improved code quality.
 
 ## Overview
 
-Clang-tidy is a clang-based C++ "linter" tool that provides static analysis to find bugs, performance issues, and style violations. This integration enables automated code quality checks during the build process.
+Clang-tidy is a clang-based C++ "linter" tool that provides static analysis to find bugs, performance issues, and style violations. This integration enables automated code quality checks during the build  and development (if used with the clangd extension) process.
 
 ### 1. CMake Integration
 
 A new build option `TT_UMD_ENABLE_CLANG_TIDY` has been added to `CMakeLists.txt` that allows enabling clang-tidy checks during compilation:
 
-
-
 When enabled, the build system will:
 - Search for `clang-tidy` or `clang-tidy-17` executable
-- Configure CMake to run clang-tidy on each source file during compilation using the project-specific configuration file `.clang-tidy-build`
+- Configure CMake to run clang-tidy on each source file during compilation using the project-specific configuration file `.clang-tidy`
 - Enable real-time analysis through clangd in VSCode using the `.clang-tidy` configuration for immediate feedback during development
 
 ### 2. VSCode Configuration
 
-The `.vscode/default.settings.json` contains configuration that allows the integration of clangd and clang-tody in the IDE itself.
+The `.vscode/default.settings.json` contains configuration that allows the integration of clangd and clang-tidy tools in the IDE itself.
 
 #### clangd Integration
 - **clangd.path**: Set to `clangd-17` to use a specific version
@@ -35,27 +33,22 @@ The `.vscode/default.settings.json` contains configuration that allows the integ
 ### 3. Configuration Files
 
 The project uses two seprate configuration files: 
-- `.clang-tidy-build` for build-time static analysis configuration (which will be used on the CI)
-- `.clang-tidy` for real-time analysis integrated with clangd in VSCode
+- `.clang-tidy` for build-time static analysis configuration (which will be used on the CI)
+- `.clangd` for real-time analysis integrated with clangd in VSCode. This file merges configurations from `.clang-tidy` with additional settings defined in `.clangd`. Rules defined in `.clangd` will not generate build failures, unlike those in `.clang-tidy`
 
 ## Usage
 
 ### Building with clang-tidy
 
-To enable clang-tidy both during the build process (applies the rules from `.clang-tidy-build`) and with clangd in the IDE (applies the rules from `.clang-tidy`) use the command:
+Clang-tidy is enabled by default, to override the default behavior the CMake variable `TT_UMD_ENABLE_CLANG_TIDY` can be used.
+
+To disable clang-tidy during the build process:
 
 ```bash
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DTT_UMD_ENABLE_CLANG_TIDY=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_ENABLE_CLANG_TIDY=OFF
 ```
 
-To enable clang-tidy with clangd only in the IDE (applies the rules from `.clang-tidy`):
-
-```bash
-# Build (clang-tidy will run automatically)
-cmake --build build -DTT_UMD_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=1
-```
-
-Note: clang-tidy and clangd depend on the flag `CMAKE_EXPORT_COMPILE_COMMANDS` which generates the compilation database `compile_commands.json`.
+Note: `.clang-tidy` and `.clangd` depend on the compilation database `compile_commands.json`. This compilation database is generated once the flag `CMAKE_EXPORT_COMPILE_COMMANDS` is set to `1` (but this is by default set to true in the UMD codebase).
 
 Note: The flag `TT_UMD_BUILD_TESTS` isn't necessary, but it's almost always used, see the general `README.md` for more information.
 
@@ -81,4 +74,4 @@ Note: The flag `TT_UMD_BUILD_TESTS` isn't necessary, but it's almost always used
 ### Performance Considerations
 
 - Clang-tidy analysis adds compilation time
-- Use `TT_UMD_ENABLE_CLANG_TIDY=OFF` or omit the flag completely for faster development builds
+- Use `TT_UMD_ENABLE_CLANG_TIDY=OFF` for faster development builds

@@ -1076,14 +1076,9 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::EndSeq;
 
     out << YAML::Key << "ethernet_connections_to_remote_devices" << YAML::Value << YAML::BeginSeq;
-    serialized_connections.clear();
     for (const auto &[src_chip, channels] : ethernet_connections_to_remote_devices) {
         for (const auto &[src_chan, dest] : channels) {
-            if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
-                continue;
-            }
             auto [dest_chip, dest_chan] = dest;
-            serialized_connections.insert({dest_chip, dest_chan});
             out << YAML::BeginSeq;
             out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan"
                 << YAML::Value << src_chan << YAML::EndMap;

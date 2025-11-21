@@ -61,7 +61,19 @@ void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core
 
 void SimulationChip::noc_multicast_write(
     void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    throw std::runtime_error("SimulationChip::noc_multicast_write is not implemented.");
+    // TODO: Support other core types once needed.
+    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
+        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+    }
+    // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
+    // Until then, do individual writes to each core in the range.
+    const tt_xy_pair translated_start = soc_descriptor_.translate_coord_to(core_start, CoordSystem::TRANSLATED);
+    const tt_xy_pair translated_end = soc_descriptor_.translate_coord_to(core_end, CoordSystem::TRANSLATED);
+    for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
+        for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
+            write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size);
+        }
+    }
 }
 
 void SimulationChip::wait_for_non_mmio_flush() {}

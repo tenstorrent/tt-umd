@@ -19,6 +19,19 @@ using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
 
+TEST(ApiTTDeviceTest, ListenAsio) {
+    auto lambda = []() { std::cout << "Cleanup function"; };
+    WarmReset::start_monitoring(lambda);
+    while (1) {
+    };
+}
+
+TEST(ApiTTDeviceTest, NotifyAsio) {
+    WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds(5'0000));
+    std::cout << "Managed to do this\n";
+    sleep(5);
+}
+
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

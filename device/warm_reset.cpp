@@ -56,7 +56,7 @@ bool WarmReset::start_monitoring(std::function<void()> on_cleanup_request) {
     monitor_thread = std::make_unique<std::thread>([on_cleanup_request]() {
         asio::io_context io;
         std::error_code ec;
-
+        log_info(tt::LogUMD, "Made the thread!");
         // 1. Ensure Directory Exists
         if (!fs::exists(LISTENER_DIR)) {
             fs::create_directories(LISTENER_DIR, ec);
@@ -175,6 +175,7 @@ bool WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds ti
         auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
         try {
             sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
+            log_info(tt::LogUMD, "Connected to socket!");
             active_sockets.push_back(sock);
         } catch (...) {
             // Stale socket

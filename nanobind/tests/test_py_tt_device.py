@@ -52,22 +52,15 @@ class TestTTDevice(unittest.TestCase):
             print(f"noc_read buffer version verified against original version")
 
     def test_remote_tt_device(self):
-        cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
-        umd_tt_devices = {}
-        chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
-        chip_eth_coords = cluster_descriptor.get_chip_locations()
+        cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
         for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):
             if cluster_descriptor.is_chip_mmio_capable(chip):
                 print(f"Chip MMIO capable: {chip}")
-                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
-                umd_tt_devices[chip].init_tt_device()
                 # Verify that MMIO capable device is not remote
                 self.assertFalse(umd_tt_devices[chip].is_remote(), f"MMIO capable device {chip} should not be remote")
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
-                umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(umd_tt_devices[closest_mmio], cluster_descriptor, chip)
-                umd_tt_devices[chip].init_tt_device()
                 # Verify that remote device is actually remote
                 self.assertTrue(umd_tt_devices[chip].is_remote(), f"Remote device {chip} should be remote")
                 

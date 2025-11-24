@@ -116,6 +116,7 @@ void bind_telemetry(nb::module_ &m) {
         .value("ENABLED_L2CPU", TelemetryTag::ENABLED_L2CPU)
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
         .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
+        .value("NOC_TRANSLATION", TelemetryTag::NOC_TRANSLATION)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 

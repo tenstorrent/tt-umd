@@ -28,13 +28,13 @@ uint32_t WormholeArcMessenger::send_message(
         log_error(LogUMD, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
 
-    // Validate that only 2 args are passed for Wormhole
+    // Validate that only 2 args are passed for Wormhole.
     if (args.size() > 2) {
         throw std::runtime_error(
             fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size()));
     }
 
-    // Extract args (default to 0 if not provided)
+    // Extract args (default to 0 if not provided).
     uint16_t arg0 = 0;
     uint16_t arg1 = 0;
 

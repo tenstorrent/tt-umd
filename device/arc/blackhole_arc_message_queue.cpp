@@ -93,10 +93,10 @@ uint32_t BlackholeArcMessageQueue::send_message(
             fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
     }
 
-    // Initialize with zeros for unused args
+    // Initialize with zeros for unused args.
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, 0, 0, 0, 0, 0, 0, 0};
 
-    // Copy provided arguments
+    // Copy provided arguments.
     for (size_t i = 0; i < args.size(); i++) {
         request[i + 1] = args[i];
     }

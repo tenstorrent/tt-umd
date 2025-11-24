@@ -23,6 +23,7 @@ TEST(ApiTTDeviceTest, ListenAsio) {
     auto lambda = []() { std::cout << "Cleanup function\n"; };
     WarmReset::start_monitoring(lambda);
     while (1) {
+        std::this_thread::sleep_for(std::chrono::seconds(10));
     };
 }
 

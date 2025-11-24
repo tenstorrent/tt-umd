@@ -20,7 +20,7 @@ using namespace tt::umd;
 TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
 
 TEST(ApiTTDeviceTest, ListenAsio) {
-    auto lambda = []() { std::cout << "Cleanup function"; };
+    auto lambda = []() { std::cout << "Cleanup function\n"; };
     WarmReset::start_monitoring(lambda);
     while (1) {
     };

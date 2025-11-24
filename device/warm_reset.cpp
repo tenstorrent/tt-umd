@@ -79,8 +79,8 @@ bool WarmReset::start_monitoring(std::function<void()> on_cleanup_request) {
         fs::permissions(socket_path, fs::perms::all, ec);
 
         // 4. Accept Loop
-        std::function<void()> do_accept;
-        do_accept = [&]() {
+        auto do_accept = std::make_shared<std::function<void()>>();
+        *do_accept = [&, do_accept]() {
             auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
             acceptor.async_accept(*sock, [sock, &do_accept, on_cleanup_request](std::error_code ec) {
                 if (!ec && keep_monitoring) {
@@ -107,12 +107,12 @@ bool WarmReset::start_monitoring(std::function<void()> on_cleanup_request) {
                         });
 
                     // Continue listening for future resets
-                    do_accept();
+                    (*do_accept)();
                 }
             });
         };
 
-        do_accept();
+        (*do_accept)();
 
         // Run until application exit
         while (keep_monitoring) {

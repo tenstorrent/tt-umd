@@ -17,7 +17,7 @@ class TTDevice;
 
 /* On Blackhole there are few ARC message queues that can be used to communicate with ARC FW.
  * ARC message queues are simple circular queues. There are read/write pointers both for requests and responses.
- * Reading from SCRATCH_RAM[11] gives the address of the ARC message queuse descriptor.
+ * Reading from SCRATCH_RAM[11] gives the address of the ARC message queue descriptor.
  *
  * | Purpose                  | Start bit offset | Length in bits |
  * ----------------------------------------------------------------
@@ -51,7 +51,7 @@ public:
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
      */
     uint32_t send_message(
-        const ArcMessageType message_type,
+        const uint32_t message_type,
         uint16_t arg0 = 0,
         uint16_t arg1 = 0,
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT);

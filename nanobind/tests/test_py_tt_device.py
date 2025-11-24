@@ -45,7 +45,7 @@ class TestTTDevice(unittest.TestCase):
             # Test noc_read with buffer parameter
             buffer_size = 32
             buffer = bytearray(buffer_size)
-            dev.noc_read(tensix_core.x, tensix_core.y, 0, 0x300, buffer)
+            dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, buffer)
             print(f"noc_read with buffer: read {buffer.hex()}")
 
             # Verify buffer version matches the original version

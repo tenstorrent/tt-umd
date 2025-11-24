@@ -36,6 +36,45 @@ set_target_properties(
             ""
 )
 
+# Remove sanitizer flags from the Python module to avoid symbol conflicts.
+# Python interpreters are typically not built with sanitizers, so loading
+# a sanitizer-instrumented .so into Python causes undefined symbol errors.
+# The Python module will still link to the sanitizer-instrumented libdevice.so,
+# which provides the actual functionality being tested.
+if(CMAKE_BUILD_TYPE MATCHES "ASan|TSan")
+    message(STATUS "Removing sanitizer flags from nanobind_tt_umd Python module (BUILD_TYPE=${CMAKE_BUILD_TYPE})")
+
+    # Get current compile and link flags
+    get_target_property(CURRENT_COMPILE_OPTIONS nanobind_tt_umd COMPILE_OPTIONS)
+    get_target_property(CURRENT_LINK_OPTIONS nanobind_tt_umd LINK_OPTIONS)
+
+    # Remove sanitizer flags from compile options
+    if(CURRENT_COMPILE_OPTIONS)
+        list(FILTER CURRENT_COMPILE_OPTIONS EXCLUDE REGEX "-fsanitize=")
+        set_target_properties(
+            nanobind_tt_umd
+            PROPERTIES
+                COMPILE_OPTIONS
+                    "${CURRENT_COMPILE_OPTIONS}"
+        )
+    endif()
+
+    # Remove sanitizer flags from link options
+    if(CURRENT_LINK_OPTIONS)
+        list(FILTER CURRENT_LINK_OPTIONS EXCLUDE REGEX "-fsanitize=")
+        set_target_properties(
+            nanobind_tt_umd
+            PROPERTIES
+                LINK_OPTIONS
+                    "${CURRENT_LINK_OPTIONS}"
+        )
+    endif()
+
+    # Also override the flags at a lower level to ensure they don't get re-added
+    target_compile_options(nanobind_tt_umd PRIVATE -fno-sanitize=all)
+    target_link_options(nanobind_tt_umd PRIVATE -fno-sanitize=all)
+endif()
+
 # Also disable clang-tidy for the underlying third-party static lib if present
 if(TARGET nanobind-static)
     set_target_properties(

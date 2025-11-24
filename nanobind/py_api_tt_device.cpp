@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/shared_ptr.h>

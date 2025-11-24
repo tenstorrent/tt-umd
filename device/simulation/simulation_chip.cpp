@@ -17,9 +17,9 @@
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) {
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id, size_t num_chips) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id);
+        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id, num_chips > 1);
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id);
     }

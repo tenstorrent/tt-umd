@@ -105,16 +105,16 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
             clang-tidy-17
     )
     # These flags are needed because clang-tidy might reference warning options in
-    # .clang-tidy-build config file that aren't supported by your actual compiler
+    # .clang-tidy config file that aren't supported by your actual compiler
     # version, and without these flags the build would fail with "unknown warning
     # option" errors. The flags essentially tell the compiler to ignore unsupported
     # warning flags instead of treating them as fatal errors.
     if(CLANG_TIDY_EXE)
         set(CMAKE_CXX_CLANG_TIDY
-            "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+            "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
         )
         set(CMAKE_C_CLANG_TIDY
-            "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy-build;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+            "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
         )
     endif()
 endif()

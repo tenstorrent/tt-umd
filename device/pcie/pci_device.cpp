@@ -533,7 +533,7 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
         return 0;
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x}",
         pin_pages.in.virtual_address,
@@ -580,7 +580,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped to "
         "noc address {:#x}",
@@ -632,7 +632,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped "
         "to noc address {:#x}",
@@ -669,7 +669,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} without mapping "
         "to noc",
@@ -701,7 +701,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Unpinning pages for DMA: virtual address {:#x} and size {:#x}",
         unpin_pages.in.virtual_address,

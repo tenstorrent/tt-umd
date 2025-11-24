@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 

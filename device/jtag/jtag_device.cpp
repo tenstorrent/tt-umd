@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/jtag/jtag_device.hpp"
 
 #include <cstdint>

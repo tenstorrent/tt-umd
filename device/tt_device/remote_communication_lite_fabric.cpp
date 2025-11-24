@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/tt_device/remote_communication_lite_fabric.hpp"
 
 namespace tt::umd {

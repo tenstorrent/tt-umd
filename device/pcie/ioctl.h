@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 // clang-format off
 // This file is copied from KMD, so we don't want clang formatting diff.

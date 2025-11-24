@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <cxxopts.hpp>
 #include <tt-logger/tt-logger.hpp>
 

@@ -19,9 +19,12 @@
 
 #include <chrono>
 #include <functional>
+#include <mutex>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.
@@ -93,6 +96,16 @@ private:
 };
 
 pthread_mutex_t RobustMutex::multithread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+
+#ifdef __SANITIZE_THREAD__
+// Static storage for TSAN mutex identifiers.
+// TSAN needs stable, valid memory addresses to track mutex synchronization.
+// For cross-process mutexes where each process maps shared memory to different
+// virtual addresses, we maintain a process-local map from mutex name to a
+// stable address that TSAN can use for tracking happens-before relationships.
+static std::unordered_map<std::string, char> tsan_mutex_id_storage;
+static std::mutex tsan_storage_mutex;
+#endif
 
 RobustMutex::RobustMutex(std::string_view mutex_name) : mutex_name_(mutex_name) {}
 
@@ -178,6 +191,18 @@ void RobustMutex::initialize() {
         log_warning(tt::LogUMD, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
     shm_fd_ = -1;
+
+#ifdef __SANITIZE_THREAD__
+    // Register this mutex name in the TSAN tracking storage.
+    // This ensures all threads using the same mutex name will use the same
+    // address for TSAN synchronization tracking.
+    {
+        std::lock_guard<std::mutex> lock(tsan_storage_mutex);
+        if (tsan_mutex_id_storage.find(mutex_name_) == tsan_mutex_id_storage.end()) {
+            tsan_mutex_id_storage[mutex_name_] = 0;
+        }
+    }
+#endif
 }
 
 void RobustMutex::open_shm_file() {
@@ -301,16 +326,27 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void* RobustMutex::get_tsan_mutex_id() const {
-    // TSAN needs a valid pointer value to track mutex synchronization.
-    // For cross-process mutexes, TSAN cannot properly track synchronization across
-    // process boundaries using the standard __tsan_acquire/__tsan_release annotations
-    // because each process has different virtual address mappings.
+    // TSAN needs a stable, valid memory address to track mutex synchronization.
+    // For cross-process mutexes, each process maps shared memory to different
+    // virtual addresses. To ensure TSAN understands that mutexes with the same
+    // name are the same logical mutex across all threads/processes, we maintain
+    // a process-local map from mutex name to a stable address.
     //
-    // The safest approach is to use the actual mutex address within this process.
-    // While this won't provide cross-process synchronization visibility to TSAN,
-    // it will at least work correctly within a single process and won't cause crashes.
-    // The actual mutex synchronization is still provided by the robust pthread mutex.
-    return static_cast<void*>(&mutex_wrapper_ptr_->mutex);
+    // This function assumes initialize() has already been called, which registers
+    // the mutex in tsan_mutex_id_storage. Since we only read from the map here
+    // (after initialization), no locking is needed.
+#ifdef __SANITIZE_THREAD__
+    auto it = tsan_mutex_id_storage.find(mutex_name_);
+    TT_ASSERT(
+        it != tsan_mutex_id_storage.end(),
+        "TSAN mutex ID not found for mutex '{}'. initialize() must be called before lock/unlock.",
+        mutex_name_);
+    return static_cast<void*>(&it->second);
+#else
+    // This should never be reached, because this function is only called when __SANITIZE_THREAD__ is defined,
+    // but we return something to avoid compiler warnings.
+    return nullptr;
+#endif
 }
 
 void RobustMutex::unlock() {

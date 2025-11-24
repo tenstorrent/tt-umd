@@ -41,7 +41,7 @@ uint32_t WormholeArcMessenger::send_message(
     if (args.size() >= 1) {
         if (args[0] > 0xFFFF) {
             throw std::runtime_error(
-                fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF)", args[0]));
+                fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
         }
         arg0 = static_cast<uint16_t>(args[0]);
     }
@@ -49,7 +49,7 @@ uint32_t WormholeArcMessenger::send_message(
     if (args.size() >= 2) {
         if (args[1] > 0xFFFF) {
             throw std::runtime_error(
-                fmt::format("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF)", args[1]));
+                fmt::format("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[1]));
         }
         arg1 = static_cast<uint16_t>(args[1]);
     }

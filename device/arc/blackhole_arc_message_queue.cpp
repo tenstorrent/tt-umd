@@ -90,7 +90,7 @@ uint32_t BlackholeArcMessageQueue::send_message(
     const ArcMessageType message_type, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
     if (args.size() > 7) {
         throw std::runtime_error(
-            fmt::format("Too many arguments {} > 7 for message type {}", args.size(), (uint32_t)message_type));
+            fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
     }
 
     // Initialize with zeros for unused args

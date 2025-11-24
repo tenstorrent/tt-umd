@@ -83,7 +83,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_TESTS=ON \
             -DTT_UMD_BUILD_SIMULATION=OFF \
-            -DTT_UMD_BUILD_PYTHON=ON \
+            -DTT_UMD_BUILD_PYTHON=OFF \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DTT_UMD_BUILD_TOOLS=OFF \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \

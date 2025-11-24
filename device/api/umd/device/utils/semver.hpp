@@ -67,7 +67,7 @@ public:
 
     std::string str() const {
         return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
-                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release);
+                             : fmt::format("{}.{}.{}", major, minor, patch);
     }
 
     bool operator<(const semver_t& other) const noexcept {
@@ -91,7 +91,7 @@ public:
 
     std::string to_string() const {
         return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
-                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release);
+                             : fmt::format("{}.{}.{}", major, minor, patch);
     }
 
     /*

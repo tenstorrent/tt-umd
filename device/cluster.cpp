@@ -241,7 +241,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
+        return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "

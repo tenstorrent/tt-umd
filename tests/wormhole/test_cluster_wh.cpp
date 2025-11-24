@@ -133,7 +133,7 @@ TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
 
 TEST(SiliconDriverWH, CreateDestroy) {
     DeviceParams default_params;
-    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
+    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
             .perform_harvesting = false,
@@ -150,7 +150,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
 }
 
 TEST(SiliconDriverWH, CustomSocDesc) {
-    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
+    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     Cluster cluster(ClusterOptions{
         .perform_harvesting = false,
         .simulated_harvesting_masks = {60, 0, 0},
@@ -175,7 +175,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    // Iterate over MMIO devices and only setup static TLBs for worker cores
+    // Iterate over MMIO devices and only setup static TLBs for worker cores.
     for (auto chip_id : mmio_devices) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -254,7 +254,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    // Iterate over MMIO devices and only setup static TLBs for worker cores
+    // Iterate over MMIO devices and only setup static TLBs for worker cores.
     for (auto chip_id : mmio_devices) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -309,7 +309,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    // Iterate over MMIO devices and only setup static TLBs for worker cores
+    // Iterate over MMIO devices and only setup static TLBs for worker cores.
     for (auto chip_id : mmio_devices) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -329,15 +329,15 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    // Check functionality of Static TLBs by reading adn writing from statically mapped address space
+    // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
     for (auto chip_id : cluster.get_target_device_ids()) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-        // Write to each core a 100 times at different statically mapped addresses
+        // Write to each core a 100 times at different statically mapped addresses.
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
-                // Barrier to ensure that all writes over ethernet were commited
+                // Barrier to ensure that all writes over ethernet were commited.
                 cluster.wait_for_non_mmio_flush();
                 test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -374,12 +374,12 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
     for (auto chip_id : cluster.get_target_device_ids()) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-        // Write to each core a 100 times at different statically mapped addresses
+        // Write to each core a 100 times at different statically mapped addresses.
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
-                // Barrier to ensure that all writes over ethernet were commited
+                // Barrier to ensure that all writes over ethernet were commited.
                 cluster.wait_for_non_mmio_flush();
                 test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -397,7 +397,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
 TEST(SiliconDriverWH, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
-    // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe
+    // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     Cluster cluster;
     set_barrier_params(cluster);
 
@@ -450,7 +450,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // All (fairly large) transactions go through a static TLB.
     // We want to make sure the memory barrier is thread/process safe.
 
-    // Memory barrier flags get sent to address 0 for all channels in this test
+    // Memory barrier flags get sent to address 0 for all channels in this test.
     auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
         return get_static_tlb_index(target, noc_translation_enabled);
     };
@@ -460,7 +460,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    // Iterate over MMIO devices and only setup static TLBs for worker cores
+    // Iterate over MMIO devices and only setup static TLBs for worker cores.
     for (auto chip_id : mmio_devices) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -504,7 +504,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     }
 
     // Launch 2 thread accessing different locations of L1 and using memory barrier between write and read
-    // Ensure now RAW race and membars are thread safe
+    // Ensure now RAW race and membars are thread safe.
     std::vector<uint32_t> vec1(2560);
     std::vector<uint32_t> vec2(2560);
     std::vector<uint32_t> zeros(2560, 0);
@@ -568,7 +568,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 }
 
 TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
-    // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
+    // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly.
     Cluster cluster;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
@@ -590,10 +590,10 @@ TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
             vector_to_write[i] = i;
             zeros[i] = 0;
         }
-        // Broadcast to Tensix
+        // Broadcast to Tensix.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
-        // Broadcast to DRAM
+        // Broadcast to DRAM.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
             vector_to_write.size() * 4,
@@ -637,14 +637,14 @@ TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
                 readback_vec = {};
             }
         }
-        // Wait for data to be cleared before writing next block
+        // Wait for data to be cleared before writing next block.
         cluster.wait_for_non_mmio_flush();
     }
     cluster.close_device();
 }
 
 TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
-    // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
+    // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly.
     Cluster cluster;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
@@ -675,10 +675,10 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
             vector_to_write[i] = i;
             zeros[i] = 0;
         }
-        // Broadcast to Tensix
+        // Broadcast to Tensix.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
-        // Broadcast to DRAM
+        // Broadcast to DRAM.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
             vector_to_write.size() * 4,
@@ -726,7 +726,7 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
                 readback_vec = {};
             }
         }
-        // Wait for data to be cleared before writing next block
+        // Wait for data to be cleared before writing next block.
         cluster.wait_for_non_mmio_flush();
     }
     cluster.close_device();

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Substitute for 1d_fabric_constants.hpp
+// Substitute for 1d_fabric_constants.hpp.
 
 #pragma once
 

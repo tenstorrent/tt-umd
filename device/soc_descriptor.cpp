@@ -95,7 +95,7 @@ void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vecto
     const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
 
     for (const auto &dram_cores : cores) {
-        // Insert the dram core if it's within the given grid
+        // Insert the dram core if it's within the given grid.
         bool serialize_cores = true;
 
         for (const auto &dram_core : dram_cores) {
@@ -439,7 +439,7 @@ void SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
 
-    // Inlcude harvested cores directly in SocDescriptor if available
+    // Inlcude harvested cores directly in SocDescriptor if available.
     if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
         harvested_workers = SocDescriptor::convert_to_tt_xy_pair(
             device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
@@ -591,7 +591,7 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::L2CPU);
     out << YAML::EndSeq;
 
-    // Fill in the rest that are static to our device
+    // Fill in the rest that are static to our device.
     out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
     out << YAML::Key << "eth_l1_size" << YAML::Value << eth_l1_size;
@@ -678,7 +678,7 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
             core_type == CoreType::L2CPU) {
-            // Ethernet and Router cores aren't arranged in a grid, initializing as empty
+            // Ethernet and Router cores aren't arranged in a grid, initializing as empty.
             grid_size_map.insert({core_type, empty});
             harvested_grid_size_map.insert({core_type, empty});
             continue;

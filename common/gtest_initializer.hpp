@@ -10,7 +10,7 @@
 #include <memory>
 
 namespace testing {
-// Testing flag verbose can be accessed with GTEST_FLAG(verbose), and set with macro GTEST_VERBOSE=1
+// Testing flag verbose can be accessed with GTEST_FLAG(verbose), and set with macro GTEST_VERBOSE=1.
 bool verbose = testing::internal::BoolFromGTestEnv("verbose", false);
 }  // namespace testing
 
@@ -67,7 +67,7 @@ private:
 };
 
 void initialize_gtest(int argc, char** argv) {
-    // Default gtest initializer
+    // Default gtest initializer.
     testing::InitGoogleTest(&argc, argv);
     bool overwrite_env = false;
 

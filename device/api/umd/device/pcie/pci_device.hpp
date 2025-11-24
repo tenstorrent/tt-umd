@@ -312,7 +312,7 @@ public:
     template <typename T>
     T *get_register_address(uint32_t register_offset) {
         // Right now, address can either be exposed register in BAR, or TLB window in BAR0 (BAR4 for Blackhole).
-        // Should clarify this interface
+        // Should clarify this interface.
         void *reg_mapping;
         if (system_reg_mapping != nullptr && register_offset >= system_reg_start_offset) {
             register_offset -= system_reg_offset_adjust;

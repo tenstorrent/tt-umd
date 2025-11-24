@@ -11,7 +11,7 @@
 #define LITE_FABRIC_BARRIER 12
 
 // NOTE: Base firmware data is starting at 0x70000.
-// We need to ensure that the Lite Fabric memory does not overlap with it or Metal
+// We need to ensure that the Lite Fabric memory does not overlap with it or Metal.
 #define MEM_LITE_FABRIC_MEMORY_BASE 0x6A000
 #define MEM_LITE_FABRIC_MEMORY_SIZE (24 * 1024)
 #define MEM_LITE_FABRIC_MEMORY_END (MEM_LITE_FABRIC_MEMORY_BASE + MEM_LITE_FABRIC_MEMORY_SIZE)

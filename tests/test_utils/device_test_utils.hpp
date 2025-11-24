@@ -41,7 +41,7 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     uint64_t* data64 = reinterpret_cast<uint64_t*>(data);
     std::generate_n(data64, n / 8, [&]() { return gen(); });
 
-    // Handle remaining bytes
+    // Handle remaining bytes.
     for (size_t i = (n / 8) * 8; i < n; ++i) {
         data[i] = static_cast<uint8_t>(gen());
     }

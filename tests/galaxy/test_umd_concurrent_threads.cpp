@@ -20,14 +20,14 @@
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
-// Have 2 threads read and write to all cores on the Galaxy
+// Have 2 threads read and write to all cores on the Galaxy.
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     auto cluster = std::make_unique<Cluster>();
     if (is_4u_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test on 4U Galaxy due to intermittent failures.";
     }
 
-    // Galaxy Setup
+    // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     std::set<ChipId> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
     std::set<ChipId> target_devices_th2 = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
@@ -44,13 +44,13 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         target_devices_th2.end(),
         std::inserter(all_devices, all_devices.begin()));
     for (const auto& chip : target_devices_th1) {
-        // Verify that selected chips are in the cluster
+        // Verify that selected chips are in the cluster.
         auto it = std::find(cluster_desc->get_all_chips().begin(), cluster_desc->get_all_chips().end(), chip);
         ASSERT_TRUE(it != cluster_desc->get_all_chips().end())
             << "Target chip on thread 1 " << chip << " is not in the Galaxy cluster";
     }
     for (const auto& chip : target_devices_th2) {
-        // Verify that selected chips are in the cluster
+        // Verify that selected chips are in the cluster.
         auto it = std::find(cluster_desc->get_all_chips().begin(), cluster_desc->get_all_chips().end(), chip);
         ASSERT_TRUE(it != cluster_desc->get_all_chips().end())
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
@@ -65,7 +65,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     DeviceParams default_params;
     device.start_device(default_params);
 
-    // Test
+    // Test.
     std::vector<uint32_t> vector_to_write_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> vector_to_write_th2 = {100, 101, 102, 103, 104, 105};
 
@@ -130,7 +130,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         GTEST_SKIP() << "Skipping test on 4U Galaxy due to intermittent failures.";
     }
 
-    // Galaxy Setup
+    // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     std::set<ChipId> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
     std::set<ChipId> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
@@ -147,13 +147,13 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::end(target_devices_th2),
         std::inserter(all_devices, std::begin(all_devices)));
     for (const auto& chip : target_devices_th1) {
-        // Verify that selected chips are in the cluster
+        // Verify that selected chips are in the cluster.
         auto it = std::find(cluster_desc->get_all_chips().begin(), cluster_desc->get_all_chips().end(), chip);
         ASSERT_TRUE(it != cluster_desc->get_all_chips().end())
             << "Target chip on thread 1 " << chip << " is not in the Galaxy cluster";
     }
     for (const auto& chip : target_devices_th2) {
-        // Verify that selected chips are in the cluster
+        // Verify that selected chips are in the cluster.
         auto it = std::find(cluster_desc->get_all_chips().begin(), cluster_desc->get_all_chips().end(), chip);
         ASSERT_TRUE(it != cluster_desc->get_all_chips().end())
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
@@ -168,7 +168,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     DeviceParams default_params;
     device.start_device(default_params);
 
-    // Test
+    // Test.
     std::vector<uint32_t> vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
     std::uint32_t write_size = vector_to_write.size() * 4;
 
@@ -218,7 +218,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 }
 
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
-    // Galaxy Setup
+    // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     Cluster device;
     std::unordered_set<ChipId> target_devices = cluster_desc->get_all_chips();
@@ -227,7 +227,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     DeviceParams default_params;
     device.start_device(default_params);
 
-    // Test
+    // Test.
     std::vector<uint32_t> small_vector = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> large_vector(20000, 0xbeef1234);
 

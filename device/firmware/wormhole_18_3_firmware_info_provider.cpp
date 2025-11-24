@@ -154,7 +154,7 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 

@@ -150,7 +150,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
     bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr;
-    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
@@ -194,7 +194,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             resp_flags |= eth_interface_params.cmd_data_block_dram;
         }
 
-        // Send the read request
+        // Send the read request.
         TT_ASSERT(
             (req_flags == eth_interface_params.cmd_rd_req) || (((core_src + offset) & 0x1F) == 0),
             "Block mode offset must be 32-byte aligned.");  // Block mode offset must be 32-byte aligned.
@@ -240,7 +240,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
 
-        // Wait for read request completion and extract the data into the `dest`
+        // Wait for read request completion and extract the data into the `dest`.
 
         // erisc firmware will:
         // 1. clear response flags
@@ -283,13 +283,13 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                     DATA_WORD_SIZE);
                 if (size_in_bytes - offset < 4) {
                     // Handle misaligned (4 bytes) data at the end of the block.
-                    // Only read remaining bytes into the host buffer, instead of reading the full uint32_t
+                    // Only read remaining bytes into the host buffer, instead of reading the full uint32_t.
                     std::memcpy(static_cast<uint8_t*>(dest) + offset, erisc_resp_data.data(), size_in_bytes - offset);
                 } else {
                     *(static_cast<uint32_t*>(dest) + offset / DATA_WORD_SIZE) = erisc_resp_data[0];
                 }
             } else {
-                // Read 4 byte aligned block from device/sysmem
+                // Read 4 byte aligned block from device/sysmem.
                 if (use_host_dram) {
                     size_buffer_to_capacity(data_block, block_size);
                     sysmem_manager_->read_from_sysmem(
@@ -305,7 +305,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 TT_ASSERT(
                     (data_block.size() * DATA_WORD_SIZE) >= block_size,
                     "Incorrect data size read back from sysmem/device");
-                // Account for misalignment by skipping any padding bytes in the copied data_block
+                // Account for misalignment by skipping any padding bytes in the copied data_block.
                 memcpy(
                     static_cast<uint8_t*>(dest) + offset,
                     data_block.data(),
@@ -313,7 +313,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             }
         }
 
-        // Finally increment the rdptr for the response command q
+        // Finally increment the rdptr for the response command q.
         erisc_resp_q_rptr[0] = (erisc_resp_q_rptr[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
         local_tt_device_->write_to_device(
             erisc_resp_q_rptr.data(),
@@ -365,7 +365,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
 
     // Broadcast requires block writes to host dram
-    // When sysmem_manager is not available, we chunk the transfer using smaller blocks
+    // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
     TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
     uint32_t max_block_size =
@@ -421,7 +421,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             // For broadcast we prepend a 32byte header. Decrease block size (size of payload) by this amount.
             block_size = offset + max_block_size > size_in_bytes + 32 * broadcast ? size_in_bytes - offset
                                                                                   : max_block_size - 32 * broadcast;
-            // Explictly align block_size to 4 bytes, in case the input buffer is not uint32_t aligned
+            // Explictly align block_size to 4 bytes, in case the input buffer is not uint32_t aligned.
             uint32_t alignment_mask = sizeof(uint32_t) - 1;
             block_size = (block_size + alignment_mask) & ~alignment_mask;
         }
@@ -429,7 +429,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         // in the last block
         uint64_t transfer_size =
             std::min(block_size, size_in_bytes - offset);  // Host side data size that needs to be copied
-        // Use block mode for broadcast
+        // Use block mode for broadcast.
         uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE))
                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_req | timestamp)
                                  : eth_interface_params.cmd_wr_req;
@@ -448,21 +448,21 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (req_flags & eth_interface_params.cmd_data_block) {
-            // Copy data to sysmem or device DRAM for Block mode
+            // Copy data to sysmem or device DRAM for Block mode.
             if (use_host_dram) {
                 req_flags |= eth_interface_params.cmd_data_block_dram;
                 resp_flags |= eth_interface_params.cmd_data_block_dram;
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
                 if (broadcast) {
-                    // Write broadcast header to sysmem
+                    // Write broadcast header to sysmem.
                     sysmem_manager_->write_to_sysmem(
                         host_dram_channel,
                         broadcast_header.data(),
                         host_dram_block_addr,
                         broadcast_header.size() * sizeof(uint32_t));
                 }
-                // Write payload to sysmem
+                // Write payload to sysmem.
                 sysmem_manager_->write_to_sysmem(
                     host_dram_channel,
                     data_block.data(),
@@ -479,13 +479,13 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             tt_driver_atomics::sfence();
         }
 
-        // Send the read request
+        // Send the read request.
         TT_ASSERT(
             broadcast || (req_flags == eth_interface_params.cmd_wr_req) || (((core_dest + offset) % 32) == 0),
             "Block mode address must be 32-byte aligned.");  // Block mode address must be 32-byte aligned.
 
         if (broadcast) {
-            // Only specify endpoint local address for broadcast
+            // Only specify endpoint local address for broadcast.
             new_cmd->sys_addr = core_dest + offset;
         } else {
             new_cmd->sys_addr = get_sys_addr(
@@ -494,12 +494,12 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         }
 
         if (req_flags & eth_interface_params.cmd_data_block) {
-            // Block mode
+            // Block mode.
             new_cmd->data = block_size + BROADCAST_HEADER_SIZE * broadcast;
         } else {
             if (size_in_bytes - offset < sizeof(uint32_t)) {
                 // Handle misalignment at the end of the buffer:
-                // Assemble a padded uint32_t from single bytes, in case we have less than 4 bytes remaining
+                // Assemble a padded uint32_t from single bytes, in case we have less than 4 bytes remaining.
                 memcpy(&new_cmd->data, static_cast<const uint8_t*>(src) + offset, size_in_bytes - offset);
             } else {
                 new_cmd->data = *(static_cast<const uint32_t*>(src) + offset / DATA_WORD_SIZE);

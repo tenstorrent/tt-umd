@@ -25,7 +25,7 @@ namespace fs = std::filesystem;
 // Initialization Functions /////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-// Constructor for singleton class cpu id allocator
+// Constructor for singleton class cpu id allocator.
 cpuset_allocator::cpuset_allocator() {
     m_pid = getpid();
     m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") ? true : false;
@@ -64,7 +64,7 @@ cpuset_allocator::cpuset_allocator() {
     }
 }
 
-// Step 1 : Initialize and perform m_topology detection
+// Step 1 : Initialize and perform m_topology detection.
 bool cpuset_allocator::init_topology_init_and_load() {
     log_debug(LogUMD, "Inside cpuset_allocator::topology_init_and_load()");
 
@@ -231,7 +231,7 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
     std::vector<std::string> supported_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
 
-    // CPU Models that have L3 per CCX and 2 CCX per CCD
+    // CPU Models that have L3 per CCX and 2 CCX per CCD.
     std::vector<std::string> opt_2ccx_per_ccd_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
     for (const auto &package : m_package_id_to_devices_map) {

@@ -13,7 +13,7 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 void bind_warm_reset(nb::module_ &m) {
-    // WarmReset class binding
+    // WarmReset class binding.
     nb::class_<WarmReset>(m, "WarmReset")
         .def_static(
             "warm_reset",

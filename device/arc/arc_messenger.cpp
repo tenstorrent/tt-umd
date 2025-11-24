@@ -34,7 +34,7 @@ ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
         MutexType::REMOTE_ARC_MSG,
         tt_device->get_communication_device_id(),
         tt_device->get_communication_device_type());
-    // TODO: Remove this once we have proper mutex usage
+    // TODO: Remove this once we have proper mutex usage.
     lock_manager.initialize_mutex(MutexType::ARC_MSG);
 }
 

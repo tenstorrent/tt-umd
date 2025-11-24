@@ -19,7 +19,7 @@ bool tlb_data::check(const tlb_offsets &offset) const {
            (static_vc > ((1ULL << (offset.static_vc_end - offset.static_vc)) - 1));
 }
 
-// Helper lambda to handle bit packing
+// Helper lambda to handle bit packing.
 void pack_bits(std::uint64_t &lower, std::uint64_t &upper, std::uint64_t value, std::uint32_t offset_pos) {
     if (offset_pos < 64) {
         lower |= value << offset_pos;

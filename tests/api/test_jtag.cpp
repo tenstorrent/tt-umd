@@ -59,9 +59,9 @@ protected:
         setup_successful_ = true;
     }
 
-    // This method runs before EACH individual test
+    // This method runs before EACH individual test.
     void SetUp() override {
-        // Check if devices were successfully set up in SetUpTestSuite
+        // Check if devices were successfully set up in SetUpTestSuite.
         if (!setup_successful_) {
             GTEST_SKIP();
         }

@@ -7,8 +7,8 @@ class TestWarmReset(unittest.TestCase):
     @unittest.skip("Skipping warm reset test to avoid resetting cards during unit tests")
     def test_warm_reset(self):
         """Test warm reset functionality - SKIPPED to avoid resetting cards"""
-        dev_ids = tt_umd.PCIDevice.enumerate_devices()
-        if len(dev_ids) == 0:
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
             print("No PCI devices found.")
             return
             
@@ -28,4 +28,4 @@ class TestWarmReset(unittest.TestCase):
             tt_umd.WarmReset.ubb_warm_reset(timeout_s=60)  # Uncomment to actually reset
         else:
             print(f"Non-UBB board detected (type: {board_type}), executing standard warm reset...")
-            tt_umd.WarmReset.warm_reset(dev_ids)  # Uncomment to actually reset
+            tt_umd.WarmReset.warm_reset(pci_ids)  # Uncomment to actually reset

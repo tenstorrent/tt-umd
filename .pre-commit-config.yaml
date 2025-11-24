@@ -16,4 +16,5 @@ repos:
   rev: v1.0.3
   hooks:
     - id: check-copyright
-      args: ['--config', '.check-copyright-config.yaml', "--ignore", ""]
+      args: ['--config', '.pre-commit-hooks/check-copyright-config.yaml', "--ignore", ""]
+

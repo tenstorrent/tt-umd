@@ -24,11 +24,14 @@ public:
 
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
-    static bool start_monitoring(std::function<void()>&& on_cleanup_request);
+    static bool start_monitoring(
+        std::function<void()>&& on_cleanup_request, std::function<void()>&& post_cleanup_request);
 
     static int extract_pid_from_socket_name(const std::string& filename);
 
     static bool notify_all_listeners_with_handshake(std::chrono::milliseconds timeout_ms);
+
+    static void notify_all_listeners_post_reset();
 
 private:
     static constexpr auto POST_RESET_WAIT = std::chrono::milliseconds(2'000);

@@ -39,10 +39,15 @@ bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32
 int main(int argc, char* argv[]) {
     std::atomic<bool> read_device = true;
     // Make listener
-    WarmReset::start_monitoring([&read_device]() {
-        std::cout << "Set read_device to false\n";
-        read_device = false;
-    });
+    WarmReset::start_monitoring(
+        [&read_device]() {
+            std::cout << "Set read_device to false\n";
+            read_device = false;
+        },
+        [&read_device]() {
+            std::cout << "Set read_device to true\n";
+            read_device = true;
+        });
 
     // Prepare and read local devices
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -67,7 +72,9 @@ int main(int argc, char* argv[]) {
 
     while (1) {
         if (!read_device) {
-            break;
+            std::cout << "Not reading device" << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(5'000));
+            continue;
         }
         for (int pci_device_id : pci_device_ids) {
             tt_devices[pci_device_id]->write_to_device(

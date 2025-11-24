@@ -44,7 +44,8 @@ static std::atomic<bool> keep_monitoring{true};
 // Just a compile check, no logic needed yet
 void check_asio_version() { std::cout << "Asio linked. Version: " << ASIO_VERSION << std::endl; }
 
-bool WarmReset::start_monitoring(std::function<void()>&& on_cleanup_request) {
+bool WarmReset::start_monitoring(
+    std::function<void()>&& on_cleanup_request, std::function<void()>&& post_cleanup_request) {
     namespace fs = std::filesystem;
 
     // Prevent starting monitoring twice in the same process
@@ -53,75 +54,91 @@ bool WarmReset::start_monitoring(std::function<void()>&& on_cleanup_request) {
         return false;
     }
 
-    monitor_thread = std::make_unique<std::thread>([on_cleanup_request = std::move(on_cleanup_request)]() {
-        asio::io_context io;
-        std::error_code ec;
-        log_info(tt::LogUMD, "Made the thread!");
-        // 1. Ensure Directory Exists
-        if (!fs::exists(LISTENER_DIR)) {
-            fs::create_directories(LISTENER_DIR, ec);
-            fs::permissions(LISTENER_DIR, fs::perms::all, ec);  // Allow other users/groups
-        }
+    monitor_thread = std::make_unique<std::thread>(
+        [on_cleanup_request = std::move(on_cleanup_request), post_cleanup_request = std::move(post_cleanup_request)]() {
+            asio::io_context io;
+            std::error_code ec;
+            log_info(tt::LogUMD, "Made the thread!");
+            // 1. Ensure Directory Exists
+            if (!fs::exists(LISTENER_DIR)) {
+                fs::create_directories(LISTENER_DIR, ec);
+                fs::permissions(LISTENER_DIR, fs::perms::all, ec);  // Allow other users/groups
+            }
 
-        // 2. Create Unique Socket Name: client_<PID>.sock
-        // We use the PID so the invoker knows who this is
-        std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
-        fs::path socket_path = fs::path(LISTENER_DIR) / socket_name;
+            // 2. Create Unique Socket Name: client_<PID>.sock
+            // We use the PID so the invoker knows who this is
+            std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
+            fs::path socket_path = fs::path(LISTENER_DIR) / socket_name;
 
-        // Cleanup stale socket if we crashed previously
-        ::unlink(socket_path.c_str());
+            // Cleanup stale socket if we crashed previously
+            ::unlink(socket_path.c_str());
 
-        // 3. Setup Acceptor
-        asio::local::stream_protocol::acceptor acceptor(
-            io, asio::local::stream_protocol::endpoint(socket_path.string()));
+            // 3. Setup Acceptor
+            asio::local::stream_protocol::acceptor acceptor(
+                io, asio::local::stream_protocol::endpoint(socket_path.string()));
 
-        // Ensure socket is writable by others (if running as different users)
-        fs::permissions(socket_path, fs::perms::all, ec);
+            // Ensure socket is writable by others (if running as different users)
+            fs::permissions(socket_path, fs::perms::all, ec);
 
-        // 4. Accept Loop
-        auto do_accept = std::make_shared<std::function<void()>>();
-        *do_accept = [&, do_accept]() {
-            auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
-            acceptor.async_accept(*sock, [sock, &do_accept, on_cleanup_request](std::error_code ec) {
-                if (!ec && keep_monitoring) {
-                    // A Reset Tool connected to us!
+            // 4. Accept Loop
+            auto do_accept = std::make_shared<std::function<void()>>();
+            *do_accept = [&, do_accept]() {
+                auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+                acceptor.async_accept(
+                    *sock, [sock, &do_accept, on_cleanup_request, post_cleanup_request](std::error_code ec) {
+                        if (!ec && keep_monitoring) {
+                            // A Reset Tool connected to us!
 
-                    auto buf = std::make_shared<std::vector<char>>(64);
-                    sock->async_read_some(
-                        asio::buffer(*buf), [sock, buf, on_cleanup_request](std::error_code ec, size_t len) {
-                            if (!ec) {
-                                std::string_view msg(buf->data(), len);
-                                if (msg.find("PRE_RESET") != std::string::npos) {
-                                    log_info(tt::LogUMD, "Received Pre-Reset Notification!");
+                            auto buf = std::make_shared<std::vector<char>>(64);
+                            sock->async_read_some(
+                                asio::buffer(*buf),
+                                [sock, buf, on_cleanup_request, post_cleanup_request](std::error_code ec, size_t len) {
+                                    if (!ec) {
+                                        std::string_view msg(buf->data(), len);
+                                        if (msg.find("PRE_RESET") != std::string::npos) {
+                                            log_info(tt::LogUMD, "Received Pre-Reset Notification!");
 
-                                    // --- EXECUTE USER CLEANUP CALLBACK ---
-                                    if (on_cleanup_request) {
-                                        on_cleanup_request();
+                                            // --- EXECUTE USER CLEANUP CALLBACK ---
+                                            if (on_cleanup_request) {
+                                                on_cleanup_request();
+                                            }
+                                            // -------------------------------------
+
+                                            // Send ACK
+                                            asio::write(*sock, asio::buffer("READY"));
+                                        }
                                     }
-                                    // -------------------------------------
 
-                                    // Send ACK
-                                    asio::write(*sock, asio::buffer("READY"));
-                                }
-                            }
-                        });
+                                    if (!ec) {
+                                        std::string_view msg(buf->data(), len);
+                                        if (msg.find("POST_RESET") != std::string::npos) {
+                                            log_info(tt::LogUMD, "Received Post-Reset Notification!");
 
-                    // Continue listening for future resets
-                    (*do_accept)();
-                }
-            });
-        };
+                                            // --- EXECUTE USER CLEANUP CALLBACK ---
+                                            if (post_cleanup_request) {
+                                                post_cleanup_request();
+                                            }
+                                            // -------------------------------------
+                                        }
+                                    }
+                                });
 
-        (*do_accept)();
+                            // Continue listening for future resets
+                            (*do_accept)();
+                        }
+                    });
+            };
 
-        // Run until application exit
-        while (keep_monitoring) {
-            io.run_one();
-        }
+            (*do_accept)();
 
-        // Cleanup on exit
-        ::unlink(socket_path.c_str());
-    });
+            // Run until application exit
+            while (keep_monitoring) {
+                io.run_one();
+            }
+
+            // Cleanup on exit
+            ::unlink(socket_path.c_str());
+        });
 
     // Detach so it runs in background, or keep joinable if you want to manage lifecycle strictly
     monitor_thread->detach();
@@ -235,6 +252,56 @@ bool WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds ti
     }
 
     return true;
+}
+
+void WarmReset::notify_all_listeners_post_reset() {
+    namespace fs = std::filesystem;
+
+    if (!fs::exists(LISTENER_DIR)) {
+        return;
+    }
+
+    asio::io_context io;
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets;
+    int my_pid = getpid();
+
+    for (const auto& entry : fs::directory_iterator(LISTENER_DIR)) {
+        if (!entry.is_socket()) {
+            continue;
+        }
+
+        // --- SAFETY CHECK: IGNORE SELF ---
+        std::string filename = entry.path().filename().string();
+        int target_pid = extract_pid_from_socket_name(filename);
+
+        if (target_pid == my_pid) {
+            log_info(tt::LogUMD, "Skipping my own listener socket ({})", filename);
+            continue;
+        }
+        // ---------------------------------
+
+        auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+        try {
+            sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
+            log_info(tt::LogUMD, "Connected to socket!");
+            active_sockets.push_back(sock);
+        } catch (...) {
+            // Stale socket
+        }
+    }
+
+    if (active_sockets.empty()) {
+        return;
+    }
+
+    // ... (Rest of the broadcast/handshake logic logic from previous answer) ...
+    // Send PRE_RESET, wait for READY, handle timeout...
+    log_info(tt::LogUMD, "Handshaking with {} active clients...", active_sockets.size());
+
+    for (auto& sock : active_sockets) {
+        // Async write to avoid blocking if a client hangs on read
+        asio::async_write(*sock, asio::buffer("POST_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
+    }
 }
 
 // -------------------------------------------------------

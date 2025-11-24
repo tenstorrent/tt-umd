@@ -20,7 +20,8 @@ using namespace tt::umd;
 TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
 
 TEST(ApiTTDeviceTest, ListenAsio) {
-    WarmReset::start_monitoring([]() { std::cout << "Cleanup function\n"; });
+    WarmReset::start_monitoring(
+        []() { std::cout << "Cleanup function\n"; }, []() { std::cout << "Post-cleanup function\n"; });
     while (1) {
         std::this_thread::sleep_for(std::chrono::seconds(10));
     };

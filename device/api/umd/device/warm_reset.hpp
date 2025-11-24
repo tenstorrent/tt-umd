@@ -24,7 +24,7 @@ public:
 
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
-    static bool start_monitoring(std::function<void()> on_cleanup_request);
+    static bool start_monitoring(std::function<void()>&& on_cleanup_request);
 
     static int extract_pid_from_socket_name(const std::string& filename);
 

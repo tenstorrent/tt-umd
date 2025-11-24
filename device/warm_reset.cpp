@@ -44,7 +44,7 @@ static std::atomic<bool> keep_monitoring{true};
 // Just a compile check, no logic needed yet
 void check_asio_version() { std::cout << "Asio linked. Version: " << ASIO_VERSION << std::endl; }
 
-bool WarmReset::start_monitoring(std::function<void()> on_cleanup_request) {
+bool WarmReset::start_monitoring(std::function<void()>&& on_cleanup_request) {
     namespace fs = std::filesystem;
 
     // Prevent starting monitoring twice in the same process
@@ -53,7 +53,7 @@ bool WarmReset::start_monitoring(std::function<void()> on_cleanup_request) {
         return false;
     }
 
-    monitor_thread = std::make_unique<std::thread>([on_cleanup_request]() {
+    monitor_thread = std::make_unique<std::thread>([on_cleanup_request = std::move(on_cleanup_request)]() {
         asio::io_context io;
         std::error_code ec;
         log_info(tt::LogUMD, "Made the thread!");

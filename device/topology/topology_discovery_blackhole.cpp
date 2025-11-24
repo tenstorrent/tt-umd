@@ -322,14 +322,18 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
         eth_fw_problem = true;
     }
 
-    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version, ARCH::BLACKHOLE);
-    if (hash_check.has_value() && hash_check.value() == false) {
-        log_warning(
-            LogUMD,
-            "ETH FW version hash check failed for chip {} ETH core {}",
-            get_local_asic_id(chip, eth_core),
-            eth_core.str());
-        eth_fw_problem = true;
+    // Perform this check only on local chips, as remote chips cannot do I/O without Lite Fabric,
+    // which doesn't seem to work at this point.
+    if (chip->is_mmio_capable()) {
+        auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version, ARCH::BLACKHOLE);
+        if (hash_check.has_value() && hash_check.value() == false) {
+            log_warning(
+                LogUMD,
+                "ETH FW version hash check failed for chip {} ETH core {}",
+                get_local_asic_id(chip, eth_core),
+                eth_core.str());
+            eth_fw_problem = true;
+        }
     }
 
     return options.no_eth_firmware_strictness || !eth_fw_problem;

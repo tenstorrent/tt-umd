@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <map>
@@ -14,11 +16,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "fmt/format.h"
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -77,10 +78,39 @@ enum class TenstorrentResetDevice : uint32_t {
      * Commands the device to generate an immediate interrupt by writing to a
      * control register.
      */
-    CONFIG_WRITE = 2
-};
+    CONFIG_WRITE = 2,
 
-inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
+    /**
+     * @brief Initiates a user-triggered device reset.
+     *
+     * Performs a reset operation initiated by user-level software to restore
+     * the device to a known state.
+     */
+    USER_RESET = 3,
+
+    /**
+     * @brief Performs a complete ASIC reset.
+     *
+     * Resets the entire ASIC chip, restoring all internal logic and state
+     * machines to their default state.
+     */
+    ASIC_RESET = 4,
+
+    /**
+     * @brief Resets the ASIC's DMC
+     *
+     * Specifically targets the device management controller.
+     */
+    ASIC_DMC_RESET = 5,
+
+    /**
+     * @brief Executes post-reset initialization procedures.
+     *
+     * Performs necessary cleanup and initialization tasks that must occur
+     * after a device reset has completed.
+     */
+    POST_RESET = 6,
+};
 
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
@@ -93,10 +123,6 @@ class PCIDevice {
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
-
-private:
-    static std::optional<std::unordered_set<int>> get_visible_devices(
-        const std::unordered_set<int> &pci_target_devices);
 
 public:
     /**
@@ -238,12 +264,25 @@ public:
     /**
      * Reset device via ioctl.
      */
-    static void reset_devices(TenstorrentResetDevice flag);
+    static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.
      */
     static bool is_mapping_buffer_to_noc_supported();
+
+    /**
+     * Get the architecture of the PCIe device driver. The function enumerates PCIe devices on the system
+     * and returns the architecture of the first device it finds. If no devices are found, returns Invalid architecture.
+     * It also caches the value so subsequent calls are faster.
+     */
+    static tt::ARCH get_pcie_arch();
+
+    /**
+     * Checks if architecture-agnostic reset is supported by the device by checking the KMD version which enables this
+     * feature.
+     */
+    static bool is_arch_agnostic_reset_supported();
 
 public:
     // TODO: we can and should make all of these private.
@@ -312,6 +351,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::PCIDevice;

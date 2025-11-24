@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "gtest/gtest.h"
-#include "tt-logger/tt-logger.hpp"
+#include <gtest/gtest.h>
+
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/types/telemetry.hpp"
 
@@ -17,7 +19,7 @@ TEST(TestTelemetry, BasicTelemetry) {
         tt_device->init_tt_device();
         if (tt_device->get_firmware_version() < semver_t(18, 4, 0)) {
             log_warning(
-                tt::LogSiliconDriver,
+                tt::LogUMD,
                 "Skipping telemetry test on device {} with firmware version {} < 18.4.0",
                 pci_device_id,
                 tt_device->get_firmware_version().to_string());

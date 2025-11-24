@@ -19,7 +19,7 @@
 void DlCloser::operator()(void* handle) const {
     if (handle != nullptr) {
         dlclose(handle);
-        log_debug(tt::LogSiliconDriver, "JTAG library closed");
+        log_debug(tt::LogUMD, "JTAG library closed");
     }
 }
 
@@ -40,14 +40,12 @@ void Jtag::openLibrary(const std::string& filePath, int flags) {
         TT_THROW("Failed to open JTAG library: {}", dlerror());
     }
 
-    log_info(tt::LogSiliconDriver, "JTAG library {} opened successfully.", filePath);
+    log_info(tt::LogUMD, "JTAG library {} opened successfully.", filePath);
 }
 
 Jtag::Jtag(const char* lib_path) { openLibrary(lib_path); }
 
 void* Jtag::load_function(const char* name) {
-    std::lock_guard<std::mutex> lock(mtx);
-
     if (func_map.find(name) == func_map.end()) {
         void* funcPtr = dlsym(handle.get(), name);
         const char* dlsym_error = dlerror();
@@ -133,3 +131,5 @@ void Jtag::close_jlink() { GET_FUNCTION_POINTER(close_jlink)(); }
 uint32_t Jtag::read_id_raw() { return GET_FUNCTION_POINTER(read_id_raw)(); }
 
 uint32_t Jtag::read_id() { return GET_FUNCTION_POINTER(read_id)(); }
+
+uint32_t Jtag::get_device_family() { return GET_FUNCTION_POINTER(get_device_family)(); }

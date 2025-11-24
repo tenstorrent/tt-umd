@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <thread>
 
-#include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -19,7 +21,7 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
         .simulated_harvesting_masks = {0x3, 0, 0},
     });
 
-    for (const chip_id_t& chip : cluster->get_target_device_ids()) {
+    for (const ChipId& chip : cluster->get_target_device_ids()) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip);
 
         uint32_t upper_limit_num_cores;
@@ -33,7 +35,7 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
         ASSERT_LE(cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), upper_limit_num_cores);
     }
 
-    for (const chip_id_t& chip : cluster->get_target_device_ids()) {
+    for (const ChipId& chip : cluster->get_target_device_ids()) {
         EXPECT_TRUE((0x3 & cluster->get_soc_descriptor(chip).harvesting_masks.tensix_harvesting_mask) == 0x3);
     }
 }

@@ -6,11 +6,13 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <cassert>
 #include <ostream>
 #include <vector>
 
-#include "fmt/core.h"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -188,15 +190,15 @@ struct tt_version {
     std::uint8_t minor = 0xff;
     std::uint8_t patch = 0xff;
 
-    tt_version() {}
+    constexpr tt_version() {}
 
-    tt_version(std::uint16_t major_, std::uint8_t minor_, std::uint8_t patch_) {
+    constexpr tt_version(std::uint16_t major_, std::uint8_t minor_, std::uint8_t patch_) {
         major = major_;
         minor = minor_;
         patch = patch_;
     }
 
-    tt_version(std::uint32_t version) {
+    constexpr tt_version(std::uint32_t version) {
         major = (version >> 16) & 0xff;
         minor = (version >> 12) & 0xf;
         patch = version & 0xfff;
@@ -209,12 +211,20 @@ constexpr inline bool operator==(const tt_version& a, const tt_version& b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
 
+constexpr inline bool operator!=(const tt_version& a, const tt_version& b) { return !(a == b); }
+
 constexpr inline bool operator>=(const tt_version& a, const tt_version& b) {
     bool fw_major_greater = a.major > b.major;
     bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
     bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
     return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
 }
+
+// ERISC FW version Required by UMD.
+constexpr semver_t BH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(1, 0, 0);
+constexpr semver_t ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(6, 0, 0);
+constexpr semver_t ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = semver_t(6, 5, 0);
+constexpr semver_t ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = semver_t(6, 8, 0);
 
 struct HugepageMapping {
     void* mapping = nullptr;
@@ -223,15 +233,3 @@ struct HugepageMapping {
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::tt_version;
-using barrier_address_params = tt::umd::BarrierAddressParams;
-using device_params = tt::umd::DeviceParams;
-using tt_device_params = tt::umd::DeviceParams;
-using hugepage_mapping = tt::umd::HugepageMapping;
-using device_dram_address_params = tt::umd::DeviceDramAddressParams;
-using device_l1_address_params = tt::umd::DeviceL1AddressParams;
-using driver_host_address_params = tt::umd::DriverHostAddressParams;
-using driver_noc_params = tt::umd::DriverNocParams;
-using driver_eth_interface_params = tt::umd::DriverEthInterfaceParams;

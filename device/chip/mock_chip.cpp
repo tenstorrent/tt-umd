@@ -44,18 +44,14 @@ void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core,
 
 void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> MockChip::get_fast_pcie_static_tlb_write_callable() {
-    return [](uint32_t, uint32_t, const uint8_t*) {
-        // No-op for mock chip
-    };
-}
+void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
 
 int MockChip::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     // This designates success for the ARC enable eth queue message.

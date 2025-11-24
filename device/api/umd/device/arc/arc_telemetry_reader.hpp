@@ -9,8 +9,8 @@
 #include <unordered_set>
 
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -64,9 +64,9 @@ private:
         TelemetryTag::HARVESTING_STATE,
         TelemetryTag::UPDATE_TELEM_SPEED,
         TelemetryTag::ETH_FW_VERSION,
-        TelemetryTag::DDR_FW_VERSION,
-        TelemetryTag::BM_APP_FW_VERSION,
-        TelemetryTag::BM_BL_FW_VERSION,
+        TelemetryTag::GDDR_FW_VERSION,
+        TelemetryTag::DM_APP_FW_VERSION,
+        TelemetryTag::DM_BL_FW_VERSION,
         TelemetryTag::FLASH_BUNDLE_VERSION,
         TelemetryTag::CM_FW_VERSION,
         TelemetryTag::L2CPU_FW_VERSION,

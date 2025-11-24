@@ -50,7 +50,7 @@ jobs:
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
-          ./build_metal.sh --build-all --enable-ccache --enable-profiler
+          ./build_metal.sh --build-all --enable-ccache
           cd ../
 
   build-tt-exalens:
@@ -119,14 +119,14 @@ jobs:
         id: get-ttsim-ref
         run: |
           # Extract the ref value from tt-metal's ttsim.yaml
-          # Look for the "Checkout ttsim" step and extract the ref value
+          # Look for the ttsim-ref input default value
           if [ -f "tt-metal/.github/workflows/ttsim.yaml" ]; then
-            TTSIM_REF=$(grep -A 10 "name: Checkout ttsim" tt-metal/.github/workflows/ttsim.yaml \
-                      | grep "ref:" | head -1 \
-                      | sed 's/.*ref: *\(.*\)/\1/' \
+            TTSIM_REF=$(grep -A 5 "ttsim-ref:" tt-metal/.github/workflows/ttsim.yaml \
+                      | grep "default:" \
+                      | sed 's/.*default: *"\?\([^"]*\)"\?.*/\1/' \
                       | tr -d ' ')
             if [ -z "$TTSIM_REF" ]; then
-              echo "Warning: Could not extract ttsim ref, using main branch"
+              echo "Warning: Could not extract ttsim ref from input default, using main branch"
               TTSIM_REF="main"
             fi
           else
@@ -147,18 +147,17 @@ jobs:
 
       - name: Build tt-sim
         run: |
-          cd ttsim/src
-          ../scripts/make.py _out/release_wh/libttsim.so
-          ../scripts/make.py _out/release_bh/libttsim.so
-          ../scripts/make.py _out/release_qsr/libttsim.so
-          cd ../../
+          cd ttsim
+          ./make.py src/_out/release_wh/libttsim.so src/_out/release_bh/libttsim.so src/_out/release_qsr/libttsim.so
 
       - name: Build tt-metal
         run: |
           cd tt-metal
           export TT_METAL_HOME=$(pwd)
+          export TT_METAL_RUNTIME_ROOT=$(pwd)
           export PYTHONPATH=$(pwd)
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
+          echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh --build-programming-examples
           cd ../

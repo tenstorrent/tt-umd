@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/jtag/jtag_device.h"
+#include "umd/device/jtag/jtag_device.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -10,33 +10,28 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/jtag/jtag.h"
+#include "umd/device/jtag/jtag.hpp"
+#include "umd/device/utils/common.hpp"
+#include "utils.hpp"
 
 constexpr uint32_t ROW_LEN = 12;
 constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
-/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("./build/lib/libtt_jtag.so");
+/* static */ std::filesystem::path JtagDevice::jtag_library_path =
+    std::filesystem::path("./build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
-JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_device)) {
+JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices) :
+    jtag(std::move(jtag_device)) {
     jtag->close_jlink();
 
-    std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
-    if (potential_devices.empty()) {
-        TT_THROW("There are no devices");
-    }
+    std::unordered_set<int> visible_devices = get_jtag_visible_devices(jtag_target_devices);
 
-    for (int jlink_id : potential_devices) {
+    for (int jlink_id : visible_devices) {
         uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
-            continue;
-        }
-        uint32_t id = jtag->read_id();
-        if (id != WORMHOLE_ID) {
-            log_warning(tt::LogSiliconDriver, "Only supporting WORMHOLE for now");
-            jtag->close_jlink();
             continue;
         }
 
@@ -57,11 +52,12 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
         jtag->close_jlink();
     }
     if (jlink_devices.empty()) {
-        TT_THROW("There are no supported devices");
+        log_warning(tt::LogUMD, "There are no supported devices.");
     }
 }
 
-/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(const std::filesystem::path& binary_directory) {
+/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(
+    const std::filesystem::path& binary_directory, const std::unordered_set<int>& jtag_target_devices) {
     std::filesystem::path actual_path = binary_directory;
 
     if (actual_path.empty()) {
@@ -77,7 +73,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device) : jtag(std::move(jtag_
     }
 
     std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
-    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag));
+    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), jtag_target_devices);
 
     // Check that all chips are of the same type
     auto arch = jtag_device->get_jtag_arch(0);
@@ -130,20 +126,8 @@ void JtagDevice::select_device(uint8_t chip_id) {
 }
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
-    auto arch_id = read_id(chip_id);
-
-    if (!arch_id) {
-        log_warning(tt::LogSiliconDriver, "Failed to read JTAG architecture for chip_id {}", chip_id);
-        return tt::ARCH::Invalid;
-    }
-
-    uint32_t id = *arch_id;
-    switch (id) {
-        case WORMHOLE_ID:
-            return tt::ARCH::WORMHOLE_B0;
-        default:
-            return tt::ARCH::Invalid;
-    }
+    select_device(chip_id);
+    return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
 
 int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {
@@ -153,6 +137,8 @@ int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int seria
 
 int JtagDevice::open_jlink_wrapper(uint8_t chip_id) { return jtag->open_jlink_wrapper(); }
 
+// TODO: implement std::optional type return in JTAG library itself.
+// For now JTAG library handles it by exiting the program on error.
 std::optional<uint32_t> JtagDevice::read_tdr(uint8_t chip_id, const char* client, uint32_t reg_offset) {
     select_device(chip_id);
     return jtag->read_tdr(client, reg_offset);
@@ -309,4 +295,49 @@ int JtagDevice::get_device_id(uint8_t chip_id) const {
             get_device_cnt());
     }
     return jlink_devices[chip_id];
+}
+
+std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const {
+    std::vector<uint32_t> potential_devices = jtag->enumerate_jlink();
+    if (potential_devices.empty()) {
+        log_warning(tt::LogUMD, "There are no j-link devices connected to host.");
+    }
+    std::unordered_set<int> potential_devices_set(potential_devices.begin(), potential_devices.end());
+
+    const std::unordered_set<int> actual_jtag_target_devices = tt::umd::utils::get_visible_devices(jtag_target_devices);
+
+    if (actual_jtag_target_devices.empty()) {
+        return potential_devices_set;
+    }
+
+    // Find if any of the target devices are not connected.
+    std::for_each(actual_jtag_target_devices.begin(), actual_jtag_target_devices.end(), [&](int jtag_device_id) {
+        if (potential_devices_set.find(jtag_device_id) == potential_devices_set.end()) {
+            log_warning(tt::LogUMD, "Target JTAG device with id {} not connected", std::to_string(jtag_device_id));
+        }
+    });
+
+    // Filter out visible devices that are not specified as target-devices.
+    std::unordered_set<int> visible_devices;
+    std::for_each(potential_devices_set.begin(), potential_devices_set.end(), [&](int jtag_device_id) {
+        if (actual_jtag_target_devices.find(jtag_device_id) != actual_jtag_target_devices.end()) {
+            visible_devices.insert(jtag_device_id);
+        }
+    });
+
+    return visible_devices;
+}
+
+bool JtagDevice::is_hardware_hung(uint8_t chip_id) {
+    // Timeout value 10 is chosen from JTAG library.
+    // Checkout the library implementation for more details.
+    uint32_t timeout = 10;
+    std::optional<uint32_t> status;
+    do {
+        // Details about status format can be found inside JTAG library.
+        status = read_tdr(chip_id, "arc", 0x4);
+        status = status.value() >> 16;
+        timeout--;
+    } while (((status.value() & 0x1) == 0) && (timeout > 0));
+    return timeout == 0;
 }

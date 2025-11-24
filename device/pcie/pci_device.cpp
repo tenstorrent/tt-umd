@@ -23,6 +23,8 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/common.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -37,9 +39,6 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
-
-static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -196,8 +195,8 @@ static PciDeviceInfo read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_devices(uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices()) {
+static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint32_t flags) {
+    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
             continue;
@@ -230,21 +229,6 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
-    const std::unordered_set<int> &pci_target_devices) {
-    if (!pci_target_devices.empty()) {
-        return pci_target_devices;
-    }
-
-    const std::optional<std::string> env_var_value = utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
-
-    if (!env_var_value.has_value()) {
-        return std::nullopt;
-    }
-
-    return utils::get_unordered_set_from_string(env_var_value.value());
-}
-
 std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
@@ -253,7 +237,7 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         return device_ids;
     }
 
-    std::optional<std::unordered_set<int>> visible_devices = PCIDevice::get_visible_devices(pci_target_devices);
+    std::unordered_set<int> visible_devices = tt::umd::utils::get_visible_devices(pci_target_devices);
 
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
@@ -262,8 +246,7 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         // is probably what we want longer-term (i.e. a UUID or something).
         if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
             int pci_device_id = std::stoi(filename);
-            if (!visible_devices.has_value() ||
-                visible_devices.value().find(pci_device_id) != visible_devices.value().end()) {
+            if (visible_devices.empty() || visible_devices.find(pci_device_id) != visible_devices.end()) {
                 device_ids.push_back(pci_device_id);
             }
         }
@@ -301,14 +284,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
-    if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
-        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
+    if (iommu_enabled && kmd_version < KMD_IOMMU) {
+        TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
-    if (iommu_enabled && kmd_version < kmd_ver_for_map_to_noc) {
+    if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
         log_warning(
-            LogSiliconDriver,
+            LogUMD,
             "Running with IOMMU support prior to KMD version {} is of limited support.",
-            kmd_ver_for_map_to_noc.to_string());
+            KMD_MAP_TO_NOC.to_string());
     }
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
@@ -317,7 +300,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
@@ -375,10 +358,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
         }
 
         log_debug(
-            LogSiliconDriver,
+            LogUMD,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,
-            (void *)mappings.mapping_array[i].mapping_base,
+            reinterpret_cast<void *>(mappings.mapping_array[i].mapping_base),
             mappings.mapping_array[i].mapping_size);
     }
 
@@ -540,11 +523,18 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        log_warning(
+            LogUMD,
+            "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin_pages.in.virtual_address),
+            fmt::format("{:#x}", pin_pages.in.size),
+            fmt::format("{:#x}", pin_pages.in.flags),
+            strerror(errno));
         return 0;
     }
 
-    log_info(
-        LogSiliconDriver,
+    log_debug(
+        LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x}",
         pin_pages.in.virtual_address,
         pin_pages.in.size,
@@ -553,15 +543,10 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() {
-    // return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc;
-    // TODO: This feature is turned off for now. We'll enable it once all machines have smoothly transitioned to IOMMU.
-    // Also change other places in this function which have the same check.
-    return false;
-}
+bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
         TT_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
     }
 
@@ -587,11 +572,16 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+        TT_THROW(
+            "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin.in.virtual_address),
+            fmt::format("{:#x}", pin.in.size),
+            fmt::format("{:#x}", pin.in.flags),
+            strerror(errno));
     }
 
-    log_info(
-        LogSiliconDriver,
+    log_debug(
+        LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped to "
         "noc address {:#x}",
         pin.in.virtual_address,
@@ -603,7 +593,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
         TT_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
     }
 
@@ -620,7 +610,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
 
     if (is_iommu_enabled()) {
         // IOMMU is enabled, so we don't need huge pages.
-        log_warning(LogSiliconDriver, "Mapping a hugepage with IOMMU enabled.");
+        log_warning(LogUMD, "Mapping a hugepage with IOMMU enabled.");
     }
 
     struct {
@@ -634,11 +624,16 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {} {}", strerror(errno), pin.in.flags);
+        TT_THROW(
+            "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin.in.virtual_address),
+            fmt::format("{:#x}", pin.in.size),
+            fmt::format("{:#x}", pin.in.flags),
+            strerror(errno));
     }
 
-    log_info(
-        LogSiliconDriver,
+    log_debug(
+        LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped "
         "to noc address {:#x}",
         pin.in.virtual_address,
@@ -666,11 +661,16 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+        TT_THROW(
+            "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
+            fmt::format("{:#x}", pin_pages.in.virtual_address),
+            fmt::format("{:#x}", pin_pages.in.size),
+            fmt::format("{:#x}", pin_pages.in.flags),
+            strerror(errno));
     }
 
-    log_info(
-        LogSiliconDriver,
+    log_debug(
+        LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} without mapping "
         "to noc",
         pin_pages.in.virtual_address,
@@ -694,11 +694,15 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     unpin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
-        TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
+        TT_THROW(
+            "Failed to unpin pages for DMA buffer at virtual address {} and size {}: {}",
+            fmt::format("{:#x}", vaddr),
+            fmt::format("{:#x}", size),
+            strerror(errno));
     }
 
-    log_info(
-        LogSiliconDriver,
+    log_debug(
+        LogUMD,
         "Unpinning pages for DMA: virtual address {:#x} and size {:#x}",
         unpin_pages.in.virtual_address,
         unpin_pages.in.size);
@@ -709,7 +713,7 @@ semver_t PCIDevice::read_kmd_version() {
     std::ifstream file(path);
 
     if (!file.is_open()) {
-        log_warning(LogSiliconDriver, "Failed to open file: {}", path);
+        log_warning(LogUMD, "Failed to open file: {}", path);
         return {0, 0, 0};
     }
 
@@ -723,7 +727,9 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
 }
 
-void PCIDevice::reset_devices(TenstorrentResetDevice flag) { umd::reset_devices(static_cast<uint32_t>(flag)); }
+void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {
+    umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
+}
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
     int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
@@ -754,15 +760,15 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
     try {
         uint64_t iova = map_for_dma(dma_buf_mapping, dma_buf_alloc_size);
 
-        dma_buffer.buffer = (uint8_t *)dma_buf_mapping;
-        dma_buffer.completion = (uint8_t *)dma_buf_mapping + dma_buf_size;
+        dma_buffer.buffer = static_cast<uint8_t *>(dma_buf_mapping);
+        dma_buffer.completion = static_cast<uint8_t *>(dma_buf_mapping) + dma_buf_size;
         dma_buffer.buffer_pa = iova;
         dma_buffer.completion_pa = iova + dma_buf_size;
         dma_buffer.size = dma_buf_size;
 
         return true;
     } catch (...) {
-        log_debug(LogSiliconDriver, "Failed to allocate PCIe DMA buffer of size {} with IOMMU enabled.", dma_buf_size);
+        log_debug(LogUMD, "Failed to allocate PCIe DMA buffer of size {} with IOMMU enabled.", dma_buf_size);
         munmap(dma_buf_mapping, dma_buf_alloc_size);
         return false;
     }
@@ -777,7 +783,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
     dma_buf.in.buf_index = 0;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-        log_debug(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+        log_debug(LogUMD, "Failed to allocate DMA buffer: {}", strerror(errno));
     } else {
         // OK - we have a buffer.  Map it.
         void *buffer = mmap(
@@ -791,16 +797,13 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
         if (buffer == MAP_FAILED) {
             // Similar rationale to above, although this is worse because we
             // can't deallocate it.  That only happens when we close the fd.
-            log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
+            log_error(LogUMD, "Failed to map DMA buffer: {}", strerror(errno));
             return false;
         } else {
             log_debug(
-                LogSiliconDriver,
-                "Allocated PCIe DMA buffer of size {} for PCI device {}.",
-                dma_buf_alloc_size,
-                pci_device_num);
-            dma_buffer.buffer = (uint8_t *)buffer;
-            dma_buffer.completion = (uint8_t *)buffer + dma_buf_size;
+                LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
+            dma_buffer.buffer = static_cast<uint8_t *>(buffer);
+            dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
             dma_buffer.buffer_pa = dma_buf.out.physical_address;
             dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
             dma_buffer.size = dma_buf_size;
@@ -849,6 +852,29 @@ void PCIDevice::allocate_pcie_dma_buffer() {
 
         dma_buf_size >>= 1;
     }
+}
+
+tt::ARCH PCIDevice::get_pcie_arch() {
+    static bool enumerated_devices = false;
+    static tt::ARCH cached_arch = tt::ARCH::Invalid;
+    if (!enumerated_devices) {
+        auto devices = PCIDevice::enumerate_devices_info();
+        if (devices.empty()) {
+            return tt::ARCH::Invalid;
+        }
+        enumerated_devices = true;
+        cached_arch = devices.begin()->second.get_arch();
+        return cached_arch;
+    }
+
+    return cached_arch;
+}
+
+bool PCIDevice::is_arch_agnostic_reset_supported() {
+    if (PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET) {
+        return true;
+    }
+    return false;
 }
 
 }  // namespace tt::umd

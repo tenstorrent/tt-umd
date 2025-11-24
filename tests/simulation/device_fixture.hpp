@@ -13,7 +13,8 @@
 #include <stdexcept>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/simulation/simulation_device.hpp"
+#include "umd/device/simulation/rtl_simulation_chip.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
 
@@ -26,17 +27,17 @@ protected:
             throw std::runtime_error(
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
-        auto soc_descriptor_path = SimulationDevice::get_soc_descriptor_path_from_simulator_path(simulator_path);
+        auto soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
-        device = std::make_unique<SimulationDevice>(simulator_path, soc_descriptor);
+        device = SimulationChip::create(simulator_path, soc_descriptor, 0);
         device->start_device();
     }
 
     static void TearDownTestSuite() { device->close_device(); }
 
-    static std::unique_ptr<SimulationDevice> device;
+    static std::unique_ptr<SimulationChip> device;
 };
 
-std::unique_ptr<SimulationDevice> SimulationDeviceFixture::device = nullptr;
+std::unique_ptr<SimulationChip> SimulationDeviceFixture::device = nullptr;
 
 }  // namespace tt::umd

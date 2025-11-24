@@ -6,18 +6,20 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
+    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
 
     uint32_t get_clock() override;
 
@@ -33,17 +35,18 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
-    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     ChipInfo get_chip_info() override;
 
-    uint32_t wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
-
-    uint64_t get_arc_noc_base_address() const override;
-
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
+    std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
@@ -52,8 +55,15 @@ protected:
     /*
      * Create a device without an underlying communication device.
      * Used for remote devices that depend on remote_communication.
+     * WARNING: This constructor should not be used for PCIe devices as certain functionalities from base class rely on
+     * the presence of an underlying communication device. Creating a WormholeTTDevice without an underlying
+     * communication device over PCIe would require overriding several methods from the base class.
      */
     WormholeTTDevice();
+
+    uint64_t get_arc_apb_noc_base_address() const;
+
+    uint64_t get_arc_csm_noc_base_address() const;
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
@@ -78,11 +88,10 @@ private:
         uint64_t erisc_remote_eth_id_offset;
     };
 
-    static constexpr uint32_t ETH_UNKNOWN = 0;
-    static constexpr uint32_t ETH_UNCONNECTED = 1;
+    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
     static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
-    uint32_t read_port_status(tt_xy_pair eth_core);
+    uint32_t read_training_status(tt_xy_pair eth_core);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

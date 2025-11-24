@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <pthread.h>
+
 #include <cstdint>
 #include <string>
 
@@ -42,10 +44,13 @@ public:
     void lock();
 
 private:
-    // A wrapper which holds the flag for whether the mutex has been initialized or not.
+    // A wrapper which holds the flag for whether the mutex has been initialized or not,
+    // and tracks the PID of the current lock owner.
     struct pthread_mutex_wrapper {
         pthread_mutex_t mutex;
         uint64_t initialized;
+        pid_t owner_tid;  // TID of the thread holding the lock, 0 if no owner
+        pid_t owner_pid;  // PID of the thread holding the lock, 0 if no owner
     };
 
     // Closes the mutex, doesn't remove the backing mutex file.

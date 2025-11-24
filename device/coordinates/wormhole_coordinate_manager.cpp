@@ -61,7 +61,6 @@ void WormholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
         }
     }
 
-    size_t harvested_index = (tensix_grid_size.y - num_harvested_y) * tensix_grid_size.x;
     size_t translated_y = wormhole::tensix_translated_coordinate_start_y + tensix_grid_size.y - num_harvested_y;
     for (size_t y = 0; y < tensix_grid_size.y; y++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {

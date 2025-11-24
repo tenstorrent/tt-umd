@@ -13,14 +13,14 @@ void move_data(
         device,
         readback_vec,
         sender_core.chip,
-        device.get_soc_descriptor(sender_core.chip).get_coord_at(sender_core.core, CoordSystem::VIRTUAL),
+        device.get_soc_descriptor(sender_core.chip).get_coord_at(sender_core.core, sender_core.core.coord_system),
         sender_core.addr,
         size);
     device.write_to_device(
         readback_vec.data(),
         readback_vec.size() * sizeof(std::uint32_t),
         receiver_core.chip,
-        device.get_soc_descriptor(receiver_core.chip).get_coord_at(receiver_core.core, CoordSystem::VIRTUAL),
+        device.get_soc_descriptor(receiver_core.chip).get_coord_at(receiver_core.core, receiver_core.core.coord_system),
         receiver_core.addr);
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
@@ -37,7 +37,7 @@ void broadcast_data(
         device,
         readback_vec,
         sender_core.chip,
-        device.get_soc_descriptor(sender_core.chip).get_coord_at(sender_core.core, CoordSystem::VIRTUAL),
+        device.get_soc_descriptor(sender_core.chip).get_coord_at(sender_core.core, sender_core.core.coord_system),
         sender_core.addr,
         size);
     for (const auto& receiver_core : receiver_cores) {
@@ -45,7 +45,8 @@ void broadcast_data(
             readback_vec.data(),
             readback_vec.size() * sizeof(std::uint32_t),
             receiver_core.chip,
-            device.get_soc_descriptor(receiver_core.chip).get_coord_at(receiver_core.core, CoordSystem::VIRTUAL),
+            device.get_soc_descriptor(receiver_core.chip)
+                .get_coord_at(receiver_core.core, receiver_core.core.coord_system),
             receiver_core.addr);
     }
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited

@@ -177,29 +177,13 @@ void CoordinateManager::translate_tensix_coords() {
     size_t grid_size_y = tensix_grid_size.y;
 
     size_t logical_y = 0;
-    size_t harvested_index = (grid_size_y - num_harvested_y) * grid_size_x;
     for (size_t y = 0; y < grid_size_y; y++) {
-        if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
-            for (size_t x = 0; x < grid_size_x; x++) {
-                const tt_xy_pair& noc0_core = tensix_cores[y * grid_size_x + x];
-                const tt_xy_pair& virtual_core = tensix_cores[harvested_index++];
-
-                CoreCoord virtual_coord =
-                    CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-
-                add_core_translation(virtual_coord, noc0_core);
-            }
-        } else {
+        if (!(harvesting_masks.tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
                 const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
-                const tt_xy_pair& virtual_core = tensix_cores[logical_y * grid_size_x + x];
 
                 CoreCoord logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, tensix_core);
-
-                CoreCoord virtual_coord =
-                    CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-                add_core_translation(virtual_coord, tensix_core);
             }
             logical_y++;
         }
@@ -227,10 +211,8 @@ void CoordinateManager::translate_dram_coords() {
             const tt_xy_pair dram_core = dram_cores[x * dram_grid_size.y + y];
 
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
-            CoreCoord virtual_coord = CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::VIRTUAL);
 
             add_core_translation(logical_coord, dram_core);
-            add_core_translation(virtual_coord, dram_core);
         }
     }
 
@@ -246,10 +228,8 @@ void CoordinateManager::translate_eth_coords() {
         const tt_xy_pair eth_core = eth_cores[eth_channel];
 
         CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        CoreCoord virtual_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
 
         add_core_translation(logical_coord, eth_core);
-        add_core_translation(virtual_coord, eth_core);
     }
 
     if (noc_translation_enabled) {
@@ -265,10 +245,8 @@ void CoordinateManager::translate_arc_coords() {
             const tt_xy_pair arc_core = arc_cores[x * arc_grid_size.y + y];
 
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
-            CoreCoord virtual_coord = CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::VIRTUAL);
 
             add_core_translation(logical_coord, arc_core);
-            add_core_translation(virtual_coord, arc_core);
         }
     }
 
@@ -284,10 +262,8 @@ void CoordinateManager::translate_pcie_coords() {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const tt_xy_pair pcie_core = pcie_cores[x * pcie_grid_size.y + y];
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
-            CoreCoord virtual_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
 
             add_core_translation(logical_coord, pcie_core);
-            add_core_translation(virtual_coord, pcie_core);
         }
     }
 
@@ -299,37 +275,31 @@ void CoordinateManager::translate_pcie_coords() {
 }
 
 void CoordinateManager::translate_router_coords() {
-    // Just do identity mapping for virtual and translated router coordinates.
+    // Just do identity mapping for translated router coordinates.
     // No logical coordinates available for router cores.
     for (tt_xy_pair router_core : router_cores) {
-        CoreCoord virtual_coord = CoreCoord(router_core, CoreType::ROUTER_ONLY, CoordSystem::VIRTUAL);
         CoreCoord translated_coord = CoreCoord(router_core, CoreType::ROUTER_ONLY, CoordSystem::TRANSLATED);
 
-        add_core_translation(virtual_coord, router_core);
         add_core_translation(translated_coord, router_core);
     }
 }
 
 void CoordinateManager::translate_security_coords() {
-    // Just do identity mapping for virtual and translated SECURITY coordinates.
+    // Just do identity mapping for translated SECURITY coordinates.
     // No logical coordinates available for SECURITY cores.
     for (tt_xy_pair security_core : security_cores) {
-        CoreCoord virtual_coord = CoreCoord(security_core, CoreType::SECURITY, CoordSystem::VIRTUAL);
         CoreCoord translated_coord = CoreCoord(security_core, CoreType::SECURITY, CoordSystem::TRANSLATED);
 
-        add_core_translation(virtual_coord, security_core);
         add_core_translation(translated_coord, security_core);
     }
 }
 
 void CoordinateManager::translate_l2cpu_coords() {
-    // Just do identity mapping for virtual and translated L2CPU coordinates.
+    // Just do identity mapping for translated L2CPU coordinates.
     // No logical coordinates available for L2CPU cores.
     for (tt_xy_pair l2cpu_core : l2cpu_cores) {
-        CoreCoord virtual_coord = CoreCoord(l2cpu_core, CoreType::L2CPU, CoordSystem::VIRTUAL);
         CoreCoord translated_coord = CoreCoord(l2cpu_core, CoreType::L2CPU, CoordSystem::TRANSLATED);
 
-        add_core_translation(virtual_coord, l2cpu_core);
         add_core_translation(translated_coord, l2cpu_core);
     }
 }

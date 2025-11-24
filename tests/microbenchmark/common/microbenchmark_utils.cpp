@@ -9,10 +9,10 @@
 namespace tt::umd::test::utils {
 
 std::pair<double, double> perf_read_write(
-    const uint32_t buf_size,
+    const size_t buf_size,
     const uint32_t num_iterations,
     Cluster* cluster,
-    const chip_id_t chip,
+    const ChipId chip,
     const CoreCoord core,
     const uint32_t address) {
     std::vector<uint8_t> pattern(buf_size);

@@ -2,16 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <chrono>
 #include <cstdint>
 #include <ctime>
+#include <filesystem>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "filesystem"
-#include "gtest/gtest.h"
 #include "test_wh_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
@@ -43,9 +44,9 @@ protected:
         }
     }
 
-    virtual int get_detected_num_chips() { return detected_num_chips; }
+    int get_detected_num_chips() override { return detected_num_chips; }
 
-    virtual bool is_test_skipped() { return skip_tests; }
+    bool is_test_skipped() override { return skip_tests; }
 };
 
 int WormholeNebulaX2TestFixture::detected_num_chips = -1;
@@ -55,7 +56,7 @@ uint32_t WormholeNebulaX2TestFixture::scale_number_of_tests = 1;
 TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfersMediumSmall");
+    log_info(LogUMD, "Started MixedRemoteTransfersMediumSmall");
 
     std::vector<remote_transfer_sample_t> command_history;
     try {
@@ -86,7 +87,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
+    log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;
@@ -183,7 +184,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
 TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfersLarge");
+    log_info(LogUMD, "Started MixedRemoteTransfersLarge");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history;
@@ -214,7 +215,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
 TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4");
+    log_info(LogUMD, "Started WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history;
@@ -246,7 +247,7 @@ TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinS
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersLMS");
+    log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersLMS");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;
@@ -343,7 +344,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWritesSmallReads) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersLargeWritesSmallReads");
+    log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersLargeWritesSmallReads");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;

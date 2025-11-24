@@ -1,0 +1,18 @@
+Diagnostics:
+  ClangTidy:
+    # 'Add:' is the correct key.
+    # To replace all default checks (which is what your 'Checks:' did),
+    # we first add '-*' to disable everything, then add the check you want.
+    Add: ['readability-identifier-naming']
+
+    # If those extra checks need specific options, define them here.
+    # Note: This merges with options from .clang-tidy.
+    CheckOptions:
+      readability-identifier-naming.ClassCase: CamelCase
+      # readability-identifier-naming.ConstantCase: UPPER_CASE
+      readability-identifier-naming.FunctionCase: lower_case
+      readability-identifier-naming.ParameterCase: lower_case
+      readability-identifier-naming.ConstantParameterCase: lower_case
+      readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+      # readability-identifier-naming.LocalConstantCase: UPPER_CASE
+      readability-identifier-naming.ClassStaticConstantCase: UPPER_CASE

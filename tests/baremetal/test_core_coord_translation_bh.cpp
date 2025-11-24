@@ -3,16 +3,18 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 
 constexpr size_t example_eth_harvesting_mask = (1 << 8) | (1 << 5);
 
-// Tests that all noc0 coordinates are same as all virtual coordinates
+// Tests that all noc0 coordinates are same as all translated coordinates
 // when there is no harvesting.
 TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
@@ -23,12 +25,13 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
         for (size_t y = 0; y < tensix_grid_size.y; y++) {
             CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-            CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+            CoreCoord translated_coords =
+                coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
             CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
 
-            // Virtual and noc0 coordinates should be the same.
-            EXPECT_EQ(noc0_coords.x, virtual_coords.x);
-            EXPECT_EQ(noc0_coords.y, virtual_coords.y);
+            // Translated and noc0 coordinates should be the same.
+            EXPECT_EQ(noc0_coords.x, translated_coords.x);
+            EXPECT_EQ(noc0_coords.y, translated_coords.y);
         }
     }
 }
@@ -45,10 +48,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
         {.tensix_harvesting_mask = tensix_harvesting_mask, .eth_harvesting_mask = example_eth_harvesting_mask});
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
-
-    // Always expect same virtual coordinate for (0, 0) logical coordinate.
-    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-    EXPECT_EQ(virtual_cords, CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::VIRTUAL));
 
     // This depends on harvesting mask. So expected noc0 coord is specific to this test and Blackhole arch.
     CoreCoord noc0_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
@@ -71,11 +70,12 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopRightCore) {
     EXPECT_EQ(tensix_grid_size.y, 10);
     CoreCoord logical_coords = CoreCoord(tensix_grid_size.x - 1, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-    EXPECT_EQ(virtual_cords, CoreCoord(15, 2, CoreType::TENSIX, CoordSystem::VIRTUAL));
-
     CoreCoord noc0_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
     EXPECT_EQ(noc0_cords, CoreCoord(16, 2, CoreType::TENSIX, CoordSystem::NOC0));
+
+    CoreCoord translated_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+
+    EXPECT_EQ(translated_coords, CoreCoord(15, 2, CoreType::TENSIX, CoordSystem::TRANSLATED));
 }
 
 // Test basic translation to virtual and noc0 coordinates.
@@ -94,11 +94,12 @@ TEST(CoordinateManager, CoordinateManagerBlackholeBottomLeftCore) {
     EXPECT_EQ(tensix_grid_size.y, 10);
     CoreCoord logical_coords = CoreCoord(0, tensix_grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-    EXPECT_EQ(virtual_cords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::VIRTUAL));
-
     CoreCoord noc0_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
     EXPECT_EQ(noc0_cords, CoreCoord(2, 11, CoreType::TENSIX, CoordSystem::NOC0));
+
+    CoreCoord translated_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+
+    EXPECT_EQ(translated_coords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::TRANSLATED));
 }
 
 // Test logical to noc0 coordinate translation.
@@ -141,51 +142,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalNOC0Mapping) {
 
             // Expect that reverse mapping of noc0 coordinates gives the same logical coordinates
             // using which we got the noc0 coordinates.
-            EXPECT_EQ(it.first, logical_coords);
-        }
-    }
-}
-
-// Test logical to virtual coordinate translation.
-// For the full grid of logical coordinates we expect that there are no duplicates of virtual coordinates.
-// For the reverse mapping back of virtual to logical coordinates we expect that same logical coordinates are returned
-// as from original mapping.
-TEST(CoordinateManager, CoordinateManagerBlackholeLogicalVirtualMapping) {
-    const size_t max_num_harvested_x = 14;
-
-    for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
-         tensix_harvesting_mask++) {
-        std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
-            tt::ARCH::BLACKHOLE,
-            true,
-            {.tensix_harvesting_mask = tensix_harvesting_mask, .eth_harvesting_mask = example_eth_harvesting_mask});
-
-        std::map<CoreCoord, CoreCoord> logical_to_virtual;
-        std::set<CoreCoord> virtual_coords_set;
-        tt_xy_pair tensix_grid_size = blackhole::TENSIX_GRID_SIZE;
-
-        size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
-
-        for (size_t x = 0; x < tensix_grid_size.x - num_harvested_x; x++) {
-            for (size_t y = 0; y < tensix_grid_size.y; y++) {
-                CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-                CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-                logical_to_virtual[logical_coords] = virtual_coords;
-
-                // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
-                EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
-                virtual_coords_set.insert(virtual_coords);
-            }
-        }
-
-        EXPECT_EQ(virtual_coords_set.size(), tensix_grid_size.y * (tensix_grid_size.x - num_harvested_x));
-
-        for (auto it : logical_to_virtual) {
-            CoreCoord virtual_coords = it.second;
-            CoreCoord logical_coords = coordinate_manager->translate_coord_to(virtual_coords, CoordSystem::LOGICAL);
-
-            // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
-            // using which we got the virtual coordinates.
             EXPECT_EQ(it.first, logical_coords);
         }
     }
@@ -236,39 +192,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
                 // Expect that reverse mapping of translated coordinates gives the same logical coordinates
                 // using which we got the translated coordinates.
                 EXPECT_EQ(it.first, logical_coords);
-            }
-        }
-    }
-}
-
-// Test that virtual and translated coordinates are same for all logical coordinates.
-// This is expected for Blackhole way of harvesting when noc translation is enabled.
-// If noc translation is disabled then translated coordinates are same as noc0 coordinates.
-TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
-    const size_t max_num_harvested_x = 14;
-
-    for (bool noc_translation_enabled : {true, false}) {
-        for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
-             tensix_harvesting_mask++) {
-            std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
-                tt::ARCH::BLACKHOLE,
-                noc_translation_enabled,
-                {.tensix_harvesting_mask = tensix_harvesting_mask, .eth_harvesting_mask = example_eth_harvesting_mask});
-
-            size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
-
-            for (size_t x = 0; x < blackhole::TENSIX_GRID_SIZE.x - num_harvested_x; x++) {
-                for (size_t y = 0; y < blackhole::TENSIX_GRID_SIZE.y; y++) {
-                    CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-                    CoreCoord translated_coords =
-                        coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
-                    CoreCoord virtual_coords = coordinate_manager->translate_coord_to(
-                        logical_coords, noc_translation_enabled ? CoordSystem::VIRTUAL : CoordSystem::NOC0);
-
-                    // Expect that translated coordinates are same as virtual coordinates.
-                    EXPECT_EQ(translated_coords.x, virtual_coords.x);
-                    EXPECT_EQ(translated_coords.y, virtual_coords.y);
-                }
             }
         }
     }
@@ -393,56 +316,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalNOC0Mapping) {
     }
 }
 
-// Test logical to virtual DRAM coordinate translation.
-// For the full grid of logical coordinates it is expected that there are no duplicates of virtual coordinates.
-// For the reverse mapping back of virtual to logical coordinates it is expected that same logical coordinates are
-// returned as from original mapping.
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalVirtualMapping) {
-    const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
-    const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
-    const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-
-    for (size_t dram_harvesting_mask = 0; dram_harvesting_mask < (1 << max_num_banks_harvested);
-         dram_harvesting_mask++) {
-        if (CoordinateManager::get_num_harvested(dram_harvesting_mask) > 1) {
-            continue;
-        }
-
-        std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
-            tt::ARCH::BLACKHOLE,
-            true,
-            {.dram_harvesting_mask = dram_harvesting_mask, .eth_harvesting_mask = example_eth_harvesting_mask});
-
-        std::map<CoreCoord, CoreCoord> logical_to_virtual;
-        std::set<CoreCoord> virtual_coords_set;
-
-        size_t num_harvested_banks = CoordinateManager::get_num_harvested(dram_harvesting_mask);
-
-        for (size_t x = 0; x < num_dram_banks - num_harvested_banks; x++) {
-            for (size_t y = 0; y < num_noc_ports_per_bank; y++) {
-                CoreCoord logical_coords = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
-                CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
-                logical_to_virtual[logical_coords] = virtual_coords;
-
-                // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
-                EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
-                virtual_coords_set.insert(virtual_coords);
-            }
-        }
-
-        for (auto it : logical_to_virtual) {
-            CoreCoord virtual_coords = it.second;
-            CoreCoord logical_coords = coordinate_manager->translate_coord_to(virtual_coords, CoordSystem::LOGICAL);
-
-            // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
-            // using which we got the virtual coordinates.
-            EXPECT_EQ(it.first, logical_coords);
-        }
-    }
-}
-
 // Test DRAM translated mapping.
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalTranslatedMapping) {
     const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
@@ -493,52 +368,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
     }
 }
 
-// Test DRAM translated/virtual/noc0 mapping
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMVirtualNOC0Mapping) {
-    const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
-    const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
-    const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-
-    const std::vector<tt_xy_pair> dram_cores = flatten_vector(blackhole::DRAM_CORES_NOC0);
-
-    const size_t dram_harvesting_mask = 1;
-
-    const HarvestingMasks harvesting_masks = {
-        .dram_harvesting_mask = dram_harvesting_mask, .eth_harvesting_mask = example_eth_harvesting_mask};
-    std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks);
-
-    const size_t noc0_index = 0;
-    const size_t virtual_index = (num_dram_banks - 1) * num_noc_ports_per_bank;
-
-    const size_t harvested_translated_bank_x = blackhole::dram_translated_coordinate_start_x + 1;
-    const size_t harvested_translated_bank_y =
-        blackhole::dram_translated_coordinate_start_y + 3 * num_noc_ports_per_bank;
-
-    for (size_t noc_port = 0; noc_port < num_noc_ports_per_bank; noc_port++) {
-        const tt_xy_pair noc0_pair = dram_cores[noc0_index + noc_port];
-        const tt_xy_pair virtual_pair = dram_cores[virtual_index + noc_port];
-
-        CoreCoord noc0_core = CoreCoord(noc0_pair.x, noc0_pair.y, CoreType::DRAM, CoordSystem::NOC0);
-        CoreCoord virtual_from_noc0 = coordinate_manager->translate_coord_to(noc0_core, CoordSystem::VIRTUAL);
-
-        CoreCoord virtual_core = CoreCoord(virtual_pair.x, virtual_pair.y, CoreType::DRAM, CoordSystem::VIRTUAL);
-
-        EXPECT_EQ(virtual_from_noc0, virtual_core);
-
-        CoreCoord translated_core = coordinate_manager->translate_coord_to(noc0_core, CoordSystem::TRANSLATED);
-        CoreCoord translated_from_virtual =
-            coordinate_manager->translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
-
-        EXPECT_EQ(translated_core, translated_from_virtual);
-
-        EXPECT_EQ(translated_core.x, harvested_translated_bank_x);
-        EXPECT_EQ(translated_core.y, harvested_translated_bank_y + noc_port);
-    }
-}
-
 // Test that we cannot create a coordinate manager with more than one DRAM bank harvested.
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarvested) {
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMMoreThanOneDRAMBankHarvested) {
     const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
@@ -564,11 +395,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationLocal) {
     const tt_xy_pair pcie_core = {11, 0};
 
     const CoreCoord pcie_logical = CoreCoord(0, 0, CoreType::PCIE, CoordSystem::LOGICAL);
-    const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
     const CoreCoord pcie_noc0 = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::NOC0);
-
-    EXPECT_EQ(pcie_virtual.x, pcie_noc0.x);
-    EXPECT_EQ(pcie_virtual.y, pcie_noc0.y);
 
     EXPECT_EQ(pcie_core.x, pcie_noc0.x);
     EXPECT_EQ(pcie_core.y, pcie_noc0.y);
@@ -581,11 +408,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationRemote) {
     const tt_xy_pair pcie_core = {2, 0};
 
     const CoreCoord pcie_logical = CoreCoord(0, 0, CoreType::PCIE, CoordSystem::LOGICAL);
-    const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
     const CoreCoord pcie_noc0 = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::NOC0);
-
-    EXPECT_EQ(pcie_virtual.x, pcie_noc0.x);
-    EXPECT_EQ(pcie_virtual.y, pcie_noc0.y);
 
     EXPECT_EQ(pcie_core.x, pcie_noc0.x);
     EXPECT_EQ(pcie_core.y, pcie_noc0.y);
@@ -600,16 +423,12 @@ TEST(CoordinateManager, CoordinateManagerBlackholeARCTranslation) {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
             const CoreCoord arc_logical = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
-            const CoreCoord arc_virtual = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::VIRTUAL);
             const CoreCoord arc_noc0 = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::NOC0);
             const CoreCoord arc_translated =
                 coordinate_manager->translate_coord_to(arc_logical, CoordSystem::TRANSLATED);
 
-            EXPECT_EQ(arc_virtual.x, arc_noc0.x);
-            EXPECT_EQ(arc_virtual.y, arc_noc0.y);
-
-            EXPECT_EQ(arc_virtual.x, arc_translated.x);
-            EXPECT_EQ(arc_virtual.y, arc_translated.y);
+            EXPECT_EQ(arc_noc0.x, arc_translated.x);
+            EXPECT_EQ(arc_noc0.y, arc_translated.y);
         }
     }
 }
@@ -629,15 +448,16 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
     // First 4 channels should be the same as noc0 coordinates.
     for (size_t eth_channel = 0; eth_channel < 4; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
         const CoreCoord eth_noc0 = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ((xy_pair)eth_noc0, blackhole::ETH_CORES_NOC0[eth_channel]);
-        EXPECT_EQ((xy_pair)eth_virtual, blackhole::ETH_CORES_NOC0[eth_channel]);
+        EXPECT_EQ(eth_translated.x, eth_translated_coordinate_start_x + eth_channel);
+        EXPECT_EQ(eth_translated.y, eth_translated_coordinate_start_y);
+
+        EXPECT_EQ(static_cast<tt_xy_pair>(eth_noc0), blackhole::ETH_CORES_NOC0[eth_channel]);
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
     // Next 2 channels should each be one of the next 3 eth cores.
@@ -645,17 +465,15 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         blackhole::ETH_CORES_NOC0[4], blackhole::ETH_CORES_NOC0[5], blackhole::ETH_CORES_NOC0[6]};
     for (size_t eth_channel = 4; eth_channel < 6; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
         const CoreCoord eth_noc0 = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
         EXPECT_TRUE(
             std::find(eth_cores_first_triplet.begin(), eth_cores_first_triplet.end(), eth_noc0) !=
             eth_cores_first_triplet.end());
-        EXPECT_EQ((xy_pair)eth_virtual, blackhole::ETH_CORES_NOC0[eth_channel]);
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
     // The next 2 channels should each be one of the next 3 eth cores.
@@ -663,31 +481,27 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         blackhole::ETH_CORES_NOC0[7], blackhole::ETH_CORES_NOC0[8], blackhole::ETH_CORES_NOC0[9]};
     for (size_t eth_channel = 6; eth_channel < 8; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
         const CoreCoord eth_noc0 = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
         EXPECT_TRUE(
             std::find(eth_cores_second_triplet.begin(), eth_cores_second_triplet.end(), eth_noc0) !=
             eth_cores_second_triplet.end());
-        EXPECT_EQ((xy_pair)eth_virtual, blackhole::ETH_CORES_NOC0[eth_channel]);
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
     // The last 4 channels are mapped 1-1 with the rest of the eth cores.
     for (size_t eth_channel = 8; eth_channel < 12; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
         const CoreCoord eth_noc0 = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ((xy_pair)eth_noc0, blackhole::ETH_CORES_NOC0[eth_channel + 2]);
-        EXPECT_EQ((xy_pair)eth_virtual, blackhole::ETH_CORES_NOC0[eth_channel]);
+        EXPECT_EQ(static_cast<tt_xy_pair>(eth_noc0), blackhole::ETH_CORES_NOC0[eth_channel + 2]);
         EXPECT_EQ(
-            (xy_pair)eth_translated,
-            xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
+            static_cast<tt_xy_pair>(eth_translated),
+            tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 }
 
@@ -709,12 +523,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
 
         for (size_t eth_channel = 0; eth_channel < num_eth_channels - num_harvested_cores; eth_channel++) {
             const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
             const CoreCoord eth_translated =
                 coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
-
-            EXPECT_EQ(eth_virtual.x, eth_cores[eth_channel].x);
-            EXPECT_EQ(eth_virtual.y, eth_cores[eth_channel].y);
 
             EXPECT_EQ(eth_translated.x, blackhole::eth_translated_coordinate_start_x + eth_channel);
             EXPECT_EQ(eth_translated.y, blackhole::eth_translated_coordinate_start_y);
@@ -767,7 +577,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTranslationWithoutCoreType) {
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({0, 0}, CoordSystem::NOC0, CoordSystem::NOC0).core_type, CoreType::DRAM);
     EXPECT_EQ(
-        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::VIRTUAL, CoordSystem::NOC0).core_type,
+        coordinate_manager->translate_coord_to({17, 12}, CoordSystem::TRANSLATED, CoordSystem::NOC0).core_type,
         CoreType::DRAM);
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({2, 2}, CoordSystem::NOC0, CoordSystem::NOC0).core_type,
@@ -875,11 +685,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeSecurityTranslation) {
     for (const auto& security_core : security_cores) {
         const CoreCoord noc0_coord = CoreCoord(security_core.x, security_core.y, CoreType::SECURITY, CoordSystem::NOC0);
 
-        const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
         const CoreCoord translated_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::TRANSLATED);
-
-        EXPECT_EQ(noc0_coord.x, virtual_coord.x);
-        EXPECT_EQ(noc0_coord.y, virtual_coord.y);
 
         EXPECT_EQ(noc0_coord.x, translated_coord.x);
         EXPECT_EQ(noc0_coord.y, translated_coord.y);
@@ -893,11 +699,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUTranslation) {
     const std::vector<tt_xy_pair> l2cpu_cores = blackhole::L2CPU_CORES_NOC0;
     for (const auto& l2cpu_core : l2cpu_cores) {
         const CoreCoord noc0_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::NOC0);
-        const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
         const CoreCoord translated_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::TRANSLATED);
-
-        EXPECT_EQ(noc0_coord.x, virtual_coord.x);
-        EXPECT_EQ(noc0_coord.y, virtual_coord.y);
 
         EXPECT_EQ(noc0_coord.x, translated_coord.x);
         EXPECT_EQ(noc0_coord.y, translated_coord.y);
@@ -929,20 +731,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUHarvesting) {
     EXPECT_EQ(translated_l2cpu_2.y, l2cpu_2.y);
     EXPECT_EQ(translated_l2cpu_3.x, l2cpu_3.x);
     EXPECT_EQ(translated_l2cpu_3.y, l2cpu_3.y);
-
-    // Virtual coordinates should have harvested cores moved below unharvested cores.
-    const CoreCoord virtual_l2cpu_0 = coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::VIRTUAL);
-    const CoreCoord virtual_l2cpu_1 = coordinate_manager->translate_coord_to(l2cpu_1, CoordSystem::VIRTUAL);
-    const CoreCoord virtual_l2cpu_2 = coordinate_manager->translate_coord_to(l2cpu_2, CoordSystem::VIRTUAL);
-    const CoreCoord virtual_l2cpu_3 = coordinate_manager->translate_coord_to(l2cpu_3, CoordSystem::VIRTUAL);
-    EXPECT_EQ(virtual_l2cpu_0.x, l2cpu_2.x);
-    EXPECT_EQ(virtual_l2cpu_0.y, l2cpu_2.y);
-    EXPECT_EQ(virtual_l2cpu_1.x, l2cpu_3.x);
-    EXPECT_EQ(virtual_l2cpu_1.y, l2cpu_3.y);
-    EXPECT_EQ(virtual_l2cpu_2.x, l2cpu_0.x);
-    EXPECT_EQ(virtual_l2cpu_2.y, l2cpu_0.y);
-    EXPECT_EQ(virtual_l2cpu_3.x, l2cpu_1.x);
-    EXPECT_EQ(virtual_l2cpu_3.y, l2cpu_1.y);
 
     // Logical cores should be invalid for harvested cores.
     EXPECT_THROW(coordinate_manager->translate_coord_to(l2cpu_0, CoordSystem::LOGICAL), std::runtime_error);

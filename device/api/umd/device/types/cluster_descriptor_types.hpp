@@ -238,17 +238,37 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
 }
 
-struct ChipUID {
-    uint64_t board_id;
-    uint8_t asic_location;
+static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_units_map = {
+    {BoardType::N150, 1},
+    {BoardType::N300, 2},
+    {BoardType::P100, 2},
+    {BoardType::P150, 0},
+    {BoardType::P300, 2},
+    {BoardType::GALAXY, 0},
+    {BoardType::UBB, 0},
+    {BoardType::UBB_BLACKHOLE, 1},
+};
 
-    bool operator<(const ChipUID &other) const {
-        return std::tie(board_id, asic_location) < std::tie(other.board_id, other.asic_location);
-    }
+static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_units_map = {
+    {BoardType::N150, 0},
+    {BoardType::N300, 0},
+    {BoardType::P100, 1},
+    {BoardType::P150, 0},
+    {BoardType::P300, 0},
+    {BoardType::GALAXY, 0},
+    {BoardType::UBB, 0},
+    {BoardType::UBB_BLACKHOLE, 0},
+};
 
-    bool const operator==(const ChipUID &other) const {
-        return board_id == other.board_id && asic_location == other.asic_location;
-    }
+static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_units_map = {
+    {BoardType::N150, 0},
+    {BoardType::N300, 0},
+    {BoardType::P100, 14},
+    {BoardType::P150, 2},
+    {BoardType::P300, 2},
+    {BoardType::GALAXY, 0},
+    {BoardType::UBB, 0},
+    {BoardType::UBB_BLACKHOLE, 2},
 };
 
 struct HarvestingMasks {
@@ -272,7 +292,7 @@ struct ChipInfo {
     bool noc_translation_enabled = false;
     HarvestingMasks harvesting_masks = {0, 0, 0, 0};
     BoardType board_type = BoardType::UNKNOWN;
-    ChipUID chip_uid = {0, 0};
+    uint64_t board_id = 0;
     uint8_t asic_location = 0;
 };
 
@@ -281,28 +301,7 @@ enum class DramTrainingStatus : uint8_t {
     FAIL = 1,
     SUCCESS = 2,
 };
-
-// TODO: To be removed once clients switch new names.
-using chip_id_t = ChipId;
-using ethernet_channel_t = EthernetChannel;
-using eth_coord_t = EthCoord;
-
 }  // namespace tt
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::BoardType;
-using tt::chip_id_t;
-using tt::eth_coord_t;
-using tt::ethernet_channel_t;
-using tt::get_number_of_chips_from_board_type;
-
-namespace tt::umd {
-using BoardType = tt::BoardType;
-using tt::get_number_of_chips_from_board_type;
-using HarvestingMasks = tt::HarvestingMasks;
-using chip_id_t = tt::chip_id_t;
-using ethernet_channel_t = tt::ethernet_channel_t;
-}  // namespace tt::umd
 
 namespace std {
 template <>

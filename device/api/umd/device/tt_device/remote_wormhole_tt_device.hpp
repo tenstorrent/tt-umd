@@ -16,15 +16,20 @@ public:
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    void read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void noc_multicast_write(
+        void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 
     RemoteCommunication* get_remote_communication();
-
-    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
     /*
      * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
@@ -39,12 +44,22 @@ public:
     bool is_hardware_hung() override;
 
 private:
-    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+    /*
+     * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice
+     * without an underlying communication device (pcie_device or jtag_device).
+     * It was created as a workaround to allow RemoteWormholeTTDevice creation over JTAG.
+     * It should not be used for PCIe as certain functionalities from base class rely on the presence of an underlying
+     * communication device. Creating a RemoteWormholeTTDevice without an underlying communication device over PCIe
+     * would require overriding several methods from the base class.
+     * TODO: In the future, either remove this constructor or refactor the class hierarchy to better support PCIe use
+     * case.
+     */
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type);
 
-    eth_coord_t target_chip_;
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
+
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };
 

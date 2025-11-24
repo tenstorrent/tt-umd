@@ -4,7 +4,13 @@
 set(CMAKE_C_CLANG_TIDY "")
 set(CMAKE_CXX_CLANG_TIDY "")
 
+# Disable all warnings in third-party code
+# This keeps build output clean and prevents failures from dependencies we don't control
+add_compile_options(-w)
+
 include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
+
+include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 
 ####################################################################################################################
 # google test
@@ -132,7 +138,7 @@ CPMAddPackage(
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.5)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.6)
 
 ####################################################################################################################
 # cxxopts

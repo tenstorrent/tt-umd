@@ -26,11 +26,19 @@ SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buff
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+
+    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        TT_THROW(
+            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+            tt_device_->get_pci_device()->get_device_num());
+    }
+
     validate(offset);
+
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
-    const uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
+    const uint8_t* buffer = reinterpret_cast<const uint8_t*>(get_device_io_addr(offset));
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
@@ -55,10 +63,18 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    validate(offset);
-    static const std::string tlb_name = "LARGE_READ_TLB";
-    uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+
+    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        TT_THROW(
+            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+            tt_device_->get_pci_device()->get_device_num());
+    }
+
+    validate(offset);
+
+    static const std::string tlb_name = "LARGE_READ_TLB";
+    uint8_t* buffer = reinterpret_cast<uint8_t*>(get_device_io_addr(offset));
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
@@ -88,10 +104,7 @@ SysmemBuffer::~SysmemBuffer() {
         tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {
         log_warning(
-            LogSiliconDriver,
-            "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).",
-            mapped_buffer_size_,
-            device_io_addr_);
+            LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);
     }
 }
 
@@ -104,7 +117,7 @@ void SysmemBuffer::align_address_and_size() {
     mapped_buffer_size_ = (mapped_buffer_size_ + offset_from_aligned_addr_ + page_size - 1) & ~(page_size - 1);
 }
 
-void* SysmemBuffer::get_buffer_va() const { return (uint8_t*)buffer_va_ + offset_from_aligned_addr_; }
+void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
 
 size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }
 

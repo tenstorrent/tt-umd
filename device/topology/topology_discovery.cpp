@@ -5,41 +5,46 @@
  */
 #include "umd/device/topology/topology_discovery.hpp"
 
+#include <memory>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
+    const TopologyDiscoveryOptions& options) {
     tt::ARCH current_arch = ARCH::Invalid;
 
-    switch (device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            auto pci_devices_info = PCIDevice::enumerate_devices_info(target_devices);
+            auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
-                return std::make_unique<tt_ClusterDescriptor>();
+                return nullptr;
             }
             current_arch = pci_devices_info.begin()->second.get_arch();
             break;
         }
         case IODeviceType::JTAG: {
+            if (current_arch == tt::ARCH::BLACKHOLE) {
+                TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
+            }
+
             auto jtag_device = JtagDevice::create();
             if (!jtag_device->get_device_cnt()) {
-                return std::make_unique<tt_ClusterDescriptor>();
+                return nullptr;
             }
             current_arch = jtag_device->get_jtag_arch(0);
             break;
@@ -48,44 +53,49 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
             TT_THROW("Unsupported device type for topology discovery");
     }
 
-    if (current_arch == tt::ARCH::BLACKHOLE && device_type == IODeviceType::JTAG) {
-        TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
-    }
-
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
+            return std::make_unique<TopologyDiscoveryWormhole>(options);
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
+            return std::make_unique<TopologyDiscoveryBlackhole>(options);
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
-TopologyDiscovery::TopologyDiscovery(
-    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
-    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
+TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : options(options) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+    log_info(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
-    cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_connected_chips();
     discover_remote_chips();
-    fill_cluster_descriptor_info();
-    return std::move(cluster_desc);
+    log_info(LogUMD, "Completed topology discovery.");
+    return fill_cluster_descriptor_info();
+}
+
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> TopologyDiscovery::discover(
+    const TopologyDiscoveryOptions& options) {
+    std::map<uint64_t, std::unique_ptr<Chip>> chips;
+    std::unique_ptr<TopologyDiscovery> td = TopologyDiscovery::create_topology_discovery(options);
+    if (td == nullptr) {
+        return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(chips));
+    }
+    std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
+    return std::make_pair(std::move(cluster_desc), std::move(td->chips));
 }
 
 void TopologyDiscovery::init_topology_discovery() {}
 
 void TopologyDiscovery::get_connected_chips() {
     std::vector<int> device_ids;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::PCIe: {
-            device_ids = PCIDevice::enumerate_devices(target_devices);
+            device_ids = PCIDevice::enumerate_devices();
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
+            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path)->get_device_cnt();
             device_ids = std::vector<int>(device_cnt);
             std::iota(device_ids.begin(), device_ids.end(), 0);
             break;
@@ -94,7 +104,8 @@ void TopologyDiscovery::get_connected_chips() {
             TT_THROW("Unsupported device type.");
     }
     for (auto& device_id : device_ids) {
-        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path, 0, io_device_type);
+        std::unique_ptr<LocalChip> chip =
+            LocalChip::create(device_id, options.soc_descriptor_path, 0, options.io_device_type);
 
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
@@ -105,37 +116,28 @@ void TopologyDiscovery::get_connected_chips() {
                 break;
             }
         }
+
         uint64_t asic_id = get_asic_id(chip.get());
-        initialize_remote_communication(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
         log_debug(
-            LogSiliconDriver,
-            "Discovered {} chip with {} ID {} and asic ID {}",
-            DeviceTypeToString.at(io_device_type),
-            DeviceTypeToString.at(io_device_type),
+            LogUMD,
+            "Discovered {} chip with ID {} and asic ID {}",
+            DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);
+    }
+    for (auto& [asic_id, chip] : chips_to_discover) {
+        initialize_remote_communication(chip.get());
     }
 }
 
 void TopologyDiscovery::discover_remote_chips() {
     std::set<uint64_t> discovered_chips = {};
-    // Needed to know which chip to use for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
-
         remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
-
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
-
-        if (is_using_eth_coords()) {
-            auto local_eth_coord = get_local_eth_coord(chip.get());
-            if (local_eth_coord.has_value()) {
-                eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
-            }
-        }
     }
 
     while (!chips_to_discover.empty()) {
@@ -149,27 +151,32 @@ void TopologyDiscovery::discover_remote_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
-        std::vector<uint32_t> intermesh_eth_links;
-        if (eth_cores.size() > 0) {
-            intermesh_eth_links = extract_intermesh_eth_links(chip, eth_cores.front());
-        }
+        verify_fw_bundle_version(chip);
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t port_status = read_port_status(chip, eth_core);
-
-            if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
-                if (std::find(intermesh_eth_links.begin(), intermesh_eth_links.end(), channel) ==
-                    intermesh_eth_links.end()) {
-                    channel++;
-                    continue;
-                }
-                if (!is_intermesh_eth_link_trained(chip, eth_core)) {
-                    channel++;
-                    continue;
-                }
+            if (!verify_eth_core_fw_version(chip, eth_core)) {
+                log_warning(
+                    LogUMD,
+                    "Skipping discovery from chip {} ETH core {}",
+                    get_local_asic_id(chip, eth_core),
+                    eth_core.str());
+                channel++;
+                continue;
             }
 
+            if (!is_eth_trained(chip, eth_core)) {
+                channel++;
+                continue;
+            }
+
+            if (is_using_eth_coords()) {
+                auto local_eth_coord = get_local_eth_coord(chip, eth_core);
+                if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
+                    eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
+                    log_debug(LogUMD, "Chip {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());
+                }
+            }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
@@ -182,7 +189,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     ethernet_connections_to_remote_devices.push_back(
                         {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
                 }
-                log_debug(LogSiliconDriver, "Remote chip outside of UMD cluster {}.", remote_asic_id);
+                log_debug(LogUMD, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
                 continue;
@@ -192,13 +199,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
-                std::optional<eth_coord_t> eth_coord = get_remote_eth_coord(chip, eth_core);
+                std::optional<EthCoord> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     eth_coord, chips.at(gateway_chip_id).get(), active_eth_channels_per_chip.at(gateway_chip_id));
 
-                // TODO: we should probably initialize remote communication for remote chips as well.
-                // This is not needed currently for any Blackhole topology, but we should work on enabling this in
-                // general. The change required is to not initialize the communication on already initialized ETH cores.
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_chips.insert(remote_asic_id);
@@ -215,11 +219,13 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     patch_eth_connections();
+    validate_routing_firmware_state(chips);
 }
 
-void TopologyDiscovery::fill_cluster_descriptor_info() {
-    std::map<uint64_t, chip_id_t> asic_id_to_chip_id;
-    chip_id_t chip_id = 0;
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
+    std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
+    std::map<uint64_t, ChipId> asic_id_to_chip_id;
+    ChipId chip_id = 0;
     for (const auto& [current_chip_asic_id, chip] : chips) {
         if (chip->is_mmio_capable()) {
             asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
@@ -232,12 +238,16 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         if (!chip->is_mmio_capable()) {
             asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
             cluster_desc->chip_unique_ids.emplace(chip_id, current_chip_asic_id);
+            if (eth_coords.empty()) {
+                cluster_desc->closest_mmio_chip_cache[chip_id] =
+                    asic_id_to_chip_id.at(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id));
+            }
             chip_id++;
         }
     }
 
     for (const auto& [current_chip_asic_id, chip] : chips) {
-        chip_id_t current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
+        ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         cluster_desc->all_chips.insert(current_chip_id);
         cluster_desc->chip_arch.insert({current_chip_id, chip->get_tt_device()->get_arch()});
 
@@ -252,21 +262,26 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
 
+        if (chip->get_tt_device()->get_pci_device()) {
+            cluster_desc->chip_to_bus_id.insert(
+                {current_chip_id, chip->get_tt_device()->get_pci_device()->get_device_info().pci_bus});
+        }
+
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {
-                eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
+                EthCoord eth_coord = eth_coords.at(current_chip_asic_id);
                 cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
                 cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
                     current_chip_id;
             }
         }
 
-        cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().chip_uid.board_id);
+        cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().board_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
-        chip_id_t local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
-        chip_id_t remote_chip_id = asic_id_to_chip_id.at(ethernet_connection_remote.first);
+        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
+        ChipId remote_chip_id = asic_id_to_chip_id.at(ethernet_connection_remote.first);
         cluster_desc->ethernet_connections[local_chip_id][ethernet_connection_logical.second] = {
             remote_chip_id, ethernet_connection_remote.second};
         cluster_desc->ethernet_connections[remote_chip_id][ethernet_connection_remote.second] = {
@@ -274,14 +289,14 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections_to_remote_devices) {
-        chip_id_t local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
+        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
         cluster_desc->ethernet_connections_to_remote_devices[local_chip_id][ethernet_connection_logical.second] = {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
     }
 
     const uint32_t num_eth_channels = chips.begin()->second->get_soc_descriptor().get_cores(CoreType::ETH).size();
     for (auto [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_chip) {
-        chip_id_t current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
+        ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);
         }
@@ -291,13 +306,15 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
-    cluster_desc->io_device_type = io_device_type;
+    cluster_desc->io_device_type = options.io_device_type;
+    cluster_desc->eth_fw_version = first_eth_fw_version;
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
     cluster_desc->verify_cluster_descriptor_info();
+    return cluster_desc;
 }
 
 Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {
@@ -316,20 +333,68 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core);
-
-        if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+        if (!is_eth_trained(chip, eth_core)) {
             continue;
         }
 
         return get_local_asic_id(chip, eth_core);
     }
 
-    return chip->get_tt_device()->get_board_id();
+    return get_unconnected_chip_id(chip);
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
+
+bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
+    TTDevice* tt_device = chip->get_tt_device();
+    semver_t fw_bundle_version = tt_device->get_firmware_version();
+
+    if (first_fw_bundle_version.has_value()) {
+        if (fw_bundle_version != first_fw_bundle_version.value()) {
+            log_warning(
+                LogUMD,
+                fmt::format(
+                    "Firmware bundle version mismatch for device {}: expected {}, got {}",
+                    get_asic_id(chip),
+                    fw_bundle_version.to_string(),
+                    chip->get_tt_device()->get_firmware_version().to_string()));
+            return false;
+        }
+        return true;
+    }
+
+    first_fw_bundle_version = fw_bundle_version;
+    log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
+    semver_t minimum_compatible_fw_bundle_version =
+        FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device->get_arch());
+    semver_t latest_supported_fw_bundle_version =
+        FirmwareInfoProvider::get_latest_supported_firmware_version(tt_device->get_arch());
+    log_debug(
+        LogUMD,
+        "UMD supported firmware bundle versions: {} - {}",
+        minimum_compatible_fw_bundle_version.to_string(),
+        latest_supported_fw_bundle_version.to_string());
+
+    TT_ASSERT(
+        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) > 0,
+        "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
+        "architecture.",
+        fw_bundle_version.to_string(),
+        minimum_compatible_fw_bundle_version.to_string(),
+        arch_to_str(tt_device->get_arch()));
+
+    if (semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_bundle_version) > 0) {
+        log_warning(
+            LogUMD,
+            "Firmware bundle version {} on the system is newer than the maximum supported version {} for {} "
+            "architecture. New features may not be supported.",
+            fw_bundle_version.to_string(),
+            latest_supported_fw_bundle_version.to_string(),
+            arch_to_str(tt_device->get_arch()));
+    }
+    return true;
+}
 
 }  // namespace tt::umd

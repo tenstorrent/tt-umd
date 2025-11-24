@@ -7,6 +7,8 @@
 #include <nanobind/stl/map.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -32,8 +34,8 @@ void bind_telemetry(nb::module_ &m) {
         .value("ARC3_FW_VERSION", wormhole::TelemetryTag::ARC3_FW_VERSION)
         .value("SPIBOOTROM_FW_VERSION", wormhole::TelemetryTag::SPIBOOTROM_FW_VERSION)
         .value("ETH_FW_VERSION", wormhole::TelemetryTag::ETH_FW_VERSION)
-        .value("M3_BL_FW_VERSION", wormhole::TelemetryTag::M3_BL_FW_VERSION)
-        .value("M3_APP_FW_VERSION", wormhole::TelemetryTag::M3_APP_FW_VERSION)
+        .value("DM_BL_FW_VERSION", wormhole::TelemetryTag::DM_BL_FW_VERSION)
+        .value("DM_APP_FW_VERSION", wormhole::TelemetryTag::DM_APP_FW_VERSION)
         .value("DDR_STATUS", wormhole::TelemetryTag::DDR_STATUS)
         .value("ETH_STATUS0", wormhole::TelemetryTag::ETH_STATUS0)
         .value("ETH_STATUS1", wormhole::TelemetryTag::ETH_STATUS1)
@@ -99,9 +101,9 @@ void bind_telemetry(nb::module_ &m) {
         .value("DDR_STATUS", TelemetryTag::DDR_STATUS)
         .value("DDR_SPEED", TelemetryTag::DDR_SPEED)
         .value("ETH_FW_VERSION", TelemetryTag::ETH_FW_VERSION)
-        .value("DDR_FW_VERSION", TelemetryTag::DDR_FW_VERSION)
-        .value("BM_APP_FW_VERSION", TelemetryTag::BM_APP_FW_VERSION)
-        .value("BM_BL_FW_VERSION", TelemetryTag::BM_BL_FW_VERSION)
+        .value("GDDR_FW_VERSION", TelemetryTag::GDDR_FW_VERSION)
+        .value("DM_APP_FW_VERSION", TelemetryTag::DM_APP_FW_VERSION)
+        .value("DM_BL_FW_VERSION", TelemetryTag::DM_BL_FW_VERSION)
         .value("FLASH_BUNDLE_VERSION", TelemetryTag::FLASH_BUNDLE_VERSION)
         .value("CM_FW_VERSION", TelemetryTag::CM_FW_VERSION)
         .value("L2CPU_FW_VERSION", TelemetryTag::L2CPU_FW_VERSION)
@@ -113,10 +115,43 @@ void bind_telemetry(nb::module_ &m) {
         .value("ENABLED_GDDR", TelemetryTag::ENABLED_GDDR)
         .value("ENABLED_L2CPU", TelemetryTag::ENABLED_L2CPU)
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
+        .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+
+    // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed
+    nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
+        .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
+        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
+        .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+
+    nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
+        .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)
+        .def("get_board_id", &FirmwareInfoProvider::get_board_id)
+        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version)
+        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
+        .def("get_aiclk", &FirmwareInfoProvider::get_aiclk)
+        .def("get_axiclk", &FirmwareInfoProvider::get_axiclk)
+        .def("get_arcclk", &FirmwareInfoProvider::get_arcclk)
+        .def("get_fan_speed", &FirmwareInfoProvider::get_fan_speed)
+        .def("get_tdp", &FirmwareInfoProvider::get_tdp)
+        .def("get_tdc", &FirmwareInfoProvider::get_tdc)
+        .def("get_vcore", &FirmwareInfoProvider::get_vcore)
+        .def("get_board_temperature", &FirmwareInfoProvider::get_board_temperature)
+        .def("get_dram_training_status", &FirmwareInfoProvider::get_dram_training_status, nb::arg("num_dram_channels"))
+        .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq)
+        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
+        .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat)
+        .def_static(
+            "get_minimum_compatible_firmware_version",
+            &FirmwareInfoProvider::get_minimum_compatible_firmware_version,
+            nb::arg("arch"))
+        .def_static(
+            "get_latest_supported_firmware_version",
+            &FirmwareInfoProvider::get_latest_supported_firmware_version,
+            nb::arg("arch"));
 }

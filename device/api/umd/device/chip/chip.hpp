@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <unordered_set>
 
 #include "umd/device/soc_descriptor.hpp"
@@ -14,6 +15,7 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -37,7 +39,7 @@ public:
 
     virtual bool is_mmio_capable() const = 0;
 
-    void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
+    void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
 
     const ChipInfo& get_chip_info();
 
@@ -56,8 +58,7 @@ public:
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
-
-    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() = 0;
+    virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;
 
@@ -99,7 +100,7 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    virtual void set_power_state(DevicePowerState state) = 0;
+    virtual void set_power_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -108,7 +109,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 
@@ -116,12 +117,12 @@ public:
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
     // TODO: To be moved to private implementation once methods are moved to chip
-    void enable_ethernet_queue(int timeout_s);
+    void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
-    device_dram_address_params dram_address_params;
-    device_l1_address_params l1_address_params;
+    DeviceDramAddressParams dram_address_params;
+    DeviceL1AddressParams l1_address_params;
 
     // TODO: To be removed once we properly refactor usage of NOC1 coords.
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
@@ -129,15 +130,18 @@ public:
 protected:
     void wait_chip_to_be_ready();
 
-    virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
+    virtual void wait_eth_cores_training(const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    virtual void wait_dram_cores_training(const uint32_t timeout_ms = 60000);
+    virtual void wait_dram_cores_training(const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void set_default_params(ARCH arch);
 
     uint32_t get_power_state_arc_msg(DevicePowerState state);
 
-    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+    void wait_for_aiclk_value(
+        TTDevice* tt_device,
+        DevicePowerState power_state,
+        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     ChipInfo chip_info_;
 

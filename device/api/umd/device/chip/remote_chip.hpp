@@ -24,12 +24,12 @@ public:
      */
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
-        eth_coord_t target_eth_coord,
+        EthCoord target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
         std::string sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
-        eth_coord_t target_eth_coord,
+        EthCoord target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
         SocDescriptor soc_descriptor);
 
@@ -56,8 +56,6 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
-    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
-
     void wait_for_non_mmio_flush() override;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
@@ -65,9 +63,10 @@ public:
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
-    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
+
+    RemoteCommunication* get_remote_communication();
 
 private:
     RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);

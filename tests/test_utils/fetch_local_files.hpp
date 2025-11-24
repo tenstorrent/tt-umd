@@ -6,11 +6,11 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <filesystem>
 #include <iostream>
 #include <string>
-
-#include "fmt/core.h"
 
 namespace test_utils {
 
@@ -57,6 +57,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300_routing_info.yaml",
              "wormhole_N300_board_info.yaml",
              "wormhole_N300_with_remote_connections.yaml",
+             "wormhole_N300_with_bus_id.yaml",
              "wormhole_N300.yaml",
          }) {
         cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));

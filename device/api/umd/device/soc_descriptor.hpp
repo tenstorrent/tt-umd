@@ -6,20 +6,20 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include "fmt/core.h"
-#include "tt_xy_pair.h"
 #include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -101,7 +101,9 @@ public:
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<CoreCoord> get_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const CoreType core_type,
+        const CoordSystem coord_system = CoordSystem::NOC0,
+        std::optional<uint32_t> channel = std::nullopt) const;
     std::vector<CoreCoord> get_harvested_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
     std::vector<CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;
@@ -220,8 +222,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::CoreDescriptor;
-using tt::umd::SocDescriptor;
-using tt_SocDescriptor = tt::umd::SocDescriptor;

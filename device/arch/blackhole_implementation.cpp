@@ -54,7 +54,7 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
     };
 }
 
-device_l1_address_params blackhole_implementation::get_l1_address_params() const {
+DeviceL1AddressParams blackhole_implementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
     return {
@@ -63,13 +63,13 @@ device_l1_address_params blackhole_implementation::get_l1_address_params() const
         ::eth_l1_mem::address_map::FW_VERSION_ADDR};
 }
 
-driver_host_address_params blackhole_implementation::get_host_address_params() const {
+DriverHostAddressParams blackhole_implementation::get_host_address_params() const {
     return {
         ::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
         ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
-driver_eth_interface_params blackhole_implementation::get_eth_interface_params() const {
+DriverEthInterfaceParams blackhole_implementation::get_eth_interface_params() const {
     return {
         ETH_RACK_COORD_WIDTH,
         CMD_BUF_SIZE_MASK,
@@ -94,7 +94,7 @@ driver_eth_interface_params blackhole_implementation::get_eth_interface_params()
     };
 }
 
-driver_noc_params blackhole_implementation::get_noc_params() const {
+DriverNocParams blackhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 

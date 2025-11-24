@@ -3,12 +3,17 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
+#include <stdexcept>
+
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -92,18 +97,35 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToNOC0) {
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
         const CoreCoord eth_noc0 = soc_desc.translate_coord_to(eth_logical, CoordSystem::NOC0);
-        const CoreCoord eth_virtual = soc_desc.translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
 
         EXPECT_EQ(eth_noc0.x, wormhole_eth_cores[index].x);
         EXPECT_EQ(eth_noc0.y, wormhole_eth_cores[index].y);
-
-        EXPECT_EQ(eth_virtual.x, wormhole_eth_cores[index].x);
-        EXPECT_EQ(eth_virtual.y, wormhole_eth_cores[index].y);
 
         EXPECT_EQ(eth_cores[index].x, wormhole_eth_cores[index].x);
         EXPECT_EQ(eth_cores[index].y, wormhole_eth_cores[index].y);
 
         index++;
+    }
+}
+
+TEST(SocDescriptor, SocDescriptorDRAMChannels) {
+    SocDescriptor soc_desc(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
+
+    int num_dram_channels = soc_desc.get_num_dram_channels();
+
+    // Core type with no separate channels
+    EXPECT_THROW(soc_desc.get_cores(tt::CoreType::ARC, tt::CoordSystem::LOGICAL, 0), std::runtime_error);
+    // Invalid channel
+    EXPECT_THROW(
+        soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, num_dram_channels + 1), std::runtime_error);
+
+    for (int channel = 0; channel < num_dram_channels; channel++) {
+        size_t core_index = 0;
+        for (auto core : soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::NOC0, channel)) {
+            EXPECT_EQ(core.x, wormhole::DRAM_CORES_NOC0[core_index][channel].x);
+            EXPECT_EQ(core.y, wormhole::DRAM_CORES_NOC0[core_index][channel].y);
+            core_index++;
+        }
     }
 }
 
@@ -270,29 +292,21 @@ TEST(SocDescriptor, CustomSocDescriptor) {
         test_utils::GetSocDescAbsPath("blackhole_simulation_1x2.yaml"), {.noc_translation_enabled = true});
 
     const CoreCoord tensix_core_01 = CoreCoord(0, 1, CoreType::TENSIX, CoordSystem::NOC0);
-    const CoreCoord tensix_core_01_virtual = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::VIRTUAL);
     const CoreCoord tensix_core_01_logical = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::LOGICAL);
     const CoreCoord tensix_core_01_translated = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::TRANSLATED);
 
-    EXPECT_EQ(tensix_core_01_virtual.x, tensix_core_01.x);
-    EXPECT_EQ(tensix_core_01_virtual.y, tensix_core_01.y);
-
-    EXPECT_EQ(tensix_core_01_virtual.x, tensix_core_01_translated.x);
-    EXPECT_EQ(tensix_core_01_virtual.y, tensix_core_01_translated.y);
+    EXPECT_EQ(tensix_core_01.x, tensix_core_01_translated.x);
+    EXPECT_EQ(tensix_core_01.y, tensix_core_01_translated.y);
 
     EXPECT_EQ(tensix_core_01_logical.x, 0);
     EXPECT_EQ(tensix_core_01_logical.y, 0);
 
     const CoreCoord tensix_core_11 = CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::NOC0);
-    const CoreCoord tensix_core_11_virtual = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::VIRTUAL);
     const CoreCoord tensix_core_11_logical = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::LOGICAL);
     const CoreCoord tensix_core_11_translated = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::TRANSLATED);
 
-    EXPECT_EQ(tensix_core_11_virtual.x, tensix_core_11.x);
-    EXPECT_EQ(tensix_core_11_virtual.y, tensix_core_11.y);
-
-    EXPECT_EQ(tensix_core_11_virtual.x, tensix_core_11_translated.x);
-    EXPECT_EQ(tensix_core_11_virtual.y, tensix_core_11_translated.y);
+    EXPECT_EQ(tensix_core_11.x, tensix_core_11_translated.x);
+    EXPECT_EQ(tensix_core_11.y, tensix_core_11_translated.y);
 
     EXPECT_EQ(tensix_core_11_logical.x, 1);
     EXPECT_EQ(tensix_core_11_logical.y, 0);
@@ -307,12 +321,8 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     EXPECT_TRUE(harvested_tensix_cores.empty());
 
     const CoreCoord dram_core_10 = CoreCoord(1, 0, CoreType::DRAM, CoordSystem::NOC0);
-    const CoreCoord dram_core_10_virtual = soc_desc.translate_coord_to(dram_core_10, CoordSystem::VIRTUAL);
     const CoreCoord dram_core_10_logical = soc_desc.translate_coord_to(dram_core_10, CoordSystem::LOGICAL);
     const CoreCoord dram_core_10_translated = soc_desc.translate_coord_to(dram_core_10, CoordSystem::TRANSLATED);
-
-    EXPECT_EQ(dram_core_10_virtual.x, dram_core_10.x);
-    EXPECT_EQ(dram_core_10_virtual.y, dram_core_10.y);
 
     EXPECT_EQ(dram_core_10.x, dram_core_10_translated.x);
     EXPECT_EQ(dram_core_10.y, dram_core_10_translated.y);
@@ -328,22 +338,18 @@ TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
 
     const std::vector<tt_xy_pair> cores_noc0 = wormhole::TENSIX_CORES_NOC0;
 
-    std::vector<CoreCoord> virtual_from_noc0;
     std::vector<CoreCoord> logical_from_noc0;
     std::vector<CoreCoord> translated_from_noc0;
 
     for (const tt_xy_pair& noc0_core : cores_noc0) {
         const CoreCoord core(noc0_core.x, noc0_core.y, CoreType::TENSIX, CoordSystem::NOC0);
-        virtual_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
         logical_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
         translated_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
     }
 
-    std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
     std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
     std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    EXPECT_TRUE(virtual_from_noc0 == cores_virtual);
     EXPECT_TRUE(logical_from_noc0 == cores_logical);
     EXPECT_TRUE(translated_from_noc0 == cores_translated);
 }
@@ -354,22 +360,18 @@ TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
 
     const std::vector<tt_xy_pair> cores_noc0 = blackhole::TENSIX_CORES_NOC0;
 
-    std::vector<CoreCoord> virtual_from_noc0;
     std::vector<CoreCoord> logical_from_noc0;
     std::vector<CoreCoord> translated_from_noc0;
 
     for (const tt_xy_pair& noc0_core : cores_noc0) {
         const CoreCoord core(noc0_core.x, noc0_core.y, CoreType::TENSIX, CoordSystem::NOC0);
-        virtual_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
         logical_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
         translated_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
     }
 
-    std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
     std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
     std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    EXPECT_TRUE(virtual_from_noc0 == cores_virtual);
     EXPECT_TRUE(logical_from_noc0 == cores_logical);
     EXPECT_TRUE(translated_from_noc0 == cores_translated);
 }
@@ -409,11 +411,9 @@ TEST(SocDescriptor, NocTranslation) {
             {.noc_translation_enabled = false, .harvesting_masks = harvesting_masks});
 
         const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
-        const CoreCoord tensix_core_virtual = soc_desc.translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
         const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
         EXPECT_EQ((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core);
-        EXPECT_NE((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core_virtual);
     }
     // Test when noc translation is enabled.
     {
@@ -423,11 +423,9 @@ TEST(SocDescriptor, NocTranslation) {
             {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
         const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
-        const CoreCoord tensix_core_virtual = soc_desc.translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
         const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
         EXPECT_NE((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core);
-        EXPECT_EQ((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core_virtual);
     }
 }
 
@@ -673,20 +671,6 @@ TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
         {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 4);
-}
-
-TEST(SocDescriptor, SocDescriptorSerialize) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
-
-        std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-        SocDescriptor soc(
-            file_path.string(),
-            {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
-             .harvesting_masks = soc_descriptor.harvesting_masks});
-    }
 }
 
 TEST(SocDescriptor, SerializeSimulatorBlackhole) {

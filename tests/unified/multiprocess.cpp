@@ -4,51 +4,76 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cstdint>
+#include <iterator>
 #include <thread>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
+static constexpr int NUM_OF_BYTES_RESERVED = 128;
+
+// Core implementation for testing IO in parallel threads.
+// Partitions L1 memory between threads to avoid address overlaps.
+// All of this is focused on a single chip system.
+static void test_read_write_all_tensix_cores_impl(
+    Cluster* cluster, int thread_id, uint32_t reserved_size = 0, bool enable_alignment = false) {
+    std::cout << " Starting test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
+              << " thread_id " << thread_id << std::endl;
+
+    const auto l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    const auto available_size = l1_size - reserved_size;
+    const auto chunk_size = available_size / NUM_PARALLEL;
+
+    const std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    const uint32_t data_size = vector_to_write.size() * sizeof(uint32_t);
+    std::vector<uint32_t> readback_vec = {};
+    readback_vec.reserve(vector_to_write.size());
+
+    uint32_t address = reserved_size + chunk_size * thread_id;
+    const uint32_t start_address = address;
+    const uint32_t address_next_thread = reserved_size + chunk_size * (thread_id + 1);
+
+    for (int loop = 0; loop < NUM_LOOPS; loop++) {
+        for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            cluster->write_to_device(vector_to_write.data(), data_size, 0, core, address);
+            cluster->l1_membar(0, {core});
+            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, data_size);
+            ASSERT_EQ(vector_to_write, readback_vec)
+                << "Vector read back from core " << core.str() << " does not match what was written";
+            readback_vec.clear();
+        }
+
+        // Increment for 32 bytes, so there is an overlap of data of 8 bytes, so the thread
+        // synchornization is verified.
+        address += 0x20;
+
+        // If we get into the bucket of the next thread, return to start address of this thread's bucket.
+        // If we are inside other bucket can't guarantee the order of read/writes.
+        if (address + data_size > address_next_thread || address + data_size > l1_size) {
+            address = start_address;
+        }
+    }
+    std::cout << "Completed test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
+              << " thread_id " << thread_id << std::endl;
+}
 
 // We want to test IO in parallel in each thread.
 // But we don't want these addresses to overlap, since the data will be corrupted.
 // All of this is focused on a single chip system.
 void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
-    std::cout << " Starting test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
-              << thread_id << std::endl;
-    auto l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    auto chunk_size = l1_size / NUM_PARALLEL;
+    test_read_write_all_tensix_cores_impl(cluster, thread_id, 0, false);
+}
 
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> readback_vec = {};
-    uint32_t address = chunk_size * thread_id;
-    uint32_t start_address = address;
-    uint32_t address_next_thread = chunk_size * (thread_id + 1);
-
-    for (int loop = 0; loop < NUM_LOOPS; loop++) {
-        for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-            cluster->write_to_device(
-                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), 0, core, address);
-            cluster->l1_membar(0, {core});
-            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40);
-            ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " does not match what was written";
-            readback_vec = {};
-        }
-        address += 0x20;
-        // If we get into the bucket of the next thread, return to start address of this thread's bucket.
-        // If we are inside other bucket can't guarantee the order of read/writes.
-        if (address + vector_to_write.size() * sizeof(uint32_t) > address_next_thread ||
-            address + vector_to_write.size() * sizeof(uint32_t) > l1_size) {
-            address = start_address;
-        }
-    }
-    std::cout << "Completed test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
-              << thread_id << std::endl;
+// Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes
+void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
+    test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
 
 // Single process opens multiple clusters but uses them sequentially.
@@ -106,6 +131,32 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
             std::cout << "Running IO for cluster " << i << std::endl;
             test_read_write_all_tensix_cores(cluster.get(), i);
             std::cout << "Finished IO for cluster " << i << std::endl;
+        }));
+    }
+    for (auto& th : threads) {
+        th.join();
+    }
+}
+
+// Many threads start and stop many clusters.
+// This test will be modified to run in parallel once a lock is introduced for guarding the start/stop of the device.
+// For now, it runs sequentially just to test the functionality.
+TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
+    std::vector<std::unique_ptr<Cluster>> clusters;
+    std::vector<std::thread> threads;
+    for (int i = 0; i < NUM_PARALLEL; i++) {
+        clusters.emplace_back(std::make_unique<Cluster>());
+        std::cout << "Setup risc cores for cluster " << i << std::endl;
+        test_utils::setup_risc_cores_on_cluster(clusters[i].get());
+    }
+    for (int i = 0; i < NUM_PARALLEL; i++) {
+        threads.push_back(std::thread([&, i] {
+            std::cout << "Starting cluster " << i << std::endl;
+            clusters[i]->start_device({});
+            std::cout << "Running IO for cluster " << i << std::endl;
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
+            std::cout << "Stopping cluster " << i << std::endl;
+            clusters[i]->close_device();
         }));
     }
     for (auto& th : threads) {
@@ -207,7 +258,7 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (chip_id_t chip : cluster->get_target_mmio_device_ids()) {
+    for (ChipId chip : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip);
 
         CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];

@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 
@@ -46,7 +46,6 @@ enum class CoreType {
 enum class CoordSystem : std::uint8_t {
     LOGICAL,
     NOC0,
-    VIRTUAL,
     TRANSLATED,
     NOC1,
 };
@@ -88,8 +87,6 @@ static inline std::string to_str(const CoordSystem coord_system) {
             return "LOGICAL";
         case CoordSystem::NOC0:
             return "NOC0";
-        case CoordSystem::VIRTUAL:
-            return "VIRTUAL";
         case CoordSystem::TRANSLATED:
             return "TRANSLATED";
         case CoordSystem::NOC1:
@@ -149,15 +146,6 @@ struct CoreCoord : public tt_xy_pair {
 }  // namespace umd
 
 }  // namespace tt
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::CoordSystem;
-using tt::CoreType;
-
-namespace tt::umd {
-using CoreType = tt::CoreType;
-using CoordSystem = tt::CoordSystem;
-}  // namespace tt::umd
 
 namespace std {
 template <>

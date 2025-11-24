@@ -11,16 +11,14 @@ namespace tt::umd {
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryWormhole(
-        std::unordered_set<chip_id_t> target_devices = {},
-        const std::string& sdesc_path = "",
-        IODeviceType device_type = IODeviceType::PCIe);
+    TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options);
 
 protected:
     struct EthAddresses {
         uint32_t masked_version;
 
         uint64_t eth_param_table;
+        uint64_t routing_firmware_state;
         uint64_t node_info;
         uint64_t eth_conn_info;
         uint64_t results_buf;
@@ -43,13 +41,15 @@ protected:
 
     uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) override;
 
-    std::optional<eth_coord_t> get_local_eth_coord(Chip* chip) override;
+    uint64_t get_unconnected_chip_id(Chip* chip) override;
 
-    std::optional<eth_coord_t> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
+    std::optional<EthCoord> get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
+
+    std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
 
     tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) override;
 
-    uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) override;
+    uint32_t read_training_status(Chip* chip, tt_xy_pair eth_core);
 
     uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) override;
 
@@ -59,24 +59,22 @@ protected:
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
-    std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) override;
-
-    bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
-
     std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     bool is_using_eth_coords() override;
 
     void init_topology_discovery() override;
 
-    bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) override;
+    bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
 
-    bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
+    void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) override;
 
     EthAddresses eth_addresses;
 
-    static const uint32_t ETH_UNKNOWN = 0;
-    static const uint32_t ETH_UNCONNECTED = 1;
+    bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) override;
+
+    static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
+    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 };
 }  // namespace tt::umd

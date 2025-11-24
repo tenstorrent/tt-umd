@@ -8,16 +8,26 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <unordered_set>
 
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/types/arch.hpp"
 
+typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
+
+inline const std::unordered_map<DeviceFamily, tt::ARCH> device_family_to_arch = {
+    {DeviceFamily::DEVICE_FAMILY_WORMHOLE, tt::ARCH::WORMHOLE_B0},
+    {DeviceFamily::DEVICE_FAMILY_BLACKHOLE, tt::ARCH::BLACKHOLE},
+    {DeviceFamily::DEVICE_FAMILY_UNKNOWN, tt::ARCH::Invalid}};
+
 class JtagDevice {
 public:
-    explicit JtagDevice(std::unique_ptr<Jtag> jtag_device);
+    explicit JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices = {});
     ~JtagDevice();
 
-    static std::shared_ptr<JtagDevice> create(const std::filesystem::path& binary_directory = jtag_library_path);
+    static std::shared_ptr<JtagDevice> create(
+        const std::filesystem::path& binary_directory = jtag_library_path,
+        const std::unordered_set<int>& jtag_target_devices = {});
 
     void close_device() {}
 
@@ -28,6 +38,12 @@ public:
 
     int open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number);
     int open_jlink_wrapper(uint8_t chip_id);
+
+    /*
+     * chip_id -> J-link device index in vector of devices.
+     * client -> debug client name (e.g. "arc", "pcie"). Communicates with JTAG ports on clients through TDR(TAP Data
+     * Register). reg_offset -> Register offset inside the client.
+     */
     std::optional<uint32_t> read_tdr(uint8_t chip_id, const char* client, uint32_t reg_offset);
     std::optional<uint32_t> readmon_tdr(uint8_t chip_id, const char* client, uint32_t id, uint32_t reg_offset);
     std::optional<int> writemon_tdr(
@@ -68,11 +84,12 @@ public:
     std::optional<uint32_t> read_id(uint8_t chip_id);
     std::optional<uint8_t> get_current_device_idx() const;
     int get_device_id(uint8_t chip_id) const;
-
+    bool is_hardware_hung(uint8_t chip_id);
     static std::filesystem::path jtag_library_path;
 
 private:
     void select_device(uint8_t chip_id);
+    std::unordered_set<int> get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const;
     std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;
     std::vector<uint32_t> efuse_harvesting;

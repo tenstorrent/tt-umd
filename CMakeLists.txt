@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 
+option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
+set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
+
 include(cmake/compilers.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
     message(STATUS "Setting C and C++ compiler from environment variables")
@@ -31,8 +35,11 @@ project(
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES
+        C
         CXX
 )
+
+message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 CHECK_COMPILERS()
@@ -87,6 +94,30 @@ if(TT_UMD_ENABLE_LOGGING)
 endif()
 
 add_subdirectory(third_party)
+
+# Configure clang-tidy AFTER third_party so dependencies are not linted
+option(TT_UMD_ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
+if(TT_UMD_ENABLE_CLANG_TIDY)
+    find_program(
+        CLANG_TIDY_EXE
+        NAMES
+            clang-tidy
+            clang-tidy-17
+    )
+    # These flags are needed because clang-tidy might reference warning options in
+    # .clang-tidy config file that aren't supported by your actual compiler
+    # version, and without these flags the build would fail with "unknown warning
+    # option" errors. The flags essentially tell the compiler to ignore unsupported
+    # warning flags instead of treating them as fatal errors.
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
+        set(CMAKE_C_CLANG_TIDY
+            "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy;--extra-arg=-Wno-unknown-warning-option;--extra-arg=-Wno-error=unknown-warning-option"
+        )
+    endif()
+endif()
 
 # Enable all warnings and treat them as errors
 # Ignore unused variables and functions since there is no harm.

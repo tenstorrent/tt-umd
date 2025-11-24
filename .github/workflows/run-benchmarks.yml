@@ -16,6 +16,10 @@ on:
       timeout:
         required: true
         type: number
+      build-type:
+        required: true
+        type: string
+        default: Release
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -55,7 +59,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./
 
       # This is needed to preserve file permissions

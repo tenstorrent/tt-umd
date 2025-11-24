@@ -4,8 +4,10 @@
 
 // This file holds Cluster specific API examples.
 
+#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
+#include <unistd.h>  // For access()
 
 #include <algorithm>
 #include <cstdint>
@@ -13,15 +15,17 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
-#include "fmt/xchar.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -32,9 +36,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/warm_reset.hpp"
-
-// TODO: obviously we need some other way to set this up
-#include "noc/noc_parameters.h"
+#include "utils.hpp"
 
 using namespace tt::umd;
 
@@ -57,6 +59,22 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
             .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }
     return options;
+}
+
+// Small helper function to check if the ipmitool is ready.
+bool is_ipmitool_ready() {
+    if (system("which ipmitool > /dev/null 2>&1") != 0) {
+        std::cout << "ipmitool executable not found." << std::endl;
+        return false;
+    }
+
+    if ((access("/dev/ipmi0", F_OK) != 0) && (access("/dev/ipmi/0", F_OK) != 0) &&
+        (access("/dev/ipmidev/0", F_OK) != 0)) {
+        std::cout << "IPMI device file not found (/dev/ipmi0, /dev/ipmi/0, or /dev/ipmidev/0)." << std::endl;
+        return false;
+    }
+
+    return true;
 }
 
 // This test should be one line only.
@@ -89,32 +107,15 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         }
         std::cout << std::endl;
 
-        // Make sure that Cluster construction is without exceptions.
-        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = target_pci_device_ids,
-        });
-
-        if (!target_pci_device_ids.empty()) {
-            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
-            // Check that the cluster has the expected number of chips.
-            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
-            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
-            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
-            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
-        }
-
         std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
 
-        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
+        if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
             ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
 
         // Make sure that Cluster construction is without exceptions.
         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
-            .pci_target_devices = {},
-        });
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
         if (!target_pci_device_ids.empty()) {
             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
@@ -125,7 +126,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
         }
 
-        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
             ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
     }
@@ -141,8 +142,8 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
     // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
     // connections.
-    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<chip_id_t, chip_id_t> chips_with_pcie = cluster_desc->get_chips_with_mmio();
+    std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<ChipId, ChipId> chips_with_pcie = cluster_desc->get_chips_with_mmio();
     auto eth_connections = cluster_desc->get_ethernet_connections();
 
     if (all_chips.empty()) {
@@ -150,7 +151,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     }
     // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
     // The first cluster will open the first chip only, and the second cluster will open the rest of them.
-    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
+    ChipId first_chip_only = chips_with_pcie.begin()->first;
     std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {first_chip_only},
         .cluster_descriptor = cluster_desc.get(),
@@ -160,7 +161,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     EXPECT_EQ(chips1.size(), 1);
     EXPECT_EQ(*chips1.begin(), first_chip_only);
 
-    std::unordered_set<chip_id_t> other_chips;
+    std::unordered_set<ChipId> other_chips;
     for (auto chip : all_chips) {
         // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
         // first local chip.
@@ -372,7 +373,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    device_params default_params;
+    DeviceParams default_params;
     cluster->start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -381,7 +382,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     static const uint32_t num_loops = 100;
 
-    for (const chip_id_t chip : cluster->get_target_device_ids()) {
+    for (const ChipId chip : cluster->get_target_device_ids()) {
         // Just make sure to skip L1_BARRIER_BASE
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses
@@ -416,7 +417,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
+    for (ChipId chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
 
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
@@ -478,7 +479,7 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
 TEST(TestCluster, TestClusterAICLKControl) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    auto get_expected_clock_val = [&cluster](chip_id_t chip_id, bool busy) {
+    auto get_expected_clock_val = [&cluster](ChipId chip_id, bool busy) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
         if (arch == tt::ARCH::WORMHOLE_B0) {
             return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
@@ -541,7 +542,59 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
     EXPECT_NE(write_test_data, read_test_data);
 }
 
+TEST(TestCluster, GalaxyWarmResetScratch) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (!is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Only galaxy test configuration.";
+    }
+
+    auto arch = cluster->get_cluster_description()->get_arch();
+    if (arch != tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP() << "Only test Wormhole architecture for Galaxy UBB reset.";
+    }
+
+    if (!is_ipmitool_ready()) {
+        GTEST_SKIP() << "Only test warm reset on systems that have the ipmi tool.";
+    }
+
+    static constexpr uint32_t write_test_data = 0xDEADBEEF;
+
+    for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
+        auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        tt_device->bar_write32(
+            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+                tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+            write_test_data);
+    }
+
+    WarmReset::ubb_warm_reset();
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+
+    for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
+        auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+        auto read_test_data = tt_device->bar_read32(
+            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+
+        EXPECT_NE(write_test_data, read_test_data);
+        EXPECT_EQ(DEFAULT_VALUE_IN_SCRATCH_REGISTER, read_test_data);
+    }
+}
+
 TEST(TestCluster, WarmReset) {
+    if constexpr (is_arm_platform()) {
+        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+    }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
@@ -586,7 +639,7 @@ TEST(TestCluster, WarmReset) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
@@ -677,10 +730,6 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test on Galaxy configurations.";
-    }
-
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
@@ -749,6 +798,83 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 }
 
+TEST(TestCluster, SocDescriptorSerialize) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
+
+        std::filesystem::path file_path = soc_descriptor.serialize_to_file();
+        SocDescriptor soc(
+            file_path.string(),
+            {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
+             .harvesting_masks = soc_descriptor.harvesting_masks});
+    }
+}
+
+TEST(TestCluster, GetEthernetFirmware) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // BoardType P100 doesn't have eth cores.
+    std::optional<semver_t> eth_version;
+    EXPECT_NO_THROW(eth_version = cluster->get_ethernet_firmware_version());
+    if (cluster->get_cluster_description()->get_board_type(0) == BoardType::P100) {
+        EXPECT_FALSE(eth_version.has_value());
+    } else {
+        EXPECT_TRUE(eth_version.has_value());
+    }
+}
+
+TEST(TestCluster, TestMulticastWrite) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    const tt_xy_pair grid_size = {8, 8};
+
+    const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+    const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    const uint64_t address = 0;
+    const size_t data_size = 256;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (std::size_t i = 0; i < data_size; i++) {
+        write_data[i] = (uint8_t)i;
+    }
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> zeros(data_size, 0);
+            cluster->write_to_device(
+                zeros.data(), zeros.size(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address);
+
+            std::vector<uint8_t> readback(data_size, 1);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(zeros, readback);
+        }
+    }
+
+    cluster->noc_multicast_write(write_data.data(), write_data.size(), 0, start_tensix, end_tensix, address);
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> readback(data_size, 0);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(write_data, readback);
+        }
+    }
+}
+
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -768,7 +894,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     }
 
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
-                                                       chip_id_t chip_id) -> std::optional<std::array<uint32_t, 14>> {
+                                                       ChipId chip_id) -> std::optional<std::array<uint32_t, 14>> {
         switch (cluster->get_cluster_description()->get_arch(chip_id)) {
             case tt::ARCH::WORMHOLE_B0:
                 return std::make_optional(wh_brisc_configuration_program);
@@ -873,6 +999,50 @@ INSTANTIATE_TEST_SUITE_P(
     ClusterAssertDeassertRiscsTest,
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
+TEST(TestCluster, StartDeviceWithValidRiscProgram) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    constexpr uint64_t write_address = 0x1000;
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    test_utils::setup_risc_cores_on_cluster(cluster.get());
+
+    cluster->start_device({});
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        cluster->write_to_device(data.data(), data_size, chip_id, any_core, write_address);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+    }
+
+    // Now read back the data.
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        cluster->read_from_device(readback_data.data(), chip_id, any_core, write_address, data_size);
+
+        ASSERT_EQ(data, readback_data);
+    }
+
+    cluster->close_device();
+}
+
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
@@ -881,9 +1051,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     if (options.chip_type == SIMULATION) {
-        device_params device_params;
-        device_params.init_device = true;
-        cluster->start_device(device_params);
+        cluster->start_device({.init_device = true});
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
@@ -901,26 +1069,24 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
-        std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+        const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
 
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            // Zero out L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+        // Zero out L1.
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-            EXPECT_EQ(zero_data, readback_data);
+        EXPECT_EQ(zero_data, readback_data);
 
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-            EXPECT_EQ(data, readback_data);
-        }
+        EXPECT_EQ(data, readback_data);
     }
 }
 
@@ -941,3 +1107,136 @@ INSTANTIATE_TEST_SUITE_P(
     }
 
 );
+
+/**
+ * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
+ * rather using the ability of the NOC to access the host system bus via traffic
+ * to the PCIe block.
+ *
+ * sysmem means memory in the host that has been mapped for device access.
+ *
+ * 1. Fills sysmem with a random pattern.
+ * 2. Uses PCIe block to read sysmem at various offsets.
+ * 3. Verifies that the data read matches the data written.
+ * 4. Zeros out sysmem (via hardware write) at various offsets.
+ * 5. Verifies that the offsets have been zeroed from host's perspective.
+ */
+TEST(TestCluster, SysmemReadWrite) {
+    {
+        Cluster cluster;
+        if (cluster.get_target_device_ids().empty()) {
+            GTEST_SKIP() << "No chips present on the system. Skipping test.";
+        }
+    }
+    constexpr size_t ONE_GIG = 1ULL << 30;
+    constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
+    const bool is_vm = test_utils::is_virtual_machine();
+    const bool has_iommu = test_utils::is_iommu_available();
+
+    // 3 for BM with IOMMU to test more of the address space while avoiding
+    // the legacy hack for getting to 3.75 on WH.
+    // 1 for BM without IOMMU, to avoid making assumptions RE: # of hugepages.
+    // 1 for VM because it'll work if vIOMMU; if no vIOMMU it avoids assuming
+    // >1 hugepages are available.
+    const uint32_t channels = is_vm ? 1 : has_iommu ? 3 : 1;
+    Cluster cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = channels,
+    });
+    constexpr auto mmio_chip_id = 0;
+    const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+    const auto pcie_core = pci_cores.at(0);
+    const auto base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
+
+    auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
+        static std::random_device rd;
+        static std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis(lo, hi);
+        return dis(gen);
+    };
+
+    cluster.get_chip(mmio_chip_id)->start_device();
+    // sysmem_manager->pin_or_map_sysmem_to_device();
+    // cluster.start_device(device_params{});
+
+    for (uint32_t channel = 0; channel < channels; channel++) {
+        uint8_t* sysmem = static_cast<uint8_t*>(cluster.host_dma_address(mmio_chip_id, 0, channel));
+
+        ASSERT_NE(sysmem, nullptr);
+        test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
+
+        std::vector<uint64_t> test_offsets = {
+            0x0,
+            (ONE_GIG / 4) - 0x1000,
+            (ONE_GIG / 4) - 0x0004,
+            (ONE_GIG / 4),
+            (ONE_GIG / 4) + 0x0004,
+            (ONE_GIG / 4) + 0x1000,
+            (ONE_GIG / 2) - 0x1000,
+            (ONE_GIG / 2) - 0x0004,
+            (ONE_GIG / 2),
+            (ONE_GIG / 2) + 0x0004,
+            (ONE_GIG / 2) + 0x1000,
+            (ONE_GIG - 0x1000),
+            (ONE_GIG - 0x0004),
+        };
+
+        for (size_t i = 0; i < 8192; ++i) {
+            uint64_t address = random_address_between(0, ONE_GIG);
+            test_offsets.push_back(address);
+        }
+
+        // Read test - read the sysmem at the various offsets.
+        for (uint64_t test_offset : test_offsets) {
+            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t noc_addr = base_address + device_offset;
+            uint32_t expected = 0;
+            uint32_t value = 0;
+
+            std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
+
+            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+
+            if (value != expected) {
+                std::stringstream error_msg;
+                error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
+                          << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")"
+                          << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
+                          << ", IOMMU: " << (has_iommu ? "Enabled" : "Disabled") << ", Channels: " << channels
+                          << "\n  Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+
+                if (is_vm && has_iommu) {
+                    error_msg << "\n"
+                              << "\n  - VM with IOMMU detected: This is likely a DMA mapping limit issue"
+                              << "\n  - FIX: On the HOST machine, add this kernel boot parameter:"
+                              << "\n      vfio_iommu_type1.dma_entry_limit=4294967295"
+                              << "\n  - After adding the parameter, reboot the HOST (not just the VM)"
+                              << "\n  - Check host dmesg for IO page faults"
+                              << "\n  - Failure at offset >= 255MB strongly indicates dma_entry_limit issue";
+                }
+
+                FAIL() << error_msg.str();
+            }
+        }
+
+        // Write test - zero out the sysmem at the various offsets.
+        for (uint64_t test_offset : test_offsets) {
+            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t noc_addr = base_address + device_offset;
+            uint32_t value = 0;
+            cluster.write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
+            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+        }
+
+        // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
+        for (uint64_t test_offset : test_offsets) {
+            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t noc_addr = base_address + device_offset;
+            uint32_t value = 0xffffffff;
+            std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
+            EXPECT_EQ(value, 0);
+        }
+    }
+}

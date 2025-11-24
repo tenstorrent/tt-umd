@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <gtest/gtest.h>
 #include <sys/mman.h>
 
-#include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 
@@ -63,7 +63,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -126,7 +126,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -135,7 +135,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
         mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     // It's important that this offset is not a multiple of the page size.
     const size_t unaligned_offset = 100;
-    void* mapping_buffer = (uint8_t*)mapping + unaligned_offset;  // Offset by 1MB
+    void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
@@ -189,7 +189,7 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -199,15 +199,13 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     // Size is not multiple of page size.
     void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
 
-    void* mapped_buffer = (uint8_t*)mapping + buf_size;  // Offset by 10 bytes
+    void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_size;  // Offset by 10 bytes
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
 
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }
-
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
 
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -217,14 +215,13 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
-    // TODO: Switch to PCIDevice->is_mapping_buffer_to_noc_supported once we flip it on.
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (!PCIDevice(pci_device_ids[0]).is_mapping_buffer_to_noc_supported()) {
         GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
     }
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
@@ -254,17 +251,17 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     cluster->write_to_device(
         data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value());
 
+    // Perform a read so we're sure that the write object has been flushed to the device.
+    std::vector<uint8_t> readback(one_mb, 0);
+    // Read back from sysmem buffer using NOC address.
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
+    EXPECT_EQ(readback, data_write);
+
     for (uint32_t i = 0; i < one_mb; ++i) {
         EXPECT_EQ(sysmem_data[i], data_write[i])
             << "Mismatch at index " << i << ": expected " << static_cast<int>(data_write[i]) << ", got "
             << static_cast<int>(sysmem_data[i]);
     }
-
-    std::vector<uint8_t> readback(one_mb, 0);
-    // Read back from sysmem buffer using NOC address.
-    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
-
-    EXPECT_EQ(readback, data_write);
 
     // If we map another buffer it is expected to have a higher NOC address.
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);

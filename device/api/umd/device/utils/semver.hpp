@@ -6,12 +6,12 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <sstream>
 #include <string>
 #include <tuple>
-
-#include "fmt/format.h"
 
 namespace tt::umd {
 
@@ -21,14 +21,24 @@ namespace tt::umd {
  */
 class semver_t {
 public:
-    uint64_t major;
-    uint64_t minor;
-    uint64_t patch;
+    uint64_t major = 0;
+    uint64_t minor = 0;
+    uint64_t patch = 0;
 
-    semver_t(uint64_t major, uint64_t minor, uint64_t patch) {
+    constexpr semver_t() : major(0), minor(0), patch(0) {}
+
+    constexpr semver_t(uint64_t major, uint64_t minor, uint64_t patch) {
         this->major = major;
         this->minor = minor;
         this->patch = patch;
+    }
+
+    /*
+     * Create a semver_t from a 32-bit integer by unpacking the following bits:
+     * 0x00AABCCC where A is major, B is minor and C is patch.
+     */
+    static semver_t from_eth_fw_tag(uint32_t version) {
+        return semver_t((version >> 16) & 0xFF, (version >> 12) & 0xF, version & 0xFFF);
     }
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}

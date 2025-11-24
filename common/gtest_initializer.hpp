@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <gtest/gtest.h>
+
 #include <iostream>
 #include <memory>
-
-#include "gtest/gtest.h"
 
 namespace testing {
 // Testing flag verbose can be accessed with GTEST_FLAG(verbose), and set with macro GTEST_VERBOSE=1

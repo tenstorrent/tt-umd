@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/chip.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
@@ -14,7 +15,9 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 extern bool umd_use_noc1;
 
@@ -40,10 +43,10 @@ void Chip::set_default_params(ARCH arch) {
     dram_address_params = {0u};
 }
 
-void Chip::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
-    l1_address_params.tensix_l1_barrier_base = barrier_address_params_.tensix_l1_barrier_base;
-    l1_address_params.eth_l1_barrier_base = barrier_address_params_.eth_l1_barrier_base;
-    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params_.dram_barrier_base;
+void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
+    l1_address_params.tensix_l1_barrier_base = barrier_address_params.tensix_l1_barrier_base;
+    l1_address_params.eth_l1_barrier_base = barrier_address_params.eth_l1_barrier_base;
+    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params.dram_barrier_base;
 }
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
@@ -53,16 +56,16 @@ void Chip::wait_chip_to_be_ready() {
     wait_dram_cores_training();
 }
 
-void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    uint32_t timeout_left = timeout_ms;
+void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
+    auto timeout_left = timeout_ms;
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = eth_core;
-        if (chip_info_.board_type == BoardType::UBB) {
-            // TODO issue 1208: figure out why translated ETH don't work on UBB
-            actual_eth_core =
-                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        if (get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
+            // Translated space for ETH cores is different than NOC1 and wait_eth_core training is expecting NOC0
+            // coordinates.
+            actual_eth_core = soc_descriptor_.translate_coord_to(eth_core, CoordSystem::NOC0);
         } else {
             actual_eth_core = translate_chip_coord_to_translated(eth_core);
         }
@@ -71,7 +74,7 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
     }
 }
 
-void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
+void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) {
     TTDevice* tt_device = get_tt_device();
     const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
     const uint32_t chip_num_dram_channels = std::min(
@@ -86,19 +89,18 @@ void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
     }
 }
 
-void Chip::enable_ethernet_queue(int timeout_s) {
+void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     TT_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout_s);
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            throw std::runtime_error(fmt::format(
+                "Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count()));
         }
-        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
+        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
         }
     }
@@ -132,7 +134,7 @@ void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Asserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
         core,
         soft_reset_current_state,
@@ -151,7 +153,7 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
         soft_reset_new |
         (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     log_debug(
-        LogSiliconDriver,
+        LogUMD,
         "Deasserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
         core,
         soft_reset_current_state,
@@ -199,7 +201,7 @@ int Chip::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    uint32_t timeout_ms,
+    const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     std::vector<uint32_t> arc_msg_return_values;
@@ -225,6 +227,24 @@ int Chip::arc_msg(
     return exit_code;
 }
 
+void Chip::set_power_state(DevicePowerState state) {
+    int exit_code = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t msg = get_power_state_arc_msg(state);
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        if (state == DevicePowerState::BUSY) {
+            exit_code =
+                get_tt_device()->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+        } else {
+            exit_code = get_tt_device()->get_arc_messenger()->send_message(
+                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+        }
+    }
+    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    wait_for_aiclk_value(get_tt_device(), state);
+}
+
 tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
     // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
     // Tensix cores are always used in translated space. Other cores are used either in
@@ -237,8 +257,9 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
-void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
+void Chip::wait_for_aiclk_value(
+    TTDevice* tt_device, DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
     if (power_state == DevicePowerState::BUSY) {
         target_aiclk = tt_device->get_max_clock_freq();
@@ -247,11 +268,11 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_stat
     }
     uint32_t aiclk = tt_device->get_clock();
     while (aiclk != target_aiclk) {
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
+        if (duration.count() > timeout_ms.count()) {
             log_warning(
-                LogSiliconDriver,
+                LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
                 "{}",
@@ -263,6 +284,15 @@ void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_stat
         }
         aiclk = tt_device->get_clock();
     }
+}
+
+void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    // TODO: Support other core types once needed.
+    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
+        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+    }
+    get_tt_device()->noc_multicast_write(
+        dst, size, translate_chip_coord_to_translated(core_start), translate_chip_coord_to_translated(core_end), addr);
 }
 
 }  // namespace tt::umd

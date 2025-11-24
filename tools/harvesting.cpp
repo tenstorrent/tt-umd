@@ -32,11 +32,7 @@ int main(int argc, char* argv[]) {
 
     auto print_core_all_systems = [&](const SocDescriptor& soc_desc, const CoreCoord& core) {
         for (CoordSystem coord_system :
-             {CoordSystem::NOC0,
-              CoordSystem::TRANSLATED,
-              CoordSystem::VIRTUAL,
-              CoordSystem::LOGICAL,
-              CoordSystem::NOC1}) {
+             {CoordSystem::NOC0, CoordSystem::TRANSLATED, CoordSystem::LOGICAL, CoordSystem::NOC1}) {
             try {
                 print_core_formatted(soc_desc.translate_coord_to(core, coord_system));
             } catch (const std::runtime_error& _) {
@@ -48,7 +44,7 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
     };
 
-    auto print_cores = [&](chip_id_t chip, CoreType core_type) {
+    auto print_cores = [&](ChipId chip, CoreType core_type) {
         std::string core_type_str = to_str(core_type);
         std::cout << "Printing cores of type " << core_type_str << std::endl;
         const SocDescriptor& soc_desc = cluster->get_chip(chip)->get_soc_descriptor();
@@ -64,7 +60,7 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    for (chip_id_t chip : cluster->get_target_device_ids()) {
+    for (ChipId chip : cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
         HarvestingMasks harvesting_masks = cluster->get_cluster_description()->get_harvesting_masks(chip);
 

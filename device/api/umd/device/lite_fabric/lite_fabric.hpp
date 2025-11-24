@@ -6,18 +6,19 @@
 
 #include <fmt/ranges.h>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/lite_fabric/fabric_edm_types.hpp"
 #include "umd/device/lite_fabric/lf_dev_mem_map.hpp"
 #include "umd/device/lite_fabric/lite_fabric_constants.hpp"
 #include "umd/device/lite_fabric/lite_fabric_header.hpp"
-#include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -77,6 +78,16 @@ enum class InitState : uint16_t {
     TERMINATED,
 };
 
+enum class RoutingEnabledState : uint16_t {
+    // Stopped.
+    STOPPED = 0,
+    // Enabled. Call functions to service channels.
+    ENABLED = 1,
+    // Write to disable routing. This will stop all routing activity and propagate routing enabled state to the
+    // connected core.
+    STOP = 2,
+};
+
 struct LiteFabricConfig {
     // Starting address of the Lite Fabric binary to be copied locally and to the neighbour.
     volatile uint32_t binary_addr = 0;
@@ -88,33 +99,38 @@ struct LiteFabricConfig {
     // get the ethernet core coordinate.
     volatile uint32_t eth_chans_mask = 0;
 
-    unsigned char padding0[4];
+    uint32_t padding0{};
 
     // Subordinate cores on the same chip increment this value when they are ready. The primary core
     // will stall until this value shows all eth cores are ready.
     volatile uint32_t primary_local_handshake = 0;
 
-    unsigned char padding1[12];
+    uint32_t padding1[3]{};
 
     // Becomes 1 when the neighbour is ready.
     volatile uint32_t neighbour_handshake = 0;
 
-    unsigned char padding2[14];
+    uint32_t padding2[1]{};
 
+    // This is the local primary core.
     volatile uint16_t is_primary = false;
 
     volatile uint8_t primary_eth_core_x = 0;
 
     volatile uint8_t primary_eth_core_y = 0;
 
+    // This is on the MMIO.
     volatile uint16_t is_mmio = false;
 
     volatile InitState initial_state = InitState::UNKNOWN;
 
     volatile InitState current_state = InitState::UNKNOWN;
 
-    // Set to 1 to enable routing.
-    volatile uint32_t routing_enabled = 1;
+    unsigned char padding3[14]{};
+
+    volatile RoutingEnabledState routing_enabled = RoutingEnabledState::STOPPED;
+
+    unsigned char padding4[14]{};
 } __attribute__((packed));
 
 static_assert(sizeof(LiteFabricConfig) % 16 == 0);
@@ -131,7 +147,7 @@ public:
     static void increment() { event.fetch_add(1); }
 };
 
-// Interface for Host to MMIO Lite Fabric
+// Interface for Host to MMIO Lite Fabric.
 template <uint32_t NUM_BUFFERS, uint32_t CHANNEL_BUFFER_SIZE>
 struct HostToLiteFabricInterface {
     // This values are updated by the device and read to the host.
@@ -175,24 +191,25 @@ struct HostToLiteFabricInterface {
         write_noc_addr(mem_ptr, size, sender_core, dst_noc_addr);
     }
 
-    void barrier(CoreCoord virtual_core_sender) {
+    void barrier(CoreCoord translated_core_sender) {
         uint32_t barrier_value = 0xca11ba11;
         const auto do_barrier =
-            [&](const CoreCoord& virtual_core, const std::string& core_type_name, uint32_t barrier_addr) -> void {
-            const uint64_t dest_noc_upper = (uint64_t(virtual_core.y) << (36 + 6)) | (uint64_t(virtual_core.x) << 36);
+            [&](const CoreCoord& translated_core, const std::string& core_type_name, uint32_t barrier_addr) -> void {
+            const uint64_t dest_noc_upper =
+                (uint64_t(translated_core.y) << (36 + 6)) | (uint64_t(translated_core.x) << 36);
             uint64_t dest_noc_addr = dest_noc_upper | (uint64_t)barrier_addr;
-            write_one_page(&barrier_value, sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+            write_one_page(&barrier_value, sizeof(uint32_t), translated_core_sender, dest_noc_addr);
 
             uint32_t read_barrier = 0;
-            read_one_page(&read_barrier, sizeof(uint32_t), virtual_core_sender, dest_noc_addr);
+            read_one_page(&read_barrier, sizeof(uint32_t), translated_core_sender, dest_noc_addr);
 
             if (read_barrier != barrier_value) {
                 throw std::runtime_error(fmt::format(
                     "Lite fabric barrier failed. Chip memory corruption on {} translated core ({}, {}): barrier value "
                     "mismatch {:#x} != {:#x}",
                     core_type_name,
-                    virtual_core.x,
-                    virtual_core.y,
+                    translated_core.x,
+                    translated_core.y,
                     read_barrier,
                     barrier_value));
             }
@@ -220,18 +237,18 @@ private:
         return channel_address + buffer_index * CHANNEL_BUFFER_SIZE;
     }
 
-    void wait_for_empty_write_slot(CoreCoord virtual_core_sender) {
+    void wait_for_empty_write_slot(CoreCoord translated_core_sender) {
         uint32_t offset = offsetof(HostToLiteFabricInterface, d2h);
         do {
             tt_device->read_from_device(
                 (void*)(reinterpret_cast<uintptr_t>(this) + offset),
-                virtual_core_sender,
+                translated_core_sender,
                 host_interface_on_device_addr + offset,
                 sizeof(DeviceToHost));
         } while ((h2d.sender_host_write_index + 1) % NUM_BUFFERS == d2h.fabric_sender_channel_index);
     }
 
-    void wait_for_read_event(CoreCoord virtual_core_sender, uint32_t read_event_addr) {
+    void wait_for_read_event(CoreCoord translated_core_sender, uint32_t read_event_addr) {
         tt_driver_atomics::mfence();
         volatile FabricLiteHeader header;
         header.command_fields.noc_read.event = 0;
@@ -239,7 +256,7 @@ private:
         while (true) {
             tt_device->read_from_device(
                 const_cast<void*>(static_cast<volatile void*>(&header)),
-                virtual_core_sender,
+                translated_core_sender,
 
                 read_event_addr,
                 sizeof(FabricLiteHeader));
@@ -257,28 +274,31 @@ private:
     }
 
     void send_payload_flush_non_blocking_from_address(
-        FabricLiteHeader& header, CoreCoord virtual_core_sender, uint32_t channel_address) {
+        FabricLiteHeader& header, CoreCoord translated_core_sender, uint32_t channel_address) {
         if (!header.get_payload_size_excluding_header()) {
             return;
         }
 
         uint32_t addr = get_next_send_buffer_slot_address(channel_address);
+        header.debug = 0xcafe0000;
+        // Force all packets to be on NOC1 to avoid conflict with ERISC0 NOC0.
+        header.noc_send_type.fields.noc_index = 1;
 
-        tt_device->write_to_device(&header, virtual_core_sender, addr, sizeof(FabricLiteHeader));
+        tt_device->write_to_device(&header, translated_core_sender, addr, sizeof(FabricLiteHeader));
 
         // TODO: Membar shouldn't be need here because we are using TTDevice read/writes which
         // are using strict ordering so it should commit transactions in order they were issued.
-        // chip->l1_membar({virtual_core_sender});
+        // chip->l1_membar({translated_core_sender});
 
         h2d.sender_host_write_index =
             lite_fabric::wrap_increment<SENDER_NUM_BUFFERS_ARRAY[0]>(h2d.sender_host_write_index);
 
-        log_debug(LogSiliconDriver, "Flushing h2d sender_host_write_index to {}", h2d.sender_host_write_index);
-        flush_h2d(virtual_core_sender);
+        log_debug(LogUMD, "Flushing h2d sender_host_write_index to {}", h2d.sender_host_write_index);
+        flush_h2d(translated_core_sender);
     }
 
     void send_payload_without_header_non_blocking_from_address(
-        void* data, size_t size, CoreCoord virtual_core_sender, uint32_t channel_address) {
+        void* data, size_t size, CoreCoord translated_core_sender, uint32_t channel_address) {
         if (!size) {
             return;
         }
@@ -286,23 +306,23 @@ private:
             throw std::runtime_error("Payload size exceeds channel buffer size");
         }
         uint32_t addr = get_next_send_buffer_slot_address(channel_address) + sizeof(FabricLiteHeader);
-        log_debug(LogSiliconDriver, "Send {}B payload only {:#x}", size, addr);
-        tt_device->write_to_device(data, virtual_core_sender, addr, size);
+        log_debug(LogUMD, "Send {}B payload only {:#x}", size, addr);
+        tt_device->write_to_device(data, translated_core_sender, addr, size);
     }
 
-    void flush_h2d(CoreCoord virtual_core_sender) {
+    void flush_h2d(CoreCoord translated_core_sender) {
         tt_driver_atomics::mfence();
 
         tt_device->write_to_device(
             (void*)(reinterpret_cast<uintptr_t>(this) + offsetof(HostToLiteFabricInterface, h2d)),
-            virtual_core_sender,
+            translated_core_sender,
 
             host_interface_on_device_addr + offsetof(HostToLiteFabricInterface, h2d),
             sizeof(HostToDevice));
 
         // TODO: Membar shouldn't be need here because we are using TTDevice read/writes which
         // are using strict ordering so it should commit transactions in order they were issued.
-        // chip->l1_membar({virtual_core_sender});
+        // chip->l1_membar({translated_core_sender});
     }
 
     void write_one_page(void* mem_ptr, size_t size, CoreCoord sender_core, uint64_t dst_noc_addr) {
@@ -348,11 +368,14 @@ private:
 
         uint32_t receiver_header_address = get_next_receiver_buffer_slot_address(receiver_channel_base);
         log_debug(
-            LogSiliconDriver,
-            "Reading data from {} {:#x} unaligned {}",
+            LogUMD,
+            "Board {:#x} {} Reading data from {} {:#x} unaligned {} src node {:#x}",
+            tt_device->get_chip_info().board_id,
+            tt_device->get_chip_info().asic_location,
             receiver_core.str(),
             receiver_header_address,
-            header.unaligned_offset);
+            header.unaligned_offset,
+            src_noc_addr);
         uint32_t receiver_data_address = receiver_header_address + sizeof(FabricLiteHeader);
 
         wait_for_empty_write_slot(receiver_core);
@@ -400,14 +423,12 @@ private:
 __attribute__((packed));
 
 struct LiteFabricMemoryMap {
-    lite_fabric::LiteFabricConfig config;
-    EDMChannelWorkerLocationInfo sender_location_info;
     uint32_t sender_flow_control_semaphore{};
-    unsigned char padding0[12]{};
+    uint32_t padding0[3]{};
     uint32_t sender_connection_live_semaphore{};
-    unsigned char padding1[12]{};
+    uint32_t padding1[3]{};
     uint32_t worker_semaphore{};
-    unsigned char padding2[92]{};
+    uint32_t padding2[7]{};
     unsigned char sender_channel_buffer[lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0] * lite_fabric::CHANNEL_BUFFER_SIZE]{};
     unsigned char padding3[192]{};
     unsigned char
@@ -415,6 +436,10 @@ struct LiteFabricMemoryMap {
     // L1 address of the service_lite_fabric function.
     uint32_t service_lite_fabric_addr{};
     unsigned char padding4[12]{};
+
+    lite_fabric::LiteFabricConfig config;
+    lite_fabric::EDMChannelWorkerLocationInfo sender_location_info;
+
     // Must be last because it has members that are only stored on the host.
     HostToLiteFabricInterface<lite_fabric::SENDER_NUM_BUFFERS_ARRAY[0], lite_fabric::CHANNEL_BUFFER_SIZE>
         host_interface;
@@ -465,6 +490,7 @@ static_assert(offsetof(LiteFabricMemoryMap, sender_connection_live_semaphore) % 
 static_assert(offsetof(LiteFabricMemoryMap, worker_semaphore) % 16 == 0);
 static_assert(offsetof(LiteFabricMemoryMap, sender_channel_buffer) % GLOBAL_ALIGNMENT == 0);
 static_assert(offsetof(LiteFabricMemoryMap, receiver_channel_buffer) % GLOBAL_ALIGNMENT == 0);
+static_assert(offsetof(LiteFabricMemoryMap, config) % 16 == 0);
 static_assert(offsetof(LiteFabricMemoryMap, host_interface) % 16 == 0);
 
 }  // namespace lite_fabric

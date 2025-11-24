@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <memory>
+#include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "gtest/gtest.h"
-#include "tt-logger/tt-logger.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/jtag/jtag.hpp"
@@ -14,6 +15,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -27,30 +29,29 @@ protected:
 
     static void SetUpTestSuite() {
         if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
-            log_warning(
-                tt::LogSiliconDriver, "JTAG library does not exist at {}", JtagDevice::jtag_library_path.string());
+            log_warning(tt::LogUMD, "JTAG library does not exist at {}", JtagDevice::jtag_library_path.string());
             return;
         }
 
         auto potential_jlink_devices = Jtag(JtagDevice::jtag_library_path.c_str()).enumerate_jlink();
         if (!potential_jlink_devices.size()) {
-            log_warning(tt::LogSiliconDriver, "There are no Jlink devices connected..");
+            log_warning(tt::LogUMD, "There are no Jlink devices connected..");
             return;
         }
 
         auto jlink_device_count_ = JtagDevice::create()->get_device_cnt();
 
         if (!jlink_device_count_) {
-            log_warning(
-                tt::LogSiliconDriver, "Jlink devices discovered but not usable with current Jtag implementation.");
+            log_warning(tt::LogUMD, "Jlink devices discovered but not usable with current Jtag implementation.");
             return;
         }
 
         for (uint32_t jlink_device_id = 0; jlink_device_id < jlink_device_count_; ++jlink_device_id) {
             DeviceData device_data;
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
+            device_data.tt_device_->init_tt_device();
             auto soc_descriptor =
-                tt_SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
+                SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
             device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             device_data_.push_back(std::move(device_data));
         }
@@ -159,7 +160,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
             ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
             // Since we can have multiple chips with their own jlink,
             // we have to find the one which direct connection to PCIe link.
-            if (jtag_chip_info.chip_uid.board_id == chip_info.chip_uid.board_id &&
+            if (jtag_chip_info.board_id == chip_info.board_id &&
                 jtag_chip_info.asic_location == chip_info.asic_location) {
                 device.tt_device_->read_from_device(
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -181,7 +182,7 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
     uint64_t address = 0x0;
 
     for (const auto& device : device_data_) {
-        tt_SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
+        SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
         tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
         tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
 
@@ -218,7 +219,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     }
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -231,7 +232,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 

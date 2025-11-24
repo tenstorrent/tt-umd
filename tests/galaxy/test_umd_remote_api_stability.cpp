@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <cstdint>
+#include <filesystem>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "filesystem"
-#include "gtest/gtest.h"
 #include "tests/galaxy/test_galaxy_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
@@ -43,9 +42,9 @@ protected:
         }
     }
 
-    virtual int get_detected_num_chips() { return detected_num_chips; }
+    int get_detected_num_chips() override { return detected_num_chips; }
 
-    virtual bool is_test_skipped() { return skip_tests; }
+    bool is_test_skipped() override { return skip_tests; }
 };
 
 int WormholeGalaxyStabilityTestFixture::detected_num_chips = -1;
@@ -56,7 +55,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
     int seed = 0;
 
     assert(cluster != nullptr);
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfers");
+    log_info(LogUMD, "Started MixedRemoteTransfers");
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
@@ -85,7 +84,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
+    log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
     std::thread t1([&]() {

@@ -9,6 +9,7 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 
@@ -57,8 +58,6 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
-    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
-
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
 
@@ -69,7 +68,6 @@ public:
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
-    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 
@@ -78,7 +76,7 @@ public:
 
 private:
     LocalChip(
-        tt_SocDescriptor soc_descriptor,
+        SocDescriptor soc_descriptor,
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
@@ -108,5 +106,17 @@ private:
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
+
+    TlbWindow* get_cached_wc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_uc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
+
+    std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
+    std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
+    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
+
+    std::mutex wc_tlb_lock;
+    std::mutex uc_tlb_lock;
+    std::mutex pcie_dma_lock;
 };
 }  // namespace tt::umd

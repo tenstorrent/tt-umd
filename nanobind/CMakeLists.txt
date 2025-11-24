@@ -18,6 +18,18 @@ find_package(Python REQUIRED COMPONENTS Development.Module)
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp)
 
+# Error out if trying to build Python bindings with sanitizers
+# Python interpreters are not built with sanitizers, so the resulting wheel cannot be loaded
+if(CMAKE_BUILD_TYPE MATCHES "ASan|TSan")
+    message(
+        FATAL_ERROR
+        "Cannot build Python bindings (nanobind_tt_umd) with CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}. "
+        "Python interpreters are not built with sanitizers, resulting in undefined symbol errors. "
+        "Please use Release, RelWithDebInfo or Debug for Python builds, "
+        "or disable Python bindings with -DTT_UMD_BUILD_PYTHON=OFF"
+    )
+endif()
+
 # Set properties for the Python module
 set_target_properties(
     nanobind_tt_umd
@@ -35,45 +47,6 @@ set_target_properties(
         C_CLANG_TIDY
             ""
 )
-
-# Remove sanitizer flags from the Python module to avoid symbol conflicts.
-# Python interpreters are typically not built with sanitizers, so loading
-# a sanitizer-instrumented .so into Python causes undefined symbol errors.
-# The Python module will still link to the sanitizer-instrumented libdevice.so,
-# which provides the actual functionality being tested.
-if(CMAKE_BUILD_TYPE MATCHES "ASan|TSan")
-    message(STATUS "Removing sanitizer flags from nanobind_tt_umd Python module (BUILD_TYPE=${CMAKE_BUILD_TYPE})")
-
-    # Get current compile and link flags
-    get_target_property(CURRENT_COMPILE_OPTIONS nanobind_tt_umd COMPILE_OPTIONS)
-    get_target_property(CURRENT_LINK_OPTIONS nanobind_tt_umd LINK_OPTIONS)
-
-    # Remove sanitizer flags from compile options
-    if(CURRENT_COMPILE_OPTIONS)
-        list(FILTER CURRENT_COMPILE_OPTIONS EXCLUDE REGEX "-fsanitize=")
-        set_target_properties(
-            nanobind_tt_umd
-            PROPERTIES
-                COMPILE_OPTIONS
-                    "${CURRENT_COMPILE_OPTIONS}"
-        )
-    endif()
-
-    # Remove sanitizer flags from link options
-    if(CURRENT_LINK_OPTIONS)
-        list(FILTER CURRENT_LINK_OPTIONS EXCLUDE REGEX "-fsanitize=")
-        set_target_properties(
-            nanobind_tt_umd
-            PROPERTIES
-                LINK_OPTIONS
-                    "${CURRENT_LINK_OPTIONS}"
-        )
-    endif()
-
-    # Also override the flags at a lower level to ensure they don't get re-added
-    target_compile_options(nanobind_tt_umd PRIVATE -fno-sanitize=all)
-    target_link_options(nanobind_tt_umd PRIVATE -fno-sanitize=all)
-endif()
 
 # Also disable clang-tidy for the underlying third-party static lib if present
 if(TARGET nanobind-static)

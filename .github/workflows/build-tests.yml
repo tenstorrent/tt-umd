@@ -138,7 +138,17 @@ jobs:
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel
           echo "Compiling the code..."
-          pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          # Override CMAKE_BUILD_TYPE to Release for sanitizer builds to avoid symbol conflicts with Python
+          # Python interpreters are not built with sanitizers, so TSAN/ASAN wheels cannot be loaded
+          BUILD_TYPE="${{ inputs.build-type }}"
+          if [[ "$BUILD_TYPE" == "ASan" || "$BUILD_TYPE" == "TSan" ]]; then
+            echo "Overriding CMAKE_BUILD_TYPE from $BUILD_TYPE to Release for Python wheel compatibility"
+            WHEEL_BUILD_TYPE="Release"
+          else
+            echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
+            WHEEL_BUILD_TYPE="$BUILD_TYPE"
+          fi
+          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Compile complete."
 
       - name: Move python bindings tests in the same wheel folder

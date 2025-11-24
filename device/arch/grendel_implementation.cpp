@@ -30,7 +30,7 @@ std::tuple<xy_pair, xy_pair> grendel_implementation::multicast_workaround(xy_pai
 }
 
 tlb_configuration grendel_implementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
+    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= grendel::TLB_COUNT_2M && tlb_index < grendel::TLB_COUNT_2M + grendel::TLB_COUNT_4G) {
         return tlb_configuration{
             .size = grendel::DYNAMIC_TLB_4G_SIZE,

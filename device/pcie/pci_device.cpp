@@ -37,7 +37,7 @@ static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 // TLB windows and there is no longer a pre-defined WC/UC split.
 static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
 
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
+// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
@@ -59,7 +59,7 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
 
     std::istringstream iss(value_str);
 
-    // Handle hexadecimal input for integer types
+    // Handle hexadecimal input for integer types.
     if constexpr (std::is_integral_v<T>) {
         if (value_str.substr(0, 2) == "0x") {
             iss >> std::hex;
@@ -324,7 +324,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // Mapping resource to BAR
     // Resource 0 -> BAR0
     // Resource 1 -> BAR2
-    // Resource 2 -> BAR4
+    // Resource 2 -> BAR4.
     tenstorrent_mapping bar0_uc_mapping{};
     tenstorrent_mapping bar0_wc_mapping{};
     tenstorrent_mapping bar2_uc_mapping{};

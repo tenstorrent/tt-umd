@@ -124,7 +124,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     arc_messenger_->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), 0, 0);
 
-    // Print what just happened
+    // Print what just happened.
     uint32_t peer_region_start = region_id_to_use * region_size;
     uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
     log_debug(
@@ -511,7 +511,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
 }
 
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    // Status codes
+    // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
     constexpr uint32_t STATUS_BOOT_INCOMPLETE_1 = 0x00000060;
@@ -528,7 +528,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     constexpr uint32_t STATUS_MESSAGE_COMPLETE_MASK = 0x0000FFFF;
     constexpr uint32_t STATUS_MESSAGE_COMPLETE_MIN = 0x00000001;
 
-    // Post codes
+    // Post codes.
     constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_START = 0xC0DE0030;
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
@@ -564,7 +564,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
             sizeof(bar_read_arc_csm_pcie_dma_request));
 
-        // Handle known error/status codes
+        // Handle known error/status codes.
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
                 log_debug(LogUMD, "NoAccess error");
@@ -595,24 +595,24 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             }
         }
 
-        // Check for outstanding DMA request
+        // Check for outstanding DMA request.
         if (bar_read_arc_csm_pcie_dma_request != 0) {
             log_debug(LogUMD, "OutstandingPcieDMA error");
             continue;
         }
-        // Check for queued message
+        // Check for queued message.
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL) {
             uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
             log_debug(LogUMD, "MessageQueued error, message_id: {}", message_id);
             continue;
         }
-        // Check for message being handled
+        // Check for message being handled.
         if ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL) {
             uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
             log_debug(LogUMD, "HandlingMessage error, message_id: {}", message_id);
             continue;
         }
-        // Message complete, response written into bar_read_arc_reset_scratch_status
+        // Message complete, response written into bar_read_arc_reset_scratch_status.
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
             return true;
         }

@@ -8,7 +8,7 @@
 #include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
 
 #include "assert.hpp"
-// PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED
+// PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED.
 #include <errno.h>     // errno, ENOENT
 #include <fcntl.h>     // O_RDWR, O_CREATE
 #include <pthread.h>   // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
@@ -38,7 +38,7 @@ static constexpr uint64_t INITIALIZED_FLAG = 0x5454554d444d5458;  // TTUMDMTX
 // One might wonder, if this is already a guaranteed critical section, why do we need to go through all the pain
 // to setup pthread in shm? Quick benchmark gave this results averaged over 1 000 000 iterations:
 //   RobustMutex constructor + initialization + destructor: 40752 ns
-//   RobustMutex lock + unlock: 654 ns
+//   RobustMutex lock + unlock: 654 ns.
 class CriticalSectionScopeGuard {
 public:
     CriticalSectionScopeGuard(int fd, pthread_mutex_t* pthread_mutex, std::string_view mutex_name) :
@@ -223,7 +223,7 @@ bool RobustMutex::resize_shm_file() {
 }
 
 void RobustMutex::open_pthread_mutex() {
-    // Create a pthread_mutex based on the shared memory file descriptor
+    // Create a pthread_mutex based on the shared memory file descriptor.
     void* addr = mmap(NULL, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
     TT_ASSERT(addr != MAP_FAILED, "mmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     mutex_wrapper_ptr_ = static_cast<pthread_mutex_wrapper*>(addr);

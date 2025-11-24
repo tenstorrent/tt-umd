@@ -71,7 +71,7 @@ RemoteChip::RemoteChip(
     //   1. Adding get_remote_communication() to the TTDevice base interface (probably not)
     //   2. Restructuring the inheritance hierarchy to eliminate this dependency
     //   3. Using composition instead of inheritance for remote communication
-    // ToDo: Figure out a proper way to make an abstraction to redesign this
+    // ToDo: Figure out a proper way to make an abstraction to redesign this.
     if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
         remote_communication_ =
             dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();

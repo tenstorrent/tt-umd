@@ -141,7 +141,7 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
     }
 }
 
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc
+// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("write_regs is not applicable for JTAG communication type.");
@@ -474,7 +474,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("set_dynamic_tlb_broadcast is not applicable for JTAG communication type.");
     }
-    // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
+    // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid.
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
 

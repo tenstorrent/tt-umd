@@ -96,7 +96,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
     config.routing_enabled = RoutingEnabledState::ENABLED;
 
-    // Need an abstraction layer for Lite Fabric
+    // Need an abstraction layer for Lite Fabric.
     auto config_addr = get_config_address();
 
     for (const auto& tunnel_1x : eth_cores) {

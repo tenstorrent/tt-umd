@@ -23,7 +23,7 @@ namespace nb = nanobind;
 using namespace tt;
 using namespace tt::umd;
 
-// Helper function for easy creation of RemoteWormholeTTDevice
+// Helper function for easy creation of RemoteWormholeTTDevice.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
@@ -85,7 +85,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
-        // Compatibility with luwen's API - these methods just return self
+        // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",
             [](TTDevice &self) -> TTDevice & { return self; },

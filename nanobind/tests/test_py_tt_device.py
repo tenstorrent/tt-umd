@@ -5,23 +5,23 @@ import tt_umd
 
 class TestTTDevice(unittest.TestCase):
     def test_low_level_tt_device(self):
-        dev_ids = tt_umd.PCIDevice.enumerate_devices()
-        print("Devices found: ", dev_ids)
-        if (len(dev_ids) == 0):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", pci_ids)
+        if (len(pci_ids) == 0):
             print("No PCI devices found.")
             return
 
-        for dev_id in dev_ids:
-            dev = tt_umd.TTDevice.create(dev_id)
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
             dev.init_tt_device()
-            print(f"TTDevice id {dev_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}")
+            print(f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}")
             pci_dev = dev.get_pci_device()
             pci_info = pci_dev.get_device_info().pci_bdf
             print("pci bdf is ", pci_info)
 
             # Test noc_read32
-            val = dev.noc_read32(9, 0, 0)	            val = dev.noc_read32(9, 0, 0)
-            print("Read value from device, core 9,0 addr 0x0: ", val)	            print("Read value from device, core 9,0 addr 0x0: ", val)
+            val = dev.noc_read32(9, 0, 0)
+            print("Read value from device, core 9,0 addr 0x0: ", val)
 
             # Test noc_write32 and noc_read32
             original = dev.noc_read32(9, 0, 0x100)

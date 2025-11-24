@@ -301,17 +301,16 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void* RobustMutex::get_tsan_mutex_id() const {
-    // TSAN needs a stable pointer value to track mutex synchronization across processes.
-    // Since this is a cross-process mutex:
-    // - shm_fd_ varies per process (and gets closed after init)
-    // - mutex_wrapper_ptr_ varies per process (each process mmaps to different virtual addresses)
+    // TSAN needs a valid pointer value to track mutex synchronization.
+    // For cross-process mutexes, TSAN cannot properly track synchronization across
+    // process boundaries using the standard __tsan_acquire/__tsan_release annotations
+    // because each process has different virtual address mappings.
     //
-    // Solution: Use the hash of mutex_name_ as a stable identifier.
-    // The mutex_name_ is identical across all processes using the same mutex,
-    // so its hash will produce the same value everywhere, giving TSAN a consistent
-    // identifier to track happens-before relationships across process boundaries.
-    std::hash<std::string> hasher;
-    return reinterpret_cast<void*>(hasher(mutex_name_));
+    // The safest approach is to use the actual mutex address within this process.
+    // While this won't provide cross-process synchronization visibility to TSAN,
+    // it will at least work correctly within a single process and won't cause crashes.
+    // The actual mutex synchronization is still provided by the robust pthread mutex.
+    return static_cast<void*>(&mutex_wrapper_ptr_->mutex);
 }
 
 void RobustMutex::unlock() {

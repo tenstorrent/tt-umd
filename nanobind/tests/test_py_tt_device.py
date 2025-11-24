@@ -19,34 +19,37 @@ class TestTTDevice(unittest.TestCase):
             pci_info = pci_dev.get_device_info().pci_bdf
             print("pci bdf is ", pci_info)
 
+            soc_descriptor = tt_umd.SocDescriptor(dev)
+            tensix_core = soc_descriptor.get_cores(tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED)[0]
+
             # Test noc_read32
-            val = dev.noc_read32(9, 0, 0)
-            print("Read value from device, core 9,0 addr 0x0: ", val)
+            val = dev.noc_read32(tensix_core.x, tensix_core.y, 0)
+            print(f"Read value from device, core {tensix_core.x},{tensix_core.y} addr 0x0: {val}")
 
             # Test noc_write32 and noc_read32
-            original = dev.noc_read32(9, 0, 0x100)
+            original = dev.noc_read32(tensix_core.x, tensix_core.y, 0x100)
             test_val = 0xABCD1234
-            dev.noc_write32(9, 0, 0x100, test_val)
-            read_back = dev.noc_read32(9, 0, 0x100)
+            dev.noc_write32(tensix_core.x, tensix_core.y, 0x100, test_val)
+            read_back = dev.noc_read32(tensix_core.x, tensix_core.y, 0x100)
             print(f"noc_write32/read32: wrote 0x{test_val:08x}, read 0x{read_back:08x}")
-            dev.noc_write32(9, 0, 0x100, original)  # Restore
+            dev.noc_write32(tensix_core.x, tensix_core.y, 0x100, original)  # Restore
 
             # Test noc_read and noc_write
-            original_data = dev.noc_read(9, 0, 0x200, 16)
+            original_data = dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16)
             test_data = bytes([i for i in range(16)])
-            dev.noc_write(9, 0, 0x200, test_data)
-            read_data = dev.noc_read(9, 0, 0x200, 16)
+            dev.noc_write(tensix_core.x, tensix_core.y, 0x200, test_data)
+            read_data = dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16)
             print(f"noc_write/read: wrote {test_data.hex()}, read {read_data.hex()}")
-            dev.noc_write(9, 0, 0x200, original_data)  # Restore
+            dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
 
             # Test noc_read with buffer parameter
             buffer_size = 32
             buffer = bytearray(buffer_size)
-            dev.noc_read(0, 9, 0, 0x300, buffer)
+            dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, buffer)
             print(f"noc_read with buffer: read {buffer.hex()}")
 
             # Verify buffer version matches the original version
-            data_via_original = dev.noc_read(9, 0, 0x300, buffer_size)
+            data_via_original = dev.noc_read(tensix_core.x, tensix_core.y, 0x300, buffer_size)
             self.assertEqual(bytes(buffer), data_via_original, 
                            "Buffer-based noc_read should match original noc_read")
             print(f"noc_read buffer version verified against original version")

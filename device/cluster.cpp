@@ -349,12 +349,13 @@ HarvestingMasks Cluster::get_harvesting_masks(
     HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     log_info(
         LogUMD,
-        "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
-        "{:#x}).",
+        "Harvesting masks for chip {} tensix: {:#x} dram: {:#x} eth: {:#x} pcie: {:#x} l2cpu: {:#x}",
         chip_id,
         cluster_harvesting_masks.tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
-        cluster_harvesting_masks.tensix_harvesting_mask,
-        simulated_harvesting_masks.tensix_harvesting_mask);
+        cluster_harvesting_masks.dram_harvesting_mask | simulated_harvesting_masks.dram_harvesting_mask,
+        cluster_harvesting_masks.eth_harvesting_mask | simulated_harvesting_masks.eth_harvesting_mask,
+        cluster_harvesting_masks.pcie_harvesting_mask | simulated_harvesting_masks.pcie_harvesting_mask,
+        cluster_harvesting_masks.l2cpu_harvesting_mask | simulated_harvesting_masks.l2cpu_harvesting_mask);
 
     return cluster_harvesting_masks | simulated_harvesting_masks;
 }

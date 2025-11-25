@@ -20,9 +20,9 @@ TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_m
     tt_tlb_alloc(
         tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
-    tt_tlb_get_id(tlb_handle_, (uint32_t*)&tlb_id);
+    tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
 
-    tt_tlb_get_mmio(tlb_handle_, (void**)&tlb_base);
+    tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
 }
 
 TlbHandle::~TlbHandle() noexcept { free_tlb(); }

@@ -19,9 +19,9 @@ public:
 
     uint32_t read32(uint64_t offset);
 
-    void write_register(uint64_t offset, uint32_t value);
+    void write_register(uint64_t offset, const void* data, size_t size);
 
-    uint32_t read_register(uint64_t offset);
+    void read_register(uint64_t offset, void* data, size_t size);
 
     void write_block(uint64_t offset, const void* data, size_t size);
 
@@ -49,6 +49,10 @@ private:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     static void memcpy_from_device(void* dest, const void* src, std::size_t num_bytes);
     static void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
+
+    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
+
+    void read_regs(void* src_reg, uint32_t word_len, void* data);
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;

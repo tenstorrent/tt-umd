@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -323,9 +324,12 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
     bool eth_fw_problem = false;
     if (!first_eth_fw_version.has_value()) {
         log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(LogUMD, "UMD supported minimum WH ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        log_debug(
+            LogUMD,
+            "UMD supported minimum WH ETH FW version: {}",
+            erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION.to_string());
         first_eth_fw_version = eth_fw_version;
-        if (ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+        if (erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }

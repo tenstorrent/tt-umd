@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
@@ -19,10 +20,10 @@
 namespace tt::umd::erisc_firmware {
 
 // ERISC FW versions required by UMD.
-constexpr semver_t BH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(1, 4, 1);
-constexpr semver_t WH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(6, 0, 0);
-constexpr semver_t WH_ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = semver_t(6, 5, 0);
-constexpr semver_t WH_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = semver_t(6, 8, 0);
+constexpr semver_t BH_MIN_ERISC_FW_SUPPORTED_VERSION = semver_t(1, 4, 1);
+constexpr semver_t WH_MIN_ERISC_FW_SUPPORTED_VERSION = semver_t(6, 0, 0);
+constexpr semver_t WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED = semver_t(6, 5, 0);
+constexpr semver_t WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS = semver_t(6, 8, 0);
 
 // Maps firmware bundle versions to their corresponding ERISC firmware versions.
 // Bundle versions between entries inherit the ERISC version from the previous entry.
@@ -41,8 +42,8 @@ static const std::vector<std::pair<semver_t, semver_t>> BH_ERISC_FW_VERSION_MAP 
     {{18, 12, 0}, {1, 7, 0}}};
 
 struct HashedAddressRange {
-    uint32_t start_address;
-    uint32_t size;
+    size_t start_address;
+    size_t size;
     std::string sha256_hash;
 };
 

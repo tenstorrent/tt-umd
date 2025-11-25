@@ -12,6 +12,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
@@ -304,9 +305,12 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     bool eth_fw_problem = false;
     if (!first_eth_fw_version.has_value()) {
         log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(LogUMD, "UMD supported minimum BH ETH FW version: {}", BH_ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
+        log_debug(
+            LogUMD,
+            "UMD supported minimum BH ETH FW version: {}",
+            erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION.to_string());
         first_eth_fw_version = eth_fw_version;
-        if (BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+        if (erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }

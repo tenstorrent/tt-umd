@@ -257,8 +257,6 @@ enum tt_dma_map_flags {
      * given Blackhole's larger address space.
      */
     TT_DMA_FLAG_NOC_TOP_DOWN = 1 << 1,
-
-    TT_DMA_FLAG_CONTIGUOUS = 1 << 2, /**< Request physically contiguous memory */
 };
 
 /**

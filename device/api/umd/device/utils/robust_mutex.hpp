@@ -72,10 +72,6 @@ private:
     // Performs initialization for the first time pthread mutex use.
     void initialize_pthread_mutex_first_use();
 
-    // Returns a stable pointer value for TSAN annotations that is identical across all processes
-    // using this mutex. This allows TSAN to properly track synchronization across process boundaries.
-    void* get_tsan_mutex_id() const;
-
     // Used for critical section needed during initialization.
     static pthread_mutex_t multithread_mutex_;
 

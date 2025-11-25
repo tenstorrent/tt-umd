@@ -100,8 +100,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     uint64_t core_src,
     uint32_t size_in_bytes,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
-
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -122,6 +120,11 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = reinterpret_cast<routing_cmd_t*>(&erisc_command[0]);
+    //
+    //                    MUTEX ACQUIRE (NON-MMIO)
+    //  do not locate any ethernet core reads/writes before this acquire
+    //
+    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
 
     const tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
@@ -339,7 +342,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     bool broadcast,
     std::vector<int> broadcast_header,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
     flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;
@@ -368,6 +370,12 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
+
+    //
+    //                    MUTEX ACQUIRE (NON-MMIO)
+    //  do not locate any ethernet core reads/writes before this acquire
+    //
+    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
 
     tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 

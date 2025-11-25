@@ -87,10 +87,19 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 }
 
 uint32_t BlackholeArcMessageQueue::send_message(
-    const ArcMessageType message_type, uint16_t arg0, uint16_t arg1, const std::chrono::milliseconds timeout_ms) {
-    uint32_t arg = arg0 | (arg1 << 16);
+    const ArcMessageType message_type, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
+    if (args.size() > 7) {
+        throw std::runtime_error(
+            fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
+    }
 
-    std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, arg, 0, 0, 0, 0, 0, 0};
+    // Initialize with zeros for unused args.
+    std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, 0, 0, 0, 0, 0, 0, 0};
+
+    // Copy provided arguments.
+    for (size_t i = 0; i < args.size(); i++) {
+        request[i + 1] = args[i];
+    }
 
     push_request(request, timeout_ms);
 

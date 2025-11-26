@@ -52,8 +52,7 @@ public:
      */
     uint32_t send_message(
         const ArcMessageType message_type,
-        uint16_t arg0 = 0,
-        uint16_t arg1 = 0,
+        const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT);
 
     static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(

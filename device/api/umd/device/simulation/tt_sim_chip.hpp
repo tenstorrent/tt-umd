@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <cstdint>
 #include <filesystem>
 
@@ -16,7 +18,11 @@ namespace tt::umd {
 // TTSIM implementation using dynamic library (.so files).
 class TTSimChip : public SimulationChip {
 public:
-    TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+    TTSimChip(
+        const std::filesystem::path& simulator_directory,
+        SocDescriptor soc_descriptor,
+        ChipId chip_id,
+        bool copy_sim_binary = false);
     ~TTSimChip() override;
 
     void start_device() override;
@@ -31,8 +37,14 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 private:
+    void create_simulator_binary();
+    off_t resize_simulator_binary(int src_fd);
+    void copy_simulator_binary();
+    void secure_simulator_binary();
+    void close_simulator_binary();
+    void load_simulator_library(const std::filesystem::path& path);
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    std::filesystem::path copied_simulator_directory_;
+    int copied_simulator_fd_ = -1;
 
     void* libttsim_handle = nullptr;
     uint32_t libttsim_pci_device_id = 0;

@@ -10,6 +10,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace nb = nanobind;
 
@@ -64,4 +65,28 @@ void bind_basic_types(nb::module_ &m) {
         .value("UNKNOWN", tt::BoardType::UNKNOWN)
         .def("__str__", &tt::board_type_to_string)
         .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
+
+    nb::class_<semver_t>(m, "semver_t")
+        .def(nb::init<>())
+        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
+        .def(nb::init<const std::string &>(), nb::arg("version_str"))
+        .def_rw("major", &semver_t::major)
+        .def_rw("minor", &semver_t::minor)
+        .def_rw("patch", &semver_t::patch)
+        .def("to_string", &semver_t::to_string)
+        .def("__str__", &semver_t::to_string)
+        .def("__lt__", &semver_t::operator<)
+        .def("__le__", &semver_t::operator<=)
+        .def("__gt__", &semver_t::operator>)
+        .def("__ge__", &semver_t::operator>=)
+        .def("__eq__", &semver_t::operator==)
+        .def("__ne__", &semver_t::operator!=);
+
+    // Utility functions for BoardType
+    m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
+    m.def(
+        "board_type_from_string",
+        &tt::board_type_from_string,
+        nb::arg("board_type_str"),
+        "Convert string to BoardType");
 }

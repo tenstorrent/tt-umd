@@ -4,6 +4,8 @@
 #include "umd/device/tt_device/tt_device.hpp"
 
 #include <chrono>
+#include <csetjmp>
+#include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -25,6 +27,22 @@
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
+static thread_local sigjmp_buf point;
+static thread_local bool jump_set = false;
+
+void sigbus_handler(int sig) {
+    // When this runs, it runs INSIDE the thread that crashed.
+    // So 'jump_set' refers to THIS thread's variable.
+    if (jump_set) {
+        // 'point' refers to THIS thread's buffer.
+        siglongjmp(point, 1);
+    } else {
+        // Crash happened outside our safe block.
+        // Revert to default handler (crash and dump core)
+        signal(sig, SIG_DFL);
+        raise(sig);
+    }
+}
 
 namespace tt::umd {
 
@@ -476,6 +494,99 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     }
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
+}
+
+void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if (reset_in_progress) {
+        throw std::runtime_error("SIGBUS");
+    }
+
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    TlbWindow *tlb_window = get_cached_tlb_window(config);
+
+    if (sigsetjmp(point, 1) == 0) {
+        jump_set = true;
+
+        while (size > 0) {
+            if (reset_in_progress) {
+                jump_set = false;
+                throw std::runtime_error("SIGBUS");
+            }
+
+            uint32_t tlb_size = tlb_window->get_size();
+
+            uint32_t transfer_size = std::min(size, tlb_size);
+
+            tlb_window->write_block(0, buffer_addr, transfer_size);
+
+            size -= transfer_size;
+            addr += transfer_size;
+            buffer_addr += transfer_size;
+
+            config.local_offset = addr;
+            tlb_window->configure(config);
+        }
+        jump_set = false;
+    } else {
+        jump_set = false;
+        throw std::runtime_error("SIGBUS");
+    }
+}
+
+void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if (reset_in_progress) {
+        throw std::runtime_error("SIGBUS");
+    }
+
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    TlbWindow *tlb_window = get_cached_tlb_window(config);
+
+    if (sigsetjmp(point, 1) == 0) {
+        jump_set = true;
+
+        while (size > 0) {
+            if (reset_in_progress) {
+                jump_set = false;
+                throw std::runtime_error("SIGBUS");
+            }
+
+            uint32_t tlb_size = tlb_window->get_size();
+
+            uint32_t transfer_size = std::min(size, tlb_size);
+
+            tlb_window->write_block(0, buffer_addr, transfer_size);
+
+            size -= transfer_size;
+            addr += transfer_size;
+            buffer_addr += transfer_size;
+
+            config.local_offset = addr;
+            tlb_window->configure(config);
+        }
+
+        jump_set = false;
+    } else {
+        jump_set = false;
+        throw std::runtime_error("SIGBUS");
+    }
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

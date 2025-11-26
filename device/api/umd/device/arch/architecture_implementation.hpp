@@ -63,8 +63,8 @@ public:
     virtual uint32_t get_tlb_base_index_16m() const = 0;
     virtual uint32_t get_tensix_soft_reset_addr() const = 0;
     virtual uint32_t get_debug_reg_addr() const = 0;
-    virtual uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const = 0;
-    virtual tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
+    virtual uint32_t get_soft_reset_reg_value(RiscType risc_type) const = 0;
+    virtual RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
     virtual uint32_t get_grid_size_x() const = 0;
     virtual uint32_t get_grid_size_y() const = 0;

@@ -237,7 +237,7 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         return device_ids;
     }
 
-    std::unordered_set<int> visible_devices = tt::umd::utils::get_visible_devices(pci_target_devices);
+    std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
 
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();

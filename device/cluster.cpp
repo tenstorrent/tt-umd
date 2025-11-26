@@ -407,7 +407,7 @@ Cluster::Cluster(ClusterOptions options) {
     } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
         // Filter devices only when a cluster descriptor is passed for simulation.
         // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        auto visible_devices = utils::get_visible_devices(options.target_devices);
         if (!visible_devices.empty()) {
             cluster_desc =
                 ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);

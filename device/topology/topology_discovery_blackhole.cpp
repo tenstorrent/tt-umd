@@ -204,7 +204,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
 
         Chip* remote_chip_ptr = get_chip(remote_chip);
 
-        auto eth_core_noc0 = tt::umd::blackhole::ETH_CORES_NOC0[remote_channel];
+        auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
         CoreCoord logical_coord =
             remote_chip_ptr->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);

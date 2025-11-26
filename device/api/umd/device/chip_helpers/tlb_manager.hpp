@@ -41,7 +41,7 @@ public:
     TlbWindow* get_tlb_window(const tt_xy_pair core);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
-        tlb_data config, const tt::umd::TlbMapping mapping = tt::umd::TlbMapping::WC, const size_t tlb_size = 0);
+        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
 
 private:
     // TODO: move these functions to the layer below, or make separate functions

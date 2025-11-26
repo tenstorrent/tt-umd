@@ -18,10 +18,12 @@
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
+using namespace tt::umd;
+
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     Cluster device;
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
@@ -120,7 +122,7 @@ void run_data_mover_test(
     ASSERT_TRUE(it != target_devices.end())
         << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
@@ -232,7 +234,7 @@ void run_data_broadcast_test(
             << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
     }
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);

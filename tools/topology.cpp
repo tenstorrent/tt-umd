@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::unordered_set<int> device_ids = {};
-    tt::umd::IODeviceType device_type = IODeviceType::PCIe;
+    IODeviceType device_type = IODeviceType::PCIe;
 
     if (result["jtag"].as<bool>()) {
         device_type = IODeviceType::JTAG;

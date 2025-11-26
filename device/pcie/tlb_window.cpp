@@ -11,6 +11,8 @@
 
 #include "umd/device/pcie/pci_device.hpp"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
@@ -73,6 +75,59 @@ void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
         memcpy_from_device(dst, (void *)src, size);
     } else {
         memcpy((void *)dst, (void *)src, size);
+    }
+}
+
+void TlbWindow::read_block_reconfigure(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    configure(config);
+
+    while (size > 0) {
+        uint32_t tlb_size = get_size();
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        read_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+        configure(config);
+    }
+}
+
+void TlbWindow::write_block_reconfigure(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    configure(config);
+
+    while (size > 0) {
+        uint32_t tlb_size = get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        write_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+        configure(config);
     }
 }
 

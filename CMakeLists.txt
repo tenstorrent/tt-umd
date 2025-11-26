@@ -69,6 +69,7 @@ option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
 option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
+option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
 
 # If BUILD_ALL is enabled, enable all individual build options
 if(TT_UMD_BUILD_ALL)

@@ -50,6 +50,7 @@ TT_UMD_BUILD_TESTS = "OFF"
 TT_UMD_BUILD_SIMULATION = "OFF" 
 TT_UMD_BUILD_PIP = "ON"
 TT_UMD_BUILD_PYTHON = "ON"
+TT_UMD_BUILD_STATIC = "ON"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"

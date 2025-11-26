@@ -11,18 +11,31 @@
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "ioctl.h"
 
 namespace tt::umd {
 
 TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
     tlb_size(size), tt_device_(tt_device), tlb_mapping(tlb_mapping) {
-    tt_tlb_alloc(
+    int ret_code = tt_tlb_alloc(
         tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
-    tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
+    if (ret_code != 0) {
+        TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
+    }
 
-    tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
+    ret_code = tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
+
+    if (ret_code != 0) {
+        TT_THROW("tt_tlb_get_id failed with error code {} for TLB size {}.", ret_code, size);
+    }
+
+    ret_code = tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
+
+    if (ret_code != 0) {
+        TT_THROW("tt_tlb_get_mmio failed with error code {} for TLB size {}.", ret_code, size);
+    }
 }
 
 TlbHandle::~TlbHandle() noexcept { free_tlb(); }

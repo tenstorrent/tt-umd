@@ -299,7 +299,12 @@ PCIDevice::PCIDevice(int pci_device_number) :
             KMD_MAP_TO_NOC.to_string());
     }
 
-    tt_device_open(device_path.c_str(), &tt_device_handle);
+    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle);
+
+    if (ret_code != 0) {
+        TT_THROW(
+            "tt_device_open failed with error code {} for PCI device with device ID {}.", ret_code, pci_device_number);
+    }
 
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
@@ -449,7 +454,16 @@ PCIDevice::PCIDevice(int pci_device_number) :
 }
 
 PCIDevice::~PCIDevice() {
-    tt_device_close(tt_device_handle);
+    int ret_code = tt_device_close(tt_device_handle);
+
+    if (ret_code != 0) {
+        log_warning(
+            LogUMD,
+            "tt_device_close failed with error code {} for PCI device with device ID {}.",
+            ret_code,
+            pci_device_num);
+    }
+
     close(pci_device_file_desc);
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {

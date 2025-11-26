@@ -145,13 +145,12 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
     }
 }
 
-TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
+TlbWindow *TTDevice::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
         cached_tlb_window = std::make_unique<TlbWindow>(
-            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC), config);
+            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC));
         return cached_tlb_window.get();
     }
-    cached_tlb_window->configure(config);
     return cached_tlb_window.get();
 }
 
@@ -162,30 +161,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = architecture_impl_->get_static_vc();
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
-
-    while (size > 0) {
-        uint32_t tlb_size = tlb_window->get_size();
-        uint32_t transfer_size = std::min(size, tlb_size);
-
-        tlb_window->read_block(0, buffer_addr, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-    }
+    get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -193,32 +169,9 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
+
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-
-    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = architecture_impl_->get_static_vc();
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
-
-    while (size > 0) {
-        uint32_t tlb_size = tlb_window->get_size();
-
-        uint32_t transfer_size = std::min(size, tlb_size);
-
-        tlb_window->write_block(0, buffer_addr, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-    }
+    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -354,7 +307,8 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = architecture_impl_->get_static_vc();
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
+    TlbWindow *tlb_window = get_cached_tlb_window();
+    tlb_window->configure(config);
 
     while (size > 0) {
         size_t tlb_size = tlb_window->get_size();

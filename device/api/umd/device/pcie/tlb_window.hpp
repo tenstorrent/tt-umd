@@ -28,9 +28,11 @@ public:
 
     void read_block(uint64_t offset, void* data, size_t size);
 
-    void read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void read_block_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
 
-    void write_block_reconfigure(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void write_block_reconfigure(
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
 
     TlbHandle& handle_ref() const;
 

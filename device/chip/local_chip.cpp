@@ -290,7 +290,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size);
+        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
     }
 }
 
@@ -317,7 +317,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size);
+        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
     }
 }
 

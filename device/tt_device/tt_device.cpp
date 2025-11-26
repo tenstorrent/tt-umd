@@ -35,16 +35,58 @@ void sigbus_handler(int sig) {
     // So 'jump_set' refers to THIS thread's variable.
     if (jump_set) {
         // 'point' refers to THIS thread's buffer.
+        std::cout << "Long jump!" << std::endl;
         siglongjmp(point, 1);
     } else {
         // Crash happened outside our safe block.
         // Revert to default handler (crash and dump core)
+        std::cout << "Crashed!" << std::endl;
         signal(sig, SIG_DFL);
         raise(sig);
     }
 }
 
 namespace tt::umd {
+
+TTDeviceDummy::TTDeviceDummy() {
+    // Register the signal handler for SIGBUS
+    struct sigaction sa;
+    sa.sa_handler = sigbus_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGBUS, &sa, nullptr);
+}
+
+void TTDeviceDummy::dummy_safe() {
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if (reset_in_progress) {
+        throw std::runtime_error("SIGBUS");
+    }
+
+    if (sigsetjmp(point, 1) == 0) {
+        jump_set = true;
+        std::cout << "TID: " << pthread_self() << " was in == 0" << std::endl;
+        while (1) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+
+        jump_set = false;
+    } else {
+        jump_set = false;
+        std::cout << "TID: " << pthread_self() << " was in != 0" << std::endl;
+        throw std::runtime_error("SIGBUS");
+    }
+}
+
+void TTDeviceDummy::dummy() {
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    std::cout << "TID: " << pthread_self() << " was in == 0" << std::endl;
+    while (1) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+}
 
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 

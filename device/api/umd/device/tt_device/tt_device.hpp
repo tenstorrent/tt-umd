@@ -397,4 +397,16 @@ private:
     std::mutex tt_device_io_lock;
 };
 
+class TTDeviceDummy {
+public:
+    std::atomic<bool> reset_in_progress{false};
+    std::mutex tt_device_io_lock;
+
+    TTDeviceDummy();
+
+    void dummy_safe();
+
+    void dummy();
+};
+
 }  // namespace tt::umd

@@ -34,24 +34,34 @@ TEST(ApiTTDeviceTest, NotifyAsio) {
 }
 
 TEST(ApiTTDeviceTest, TestLongJump) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+    // if (pci_device_ids.empty()) {
+    //     GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    // }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
-    tt_device->init_tt_device();
+    std::unique_ptr<TTDeviceDummy> tt_device = std::make_unique<TTDeviceDummy>();
+    // tt_device->init_tt_device();
+
+    // Mutex for serializing console output
+    std::mutex cout_mutex;
 
     // Thread ID that will be used by the main thread to send SIGBUS
     std::atomic<pthread_t> working_thread_id{0};
+    std::atomic<pthread_t> blocked_thread_id{0};
+    std::atomic<pthread_t> unsafe_thread_id{0};
     std::atomic<bool> worker_started{false};
     std::atomic<bool> signal_sent{false};
     std::atomic<bool> exception_caught{false};
 
     // Worker thread 1: calls dummy_safe() and gets stuck in infinite loop
+
     std::thread worker_thread([&]() {
         working_thread_id.store(pthread_self());
+        {
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cout << "Worker TID: " << pthread_self() << std::endl;
+        }
         worker_started.store(true);
 
         try {
@@ -64,6 +74,11 @@ TEST(ApiTTDeviceTest, TestLongJump) {
 
     // Worker thread 2: tries to call dummy_safe() but will block on the mutex
     std::thread blocked_thread([&]() {
+        blocked_thread_id.store(pthread_self());
+        {
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cout << "Blocked Safe TID: " << pthread_self() << std::endl;
+        }
         // Wait for worker thread to be inside dummy_safe
         while (!worker_started.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -80,13 +95,37 @@ TEST(ApiTTDeviceTest, TestLongJump) {
         }
     });
 
+    // Worker thread 3: calls dummy() (NOT safe) - no jump_set flag, will crash if it receives SIGBUS
+    std::thread unsafe_thread([&]() {
+        unsafe_thread_id.store(pthread_self());
+        {
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cout << "Blocked Unsafe TID: " << pthread_self() << std::endl;
+        }
+        // Wait for worker thread to be inside dummy_safe
+        while (!worker_started.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Give worker thread time to acquire the lock
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        try {
+            // This should block until worker thread releases the lock
+            // If this thread receives SIGBUS while blocked, it will crash (jump_set is false)
+            tt_device->dummy();
+        } catch (const std::runtime_error& e) {
+            std::cout << "Unsafe thread caught exception: " << e.what() << std::endl;
+        }
+    });
+
     // Main thread: wait for worker to start, then send SIGBUS
     while (!worker_started.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     // Give worker thread time to be well into the infinite loop
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5'000));
 
     pthread_t target_thread = working_thread_id.load();
     ASSERT_NE(target_thread, (pthread_t)0) << "Worker thread ID not set";
@@ -102,10 +141,12 @@ TEST(ApiTTDeviceTest, TestLongJump) {
     // Verify the exception was caught
     EXPECT_TRUE(exception_caught.load()) << "Worker thread did not catch SIGBUS exception";
 
-    // Clean up blocked thread (it should be able to proceed now or we'll terminate it)
+    // Clean up blocked threads (they should be able to proceed now or we'll terminate them)
     blocked_thread.detach();
+    unsafe_thread.detach();
 
     std::cout << "Test completed successfully: SIGBUS was caught and handled" << std::endl;
+    std::cout << "Unsafe thread ID was: " << unsafe_thread_id.load() << " (did not receive SIGBUS)" << std::endl;
 }
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {

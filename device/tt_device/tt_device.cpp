@@ -576,6 +576,7 @@ void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
 
             config.local_offset = addr;
             tlb_window->configure(config);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         jump_set = false;
     } else {
@@ -622,27 +623,6 @@ void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
 
             config.local_offset = addr;
             tlb_window->configure(config);
-        }
-
-        jump_set = false;
-    } else {
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
-    }
-}
-
-void TTDevice::dummy_safe() {
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
-
-    if (reset_in_progress) {
-        throw std::runtime_error("SIGBUS");
-    }
-
-    if (sigsetjmp(point, 1) == 0) {
-        jump_set = true;
-
-        while (1) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
 
         jump_set = false;

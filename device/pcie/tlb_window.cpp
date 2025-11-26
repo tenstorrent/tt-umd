@@ -78,14 +78,15 @@ void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     }
 }
 
-void TlbWindow::read_block_reconfigure(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TlbWindow::read_block_reconfigure(
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
+    config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     configure(config);
 
@@ -104,14 +105,15 @@ void TlbWindow::read_block_reconfigure(void *mem_ptr, tt_xy_pair core, uint64_t 
     }
 }
 
-void TlbWindow::write_block_reconfigure(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TlbWindow::write_block_reconfigure(
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
     const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
+    config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     configure(config);
 

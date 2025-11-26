@@ -23,7 +23,10 @@ public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     static std::unique_ptr<SimulationChip> create(
-        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+        const std::filesystem::path& simulator_directory,
+        SocDescriptor soc_descriptor,
+        ChipId chip_id,
+        size_t num_chips);
 
     virtual ~SimulationChip() = default;
 
@@ -64,8 +67,7 @@ public:
     int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
+        const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) override;
@@ -89,11 +91,9 @@ protected:
     // Simulator directory.
     // Common state variables.
     DriverNocParams noc_params;
-    std::set<ChipId> target_devices_in_cluster = {};
-    std::set<ChipId> target_remote_chips = {};
     tt::ARCH arch_name;
+    ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
-    std::unordered_map<ChipId, SocDescriptor> soc_descriptor_per_chip = {};
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

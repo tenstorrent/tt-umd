@@ -27,11 +27,19 @@ BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+    TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+}
+
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
     // application crashes -- this is a good example of why userspace should not
     // be touching this hardware resource directly -- but it's a good idea to
     // clean up after ourselves.
+    if (get_communication_device_type() != IODeviceType::PCIe) {
+        return;
+    }
     if (pci_device_->bar2_uc != nullptr && pci_device_->bar2_uc != MAP_FAILED) {
         auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
 
@@ -96,14 +104,15 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 }
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
     uint32_t niu_cfg;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-    } else {
-        read_regs(addr, 1, &niu_cfg);
-    }
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
 
+    if (get_communication_device_type() == IODeviceType::JTAG) {
+        // Target arc core.
+        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+    } else {
+        niu_cfg = bar_read32(addr);
+    }
     return ((niu_cfg >> 14) & 0x1) != 0;
 }
 

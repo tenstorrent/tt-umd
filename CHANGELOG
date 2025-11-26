@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0] - 2025-11-24
+
+### Changed
+
+Change the usage of TLBs such that KMD is in control of TLB allocation instead of UMD.
+TLBs are now allocated using KMD's dedicated API.
+
+## [0.5.3] - 2025-11-14
+
+### Changed
+
+Added generation of .deb and .rpm packages.
+Added three separate packages (runtime, development and python).
+
 ## [0.5.1] - 2025-11-12
 
 ### Changed

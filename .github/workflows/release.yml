@@ -235,19 +235,20 @@ jobs:
           } >> $GITHUB_OUTPUT
 
   build-cpp-artifacts:
-    name: Build C++ Artifacts (${{ matrix.ubuntu-docker-version }})
+    name: Build C++ Artifacts (${{ matrix.docker-version }})
     runs-on: ubuntu-22.04
     needs: prepare-release
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-docker-version: [
+        docker-version: [
           'ubuntu-22.04',
           'ubuntu-24.04',
+          'fedora-39',
         ]
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.docker-version }}:latest
 
     steps:
       - uses: actions/checkout@v4
@@ -260,41 +261,43 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_TESTS=OFF \
             -DTT_UMD_BUILD_SIMULATION=OFF \
-            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_PIP=OFF \
+            -DTT_UMD_BUILD_PYTHON=ON \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
             -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_OUTPUT_DIR }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Install libraries and headers
+      - name: Generate .deb packages
+        if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
         run: |
-          echo "Installing libraries and public headers..."
-          cmake --install ${{ env.BUILD_OUTPUT_DIR }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
-          echo "Install complete."
-          echo "Installed files:"
-          find ${{ env.INSTALL_OUTPUT_DIR }} -type f | head -20
+          cpack -G DEB
 
-      # This is needed to preserve file permissions
-      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-      - name: Tar build and install artifacts
-        shell: bash
+      - name: Generate .rpm packages
+        if: ${{ contains(matrix.docker-version, 'fedora-') }}
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
         run: |
-          VERSION="${{ needs.prepare-release.outputs.version }}"
-          UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
-          ARTIFACT_NAME="tt-umd-v${VERSION}-${UBUNTU_VERSION}.tar"
+          cpack -G RPM
 
-          echo "Creating release archive with proper install structure..."
-          tar cvf "$ARTIFACT_NAME" \
-            --transform 's,^build/install/,,' \
-            ${{ env.INSTALL_OUTPUT_DIR }} \
-            ${{ env.LIB_OUTPUT_DIR }}
-
-      - name: Upload build artifacts archive
+      - name: Upload .deb packages
+        if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}
-          path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}.tar
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}/*.deb
+          if-no-files-found: error
+
+      - name: Upload .rpm packages
+        if: ${{ contains(matrix.docker-version, 'fedora-') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}/*.rpm
+          if-no-files-found: error
 
   build-python-wheels:
     name: Build Python Wheel (manylinux)
@@ -413,8 +416,9 @@ jobs:
           mkdir -p ./final-assets
 
           # Copy and organize all artifacts
-          find ./release-artifacts -type f -name "*.tar" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.whl" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.deb" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.rpm" -exec cp {} ./final-assets/ \;
 
           # List all assets that will be included
           echo "Release assets:"
@@ -432,10 +436,13 @@ jobs:
             ## 📦 What's Included
 
             ### C++ Build Artifacts
-            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-ubuntu-22.04.tar** - Ubuntu 22.04 build
-            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-ubuntu-24.04.tar** - Ubuntu 24.04 build
-
             Contains: Compiled C++ libraries, public headers, CMake config files, and dependencies.
+
+            ### System Packages (.deb / .rpm)
+            - **Ubuntu 22.04**: DEB packages are attached under Assets
+            - **Ubuntu 24.04**: DEB packages are attached under Assets
+            - **Fedora 39**: RPM packages are attached under Assets
+            - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
 
             ### Python Wheels
             - **manylinux_2_34 wheels** for Python 3.8-3.13 (x86_64)

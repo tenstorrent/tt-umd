@@ -87,10 +87,19 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 }
 
 uint32_t BlackholeArcMessageQueue::send_message(
-    const ArcMessageType message_type, uint16_t arg0, uint16_t arg1, const std::chrono::milliseconds timeout_ms) {
-    uint32_t arg = arg0 | (arg1 << 16);
+    const ArcMessageType message_type, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
+    if (args.size() > 7) {
+        throw std::runtime_error(
+            fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
+    }
 
-    std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, arg, 0, 0, 0, 0, 0, 0};
+    // Initialize with zeros for unused args.
+    std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, 0, 0, 0, 0, 0, 0, 0};
+
+    // Copy provided arguments.
+    for (size_t i = 0; i < args.size(); i++) {
+        request[i + 1] = args[i];
+    }
 
     push_request(request, timeout_ms);
 
@@ -118,7 +127,13 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     tt_device->read_from_arc_apb(&queue_control_block_addr, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));
 
     uint64_t queue_control_block;
-    tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
+    if (tt_device->get_communication_device_type() == IODeviceType::JTAG) {
+        queue_control_block = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr).value();
+        queue_control_block |=
+            ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
+    } else {
+        tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
+    }
 
     uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
     uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;

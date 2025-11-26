@@ -65,10 +65,9 @@ semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
     return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
 }
 
-std::optional<bool> verify_eth_fw_integrity(
-    TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version, tt::ARCH arch) {
+std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version) {
     const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
-    switch (arch) {
+    switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
             eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
             break;

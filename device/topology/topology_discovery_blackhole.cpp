@@ -331,8 +331,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     if (chip->is_mmio_capable()) {
         tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
             eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-        auto hash_check =
-            verify_eth_fw_integrity(chip->get_tt_device(), translated_eth_core, eth_fw_version, ARCH::BLACKHOLE);
+        auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), translated_eth_core, eth_fw_version);
         if (hash_check.has_value() && hash_check.value() == false) {
             log_warning(
                 LogUMD,

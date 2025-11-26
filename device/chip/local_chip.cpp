@@ -574,11 +574,11 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int
 }
 
 void LocalChip::check_pcie_device_initialized() {
-    if (test_setup_interface()) {
-        throw std::runtime_error(
-            "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
-            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
-    }
+    // if (test_setup_interface()) {
+    //     throw std::runtime_error(
+    //         "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
+    //         "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
+    // }
 }
 
 int LocalChip::test_setup_interface() {

@@ -29,10 +29,10 @@ public:
     constexpr semver_t() : major(0), minor(0), patch(0), pre_release(0) {}
 
     constexpr semver_t(std::uint32_t version) :
-        major((version >> 16) & 0xff), minor((version >> 12) & 0xf), patch(version & 0xfff), pre_release(0) {}
+	 major((version >> 16) & 0xff), minor((version >> 12) & 0xf), patch(version & 0xfff), pre_release(0) {}
 
-    constexpr semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 0) :
-        major(major), minor(minor), patch(patch), pre_release(pre_release) {}
+    constexpr semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) :
+	 major(major), minor(minor), patch(patch), pre_release(pre_release) {}
 
     static semver_t from_firmware_bundle_tag(std::uint32_t version) {
         uint64_t major = (version >> 24) & 0xFF;
@@ -61,7 +61,7 @@ public:
 
     std::string str() const {
         return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
-                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release);
+                             : fmt::format("{}.{}.{}", major, minor, patch);
     }
 
     bool operator<(const semver_t& other) const noexcept {
@@ -85,7 +85,7 @@ public:
 
     std::string to_string() const {
         return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
-                             : fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release);
+                             : fmt::format("{}.{}.{}", major, minor, patch);
     }
 
     /*

@@ -33,6 +33,81 @@ TEST(ApiTTDeviceTest, NotifyAsio) {
     sleep(5);
 }
 
+TEST(ApiTTDeviceTest, TestLongJump) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    tt_device->init_tt_device();
+
+    // Thread ID that will be used by the main thread to send SIGBUS
+    std::atomic<pthread_t> working_thread_id{0};
+    std::atomic<bool> worker_started{false};
+    std::atomic<bool> signal_sent{false};
+    std::atomic<bool> exception_caught{false};
+
+    // Worker thread 1: calls dummy_safe() and gets stuck in infinite loop
+    std::thread worker_thread([&]() {
+        working_thread_id.store(pthread_self());
+        worker_started.store(true);
+
+        try {
+            tt_device->dummy_safe();
+        } catch (const std::runtime_error& e) {
+            EXPECT_STREQ(e.what(), "SIGBUS");
+            exception_caught.store(true);
+        }
+    });
+
+    // Worker thread 2: tries to call dummy_safe() but will block on the mutex
+    std::thread blocked_thread([&]() {
+        // Wait for worker thread to be inside dummy_safe
+        while (!worker_started.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Give worker thread time to acquire the lock
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        try {
+            // This should block until worker thread releases the lock
+            tt_device->dummy_safe();
+        } catch (const std::runtime_error& e) {
+            // This thread might not reach here if test ends
+        }
+    });
+
+    // Main thread: wait for worker to start, then send SIGBUS
+    while (!worker_started.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Give worker thread time to be well into the infinite loop
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    pthread_t target_thread = working_thread_id.load();
+    ASSERT_NE(target_thread, (pthread_t)0) << "Worker thread ID not set";
+
+    // Send SIGBUS to the working thread
+    int result = pthread_kill(target_thread, SIGBUS);
+    ASSERT_EQ(result, 0) << "pthread_kill failed";
+    signal_sent.store(true);
+
+    // Wait for worker thread to catch the exception and exit
+    worker_thread.join();
+
+    // Verify the exception was caught
+    EXPECT_TRUE(exception_caught.load()) << "Worker thread did not catch SIGBUS exception";
+
+    // Clean up blocked thread (it should be able to proceed now or we'll terminate it)
+    blocked_thread.detach();
+
+    std::cout << "Test completed successfully: SIGBUS was caught and handled" << std::endl;
+}
+
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

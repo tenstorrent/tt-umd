@@ -112,6 +112,7 @@ enum class TenstorrentResetDevice : uint32_t {
 };
 
 class PCIDevice {
+public:
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
     const int pci_device_file_desc;  // Character device file descriptor
@@ -123,7 +124,6 @@ class PCIDevice {
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
-public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */

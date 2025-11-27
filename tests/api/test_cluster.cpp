@@ -18,6 +18,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
@@ -1364,6 +1365,7 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
 
     first_chip->assert_risc_reset(RiscType::ALL);
     first_chip->write_to_device(first_eth_core, ebreak_instr_vector.data(), start_addr, ebreak_instr_vector.size());
+    first_chip->l1_membar(std::unordered_set<CoreCoord>{first_eth_core});
     first_chip->deassert_risc_reset(RiscType::ALL, false);
 
     result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());

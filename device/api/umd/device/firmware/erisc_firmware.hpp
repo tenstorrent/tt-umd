@@ -64,6 +64,7 @@ static const std::unordered_map<semver_t, HashedAddressRange> WH_ERISC_FW_HASHES
     {{6, 13, 0}, {0x2000, 0x7000, "dea44176fa00c3f3ccc14320e26f51db7aea302755b72284010343ea32c8822a"}},
     {{6, 14, 0}, {0x2000, 0x7000, "5932bafcd2bdf2e3e64defb628b97da8bd50f76afe8fd334a3eb5cd3c0fa8276"}},
     {{6, 15, 0}, {0x2000, 0x7000, "bb6d078d8ab3afb9e3b9c9d06a3d39d0fdb27299a2955fd977f759988acf94c8"}},
+    {{7, 0, 0}, {0x2000, 0x7000, "e103ec07942e6603b5faa2519ace50998b75c2397eb803dbf6e9456139e62a9b"}},
     {{7, 1, 0}, {0x2000, 0x7000, "76268f8d81a2cea29099730eb9ec166bbca2b812df3744b677b1d3e74d517161"}},
     {{7, 2, 0}, {0x2000, 0x7000, "7e3697077d76ea8e3f66f5b2ca61a19baf3be8b5435b096fb6bb3e52e7033f9d"}},
 };

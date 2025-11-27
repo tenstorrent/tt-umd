@@ -25,17 +25,9 @@ TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_m
         TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
     }
 
-    ret_code = tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
+    tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
 
-    if (ret_code != 0) {
-        TT_THROW("tt_tlb_get_id failed with error code {} for TLB size {}.", ret_code, size);
-    }
-
-    ret_code = tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
-
-    if (ret_code != 0) {
-        TT_THROW("tt_tlb_get_mmio failed with error code {} for TLB size {}.", ret_code, size);
-    }
+    tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
 }
 
 TlbHandle::~TlbHandle() noexcept { free_tlb(); }
@@ -52,7 +44,11 @@ void TlbHandle::configure(const tlb_data& new_config) {
     config.ordering = new_config.ordering;
     config.static_vc = new_config.static_vc;
 
-    tt_tlb_map(tt_device_, tlb_handle_, &config);
+    int ret_code = tt_tlb_map(tt_device_, tlb_handle_, &config);
+
+    if (ret_code != 0) {
+        TT_THROW("tt_tlb_map failed with error code {} for TLB size {}.", ret_code, tlb_size);
+    }
 
     tlb_config = new_config;
 }

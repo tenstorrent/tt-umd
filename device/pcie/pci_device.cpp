@@ -302,6 +302,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle);
 
     if (ret_code != 0) {
+        if (tt_device_handle != nullptr) {
+            tt_device_close(tt_device_handle);
+        }
         TT_THROW(
             "tt_device_open failed with error code {} for PCI device with device ID {}.", ret_code, pci_device_number);
     }

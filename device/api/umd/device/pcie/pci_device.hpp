@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -321,6 +322,8 @@ private:
     bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
 
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
+
+    tt_device_t *tt_device_handle = nullptr;
 };
 
 }  // namespace tt::umd

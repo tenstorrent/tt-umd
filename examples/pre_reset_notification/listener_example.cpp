@@ -38,16 +38,8 @@ bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32
 
 int main(int argc, char* argv[]) {
     std::atomic<bool> read_device = true;
+    std::atomic<bool> allocated = true;
     // Make listener
-    WarmReset::start_monitoring(
-        [&read_device]() {
-            std::cout << "Set read_device to false\n";
-            read_device = false;
-        },
-        [&read_device]() {
-            std::cout << "Set read_device to true\n";
-            read_device = true;
-        });
 
     // Prepare and read local devices
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -70,24 +62,78 @@ int main(int argc, char* argv[]) {
         tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     }
 
+    WarmReset::start_monitoring(
+        [&read_device, &tt_devices]() {
+            std::cout << "Set pre read_device to false\n";
+            read_device = false;
+            for (auto& tt_device : tt_devices) {
+                tt_device.second->reset_in_progress.store(true);
+            }
+        },
+        [&tt_devices]() {
+            std::cout << "Set post read_device to false\n";
+            for (auto& tt_device : tt_devices) {
+                tt_device.second->flush_io_lock();
+            }
+        },
+        [&read_device]() {
+            std::cout << "Set read_device to true\n";
+            read_device = true;
+        });
+
     while (1) {
         if (!read_device) {
+            if (allocated) {
+                std::cout << "[Main] Reset detected. Destroying device objects..." << std::endl;
+                for (int pci_device_id : pci_device_ids) {
+                    tt_devices[pci_device_id].reset();
+                }
+                allocated = false;
+            }
             std::cout << "Not reading device" << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(5'000));
+            std::cout << "[Main] Waiting for device recovery..." << std::endl;
+
+            // Sleep to avoid burning CPU while waiting for Post-Reset notification
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
-        for (int pci_device_id : pci_device_ids) {
-            tt_devices[pci_device_id]->write_to_device(
-                data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
-            tt_devices[pci_device_id]->read_from_device(
-                data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        if (!allocated) {
+            std::cout << "[Main] Post-Reset detected. Re-creating device objects..." << std::endl;
+            // Assume create_devices() populates the map and opens the new BARs
+            for (int pci_device_id : pci_device_ids) {
+                tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
 
-            verify_data(data_write, data_read, pci_device_id);
-
-            data_read = std::vector<uint32_t>(data_write.size(), 0);
+                tt_devices[pci_device_id]->init_tt_device();
+            }
+            allocated = true;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5'000));
+
+        try {
+            for (int pci_device_id : pci_device_ids) {
+                if (!tt_devices[pci_device_id]) {
+                    continue;
+                }
+
+                tt_devices[pci_device_id]->write_to_device(
+                    data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+                tt_devices[pci_device_id]->read_from_device(
+                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+                verify_data(data_write, data_read, pci_device_id);
+
+                data_read = std::vector<uint32_t>(data_write.size(), 0);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5'000));
+        } catch (const std::exception& e) {
+            if (std::string(e.what()) == "SIGBUS") {
+                std::cout << e.what() << " caught!" << std::endl;
+            } else {
+                std::cerr << "[Main] FATAL: Unexpected error: " << e.what() << std::endl;
+                break;
+            }
+        }
     }
     return 0;
 }

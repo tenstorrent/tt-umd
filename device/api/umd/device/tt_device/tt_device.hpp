@@ -349,6 +349,8 @@ public:
 
     std::atomic<bool> reset_in_progress{false};
 
+    void flush_io_lock() { std::lock_guard<std::mutex> lock(tt_device_io_lock); }
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

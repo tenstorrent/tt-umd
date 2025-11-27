@@ -87,7 +87,7 @@ std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_
     tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
     std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
 
-    return eth_fw_text_sha256_hash.compare(eth_fw_text_sha256_hash) == 0;
+    return eth_fw_text_sha256_hash.compare(hashed_range.sha256_hash) == 0;
 }
 
 semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {

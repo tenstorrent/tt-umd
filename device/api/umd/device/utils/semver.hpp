@@ -74,9 +74,9 @@ public:
         auto normalize = [](const semver_t& v) {
             // Major version 80 is treated as legacy, so smaller than everything else.
             if (v.major >= 80) {
-                return std::tuple<uint64_t, uint64_t, uint64_t>(0, v.minor, v.patch);
+                return semver_t(0, v.minor, v.patch);
             }
-            return std::tuple<uint64_t, uint64_t, uint64_t>(v.major, v.minor, v.patch);
+            return semver_t(v.major, v.minor, v.patch);
         };
 
         auto v1_normalized = normalize(v1);

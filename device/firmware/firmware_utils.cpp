@@ -70,9 +70,9 @@ std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
 
     // Find the most recently updated ERISC FW version from a given firmware
     // bundle version.
-    for (const auto& entry : *version_map) {
-        if (semver_t::compare_firmware_bundle(fw_bundle_version, entry.first) >= 0) {
-            return entry.second;
+    for (const auto& [fw_bundle_it, eth_fw_version] : *version_map) {
+        if (semver_t::compare_firmware_bundle(fw_bundle_it, fw_bundle_version) >= 0) {
+            return eth_fw_version;
         }
     }
     return std::nullopt;

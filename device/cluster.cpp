@@ -241,7 +241,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
+        return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -349,12 +349,13 @@ HarvestingMasks Cluster::get_harvesting_masks(
     HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     log_info(
         LogUMD,
-        "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
-        "{:#x}).",
+        "Harvesting masks for chip {} tensix: {:#x} dram: {:#x} eth: {:#x} pcie: {:#x} l2cpu: {:#x}",
         chip_id,
         cluster_harvesting_masks.tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
-        cluster_harvesting_masks.tensix_harvesting_mask,
-        simulated_harvesting_masks.tensix_harvesting_mask);
+        cluster_harvesting_masks.dram_harvesting_mask | simulated_harvesting_masks.dram_harvesting_mask,
+        cluster_harvesting_masks.eth_harvesting_mask | simulated_harvesting_masks.eth_harvesting_mask,
+        cluster_harvesting_masks.pcie_harvesting_mask | simulated_harvesting_masks.pcie_harvesting_mask,
+        cluster_harvesting_masks.l2cpu_harvesting_mask | simulated_harvesting_masks.l2cpu_harvesting_mask);
 
     return cluster_harvesting_masks | simulated_harvesting_masks;
 }
@@ -528,19 +529,19 @@ tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord co
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
-        tlb_index,
+        tlb_size,
         address,
         ordering);
 }
 
 void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
@@ -920,7 +921,18 @@ int Cluster::arc_msg(
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
-    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
+    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, {arg0, arg1}, timeout_ms, return_3, return_4);
+}
+
+int Cluster::arc_msg(
+    int logical_device_id,
+    uint32_t msg_code,
+    bool wait_for_done,
+    const std::vector<uint32_t>& args,
+    const std::chrono::milliseconds timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4);
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {

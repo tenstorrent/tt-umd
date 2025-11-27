@@ -7,10 +7,14 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <tt-logger/tt-logger.hpp>
+
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -39,6 +43,8 @@ void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType").value("PCIe", IODeviceType::PCIe).value("JTAG", IODeviceType::JTAG);
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
+        .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
+        .def_ro("device_id", &PciDeviceInfo::device_id)
         .def_ro("pci_domain", &PciDeviceInfo::pci_domain)
         .def_ro("pci_bus", &PciDeviceInfo::pci_bus)
         .def_ro("pci_device", &PciDeviceInfo::pci_device)
@@ -62,7 +68,9 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("pci_target_devices") = std::unordered_set<int>{},
             "Enumerates PCI device information, optionally filtering by target devices.")
-        .def("get_device_info", &PCIDevice::get_device_info);
+        .def("get_device_info", &PCIDevice::get_device_info)
+        .def("get_device_num", &PCIDevice::get_device_num)
+        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.");
 
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(
@@ -75,8 +83,22 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
+        .def("board_id", &TTDevice::get_board_id)
         .def("get_board_type", &TTDevice::get_board_type)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
+        .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
+        .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
+        // Compatibility with luwen's API - these methods just return self
+        .def(
+            "as_wh",
+            [](TTDevice &self) -> TTDevice & { return self; },
+            nb::rv_policy::reference_internal,
+            "Return self - for compatibility with luwen's API")
+        .def(
+            "as_bh",
+            [](TTDevice &self) -> TTDevice & { return self; },
+            nb::rv_policy::reference_internal,
+            "Return self - for compatibility with luwen's API")
         .def(
             "noc_read32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
@@ -87,7 +109,150 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
-            nb::arg("addr"));
+            nb::arg("addr"),
+            "Read a 32-bit value from a core at the specified address")
+        .def(
+            "noc_write32",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value) -> void {
+                tt_xy_pair core = {core_x, core_y};
+                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("value"),
+            "Write a 32-bit value to a core at the specified address")
+        .def(
+            "noc_read",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+                tt_xy_pair core = {core_x, core_y};
+                std::vector<uint8_t> buffer(size);
+                self.read_from_device(buffer.data(), core, addr, size);
+                return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            "Read arbitrary-length data from a core at the specified address")
+        .def(
+            "noc_read",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+                -> void {
+                if (noc_id != 0) {
+                    throw std::runtime_error("noc_id must be 0");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
+                size_t data_size = buffer.size();
+                self.read_from_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("buffer"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "noc_write",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
+                tt_xy_pair core = {core_x, core_y};
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write arbitrary-length data to a core at the specified address")
+        .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done = true,
+               std::vector<uint32_t> args = {},
+               uint32_t timeout_ms = 1000) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("args") = std::vector<uint32_t>{},
+            nb::arg("timeout_ms") = 1000,
+            "Send ARC message and return (exit_code, return_3, return_4). "
+            "Args is a list of uint32_t arguments. For Wormhole, max 2 args (each <= 0xFFFF). For Blackhole, max 7 "
+            "args. Timeout is in milliseconds.")
+        .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done,
+               uint32_t arg0,
+               uint32_t arg1,
+               uint32_t timeout_ms = 1000) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> args = {arg0, arg1};
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done"),
+            nb::arg("arg0"),
+            nb::arg("arg1"),
+            nb::arg("timeout_ms") = 1000,
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
+            "milliseconds.")
+        .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done,
+               uint32_t arg0,
+               uint32_t arg1,
+               uint32_t timeout = 1) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> args = {arg0, arg1};
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done"),
+            nb::arg("arg0"),
+            nb::arg("arg1"),
+            nb::arg("timeout") = 1,
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

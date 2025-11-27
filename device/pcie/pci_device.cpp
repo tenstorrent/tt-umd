@@ -287,6 +287,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     if (iommu_enabled && kmd_version < KMD_IOMMU) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
+    if (kmd_version < KMD_TLBS) {
+        TT_THROW("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string());
+    }
+
     if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
         log_warning(
             LogUMD,
@@ -369,68 +373,22 @@ PCIDevice::PCIDevice(int pci_device_number) :
         throw std::runtime_error(fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
     }
 
-    // TODO: Move arch specific code to tt_device.
-    // wc_mapping_size along with some ifelses below.
-    auto wc_mapping_size = arch == tt::ARCH::BLACKHOLE ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
-
-    // Attempt WC mapping first so we can fall back to all-UC if it fails.
-    if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
-        bar0_wc_size = std::min<size_t>(bar0_wc_mapping.mapping_size, wc_mapping_size);
-        bar0_wc = mmap(
-            NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar0_wc_mapping.mapping_base);
-        if (bar0_wc == MAP_FAILED) {
-            bar0_wc_size = 0;
-            bar0_wc = nullptr;
-        }
-    }
-
-    if (bar0_wc) {
-        // The bottom part of the BAR is mapped WC. Map the top UC.
-        bar0_uc_size = bar0_uc_mapping.mapping_size - wc_mapping_size;
-        bar0_uc_offset = wc_mapping_size;
-    } else {
-        // No WC mapping, map the entire BAR UC.
-        bar0_uc_size = bar0_uc_mapping.mapping_size;
-        bar0_uc_offset = 0;
-    }
-
-    bar0_uc = mmap(
+    bar0 = mmap(
         NULL,
-        bar0_uc_size,
+        PCIDevice::bar0_size,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + bar0_uc_offset);
+        bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
 
-    if (bar0_uc == MAP_FAILED) {
-        throw std::runtime_error(fmt::format("BAR0 UC mapping failed for device {}.", pci_device_num));
-    }
-
-    if (!bar0_wc) {
-        bar0_wc = bar0_uc;
+    if (bar0 == MAP_FAILED) {
+        throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
             throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
         }
-
-        system_reg_mapping_size = bar4_uc_mapping.mapping_size;
-
-        system_reg_mapping = mmap(
-            NULL,
-            bar4_uc_mapping.mapping_size,
-            PROT_READ | PROT_WRITE,
-            MAP_SHARED,
-            pci_device_file_desc,
-            bar4_uc_mapping.mapping_base);
-
-        if (system_reg_mapping == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR4 UC mapping failed for device {}.", pci_device_num));
-        }
-
-        system_reg_start_offset = (512 - 16) * 1024 * 1024;
-        system_reg_offset_adjust = (512 - 32) * 1024 * 1024;
 
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
@@ -489,12 +447,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
 PCIDevice::~PCIDevice() {
     close(pci_device_file_desc);
 
-    if (bar0_wc != nullptr && bar0_wc != MAP_FAILED && bar0_wc != bar0_uc) {
-        munmap(bar0_wc, bar0_wc_size);
-    }
-
-    if (bar0_uc != nullptr && bar0_uc != MAP_FAILED) {
-        munmap(bar0_uc, bar0_uc_size);
+    if (bar0 != nullptr && bar0 != MAP_FAILED) {
+        munmap(bar0, bar0_size);
     }
 
     if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
@@ -503,10 +457,6 @@ PCIDevice::~PCIDevice() {
 
     if (bar4_wc != nullptr && bar4_wc != MAP_FAILED) {
         munmap(bar4_wc, bar4_wc_size);
-    }
-
-    if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
-        munmap(system_reg_mapping, system_reg_mapping_size);
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
@@ -533,7 +483,7 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
         return 0;
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x}",
         pin_pages.in.virtual_address,
@@ -580,7 +530,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped to "
         "noc address {:#x}",
@@ -632,7 +582,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped "
         "to noc address {:#x}",
@@ -669,7 +619,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} without mapping "
         "to noc",
@@ -701,7 +651,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
             strerror(errno));
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Unpinning pages for DMA: virtual address {:#x} and size {:#x}",
         unpin_pages.in.virtual_address,

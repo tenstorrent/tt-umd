@@ -105,18 +105,13 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
-    uint64_t addr;
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
         niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
     } else {
-        addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
-        if (addr < get_pci_device()->bar0_uc_offset) {
-            read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-        } else {
-            read_regs(addr, 1, &niu_cfg);
-        }
+        niu_cfg = bar_read32(addr);
     }
     return ((niu_cfg >> 14) & 0x1) != 0;
 }

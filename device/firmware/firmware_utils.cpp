@@ -6,9 +6,11 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
@@ -70,12 +72,16 @@ std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
 
     // Find the most recently updated ERISC FW version from a given firmware
     // bundle version.
-    for (const auto& [fw_bundle_it, eth_fw_version] : *version_map) {
-        if (semver_t::compare_firmware_bundle(fw_bundle_it, fw_bundle_version) >= 0) {
-            return eth_fw_version;
+    for (auto it = version_map->cbegin(); it != version_map->cend(); ++it) {
+        if (semver_t::compare_firmware_bundle(it->first, fw_bundle_version) > 0) {
+            if (it == version_map->cbegin()) {
+                return std::nullopt;
+            } else {
+                return std::prev(it)->second;
+            }
         }
     }
-    return std::nullopt;
+    return version_map->back().second;
 }
 
 semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {

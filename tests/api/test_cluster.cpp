@@ -4,6 +4,7 @@
 
 // This file holds Cluster specific API examples.
 
+#include <fmt/format.h>
 #include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
@@ -1347,13 +1348,16 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
     }
 
     // Check hash without changes, should pass
+    std::cout << "Checking ETH FW without changes." << std::endl;
     auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
     if (!result.has_value()) {
         GTEST_SKIP() << "No known hash for found ETH firmware version.";
     }
     EXPECT_EQ(result, true);
+    std::cout << "Passed hash check." << std::endl;
 
     // Corrupt a part of ERISC FW code.
+    std::cout << fmt::format("Corrupting ETH core {} firmware.", first_eth_core.str()) << std::endl;
     const erisc_firmware::HashedAddressRange& range = eth_fw_hashes->find(eth_fw_version.value())->second;
     size_t start_addr = range.start_address;
     std::vector<uint32_t> ebreak_instr_vector(32, 0x00100073);
@@ -1364,8 +1368,13 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
 
     result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
     EXPECT_EQ(result.value(), false);
+    std::cout << "Passed hash check." << std::endl;
 
-    // Revert ERISC FW state with reset.
-    first_chip->assert_risc_reset(RiscType::ALL);
-    first_chip->deassert_risc_reset(RiscType::ALL, false);
+    // Revert ERISC FW state with warm reset.
+    if (is_galaxy_configuration(cluster.get())) {
+        WarmReset::ubb_warm_reset();
+    } else {
+        WarmReset::warm_reset();
+    }
+    std::cout << "Completed warm reset." << std::endl;
 }

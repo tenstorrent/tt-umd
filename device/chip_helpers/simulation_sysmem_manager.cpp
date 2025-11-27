@@ -91,11 +91,10 @@ bool SimulationSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
 
     system_memory_.resize(total_size, 0);
 
-    hugepage_mapping_per_channel.resize(num_host_mem_channels);
-
     for (int i = 0; i < num_host_mem_channels; i++) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
-        hugepage_mapping_per_channel.push_back({system_memory_.data() + i * (1ULL << 30), channel_size, 0});
+        hugepage_mapping_per_channel.push_back(
+            {system_memory_.data() + i * (1ULL << 30), channel_size, pcie_base_ + i * (1ULL << 30)});
     }
 
     return true;

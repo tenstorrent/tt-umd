@@ -40,6 +40,8 @@ SimulationChip::SimulationChip(
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory_);
     }
+
+    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(4);
 }
 
 // Base class implementations (common simple methods).

@@ -19,18 +19,19 @@ using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
 
-TEST(ApiTTDeviceTest, ListenAsio) {
-    WarmReset::start_monitoring(
-        []() { std::cout << "Cleanup function\n"; }, []() { std::cout << "Post-cleanup function\n"; });
-    while (1) {
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-    };
-}
+// TEST(ApiTTDeviceTest, ListenAsio) {
+//     WarmReset::start_monitoring(
+//         []() { std::cout << "Cleanup function\n"; }, []() { std::cout << "Post-cleanup function\n"; });
+//     while (1) {
+//         std::this_thread::sleep_for(std::chrono::seconds(10));
+//     };
+// }
 
 TEST(ApiTTDeviceTest, NotifyAsio) {
     WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds(5'0000));
     std::cout << "Managed to do this\n";
     sleep(5);
+    WarmReset::notify_all_listeners_post_reset();
 }
 
 TEST(ApiTTDeviceTest, TestDummyLongJump) {

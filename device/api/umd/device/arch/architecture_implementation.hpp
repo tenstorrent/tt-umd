@@ -95,6 +95,12 @@ public:
     virtual uint64_t get_noc_node_id_offset() const = 0;
     virtual uint64_t get_noc_reg_base(
         const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
+
+    // Get preferred tlb size, which is the tlb group with the largest count available.
+    virtual size_t get_cached_tlb_size() const = 0;
+
+    // Whether static_vc should be used for tlb configuration.
+    virtual bool get_static_vc() const = 0;
 };
 
 }  // namespace tt::umd

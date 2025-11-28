@@ -145,20 +145,10 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
     }
 }
 
-size_t TTDevice::get_cached_tlb_size() const {
-    // Default implementation, should be overridden by derived classes
-    return 1 << 21;  // 2MB default
-}
-
-bool TTDevice::get_static_vc() const {
-    // Default implementation, should be overridden by derived classes
-    return true;
-}
-
 TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     if (cached_tlb_window == nullptr) {
-        cached_tlb_window =
-            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(get_cached_tlb_size(), TlbMapping::UC), config);
+        cached_tlb_window = std::make_unique<TlbWindow>(
+            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC), config);
         return cached_tlb_window.get();
     }
     cached_tlb_window->configure(config);
@@ -180,7 +170,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_static_vc();
+    config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {
@@ -212,7 +202,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_static_vc();
+    config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {
@@ -363,7 +353,7 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     config.mcast = true;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_static_vc();
+    config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {

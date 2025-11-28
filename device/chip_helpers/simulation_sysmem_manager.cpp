@@ -29,7 +29,7 @@ bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return pin_or_map_
 
 SimulationSysmemManager::~SimulationSysmemManager() { unpin_or_unmap_sysmem(); }
 
-void SimulationSysmemManager::unpin_or_unmap_sysmem() {}
+void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
 
 void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);

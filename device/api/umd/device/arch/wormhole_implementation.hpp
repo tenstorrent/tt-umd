@@ -476,7 +476,7 @@ public:
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
-    size_t get_cached_tlb_size() const override { return 1 << 20; }  // 1MB
+    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 1MB
 
     bool get_static_vc() const override { return true; }
 };

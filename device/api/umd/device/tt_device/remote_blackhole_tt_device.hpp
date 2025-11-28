@@ -31,9 +31,10 @@ protected:
     bool is_arc_available_over_axi() override;
 
 private:
-    RemoteBlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
+    RemoteBlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi = false);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

@@ -59,7 +59,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
 
     // In order to properly initiate DMA transfer, we need to calculate the offset into the TLB window
@@ -115,7 +115,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
 
     // In order to properly initiate DMA transfer, we need to calculate the offset into the TLB window

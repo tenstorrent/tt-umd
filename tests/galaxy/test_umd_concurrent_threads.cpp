@@ -20,6 +20,8 @@
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
+using namespace tt::umd;
+
 // Have 2 threads read and write to all cores on the Galaxy
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     auto cluster = std::make_unique<Cluster>();
@@ -60,7 +62,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         .target_devices = all_devices,
     });
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
@@ -163,7 +165,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         .target_devices = all_devices,
     });
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
@@ -222,7 +224,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
     Cluster device;
     std::unordered_set<ChipId> target_devices = cluster_desc->get_all_chips();
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);

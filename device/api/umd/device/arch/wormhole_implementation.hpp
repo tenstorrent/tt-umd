@@ -420,9 +420,9 @@ public:
 
     uint32_t get_debug_reg_addr() const override { return wormhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
-    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+    uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
-    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+    RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override { return wormhole::SOFT_RESET_STAGGERED_START; }
 

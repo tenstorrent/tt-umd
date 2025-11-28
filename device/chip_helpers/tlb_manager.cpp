@@ -105,7 +105,7 @@ Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     auto tlb_data = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
     TlbWindow* tlb_window = tlb_windows_.at(tlb_index).get();
 
-    return tt::umd::Writer(tlb_window->handle_ref().get_base(), tlb_data.size);
+    return Writer(tlb_window->handle_ref().get_base(), tlb_data.size);
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {

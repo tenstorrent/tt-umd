@@ -8,6 +8,9 @@
 
 #include <map>
 
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;
@@ -77,4 +80,19 @@ TEST(Semver, Invalid) {
     for (const auto &version_str : invalid_test_cases) {
         EXPECT_THROW(semver_t{version_str}, std::exception) << "'" << version_str << "' should be invalid";
     }
+}
+
+TEST(Semver, FirmwareExpectedVersions) {
+    auto f = get_expected_eth_firmware_version_from_firmware_bundle;
+    EXPECT_EQ(std::nullopt, f(semver_t(80, 0, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(semver_t(6, 14, 0), f(semver_t(80, 17, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(semver_t(6, 14, 0), f(semver_t(80, 18, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(semver_t(6, 14, 0), f(semver_t(18, 0, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(semver_t(6, 15, 0), f(semver_t(18, 4, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(semver_t(6, 15, 0), f(semver_t(18, 4, 1), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(semver_t(7, 0, 0), f(semver_t(18, 6, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(erisc_firmware::WH_ERISC_FW_VERSION_MAP.back().second, f(semver_t(79, 99, 99), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(std::nullopt, f(semver_t(18, 0, 0), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(semver_t(1, 6, 0), f(semver_t(18, 11, 0), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(erisc_firmware::BH_ERISC_FW_VERSION_MAP.back().second, f(semver_t(79, 99, 99), tt::ARCH::BLACKHOLE));
 }

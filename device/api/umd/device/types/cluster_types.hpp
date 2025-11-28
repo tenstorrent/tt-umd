@@ -9,9 +9,11 @@
 #include <fmt/core.h>
 
 #include <cassert>
+#include <optional>
 #include <ostream>
 #include <vector>
 
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

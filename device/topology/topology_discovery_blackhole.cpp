@@ -5,6 +5,7 @@
  */
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -303,20 +304,23 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     semver_t eth_fw_version = semver_t(major, minor, patch);
 
     bool eth_fw_problem = false;
-    if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(
-            LogUMD,
-            "UMD supported minimum BH ETH FW version: {}",
-            erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION.to_string());
-        first_eth_fw_version = eth_fw_version;
+    if (!expected_eth_fw_version.has_value()) {
+        expected_eth_fw_version =
+            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        } else {
+            expected_eth_fw_version = eth_fw_version;
+            log_debug(
+                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
+        }
         if (erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
     }
 
-    if (eth_fw_version != first_eth_fw_version) {
+    if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
             "ETH FW version mismatch for chip {} ETH core {}, found: {}.",

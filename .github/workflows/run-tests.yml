@@ -67,25 +67,12 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - log-level: ${{ inputs.log-level }}
 
-      - name: List everything that is still available from previous artefacts
-        run: |
-          ls -la
-          pwd
-          ls -la tt-umd
-
       - name: Cleanup workspace directory from previous runs.
         # If this is not a new VM, we might have some artefacts from previous runs that need to be cleaned up.
         # This might include: .pytest_cache, .venv, artifact.tar, build, tests, tt-umd, tt_umd-*.whl
         # Just nuke everything to be safe.
         run: |
           rm -rf *
-
-      - name: List everything that is still available from previous artefacts
-        run: |
-          ls -la
-          pwd
-          ls -la ${{ env.TEST_OUTPUT_DIR }}
-          ls -la .venv
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v4

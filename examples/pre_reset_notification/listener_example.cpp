@@ -126,10 +126,19 @@ int main(int argc, char* argv[]) {
 
                 data_read = std::vector<uint32_t>(data_write.size(), 0);
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(5'000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         } catch (const std::exception& e) {
             if (std::string(e.what()) == "SIGBUS") {
                 std::cout << e.what() << " caught!" << std::endl;
+                std::cout << "read_device is: " << read_device << std::endl;
+                if (allocated) {
+                    std::cout << "[Main] Reset detected. Destroying device objects..." << std::endl;
+                    for (int pci_device_id : pci_device_ids) {
+                        tt_devices[pci_device_id].reset();
+                    }
+                    allocated = false;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
             } else {
                 std::cerr << "[Main] FATAL: Unexpected error: " << e.what() << std::endl;
                 break;

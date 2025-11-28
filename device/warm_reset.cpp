@@ -337,8 +337,11 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
 
+    WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds(5'0000));
+
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
         warm_reset_arch_agnostic(pci_device_ids, reset_m3);
+        WarmReset::notify_all_listeners_post_reset();
         return;
     }
 
@@ -348,12 +351,14 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     switch (arch) {
         case ARCH::WORMHOLE_B0:
             warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+            WarmReset::notify_all_listeners_post_reset();
             return;
         case ARCH::BLACKHOLE:
             if (reset_m3) {
                 log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
             }
             warm_reset_blackhole_legacy(pci_device_ids);
+            WarmReset::notify_all_listeners_post_reset();
             return;
         default:
             return;

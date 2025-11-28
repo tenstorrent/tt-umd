@@ -37,6 +37,12 @@ TEST(ApiTTDeviceTest, NotifyAsio) {
     WarmReset::notify_all_listeners_post_reset();
 }
 
+TEST(ApiTTDeviceTest, WarmResetAsio) {
+    WarmReset::warm_reset();
+    sleep(5);
+    std::cout << "Warm reset\n";
+}
+
 TEST(ApiTTDeviceTest, EndlessIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

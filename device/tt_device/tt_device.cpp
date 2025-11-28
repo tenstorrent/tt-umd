@@ -596,16 +596,6 @@ void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
                 jump_set = false;
                 throw std::runtime_error("SIGBUS");
             }
-            static bool crash_simulated = false;
-
-            if (!crash_simulated) {
-                std::cout << "[TEST] Driver: First pass. Sleeping 5s (TRIGGER RESET NOW!)..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-
-                std::cout << "[TEST] Driver: Waking up. Raising SIGBUS (One time only)..." << std::endl;
-                crash_simulated = true;  // Disarm the bomb for next time
-                std::raise(SIGBUS);
-            }
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
             uint32_t transfer_size = std::min((uint64_t)size, tlb_size);

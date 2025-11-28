@@ -96,18 +96,29 @@ int SimulationChip::arc_msg(
     return 0;
 }
 
-int SimulationChip::get_num_host_channels() { return 0; }
+int SimulationChip::get_num_host_channels() { return get_sysmem_manager()->get_num_host_mem_channels(); }
 
 int SimulationChip::get_host_channel_size(std::uint32_t channel) {
-    throw std::runtime_error("There are no host channels available.");
+    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // the program should still work. It removes the need for refactoring the whole code in case
+    // pcie device breaks or isn't present.
+    if (!sysmem_manager_) {
+        log_warning(LogUMD, "sysmem_manager was not initialized for simulation device");
+        return 0;
+    }
+
+    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    return hugepage_map.mapping_size;
 }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("SimulationChip::write_to_sysmem is not available for this chip.");
+    get_sysmem_manager()->write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("SimulationChip::read_from_sysmem is not available for this chip.");
+    get_sysmem_manager()->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 int SimulationChip::get_numa_node() {
@@ -118,9 +129,7 @@ TTDevice* SimulationChip::get_tt_device() {
     throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
 }
 
-SysmemManager* SimulationChip::get_sysmem_manager() {
-    throw std::runtime_error("SimulationChip::get_sysmem_manager is not available for this chip.");
-}
+SysmemManager* SimulationChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
 TLBManager* SimulationChip::get_tlb_manager() {
     throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");

@@ -54,7 +54,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = (tlb_manager_->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
@@ -109,7 +109,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = (tlb_manager_->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
 
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
 

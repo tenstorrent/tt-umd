@@ -90,6 +90,7 @@ jobs:
           ls -la
           pwd
           ls -la ${{ env.TEST_OUTPUT_DIR }}
+          ls -la .venv
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v4

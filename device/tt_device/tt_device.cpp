@@ -98,6 +98,12 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
+    struct sigaction sa;
+    sa.sa_handler = sigbus_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGBUS, &sa, nullptr);
+    std::cout << "[TEST] Registered handler" << std::endl;
 }
 
 TTDevice::TTDevice(
@@ -539,21 +545,14 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
 }
 
 void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
 
     if (reset_in_progress) {
         throw std::runtime_error("SIGBUS");
     }
 
-    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
     if (sigsetjmp(point, 1) == 0) {
         jump_set = true;
@@ -564,19 +563,13 @@ void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
                 throw std::runtime_error("SIGBUS");
             }
 
-            uint32_t tlb_size = tlb_window->get_size();
-
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->write_block(0, buffer_addr, transfer_size);
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
+            uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+            read_block(mapped_address, transfer_size, buffer_addr);
 
             size -= transfer_size;
             addr += transfer_size;
             buffer_addr += transfer_size;
-
-            config.local_offset = addr;
-            tlb_window->configure(config);
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         jump_set = false;
     } else {
@@ -586,21 +579,14 @@ void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
 
     if (reset_in_progress) {
         throw std::runtime_error("SIGBUS");
     }
 
     const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
+    const uint32_t tlb_index = get_architecture_implementation()->get_reg_tlb();
 
     if (sigsetjmp(point, 1) == 0) {
         jump_set = true;
@@ -610,21 +596,25 @@ void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
                 jump_set = false;
                 throw std::runtime_error("SIGBUS");
             }
+            static bool crash_simulated = false;
 
-            uint32_t tlb_size = tlb_window->get_size();
+            if (!crash_simulated) {
+                std::cout << "[TEST] Driver: First pass. Sleeping 5s (TRIGGER RESET NOW!)..." << std::endl;
+                std::this_thread::sleep_for(std::chrono::seconds(5));
 
-            uint32_t transfer_size = std::min(size, tlb_size);
+                std::cout << "[TEST] Driver: Waking up. Raising SIGBUS (One time only)..." << std::endl;
+                crash_simulated = true;  // Disarm the bomb for next time
+                std::raise(SIGBUS);
+            }
 
-            tlb_window->write_block(0, buffer_addr, transfer_size);
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
+            uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+            write_block(mapped_address, transfer_size, buffer_addr);
 
             size -= transfer_size;
             addr += transfer_size;
             buffer_addr += transfer_size;
-
-            config.local_offset = addr;
-            tlb_window->configure(config);
         }
-
         jump_set = false;
     } else {
         jump_set = false;

@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "umd/device/soc_descriptor.hpp"
@@ -64,20 +65,20 @@ int main(int argc, char* argv[]) {
 
     WarmReset::start_monitoring(
         [&read_device, &tt_devices]() {
-            std::cout << "Set pre read_device to false\n";
+            log_info(tt::LogUMD, "Set pre read_device to false");
             read_device = false;
             for (auto& tt_device : tt_devices) {
                 tt_device.second->reset_in_progress.store(true);
             }
         },
         [&tt_devices]() {
-            std::cout << "Set post read_device to false\n";
+            log_info(tt::LogUMD, "Set post read_device to false");
             for (auto& tt_device : tt_devices) {
                 tt_device.second->flush_io_lock();
             }
         },
         [&read_device]() {
-            std::cout << "Set read_device to true\n";
+            log_info(tt::LogUMD, "Set read_device to true");
             read_device = true;
         });
 
@@ -115,10 +116,10 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                tt_devices[pci_device_id]->write_to_device(
+                tt_devices[pci_device_id]->safe_write_to_device(
                     data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
-                tt_devices[pci_device_id]->read_from_device(
+                tt_devices[pci_device_id]->safe_read_from_device(
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
 
                 verify_data(data_write, data_read, pci_device_id);

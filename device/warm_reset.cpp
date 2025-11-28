@@ -61,6 +61,10 @@ bool WarmReset::start_monitoring(
                                                     post_cleanup_request = std::move(post_cleanup_request)]() {
         asio::io_context io;
         std::error_code ec;
+        auto pid = getpid();
+        auto tid = syscall(SYS_gettid);
+        std::cout << "PID: " << pid << std::endl;
+        std::cout << "TID: " << tid << std::endl;
         log_info(tt::LogUMD, "Made the thread!");
         // 1. Ensure Directory Exists
         if (!fs::exists(LISTENER_DIR)) {
@@ -89,7 +93,7 @@ bool WarmReset::start_monitoring(
             auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
             acceptor.async_accept(
                 *sock,
-                [sock, &do_accept, on_cleanup_request, post_on_cleanup_request, post_cleanup_request](
+                [sock, &do_accept, on_cleanup_request, post_on_cleanup_request, post_cleanup_request, pid, tid](
                     std::error_code ec) {
                     if (!ec && keep_monitoring) {
                         // A Reset Tool connected to us!
@@ -97,7 +101,7 @@ bool WarmReset::start_monitoring(
                         auto buf = std::make_shared<std::vector<char>>(64);
                         sock->async_read_some(
                             asio::buffer(*buf),
-                            [sock, buf, on_cleanup_request, post_on_cleanup_request, post_cleanup_request](
+                            [sock, buf, on_cleanup_request, post_on_cleanup_request, post_cleanup_request, pid, tid](
                                 std::error_code ec, size_t len) {
                                 if (!ec) {
                                     std::string_view msg(buf->data(), len);
@@ -114,6 +118,7 @@ bool WarmReset::start_monitoring(
                                         asio::write(*sock, asio::buffer("READY"));
 
                                         // --- EXECUTE USER POST CLEANUP CALLBACK ---
+                                        log_info(tt::LogUMD, "PID {}, TID {} waiting for lock!", pid, tid);
                                         if (post_on_cleanup_request) {
                                             post_on_cleanup_request();
                                         }

@@ -8,6 +8,7 @@
 #include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-logger/tt-logger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -19,19 +20,52 @@ using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
 
-// TEST(ApiTTDeviceTest, ListenAsio) {
-//     WarmReset::start_monitoring(
-//         []() { std::cout << "Cleanup function\n"; }, []() { std::cout << "Post-cleanup function\n"; });
-//     while (1) {
-//         std::this_thread::sleep_for(std::chrono::seconds(10));
-//     };
-// }
+TEST(ApiTTDeviceTest, ListenAsio) {
+    WarmReset::start_monitoring(
+        []() { log_info(tt::LogUMD, "Set pre read_device to false"); },
+        []() { log_info(tt::LogUMD, "Set post read_device to false"); },
+        []() { log_info(tt::LogUMD, "Set read_device to true"); });
+    while (1) {
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+    };
+}
 
 TEST(ApiTTDeviceTest, NotifyAsio) {
     WarmReset::notify_all_listeners_with_handshake(std::chrono::milliseconds(5'0000));
     std::cout << "Managed to do this\n";
     sleep(5);
     WarmReset::notify_all_listeners_post_reset();
+}
+
+TEST(ApiTTDeviceTest, EndlessIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+
+    while (1) {
+        for (int pci_device_id : pci_device_ids) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+            tt_device->init_tt_device();
+
+            ChipInfo chip_info = tt_device->get_chip_info();
+
+            SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+
+            tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+            tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+            tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+            ASSERT_EQ(data_write, data_read);
+
+            data_read = std::vector<uint32_t>(data_write.size(), 0);
+        }
+        log_info(tt::LogUMD, "New read cycle");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 }
 
 TEST(ApiTTDeviceTest, TestDummyLongJump) {

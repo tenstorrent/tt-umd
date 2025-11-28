@@ -349,7 +349,9 @@ public:
 
     std::atomic<bool> reset_in_progress{false};
 
-    void flush_io_lock() { std::lock_guard<std::mutex> lock(tt_device_io_lock); }
+    void flush_io_lock() {
+        auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    }
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

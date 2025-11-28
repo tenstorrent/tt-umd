@@ -67,6 +67,12 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - log-level: ${{ inputs.log-level }}
 
+      - name: List everything that is still available from previous artefacts
+        run: |
+          ls -la
+          pwd
+          ls -la tt-umd
+
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |
           rm -rf tt-umd
@@ -78,6 +84,12 @@ jobs:
           echo "Cleaning up old wheel artifacts in case of previous downloads..."
           rm -f tt_umd-*.whl
           rm -rf tests/
+
+      - name: List everything that is still available from previous artefacts
+        run: |
+          ls -la
+          pwd
+          ls -la ${{ env.TEST_OUTPUT_DIR }}
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v4

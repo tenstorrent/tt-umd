@@ -54,6 +54,10 @@ protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
+    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 2MB for Blackhole
+
+    bool get_static_vc() const override { return false; }  // false for Blackhole
+
     bool is_hardware_hung() override;
 
     virtual bool is_arc_available_over_axi();

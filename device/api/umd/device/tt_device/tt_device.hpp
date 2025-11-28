@@ -325,6 +325,18 @@ protected:
 
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
+    /**
+     * Get the cached TLB size for this device architecture.
+     * @return TLB size in bytes (1MB for Wormhole, 2MB for Blackhole)
+     */
+    virtual size_t get_cached_tlb_size() const;
+
+    /**
+     * Get the static VC configuration for this device architecture.
+     * @return true for Wormhole, false for Blackhole
+     */
+    virtual bool get_static_vc() const;
+
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 

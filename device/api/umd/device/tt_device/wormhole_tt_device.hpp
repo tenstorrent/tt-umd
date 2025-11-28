@@ -61,6 +61,10 @@ protected:
      */
     WormholeTTDevice();
 
+    size_t get_cached_tlb_size() const override { return 1 << 20; }  // 1MB for Wormhole
+
+    bool get_static_vc() const override { return true; }  // true for Wormhole
+
     uint64_t get_arc_apb_noc_base_address() const;
 
     uint64_t get_arc_csm_noc_base_address() const;

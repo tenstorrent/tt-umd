@@ -17,8 +17,6 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
-
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
 void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {

@@ -28,21 +28,20 @@
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.
-#if defined(__SANITIZE_THREAD__)
-// GCC defines __SANITIZE_THREAD__ when TSAN is enabled
-extern "C" {
-void __tsan_acquire(void* addr);
-void __tsan_release(void* addr);
-}
-#elif defined(__has_feature)
-#if __has_feature(thread_sanitizer)
-// Clang uses __has_feature(thread_sanitizer)
-extern "C" {
-void __tsan_acquire(void* addr);
-void __tsan_release(void* addr);
-}
+
+// Unify TSAN detection: Ensure __SANITIZE_THREAD__ is defined for Clang
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer) && !defined(__SANITIZE_THREAD__)
 #define __SANITIZE_THREAD__ 1
 #endif
+#endif
+
+// Declare TSAN hooks once
+#ifdef __SANITIZE_THREAD__
+extern "C" {
+void __tsan_acquire(void* addr);
+void __tsan_release(void* addr);
+}
 #endif
 
 namespace tt::umd {
@@ -106,16 +105,6 @@ pthread_mutex_t RobustMutex::multithread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static std::unordered_map<std::string, char> tsan_mutex_id_storage;
 static std::mutex tsan_storage_mutex;
 
-void init_tsan_mutex_id_storage(std::string mutex_name) {
-    // Register this mutex name in the TSAN tracking storage.
-    // This ensures all threads using the same mutex name will use the same
-    // address for TSAN synchronization tracking.
-    std::lock_guard<std::mutex> lock(tsan_storage_mutex);
-    if (tsan_mutex_id_storage.find(mutex_name) == tsan_mutex_id_storage.end()) {
-        tsan_mutex_id_storage[mutex_name] = 0;
-    }
-}
-
 void* get_tsan_mutex_id(std::string mutex_name) {
     // TSAN needs a stable, valid memory address to track mutex synchronization.
     // For cross-process mutexes, each process maps shared memory to different
@@ -134,6 +123,36 @@ void* get_tsan_mutex_id(std::string mutex_name) {
     return static_cast<void*>(&it->second);
 }
 #endif
+
+static void tsan_annotate_mutex_init(const std::string& name) {
+#ifdef __SANITIZE_THREAD__
+    // Register this mutex name in the TSAN tracking storage.
+    // This ensures all threads using the same mutex name will use the same
+    // address for TSAN synchronization tracking.
+    std::lock_guard<std::mutex> lock(tsan_storage_mutex);
+    if (tsan_mutex_id_storage.find(mutex_name) == tsan_mutex_id_storage.end()) {
+        tsan_mutex_id_storage[mutex_name] = 0;
+    }
+#endif
+}
+
+static void tsan_annotate_mutex_acquire(const std::string& name) {
+#ifdef __SANITIZE_THREAD__
+    // Inform TSAN that we've acquired the mutex, establishing a happens-before relationship.
+    // This must be called AFTER the actual lock acquisition so TSAN sees that we now have
+    // the synchronization point established by the previous owner's __tsan_release.
+    __tsan_acquire(get_tsan_mutex_id(name));
+#endif
+}
+
+static void tsan_annotate_mutex_release(const std::string& name) {
+#ifdef __SANITIZE_THREAD__
+    // Inform TSAN that we're releasing the mutex, establishing a happens-before relationship.
+    // This must be called BEFORE the actual unlock so TSAN sees the release before other
+    // threads/processes can acquire the lock.
+    __tsan_release(get_tsan_mutex_id(name));
+#endif
+}
 
 RobustMutex::RobustMutex(std::string_view mutex_name) : mutex_name_(mutex_name) {}
 
@@ -220,9 +239,7 @@ void RobustMutex::initialize() {
     }
     shm_fd_ = -1;
 
-#ifdef __SANITIZE_THREAD__
-    init_tsan_mutex_id_storage(mutex_name_);
-#endif
+    tsan_annotate_mutex_init(mutex_name_);
 }
 
 void RobustMutex::open_shm_file() {
@@ -346,12 +363,7 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::unlock() {
-#ifdef __SANITIZE_THREAD__
-    // Inform TSAN that we're releasing the mutex, establishing a happens-before relationship.
-    // This must be called BEFORE the actual unlock so TSAN sees the release before other
-    // threads/processes can acquire the lock.
-    __tsan_release(get_tsan_mutex_id(mutex_name_));
-#endif
+    tsan_annotate_mutex_release(mutex_name_);
 
     // Clear the owner TID and PID before unlocking.
     mutex_wrapper_ptr_->owner_tid = 0;
@@ -406,12 +418,7 @@ void RobustMutex::lock() {
     mutex_wrapper_ptr_->owner_tid = gettid();
     mutex_wrapper_ptr_->owner_pid = getpid();
 
-#ifdef __SANITIZE_THREAD__
-    // Inform TSAN that we've acquired the mutex, establishing a happens-before relationship.
-    // This must be called AFTER the actual lock acquisition so TSAN sees that we now have
-    // the synchronization point established by the previous owner's __tsan_release.
-    __tsan_acquire(get_tsan_mutex_id(mutex_name_));
-#endif
+    tsan_annotate_mutex_acquire(mutex_name_);
 }
 
 }  // namespace tt::umd

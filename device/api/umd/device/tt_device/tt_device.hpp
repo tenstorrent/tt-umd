@@ -294,18 +294,6 @@ public:
     IODeviceType get_communication_device_type() const;
 
     /**
-     * Get the cached TLB size for this device architecture.
-     * @return TLB size in bytes (1MB for Wormhole, 2MB for Blackhole/Grendel)
-     */
-    size_t get_cached_tlb_size() const;
-
-    /**
-     * Get the static VC configuration for this device architecture.
-     * @return true for Wormhole/Grendel, false for Blackhole
-     */
-    bool get_static_vc() const;
-
-    /**
      * Get the soft reset signal for the given riscs.
      *
      * @param core Core to get soft reset for, in translated coordinates

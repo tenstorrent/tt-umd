@@ -341,7 +341,7 @@ private:
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
-    TlbWindow *get_cached_tlb_window(tlb_data config);
+    TlbWindow *get_cached_tlb_window();
 
     std::mutex tt_device_io_lock;
 };

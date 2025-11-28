@@ -6,12 +6,18 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 
 #include <cstdint>
+#include <iterator>
+#include <optional>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
+#include <utility>
 
-#include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {
@@ -48,6 +54,34 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
                ? fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
                : semver_t(0, 0, 0);
+}
+
+std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
+    semver_t fw_bundle_version, tt::ARCH arch) {
+    const auto* version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
+    switch (arch) {
+        case ARCH::WORMHOLE_B0:
+            version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
+            break;
+        case ARCH::BLACKHOLE:
+            version_map = &erisc_firmware::BH_ERISC_FW_VERSION_MAP;
+            break;
+        default:
+            return std::nullopt;
+    }
+
+    // Find the most recently updated ERISC FW version from a given firmware
+    // bundle version.
+    for (auto it = version_map->cbegin(); it != version_map->cend(); ++it) {
+        if (semver_t::compare_firmware_bundle(it->first, fw_bundle_version) > 0) {
+            if (it == version_map->cbegin()) {
+                return std::nullopt;
+            } else {
+                return std::prev(it)->second;
+            }
+        }
+    }
+    return version_map->back().second;
 }
 
 semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {

@@ -156,3 +156,18 @@ CPMAddPackage(
 # nanobind
 ####################################################################################################################
 CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
+
+####################################################################################################################
+# asio (Standalone)
+####################################################################################################################
+CPMAddPackage(
+    NAME asio
+    GITHUB_REPOSITORY chriskohlhoff/asio
+    GIT_TAG
+        asio-1-30-2 # Version 1.30.2
+    OPTIONS
+        "ASIO_STANDALONE ON" # Tells CMake to configure without Boost
+        "ASIO_NO_DEPRECATED ON" # Optional: Cleans up build output
+)
+
+set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include" CACHE INTERNAL "Asio Include Path")

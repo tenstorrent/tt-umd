@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <gtest/gtest.h>
 
+#include <asio.hpp>
 #include <thread>
 
 #include "device/api/umd/device/warm_reset.hpp"
@@ -16,6 +17,10 @@
 #include "utils.hpp"
 
 using namespace tt::umd;
+
+void check_asio_version() { std::cout << "Asio linked. Version: " << ASIO_VERSION << std::endl; }
+
+TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

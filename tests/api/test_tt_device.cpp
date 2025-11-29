@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <gtest/gtest.h>
 
-#include <asio.hpp>
 #include <thread>
 
 #include "device/api/umd/device/warm_reset.hpp"

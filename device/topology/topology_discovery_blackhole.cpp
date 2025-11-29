@@ -44,43 +44,45 @@ std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip* c
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
-    if (is_running_on_6u) {
-        // See comment in get_local_board_id.
-        return get_remote_asic_id(chip, eth_core);
-    }
+    return get_remote_asic_id(chip, eth_core);
+    // if (is_running_on_6u) {
+    //     // See comment in get_local_board_id.
+    //     return get_remote_asic_id(chip, eth_core);
+    // }
 
-    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
-        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint32_t board_id_lo;
-    TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
+    // tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+    //     eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    // uint32_t board_id_lo;
+    // TTDevice* tt_device = chip->get_tt_device();
+    // tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
 
-    uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
+    // uint32_t board_id_hi;
+    // tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
 
-    return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
+    // return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
-    if (is_running_on_6u) {
-        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
-        // from the ClusterOptions will work correctly on 6U.
-        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
-        // fetched through another function when cluster descriptor is being filled up.
-        return get_local_asic_id(chip, eth_core);
-    }
+    return get_local_asic_id(chip, eth_core);
+    // if (is_running_on_6u) {
+    //     // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
+    //     // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+    //     // from the ClusterOptions will work correctly on 6U.
+    //     // Note that the board_id will still be reported properly in the cluster descriptor, since it is
+    //     // fetched through another function when cluster descriptor is being filled up.
+    //     return get_local_asic_id(chip, eth_core);
+    // }
 
-    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
-        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint32_t board_id_lo;
-    TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
+    // tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+    //     eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    // uint32_t board_id_lo;
+    // TTDevice* tt_device = chip->get_tt_device();
+    // tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
 
-    uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
+    // uint32_t board_id_hi;
+    // tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
 
-    return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
+    // return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
@@ -89,21 +91,21 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair et
 
     TTDevice* tt_device = chip->get_tt_device();
 
-    if (is_running_on_6u) {
-        uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFD4, sizeof(asic_id_hi));
+    // if (is_running_on_6u) {
+    uint32_t asic_id_hi;
+    tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFD4, sizeof(asic_id_hi));
 
-        uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFD8, sizeof(asic_id_lo));
+    uint32_t asic_id_lo;
+    tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFD8, sizeof(asic_id_lo));
 
-        return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
-    }
+    return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
+    // }
 
-    uint64_t board_id = get_local_board_id(chip, eth_core);
-    uint8_t asic_location;
-    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
+    // uint64_t board_id = get_local_board_id(chip, eth_core);
+    // uint8_t asic_location;
+    // tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
 
-    return mangle_asic_id(board_id, asic_location);
+    // return mangle_asic_id(board_id, asic_location);
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) {
@@ -112,21 +114,21 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 
     TTDevice* tt_device = chip->get_tt_device();
 
-    if (is_running_on_6u) {
-        uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFF4, sizeof(asic_id_hi));
+    // if (is_running_on_6u) {
+    uint32_t asic_id_hi;
+    tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFF4, sizeof(asic_id_hi));
 
-        uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFF8, sizeof(asic_id_lo));
+    uint32_t asic_id_lo;
+    tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFF8, sizeof(asic_id_lo));
 
-        return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
-    }
+    return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
+    // }
 
-    uint64_t board_id = get_remote_board_id(chip, eth_core);
-    uint8_t asic_location;
-    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
+    // uint64_t board_id = get_remote_board_id(chip, eth_core);
+    // uint8_t asic_location;
+    // tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
 
-    return mangle_asic_id(board_id, asic_location);
+    // return mangle_asic_id(board_id, asic_location);
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {

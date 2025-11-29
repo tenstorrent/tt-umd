@@ -20,25 +20,11 @@ class TestTelemetry(unittest.TestCase):
             print(f"Device {pci_id} - Telemetry reading for asic temperature: ", tel_reader.read_entry(tag))
         
     def test_remote_telemetry(self):
-        cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
-        umd_tt_devices = {}
+        cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
         tag = int(tt_umd.TelemetryTag.ASIC_TEMPERATURE)
-        chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
-        chip_eth_coords = cluster_descriptor.get_chip_locations()
-        for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):
-            if cluster_descriptor.is_chip_mmio_capable(chip):
-                print(f"Chip MMIO capable: {chip}")
-                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
-                umd_tt_devices[chip].init_tt_device()
-                tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
-                print(f"Telemetry reading for chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
-            else:
-                closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
-                print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
-                umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(umd_tt_devices[closest_mmio], cluster_descriptor, chip)
-                umd_tt_devices[chip].init_tt_device()
-                tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
-                print(f"Telemetry reading for remote chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
+        for chip, dev in umd_tt_devices.items():
+            tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
+            print(f"Telemetry reading for {'local' if dev.is_remote() else 'remote'} chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
 
     def test_smbus_telemetry(self):
         """Test SMBUS telemetry reader on wormhole devices"""

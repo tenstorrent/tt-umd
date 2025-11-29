@@ -9,6 +9,7 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <asio.hpp>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -359,6 +360,103 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     sleep(30);
     log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
+}
+
+static std::atomic<bool> keep_monitoring{false};
+static std::weak_ptr<asio::io_context> weak_io;
+
+bool WarmResetCommunication::Monitor::start_monitoring(
+    std::function<void()>&& on_cleanup_request, std::function<void()>&& post_cleanup_request) {
+    if (keep_monitoring.exchange(true)) {
+        log_warning(tt::LogUMD, "Reset monitoring is already running.");
+        return false;
+    }
+
+    std::thread([on_cleanup_request = std::move(on_cleanup_request),
+                 post_cleanup_request = std::move(post_cleanup_request)]() {
+        auto io = std::make_shared<asio::io_context>();
+        weak_io = io;
+        std::error_code ec;
+
+        std::filesystem::create_directories(LISTENER_DIR, ec);
+        std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all, ec);  // Allow other users/groups
+
+        // Create Unique Socket Name: client_<PID>.sock
+        // We use the PID so the Notifier knows who this is
+        std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
+        std::filesystem::path socket_path = std::filesystem::path(LISTENER_DIR) / socket_name;
+
+        // Cleanup stale socket if we crashed previously
+        ::unlink(socket_path.c_str());
+
+        asio::local::stream_protocol::acceptor acceptor(
+            *io, asio::local::stream_protocol::endpoint(socket_path.string()));
+
+        // Ensure socket is writable by others (if running as different users)
+        std::filesystem::permissions(socket_path, std::filesystem::perms::all, ec);
+
+        std::function<void()> do_accept;
+
+        do_accept = [&]() {
+            auto sock = std::make_shared<asio::local::stream_protocol::socket>(*io);
+            acceptor.async_accept(
+                *sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](std::error_code ec) {
+                    if (!ec && keep_monitoring) {
+                        auto buf = std::make_shared<std::vector<char>>(64);
+                        sock->async_read_some(
+                            asio::buffer(*buf),
+                            [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t len) {
+                                if (ec) {
+                                    return;
+                                }
+
+                                std::string_view msg(buf->data(), len);
+                                if (msg.find("PRE_RESET") != std::string::npos) {
+                                    log_info(tt::LogUMD, "Received Pre-Reset Notification!");
+
+                                    if (on_cleanup_request) {
+                                        on_cleanup_request();
+                                    }
+                                    return;
+                                }
+
+                                if (msg.find("POST_RESET") != std::string::npos) {
+                                    log_info(tt::LogUMD, "Received Post-Reset Notification!");
+
+                                    if (post_cleanup_request) {
+                                        post_cleanup_request();
+                                    }
+                                    return;
+                                }
+
+                                log_warning(tt::LogUMD, "Unknown message received: {}", msg);
+                            });
+                        if (keep_monitoring) {
+                            (do_accept)();
+                        }
+                    }
+                });
+        };
+
+        (do_accept)();
+
+        io->run();
+
+        // Cleanup on exit
+        ::unlink(socket_path.c_str());
+        keep_monitoring.store(false);
+
+        // Detach so it runs in background
+    }).detach();
+
+    return true;
+}
+
+void WarmResetCommunication::Monitor::stop_monitoring() {
+    keep_monitoring.store(false);
+    if (auto io = weak_io.lock()) {
+        io->stop();
+    }
 }
 
 }  // namespace tt::umd

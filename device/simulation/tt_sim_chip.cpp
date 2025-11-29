@@ -34,13 +34,21 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
 
-TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+TTSimChip::TTSimChip(
+    const std::filesystem::path& simulator_directory,
+    SocDescriptor soc_descriptor,
+    ChipId chip_id,
+    bool copy_sim_binary) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
-    create_simulator_binary();
-    copy_simulator_binary();
-    secure_simulator_binary();
-    load_simulator_library();
+    if (copy_sim_binary) {
+        create_simulator_binary();
+        copy_simulator_binary();
+        secure_simulator_binary();
+        load_simulator_library(fmt::format("/proc/self/fd/{}", copied_simulator_fd_));
+    } else {
+        load_simulator_library(simulator_directory_.string());
+    }
 }
 
 TTSimChip::~TTSimChip() {
@@ -207,8 +215,8 @@ void TTSimChip::secure_simulator_binary() {
     }
 }
 
-void TTSimChip::load_simulator_library() {
-    libttsim_handle = dlopen(fmt::format("/proc/self/fd/{}", copied_simulator_fd_).c_str(), RTLD_LAZY);
+void TTSimChip::load_simulator_library(const std::filesystem::path& path) {
+    libttsim_handle = dlopen(path.c_str(), RTLD_LAZY);
     if (!libttsim_handle) {
         close_simulator_binary();
         TT_THROW("Failed to dlopen simulator library: {}", dlerror());

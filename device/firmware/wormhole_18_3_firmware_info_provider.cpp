@@ -77,7 +77,7 @@ std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_tra
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() const {
-    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(tt::umd::wormhole::AICLK);
+    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 

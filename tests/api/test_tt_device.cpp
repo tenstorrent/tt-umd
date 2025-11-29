@@ -18,10 +18,6 @@
 
 using namespace tt::umd;
 
-void check_asio_version() { std::cout << "Asio linked. Version: " << ASIO_VERSION << std::endl; }
-
-TEST(ApiTTDeviceTest, TestAsio) { check_asio_version(); }
-
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

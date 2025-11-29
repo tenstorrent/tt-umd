@@ -205,13 +205,13 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED;
             // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
             // Temporarily enable this feature for 6.7.241 as well for testing.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
-                    (eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                    (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
                      eth_fw_version == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }

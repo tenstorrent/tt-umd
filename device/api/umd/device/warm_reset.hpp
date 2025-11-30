@@ -6,9 +6,11 @@
 
 #pragma once
 
+#include <asio.hpp>
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -50,7 +52,13 @@ public:
     };
 
     struct Notifier {
+    public:
+        static void notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms);
         static void notify_all_listeners_post_reset();
+
+    private:
+        static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connect_to_all_listeners(
+            asio::io_context& io);
     };
 
 private:

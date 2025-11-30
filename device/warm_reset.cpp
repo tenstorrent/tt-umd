@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <regex>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
@@ -457,6 +458,104 @@ void WarmResetCommunication::Monitor::stop_monitoring() {
     if (auto io = weak_io.lock()) {
         io->stop();
     }
+}
+
+void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms) {
+    if (!std::filesystem::exists(LISTENER_DIR)) {
+        return;
+    }
+
+    asio::io_context io;
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = connect_to_all_listeners(io);
+
+    if (active_sockets.empty()) {
+        return;
+    }
+
+    for (auto& sock : active_sockets) {
+        asio::async_write(*sock, asio::buffer("PRE_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
+    }
+
+    asio::steady_timer timer(io, timeout_ms);
+
+    timer.async_wait([&](std::error_code ec) {
+        if (!ec) {
+            log_warning(tt::LogUMD, "Reset Handshake Timeout! Proceeding anyway.");
+            io.stop();
+        }
+    });
+
+    // Blocks until timeout elapses
+    io.run();
+}
+
+void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
+    if (!std::filesystem::exists(LISTENER_DIR)) {
+        return;
+    }
+
+    asio::io_context io;
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = connect_to_all_listeners(io);
+
+    if (active_sockets.empty()) {
+        return;
+    }
+
+    log_info(tt::LogUMD, "Sending POST_RESET on {} sockets...", active_sockets.size());
+
+    for (auto& sock : active_sockets) {
+        asio::async_write(*sock, asio::buffer("POST_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
+    }
+
+    // Blocks until all writes are done
+    io.run();
+}
+
+std::vector<std::shared_ptr<asio::local::stream_protocol::socket>>
+WarmResetCommunication::Notifier::connect_to_all_listeners(asio::io_context& io) {
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connected_sockets;
+
+    if (!std::filesystem::exists(LISTENER_DIR)) {
+        return connected_sockets;
+    }
+
+    int my_pid = getpid();
+
+    for (const auto& entry : std::filesystem::directory_iterator(LISTENER_DIR)) {
+        if (!entry.is_socket()) {
+            continue;
+        }
+
+        std::string filename = entry.path().filename().string();
+        int target_pid = extract_pid_from_socket_name(filename);
+
+        if (target_pid == -1 || target_pid == my_pid) {
+            continue;
+        }
+
+        auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+        try {
+            sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
+            connected_sockets.push_back(sock);
+        } catch (...) {
+        }
+    }
+    return connected_sockets;
+}
+
+int WarmResetCommunication::extract_pid_from_socket_name(const std::string& filename) {
+    // Format: "client_<PID>.sock"
+    static const std::regex pid_pattern(R"(client_(\d+)\.sock)");
+    std::smatch match;
+
+    if (std::regex_match(filename, match, pid_pattern)) {
+        try {
+            return std::stoi(match[1].str());
+        } catch (...) {
+            return -1;  // Integer overflow check
+        }
+    }
+    return -1;
 }
 
 }  // namespace tt::umd

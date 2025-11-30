@@ -48,7 +48,7 @@ static void set_barrier_params(Cluster& cluster) {
 }
 
 TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .sdesc_path = "tests/soc_descs/wormhole_b0_one_dram_one_tensix_no_eth.yaml",
     });
 }

@@ -63,8 +63,8 @@ public:
     virtual uint32_t get_tlb_base_index_16m() const = 0;
     virtual uint32_t get_tensix_soft_reset_addr() const = 0;
     virtual uint32_t get_debug_reg_addr() const = 0;
-    virtual uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const = 0;
-    virtual tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
+    virtual uint32_t get_soft_reset_reg_value(RiscType risc_type) const = 0;
+    virtual RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
     virtual uint32_t get_grid_size_x() const = 0;
     virtual uint32_t get_grid_size_y() const = 0;
@@ -95,6 +95,12 @@ public:
     virtual uint64_t get_noc_node_id_offset() const = 0;
     virtual uint64_t get_noc_reg_base(
         const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
+
+    // Get preferred tlb size, which is the tlb group with the largest count available.
+    virtual size_t get_cached_tlb_size() const = 0;
+
+    // Whether static_vc should be used for tlb configuration.
+    virtual bool get_static_vc() const = 0;
 };
 
 }  // namespace tt::umd

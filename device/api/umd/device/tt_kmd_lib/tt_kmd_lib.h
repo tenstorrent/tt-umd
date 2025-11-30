@@ -366,6 +366,8 @@ int tt_tlb_free(tt_device_t* dev, tt_tlb_t* tlb);
  */
 int tt_tlb_get_mmio(tt_tlb_t* tlb, void** out_mmio);
 
+int tt_tlb_get_id(tt_tlb_t* tlb, uint32_t* out_id);
+
 /**
  * @brief Maps a TLB window to a NOC endpoint.
  *

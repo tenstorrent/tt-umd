@@ -52,6 +52,8 @@ public:
     /*
      * Create a semver_t from a 32-bit integer by unpacking the following bits:
      * 0x00AABCCC where A is major, B is minor and C is patch.
+     * Actual meaning of the tag is:
+     * 0xEERRCDDD where E is entity, R is release, C is customer and D is debug.
      */
     static semver_t from_eth_fw_tag(uint32_t version) {
         return semver_t((version >> 16) & 0xFF, (version >> 12) & 0xF, version & 0xFFF);
@@ -99,9 +101,9 @@ public:
         auto normalize = [](const semver_t& v) {
             // Major version 80 is treated as legacy, so smaller than everything else.
             if (v.major >= 80) {
-                return std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>(0, v.minor, v.patch, v.pre_release);
+                return semver_t(0, v.minor, v.patch);
             }
-            return std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>(v.major, v.minor, v.patch, v.pre_release);
+            return semver_t(v.major, v.minor, v.patch);
         };
 
         auto v1_normalized = normalize(v1);

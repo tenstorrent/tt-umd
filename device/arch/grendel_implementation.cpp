@@ -115,7 +115,7 @@ uint64_t grendel_implementation::get_noc_reg_base(
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
 
-uint32_t grendel_implementation::get_soft_reset_reg_value(tt::umd::RiscType risc_type) const {
+uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
         TT_THROW("TENSIX risc cores should not be used on Grendel architecture.");

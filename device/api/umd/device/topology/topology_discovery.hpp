@@ -154,9 +154,9 @@ protected:
 
     virtual bool verify_fw_bundle_version(Chip* chip);
 
-    // The ETH FW version found on the first discovered local chip, that needs
-    // to match with all of the other discovered ETH FW versions on all chips.
-    std::optional<semver_t> first_eth_fw_version;
+    // The expected ETH FW version, matching the version shipped in the firmware bundle.
+    // If there is no available expected version, we use the version from the first discovered local chip.
+    std::optional<semver_t> expected_eth_fw_version;
 
     // The FW bundle version found on the first discovered local chip, that needs
     // to match with all of the other discovered FW bundle versions on all chips.

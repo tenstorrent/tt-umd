@@ -466,7 +466,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chron
     }
 
     asio::io_context io;
-    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = connect_to_all_listeners(io);
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = get_connected_listeners(io);
 
     if (active_sockets.empty()) {
         return;
@@ -495,7 +495,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
     }
 
     asio::io_context io;
-    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = connect_to_all_listeners(io);
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = get_connected_listeners(io);
 
     if (active_sockets.empty()) {
         return;
@@ -512,7 +512,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
 }
 
 std::vector<std::shared_ptr<asio::local::stream_protocol::socket>>
-WarmResetCommunication::Notifier::connect_to_all_listeners(asio::io_context& io) {
+WarmResetCommunication::Notifier::get_connected_listeners(asio::io_context& io) {
     std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connected_sockets;
 
     if (!std::filesystem::exists(LISTENER_DIR)) {

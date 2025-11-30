@@ -57,7 +57,7 @@ public:
         static void notify_all_listeners_post_reset();
 
     private:
-        static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connect_to_all_listeners(
+        static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_connected_listeners(
             asio::io_context& io);
     };
 

@@ -52,7 +52,6 @@ public:
     };
 
     struct Notifier {
-    public:
         static void notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms);
         static void notify_all_listeners_post_reset();
 

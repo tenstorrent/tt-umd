@@ -404,7 +404,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
     auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     while (size > 0) {
@@ -460,7 +460,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
     auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));

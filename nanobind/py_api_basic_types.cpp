@@ -82,6 +82,14 @@ void bind_basic_types(nb::module_ &m) {
         .def("__eq__", &semver_t::operator==)
         .def("__ne__", &semver_t::operator!=);
 
+    nb::class_<ChipInfo>(m, "ChipInfo")
+        .def(nb::init<>())
+        .def_rw("noc_translation_enabled", &ChipInfo::noc_translation_enabled)
+        .def_rw("harvesting_masks", &ChipInfo::harvesting_masks)
+        .def_rw("board_type", &ChipInfo::board_type)
+        .def_rw("board_id", &ChipInfo::board_id)
+        .def_rw("asic_location", &ChipInfo::asic_location);
+
     // Utility functions for BoardType
     m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
     m.def(

@@ -166,7 +166,6 @@ CPMAddPackage(
     GIT_TAG
         asio-1-30-2 # Version 1.30.2
     OPTIONS
-        "ASIO_STANDALONE ON" # Tells CMake to configure without Boost
         "ASIO_NO_DEPRECATED ON" # Optional: Cleans up build output
 )
 

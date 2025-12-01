@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <asio.hpp>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -15,6 +14,7 @@
 #include <vector>
 
 #include "umd/device/utils/timeouts.hpp"
+#include "umd_asio.hpp"
 
 namespace tt::umd {
 

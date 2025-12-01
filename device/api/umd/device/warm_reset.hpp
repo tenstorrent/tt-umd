@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "umd/device/utils/timeouts.hpp"
-#include "umd_asio.hpp"
 
 namespace tt::umd {
 
@@ -56,14 +55,7 @@ public:
     struct Notifier {
         static void notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms);
         static void notify_all_listeners_post_reset();
-
-    private:
-        static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_connected_listeners(
-            asio::io_context& io);
     };
-
-private:
-    static int extract_pid_from_socket_name(const std::string& filename);
 };
 
 }  // namespace tt::umd

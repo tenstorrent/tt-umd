@@ -25,7 +25,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/timeouts.hpp"
-#include "umd_asio.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

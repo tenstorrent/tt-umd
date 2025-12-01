@@ -362,6 +362,55 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     ubb_wait_for_driver_load(timeout_ms);
 }
 
+// Free helper function for extracting pid
+static int extract_pid_from_socket_name(const std::string& filename) {
+    // Format: "client_<PID>.sock"
+    static const std::regex pid_pattern(R"(client_(\d+)\.sock)");
+    std::smatch match;
+
+    if (std::regex_match(filename, match, pid_pattern)) {
+        try {
+            return std::stoi(match[1].str());
+        } catch (...) {
+            return -1;  // Integer overflow check
+        }
+    }
+    return -1;
+}
+
+// Free helper function for getting connected listeners
+static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_connected_listeners(
+    asio::io_context& io) {
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connected_sockets;
+
+    if (!std::filesystem::exists(WarmResetCommunication::LISTENER_DIR)) {
+        return connected_sockets;
+    }
+
+    int my_pid = getpid();
+
+    for (const auto& entry : std::filesystem::directory_iterator(WarmResetCommunication::LISTENER_DIR)) {
+        if (!entry.is_socket()) {
+            continue;
+        }
+
+        std::string filename = entry.path().filename().string();
+        int target_pid = extract_pid_from_socket_name(filename);
+
+        if (target_pid == -1 || target_pid == my_pid) {
+            continue;
+        }
+
+        auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+        try {
+            sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
+            connected_sockets.push_back(sock);
+        } catch (...) {
+        }
+    }
+    return connected_sockets;
+}
+
 static std::atomic<bool> keep_monitoring{false};
 static std::weak_ptr<asio::io_context> weak_io;
 
@@ -449,53 +498,6 @@ bool WarmResetCommunication::Monitor::start_monitoring(
     }).detach();
 
     return true;
-}
-
-static int extract_pid_from_socket_name(const std::string& filename) {
-    // Format: "client_<PID>.sock"
-    static const std::regex pid_pattern(R"(client_(\d+)\.sock)");
-    std::smatch match;
-
-    if (std::regex_match(filename, match, pid_pattern)) {
-        try {
-            return std::stoi(match[1].str());
-        } catch (...) {
-            return -1;  // Integer overflow check
-        }
-    }
-    return -1;
-}
-
-static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_connected_listeners(
-    asio::io_context& io) {
-    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connected_sockets;
-
-    if (!std::filesystem::exists(WarmResetCommunication::LISTENER_DIR)) {
-        return connected_sockets;
-    }
-
-    int my_pid = getpid();
-
-    for (const auto& entry : std::filesystem::directory_iterator(WarmResetCommunication::LISTENER_DIR)) {
-        if (!entry.is_socket()) {
-            continue;
-        }
-
-        std::string filename = entry.path().filename().string();
-        int target_pid = extract_pid_from_socket_name(filename);
-
-        if (target_pid == -1 || target_pid == my_pid) {
-            continue;
-        }
-
-        auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
-        try {
-            sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
-            connected_sockets.push_back(sock);
-        } catch (...) {
-        }
-    }
-    return connected_sockets;
 }
 
 void WarmResetCommunication::Monitor::stop_monitoring() {

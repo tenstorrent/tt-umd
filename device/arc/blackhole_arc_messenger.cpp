@@ -17,11 +17,10 @@ BlackholeArcMessenger::BlackholeArcMessenger(TTDevice* tt_device) : ArcMessenger
 uint32_t BlackholeArcMessenger::send_message(
     const uint32_t msg_code,
     std::vector<uint32_t>& return_values,
-    uint16_t arg0,
-    uint16_t arg1,
+    const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms) {
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
-    return blackhole_arc_msg_queue->send_message((ArcMessageType)msg_code, arg0, arg1, timeout_ms);
+    return blackhole_arc_msg_queue->send_message((ArcMessageType)msg_code, args, timeout_ms);
 }
 
 }  // namespace tt::umd

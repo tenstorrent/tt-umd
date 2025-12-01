@@ -12,6 +12,9 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <tt-logger/tt-logger.hpp>
+
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -162,7 +165,94 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
-            "Write arbitrary-length data to a core at the specified address");
+            "Write arbitrary-length data to a core at the specified address")
+        .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done = true,
+               std::vector<uint32_t> args = {},
+               uint32_t timeout_ms = 1000) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("args") = std::vector<uint32_t>{},
+            nb::arg("timeout_ms") = 1000,
+            "Send ARC message and return (exit_code, return_3, return_4). "
+            "Args is a list of uint32_t arguments. For Wormhole, max 2 args (each <= 0xFFFF). For Blackhole, max 7 "
+            "args. Timeout is in milliseconds.")
+        .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done,
+               uint32_t arg0,
+               uint32_t arg1,
+               uint32_t timeout_ms = 1000) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> args = {arg0, arg1};
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done"),
+            nb::arg("arg0"),
+            nb::arg("arg1"),
+            nb::arg("timeout_ms") = 1000,
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
+            "milliseconds.")
+        .def(
+            "arc_msg",
+            [](TTDevice &self,
+               uint32_t msg_code,
+               bool wait_for_done,
+               uint32_t arg0,
+               uint32_t arg1,
+               uint32_t timeout = 1) -> nb::tuple {
+                // Warn if wait_for_done is False
+                if (!wait_for_done) {
+                    log_warning(
+                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
+                }
+                // For Wormhole, prepend 0xaa00 to the msg_code
+                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
+                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
+                }
+                std::vector<uint32_t> args = {arg0, arg1};
+                std::vector<uint32_t> return_values = {0, 0};
+                uint32_t exit_code = self.get_arc_messenger()->send_message(
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+            },
+            nb::arg("msg_code"),
+            nb::arg("wait_for_done"),
+            nb::arg("arg0"),
+            nb::arg("arg1"),
+            nb::arg("timeout") = 1,
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

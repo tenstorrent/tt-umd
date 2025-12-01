@@ -51,6 +51,7 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
@@ -204,13 +205,13 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-            use_ethernet_broadcast &= eth_fw_version >= ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
             // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
             // Temporarily enable this feature for 6.7.241 as well for testing.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
-                    (eth_fw_version >= ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                    (eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
                      eth_fw_version == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
@@ -241,7 +242,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id);
+        return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -349,12 +350,13 @@ HarvestingMasks Cluster::get_harvesting_masks(
     HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     log_info(
         LogUMD,
-        "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
-        "{:#x}).",
+        "Harvesting masks for chip {} tensix: {:#x} dram: {:#x} eth: {:#x} pcie: {:#x} l2cpu: {:#x}",
         chip_id,
         cluster_harvesting_masks.tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
-        cluster_harvesting_masks.tensix_harvesting_mask,
-        simulated_harvesting_masks.tensix_harvesting_mask);
+        cluster_harvesting_masks.dram_harvesting_mask | simulated_harvesting_masks.dram_harvesting_mask,
+        cluster_harvesting_masks.eth_harvesting_mask | simulated_harvesting_masks.eth_harvesting_mask,
+        cluster_harvesting_masks.pcie_harvesting_mask | simulated_harvesting_masks.pcie_harvesting_mask,
+        cluster_harvesting_masks.l2cpu_harvesting_mask | simulated_harvesting_masks.l2cpu_harvesting_mask);
 
     return cluster_harvesting_masks | simulated_harvesting_masks;
 }
@@ -406,7 +408,7 @@ Cluster::Cluster(ClusterOptions options) {
     } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
         // Filter devices only when a cluster descriptor is passed for simulation.
         // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        auto visible_devices = utils::get_visible_devices(options.target_devices);
         if (!visible_devices.empty()) {
             cluster_desc =
                 ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
@@ -528,19 +530,19 @@ tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord co
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
-        tlb_index,
+        tlb_size,
         address,
         ordering);
 }
 
 void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
@@ -915,12 +917,11 @@ int Cluster::arc_msg(
     int logical_device_id,
     uint32_t msg_code,
     bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
+    const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
-    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
+    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4);
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {

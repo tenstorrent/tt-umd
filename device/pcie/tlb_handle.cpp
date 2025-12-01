@@ -11,59 +11,43 @@
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "ioctl.h"
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
-    tlb_size(size), fd(fd), tlb_mapping(tlb_mapping) {
-    tenstorrent_allocate_tlb allocate_tlb{};
-    allocate_tlb.in.size = size;
-    if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
-        throw std::runtime_error(fmt::format("Failed to allocate the TLB with size {}", size));
+TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
+    tlb_size(size), tt_device_(tt_device), tlb_mapping(tlb_mapping) {
+    int ret_code = tt_tlb_alloc(
+        tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
+
+    if (ret_code != 0) {
+        TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
     }
 
-    tlb_id = allocate_tlb.out.id;
+    tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
 
-    void* mapped_tlb =
-        tlb_mapping == TlbMapping::UC
-            ? mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, allocate_tlb.out.mmap_offset_uc)
-            : mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, allocate_tlb.out.mmap_offset_wc);
-    if (mapped_tlb == MAP_FAILED) {
-        munmap(mapped_tlb, size);
-        free_tlb();
-        throw std::runtime_error("Failed to map the TLB.");
-    }
-
-    tlb_base = reinterpret_cast<uint8_t*>(mapped_tlb);
+    tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
 }
 
-TlbHandle::~TlbHandle() noexcept {
-    munmap(tlb_base, tlb_size);
-    free_tlb();
-}
+TlbHandle::~TlbHandle() noexcept { free_tlb(); }
 
 void TlbHandle::configure(const tlb_data& new_config) {
-    tenstorrent_configure_tlb configure_tlb{};
-    configure_tlb.in.id = tlb_id;
+    tt_noc_addr_config_t config{};
+    config.addr = new_config.local_offset;
+    config.x_end = new_config.x_end;
+    config.y_end = new_config.y_end;
+    config.x_start = new_config.x_start;
+    config.y_start = new_config.y_start;
+    config.noc = new_config.noc_sel;
+    config.mcast = new_config.mcast;
+    config.ordering = new_config.ordering;
+    config.static_vc = new_config.static_vc;
 
-    configure_tlb.in.config.addr = new_config.local_offset;
-    configure_tlb.in.config.x_end = new_config.x_end;
-    configure_tlb.in.config.y_end = new_config.y_end;
-    configure_tlb.in.config.x_start = new_config.x_start;
-    configure_tlb.in.config.y_start = new_config.y_start;
-    configure_tlb.in.config.noc = new_config.noc_sel;
-    configure_tlb.in.config.mcast = new_config.mcast;
-    configure_tlb.in.config.ordering = new_config.ordering;
-    configure_tlb.in.config.linked = new_config.linked;
-    configure_tlb.in.config.static_vc = new_config.static_vc;
+    int ret_code = tt_tlb_map(tt_device_, tlb_handle_, &config);
 
-    if (std::memcmp(&new_config, &tlb_config, sizeof(new_config)) == 0) {
-        return;
-    }
-
-    if (ioctl(fd, TENSTORRENT_IOCTL_CONFIGURE_TLB, &configure_tlb) < 0) {
-        throw std::runtime_error(fmt::format("Failed to configure the TLB with id {}", tlb_id));
+    if (ret_code != 0) {
+        TT_THROW("tt_tlb_map failed with error code {} for TLB size {}.", ret_code, tlb_size);
     }
 
     tlb_config = new_config;
@@ -77,13 +61,7 @@ const tlb_data& TlbHandle::get_config() const { return tlb_config; }
 
 const TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
 
-void TlbHandle::free_tlb() noexcept {
-    tenstorrent_free_tlb free_tlb{};
-    free_tlb.in.id = tlb_id;
-    if (ioctl(fd, TENSTORRENT_IOCTL_FREE_TLB, &free_tlb) < 0) {
-        log_error(LogUMD, "Failed to free TLB with id {}", tlb_id);
-    }
-}
+void TlbHandle::free_tlb() noexcept { tt_tlb_free(tt_device_, tlb_handle_); }
 
 int TlbHandle::get_tlb_id() const { return tlb_id; }
 

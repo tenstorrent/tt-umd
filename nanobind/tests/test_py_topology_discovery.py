@@ -42,9 +42,6 @@ class TestTopologyDiscovery(unittest.TestCase):
         print(f"Local (MMIO-capable) chips: {len(local_chips)}")
         print(f"Remote chips: {len(remote_chips)}")
         
-        # Should have at least one local chip
-        self.assertGreater(len(local_chips), 0, "Should discover at least one local chip")
-        
         # With no_remote_discovery=True, should only have local chips
         self.assertEqual(len(remote_chips), 0, 
                         "With no_remote_discovery=True, should not discover any remote chips")

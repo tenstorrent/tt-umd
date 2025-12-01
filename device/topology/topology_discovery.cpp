@@ -71,11 +71,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
     get_connected_chips();
-    if (!options.no_remote_discovery) {
-        discover_remote_chips();
-    } else {
-        log_debug(LogUMD, "Skipped discovery of remote chips.");
-    }
+    discover_remote_chips();
     log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
@@ -150,6 +146,10 @@ void TopologyDiscovery::discover_remote_chips() {
         chips.emplace(current_chip_asic_id, std::move(it->second));
         chips_to_discover.erase(it);
         Chip* chip = chips.at(current_chip_asic_id).get();
+
+        if (options.no_remote_discovery) {
+            continue;
+        }
 
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);

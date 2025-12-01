@@ -44,6 +44,8 @@ private:
 
 class WarmResetCommunication {
 public:
+    static constexpr auto LISTENER_DIR = "/tmp/tt_umd_listeners";
+
     struct Monitor {
         static bool start_monitoring(
             std::function<void()>&& pre_event_callback, std::function<void()>&& post_event_callback);
@@ -61,8 +63,6 @@ public:
     };
 
 private:
-    static constexpr auto LISTENER_DIR = "/tmp/tt_umd_listeners";
-
     static int extract_pid_from_socket_name(const std::string& filename);
 };
 

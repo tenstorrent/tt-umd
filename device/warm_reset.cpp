@@ -480,7 +480,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chron
 
     timer.async_wait([&](std::error_code ec) {
         if (!ec) {
-            log_warning(tt::LogUMD, "Reset Handshake Timeout! Proceeding anyway.");
+            log_info(tt::LogUMD, "Timeout elapsed, invoking reset.");
             io.stop();
         }
     });
@@ -501,7 +501,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
         return;
     }
 
-    log_info(tt::LogUMD, "Sending POST_RESET on {} sockets...", active_sockets.size());
+    log_info(tt::LogUMD, "Sending POST_RESET on {} socket(s)...", active_sockets.size());
 
     for (auto& sock : active_sockets) {
         asio::async_write(*sock, asio::buffer("POST_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });

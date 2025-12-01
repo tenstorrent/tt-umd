@@ -377,8 +377,8 @@ bool WarmResetCommunication::Monitor::start_monitoring(
         weak_io = io;
         error_code ec;
 
-        std::filesystem::create_directories(LISTENER_DIR, ec);
-        std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all, ec);  // Allow other users/groups
+        std::filesystem::create_directories(LISTENER_DIR);
+        std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all);  // Allow other users/groups
 
         // Create Unique Socket Name: client_<PID>.sock
         // We use the PID so the Notifier knows who this is
@@ -392,7 +392,7 @@ bool WarmResetCommunication::Monitor::start_monitoring(
             *io, asio::local::stream_protocol::endpoint(socket_path.string()));
 
         // Ensure socket is writable by others (if running as different users)
-        std::filesystem::permissions(socket_path, std::filesystem::perms::all, ec);
+        std::filesystem::permissions(socket_path, std::filesystem::perms::all);
 
         std::function<void()> do_accept;
 

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#ifdef TT_UMD_USE_BOOST
+#if TT_UMD_USE_BOOST
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
 

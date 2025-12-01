@@ -13,10 +13,10 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    arc_core = !umd_use_noc1 ? tt::umd::wormhole::ARC_CORES_NOC0[0]
+    arc_core = !umd_use_noc1 ? wormhole::ARC_CORES_NOC0[0]
                              : tt_xy_pair(
-                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y]);
+                                   wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                   wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
     get_telemetry_address();
 }
 

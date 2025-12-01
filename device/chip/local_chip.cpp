@@ -294,7 +294,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         config.y_end = translated_core.y;
         config.noc_sel = umd_use_noc1 ? 1 : 0;
         config.ordering = tlb_data::Strict;
-        config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
         TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
 
         while (size > 0) {
@@ -345,7 +345,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         config.y_end = translated_core.y;
         config.noc_sel = umd_use_noc1 ? 1 : 0;
         config.ordering = tlb_data::Relaxed;
-        config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
         TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
 
         while (size > 0) {
@@ -394,7 +394,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
 
     auto axi_address_base = get_tt_device()
@@ -450,7 +450,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
 
     auto axi_address_base = get_tt_device()
@@ -500,7 +500,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
     tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
@@ -529,7 +529,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);

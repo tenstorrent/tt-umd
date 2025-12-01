@@ -27,8 +27,8 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
     arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
 }
 
@@ -39,16 +39,16 @@ void WormholeTTDevice::post_init_hook() {
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
     arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
     arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }

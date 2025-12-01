@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0] - 2025-11-29
+
+### Changed
+
+Changed to a more generic arc_msg API.
+
 ## [0.6.0] - 2025-11-24
 
 ### Changed

@@ -71,7 +71,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
     get_connected_chips();
-    discover_remote_chips();
+    if (!options.no_remote_discovery) {
+        discover_remote_chips();
+    } else {
+        log_debug(LogUMD, "Skipped discovery of remote chips.");
+    }
     log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }

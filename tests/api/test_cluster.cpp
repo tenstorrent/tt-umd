@@ -1354,7 +1354,7 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
     if (!result.has_value()) {
         GTEST_SKIP() << "No known hash for found ETH firmware version.";
     }
-    EXPECT_EQ(result, true);
+    ASSERT_EQ(result, true);
     std::cout << "Passed hash check." << std::endl;
 
     // Corrupt a part of ERISC FW code.

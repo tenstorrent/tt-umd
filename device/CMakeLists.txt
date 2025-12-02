@@ -298,15 +298,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
         NAMESPACE ${PROJECT_NAME}::
         COMPONENT umd-dev
     )
-elseif(TT_UMD_BUILD_STATIC)
-    # Static library build: install not supported as it's meant for internal linking only
-    message(STATUS "Install functionality disabled for static library build (TT_UMD_BUILD_STATIC=ON)")
-
-    # Add an error during install phase to prevent installation of static libraries
-    install(
-        CODE
-            "message(FATAL_ERROR \"Installation not supported when TT_UMD_BUILD_STATIC=ON. Static libraries are meant for internal linking only, not for installation.\")"
-    )
 else()
     # Warn user that install functionality is not available
     message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")

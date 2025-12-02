@@ -71,6 +71,15 @@ option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
 option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
 
+# Prevent installation when building static libraries
+# This check must be early to fail before third-party dependencies are installed
+if(TT_UMD_BUILD_STATIC)
+    install(
+        CODE
+            "message(FATAL_ERROR \"Installation not supported when TT_UMD_BUILD_STATIC=ON. Static libraries are meant for internal linking only, not for installation.\")"
+    )
+endif()
+
 # If BUILD_ALL is enabled, enable all individual build options
 if(TT_UMD_BUILD_ALL)
     set(TT_UMD_BUILD_TESTS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)

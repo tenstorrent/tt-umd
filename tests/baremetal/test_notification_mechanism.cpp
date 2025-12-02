@@ -21,6 +21,7 @@ using namespace tt::umd;
 class WarmResetNotificationTest : public ::testing::Test {
 public:
     static int run_child_monitor_logic() {
+        static constexpr auto process_wait_time = std::chrono::seconds(4);
         std::promise<void> pre_reset_promise;
         std::promise<void> post_reset_promise;
         auto pre_future = pre_reset_promise.get_future();
@@ -34,12 +35,12 @@ public:
         }
 
         // Wait for PRE
-        if (pre_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+        if (pre_future.wait_for(process_wait_time) != std::future_status::ready) {
             return 101;  // Code 101: Pre Timeout
         }
 
         // Wait for POST
-        if (post_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+        if (post_future.wait_for(process_wait_time) != std::future_status::ready) {
             return 102;  // Code 102: Post Timeout
         }
 
@@ -54,17 +55,15 @@ protected:
     }
 
     void TearDown() override {
-        fprintf(stderr, "[TEST] Running TearDown - Deleting %s\n", WarmResetCommunication::LISTENER_DIR);
         std::error_code ec;
         std::filesystem::remove_all(WarmResetCommunication::LISTENER_DIR, ec);
-        fprintf(stderr, "[TEST] TearDown Complete.\n");
     }
 
     void wait_for_socket_state(int pid, bool should_exist) {
         std::string socket_name = "client_" + std::to_string(pid) + ".sock";
         std::filesystem::path socket_path = std::filesystem::path(WarmResetCommunication::LISTENER_DIR) / socket_name;
 
-        int retries = 50;  // Wait up to 500ms
+        int retries = 50;  // Wait up to 500ms.
         while (retries--) {
             bool currently_exists = std::filesystem::exists(socket_path);
 
@@ -75,13 +74,26 @@ protected:
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        // Meaningful failure message based on what we were waiting for
         FAIL() << "Timeout waiting for socket " << socket_path << " to "
                << (should_exist ? "appear (Creation)" : "vanish (Removal)");
     }
 };
 
-TEST_F(WarmResetNotificationTest, MultiProcessTest) {
+class WarmResetTimingTest : public WarmResetNotificationTest, public testing::WithParamInterface<int> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    TimeoutScenarios,
+    WarmResetTimingTest,
+    ::testing::Values(
+        100,  // Case 1: Fast (No Timeout)
+        2000  // Case 2: Slow (Timeout)
+        ),
+    // Optional: Naming generator for pretty logs
+    [](const testing::TestParamInfo<int>& info) {
+        return info.param == 100 ? "FastSequence" : "SlowSequenceWithTimeout";
+    });
+
+TEST_P(WarmResetTimingTest, MultiProcess) {
     auto constexpr NUM_CHILDREN = 5;
     std::vector<pid_t> child_pids;
 
@@ -95,11 +107,13 @@ TEST_F(WarmResetNotificationTest, MultiProcessTest) {
         child_pids.push_back(pid);
     }
 
+    // Allow startup of processes
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    // Notify
+    std::chrono::milliseconds sleep_duration_ms = std::chrono::milliseconds(GetParam());
+
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(1000));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(sleep_duration_ms);
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 
     // Verify

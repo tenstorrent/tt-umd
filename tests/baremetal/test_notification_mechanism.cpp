@@ -54,8 +54,10 @@ protected:
     }
 
     void TearDown() override {
+        fprintf(stderr, "[TEST] Running TearDown - Deleting %s\n", WarmResetCommunication::LISTENER_DIR);
         std::error_code ec;
         std::filesystem::remove_all(WarmResetCommunication::LISTENER_DIR, ec);
+        fprintf(stderr, "[TEST] TearDown Complete.\n");
     }
 };
 

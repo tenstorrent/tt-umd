@@ -59,6 +59,26 @@ protected:
         std::filesystem::remove_all(WarmResetCommunication::LISTENER_DIR, ec);
         fprintf(stderr, "[TEST] TearDown Complete.\n");
     }
+
+    void wait_for_socket_state(int pid, bool should_exist) {
+        std::string socket_name = "client_" + std::to_string(pid) + ".sock";
+        std::filesystem::path socket_path = std::filesystem::path(WarmResetCommunication::LISTENER_DIR) / socket_name;
+
+        int retries = 50;  // Wait up to 500ms
+        while (retries--) {
+            bool currently_exists = std::filesystem::exists(socket_path);
+
+            // If the current state matches the desired state, we are done.
+            if (currently_exists == should_exist) {
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Meaningful failure message based on what we were waiting for
+        FAIL() << "Timeout waiting for socket " << socket_path << " to "
+               << (should_exist ? "appear (Creation)" : "vanish (Removal)");
+    }
 };
 
 TEST_F(WarmResetNotificationTest, MultiProcessTest) {
@@ -146,16 +166,19 @@ TEST_F(WarmResetNotificationTest, MonitorCanRestart) {
     bool first_valid_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
     ASSERT_TRUE(first_valid_start);
 
+    wait_for_socket_state(getpid(), true);
+
     bool double_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
     ASSERT_FALSE(double_start);
 
     WarmResetCommunication::Monitor::stop_monitoring();
 
-    // Allow a tiny moment for the detached thread to clean up
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    wait_for_socket_state(getpid(), false);
 
     bool second_valid_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
     ASSERT_TRUE(second_valid_start);
+
+    wait_for_socket_state(getpid(), true);
 
     WarmResetCommunication::Monitor::stop_monitoring();
 }

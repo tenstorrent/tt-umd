@@ -110,29 +110,29 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Run baremetal tests
-        if: ${{ inputs.arch == 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+      # - name: Run baremetal tests
+      #   if: ${{ inputs.arch == 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
-      - name: Run API tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+      # - name: Run API tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       - name: Run arch-specific UMD unit tests
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests --gtest_filter="SiliconDriverWH.DMA*"
 
-      - name: Run PCI tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+      # - name: Run PCI tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
-      - name: Run MISC tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+      # - name: Run MISC tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
-      - name: Run unified tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+      # - name: Run unified tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

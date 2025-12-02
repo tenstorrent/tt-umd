@@ -160,21 +160,14 @@ CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTI
 ####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
-CPMAddPackage(
-    NAME asio
-    GITHUB_REPOSITORY chriskohlhoff/asio
-    GIT_TAG
-        asio-1-30-2 # Version 1.30.2
-    DOWNLOAD_ONLY YES
-)
+CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 DOWNLOAD_ONLY YES)
 
-if(asio_ADDED)
+if(umd_asio_ADDED)
     add_library(umd_asio_lib INTERFACE)
 
-    # Point to the include directory
-    target_include_directories(umd_asio_lib SYSTEM INTERFACE "${asio_SOURCE_DIR}/asio/include")
+    target_include_directories(umd_asio_lib SYSTEM INTERFACE "${umd_asio_SOURCE_DIR}/asio/include")
 
-    # 3. Attach the STANDALONE flag ONLY to this library
+    # Attach the STANDALONE flag only to umd asio library
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
 endif()

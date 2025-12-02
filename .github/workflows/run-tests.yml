@@ -72,6 +72,7 @@ jobs:
         # This might include: .pytest_cache, .venv, artifact.tar, build, tests, tt-umd, tt_umd-*.whl
         # Just nuke everything to be safe.
         run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
           rm -rf *
 
       - name: Use wheel artifact

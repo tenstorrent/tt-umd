@@ -244,9 +244,7 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-target_include_directories(device SYSTEM PRIVATE ${ASIO_INCLUDE_DIR})
-
-target_compile_definitions(device PRIVATE ASIO_STANDALONE)
+target_link_libraries(device PRIVATE umd_asio_lib)
 
 check_function_exists(
     backtrace

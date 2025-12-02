@@ -165,8 +165,16 @@ CPMAddPackage(
     GITHUB_REPOSITORY chriskohlhoff/asio
     GIT_TAG
         asio-1-30-2 # Version 1.30.2
-    OPTIONS
-        "ASIO_NO_DEPRECATED ON" # Optional: Cleans up build output
+    DOWNLOAD_ONLY YES
 )
 
-set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include" CACHE INTERNAL "Asio Include Path")
+if(asio_ADDED)
+    add_library(umd_asio_lib INTERFACE)
+
+    # Point to the include directory
+    target_include_directories(umd_asio_lib SYSTEM INTERFACE "${asio_SOURCE_DIR}/asio/include")
+
+    # 3. Attach the STANDALONE flag ONLY to this library
+    target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
+    target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
+endif()

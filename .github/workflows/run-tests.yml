@@ -67,17 +67,13 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - log-level: ${{ inputs.log-level }}
 
-      - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
+      - name: Cleanup workspace directory from previous runs.
+        # If this is not a new VM, we might have some artefacts from previous runs that need to be cleaned up.
+        # This might include: .pytest_cache, .venv, artifact.tar, build, tests, tt-umd, tt_umd-*.whl
+        # Just nuke everything to be safe.
         run: |
-          rm -rf tt-umd
-          mkdir tt-umd
-          cd tt-umd
-
-      - name: Clean up old wheel artifacts
-        run: |
-          echo "Cleaning up old wheel artifacts in case of previous downloads..."
-          rm -f tt_umd-*.whl
-          rm -rf tests/
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v4

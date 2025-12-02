@@ -131,7 +131,7 @@ private:
                     patch = std::stoull(token);
 
                     if (std::getline(iss, token) && pre_release != 0) {
-			token.erase(0, 4); // Erase first four chracter i.e -rc. leaving only the version behind.
+						token.erase(0, 4); // Erase first four chracter i.e -rc. leaving only the version behind.
                         pre_release = std::stoull(token);
                     }
                 }

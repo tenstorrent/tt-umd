@@ -439,8 +439,40 @@ bool WarmResetCommunication::Monitor::start_monitoring(
         // Cleanup stale socket if we crashed previously.
         ::unlink(socket_path.c_str());
 
-        asio::local::stream_protocol::acceptor acceptor(
-            *io, asio::local::stream_protocol::endpoint(socket_path.string()));
+        asio::local::stream_protocol::acceptor acceptor(*io);
+        asio::local::stream_protocol::endpoint endpoint(socket_path.string());
+
+        acceptor.open(endpoint.protocol(), ec);
+        if (ec) {
+            log_warning(
+                tt::LogUMD, "Monitor Thread: Failed to OPEN socket. Error: '{}' (Code: {})", ec.message(), ec.value());
+            return;
+        }
+
+        acceptor.bind(endpoint, ec);
+        if (ec) {
+            if (ec == std::errc::no_such_file_or_directory) {
+                log_warning(
+                    tt::LogUMD,
+                    "Monitor Thread: Failed to BIND. Parent directory is missing (Shutdown/TearDown race). Exiting "
+                    "thread.");
+            } else {
+                log_warning(
+                    tt::LogUMD,
+                    "Monitor Thread: Failed to BIND. Error: '{}' (Code: {}) Path: {}",
+                    ec.message(),
+                    ec.value(),
+                    socket_path.string());
+            }
+            return;
+        }
+
+        acceptor.listen(asio::socket_base::max_listen_connections, ec);
+        if (ec) {
+            log_warning(
+                tt::LogUMD, "Monitor Thread: Failed to LISTEN. Error: '{}' (Code: {})", ec.message(), ec.value());
+            return;
+        }
 
         // Ensure socket is writable by others (if running as different users).
         std::filesystem::permissions(socket_path, std::filesystem::perms::all, ec);

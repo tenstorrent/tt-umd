@@ -24,7 +24,7 @@ namespace tt::umd {
 
 class ParallelIO {
 public:
-    static constexpr size_t TLB_WINDOW_SIZE = 1ull * 1024 * 1024;
+    static constexpr size_t TLB_WINDOW_SIZE = 16ull * 1024 * 1024;
 
     ParallelIO(size_t nthreads, tt_xy_pair core, uint64_t base_addr, uint64_t size, uint32_t fd) :
         nthreads_(nthreads), core_(core), base_addr_(base_addr), size_(size), fd_(fd), jobs_(nthreads) {

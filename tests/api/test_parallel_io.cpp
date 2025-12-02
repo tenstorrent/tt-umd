@@ -28,11 +28,11 @@ TEST(TestParallelIO, Basic) {
 
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
-    const uint64_t bytes = 1ULL << 30;
+    const uint64_t bytes = 2ULL << 30;
 
     // const std::vector<int> cpu_ids = {24, 25, 26, 27, 28, 29, 30, 31};
     std::unique_ptr<ParallelIO> parallel_io =
-        std::make_unique<ParallelIO>(16, dram_core, dram_addr, bytes, pci_device->pci_device_file_desc);
+        std::make_unique<ParallelIO>(4, dram_core, dram_addr, bytes, pci_device->pci_device_file_desc);
 
     uint8_t write_data = 0x12;
     std::vector<uint8_t> write_buffer(bytes, write_data);
@@ -46,7 +46,7 @@ TEST(TestParallelIO, Basic) {
         std::chrono::duration<double> elapsed = end - start;
 
         double seconds = elapsed.count();
-        double bw_gb_s = (bytes / seconds) / (1024.0 * 1024.0 * 1024.0);  // GB/s (GiB/s)
+        double bw_gb_s = (bytes / seconds) / (2.0 * 1024.0 * 1024.0 * 1024.0);  // GB/s (GiB/s)
 
         std::cout << "Transferred " << bytes << " bytes\n";
         std::cout << "Time: " << seconds << " s\n";
@@ -60,7 +60,7 @@ TEST(TestParallelIO, Basic) {
         std::chrono::duration<double> elapsed = end - start;
 
         double seconds = elapsed.count();
-        double bw_gb_s = (bytes / seconds) / (1024.0 * 1024.0 * 1024.0);  // GB/s (GiB/s)
+        double bw_gb_s = (bytes / seconds) / (2.0 * 1024.0 * 1024.0 * 1024.0);  // GB/s (GiB/s)
 
         std::cout << "Transferred " << bytes << " bytes\n";
         std::cout << "Time: " << seconds << " s\n";

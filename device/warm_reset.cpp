@@ -425,7 +425,7 @@ bool WarmResetCommunication::Monitor::start_monitoring(
                  post_cleanup_request = std::move(post_cleanup_request)]() {
         auto io = std::make_shared<asio::io_context>();
         weak_io = io;
-        error_code ec;
+        std::error_code ec;
 
         std::filesystem::create_directories(LISTENER_DIR, ec);
         std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all, ec);  // Allow other users/groups
@@ -448,42 +448,43 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
         do_accept = [&]() {
             auto sock = std::make_shared<asio::local::stream_protocol::socket>(*io);
-            acceptor.async_accept(*sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](error_code ec) {
-                if (!ec && keep_monitoring) {
-                    auto buf = std::make_shared<std::vector<char>>(64);
-                    sock->async_read_some(
-                        asio::buffer(*buf),
-                        [sock, buf, &on_cleanup_request, &post_cleanup_request](error_code ec, size_t len) {
-                            if (ec) {
-                                return;
-                            }
-
-                            std::string_view msg(buf->data(), len);
-                            if (msg.find("PRE_RESET") != std::string::npos) {
-                                log_info(tt::LogUMD, "Received Pre-Reset Notification!");
-
-                                if (on_cleanup_request) {
-                                    on_cleanup_request();
+            acceptor.async_accept(
+                *sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](std::error_code ec) {
+                    if (!ec && keep_monitoring) {
+                        auto buf = std::make_shared<std::vector<char>>(64);
+                        sock->async_read_some(
+                            asio::buffer(*buf),
+                            [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t len) {
+                                if (ec) {
+                                    return;
                                 }
-                                return;
-                            }
 
-                            if (msg.find("POST_RESET") != std::string::npos) {
-                                log_info(tt::LogUMD, "Received Post-Reset Notification!");
+                                std::string_view msg(buf->data(), len);
+                                if (msg.find("PRE_RESET") != std::string::npos) {
+                                    log_info(tt::LogUMD, "Received Pre-Reset Notification!");
 
-                                if (post_cleanup_request) {
-                                    post_cleanup_request();
+                                    if (on_cleanup_request) {
+                                        on_cleanup_request();
+                                    }
+                                    return;
                                 }
-                                return;
-                            }
 
-                            log_warning(tt::LogUMD, "Unknown message received: {}", msg);
-                        });
-                    if (keep_monitoring) {
-                        (do_accept)();
+                                if (msg.find("POST_RESET") != std::string::npos) {
+                                    log_info(tt::LogUMD, "Received Post-Reset Notification!");
+
+                                    if (post_cleanup_request) {
+                                        post_cleanup_request();
+                                    }
+                                    return;
+                                }
+
+                                log_warning(tt::LogUMD, "Unknown message received: {}", msg);
+                            });
+                        if (keep_monitoring) {
+                            (do_accept)();
+                        }
                     }
-                }
-            });
+                });
         };
 
         (do_accept)();
@@ -520,12 +521,12 @@ void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chron
     }
 
     for (auto& sock : active_sockets) {
-        asio::async_write(*sock, asio::buffer("PRE_RESET"), [](error_code, size_t) { /* Ignore write errors */ });
+        asio::async_write(*sock, asio::buffer("PRE_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
     }
 
     asio::steady_timer timer(io, timeout_ms);
 
-    timer.async_wait([&](error_code ec) {
+    timer.async_wait([&](std::error_code ec) {
         if (!ec) {
             log_info(tt::LogUMD, "Timeout elapsed, invoking reset.");
             io.stop();
@@ -551,7 +552,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
     log_info(tt::LogUMD, "Sending POST_RESET on {} socket(s)...", active_sockets.size());
 
     for (auto& sock : active_sockets) {
-        asio::async_write(*sock, asio::buffer("POST_RESET"), [](error_code, size_t) { /* Ignore write errors */ });
+        asio::async_write(*sock, asio::buffer("POST_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
     }
 
     // Blocks until all writes are done

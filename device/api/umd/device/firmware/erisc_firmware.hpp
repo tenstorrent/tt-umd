@@ -48,7 +48,9 @@ struct HashedAddressRange {
 };
 
 static const std::unordered_map<semver_t, HashedAddressRange> WH_ERISC_FW_HASHES = {
+    {{7, 0, 0}, {0x2000, 0x6b5c, "3fb53365b7e07107f447b87faa3781558e3dbba0e942af2e54e985a0b64360c8"}},
     {{7, 1, 0}, {0x2000, 0x6a90, "7b3abf5258f1d95ffe0e6e69bf7638a31130607da3ba2474400e306967dddbbf"}},
+    {{7, 2, 0}, {0x2000, 0x6b9c, "49983136ba696a83411e607f4fd7f1abdba6c650269e12904b2da71d19fdd1ee"}},
 };
 
 static const std::unordered_map<semver_t, HashedAddressRange> BH_ERISC_FW_HASHES = {

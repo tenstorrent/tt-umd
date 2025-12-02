@@ -362,7 +362,7 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     ubb_wait_for_driver_load(timeout_ms);
 }
 
-// Free helper function for extracting pid
+// Free helper function for extracting pid.
 static int extract_pid_from_socket_name(const std::string& filename) {
     // Format: "client_<PID>.sock"
     static const std::regex pid_pattern(R"(client_(\d+)\.sock)");
@@ -372,13 +372,14 @@ static int extract_pid_from_socket_name(const std::string& filename) {
         try {
             return std::stoi(match[1].str());
         } catch (...) {
-            return -1;  // Integer overflow check
+            // Integer overflow check.
+            return -1;
         }
     }
     return -1;
 }
 
-// Free helper function for getting connected listeners
+// Free helper function for getting connected listeners.
 static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_connected_listeners(
     asio::io_context& io) {
     std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connected_sockets;
@@ -428,20 +429,20 @@ bool WarmResetCommunication::Monitor::start_monitoring(
         std::error_code ec;
 
         std::filesystem::create_directories(LISTENER_DIR, ec);
-        std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all, ec);  // Allow other users/groups
+        std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all, ec);
 
-        // Create Unique Socket Name: client_<PID>.sock
-        // We use the PID so the Notifier knows who this is
+        // Create Unique Socket Name: client_<PID>.sock.
+        // We use the PID so the Notifier knows who this is.
         std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
         std::filesystem::path socket_path = std::filesystem::path(LISTENER_DIR) / socket_name;
 
-        // Cleanup stale socket if we crashed previously
+        // Cleanup stale socket if we crashed previously.
         ::unlink(socket_path.c_str());
 
         asio::local::stream_protocol::acceptor acceptor(
             *io, asio::local::stream_protocol::endpoint(socket_path.string()));
 
-        // Ensure socket is writable by others (if running as different users)
+        // Ensure socket is writable by others (if running as different users).
         std::filesystem::permissions(socket_path, std::filesystem::perms::all, ec);
 
         std::function<void()> do_accept;
@@ -491,11 +492,11 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
         io->run();
 
-        // Cleanup on exit
+        // Cleanup on exit.
         ::unlink(socket_path.c_str());
         keep_monitoring.store(false);
 
-        // Detach so it runs in background
+        // Detach so it runs in background.
     }).detach();
 
     return true;
@@ -533,7 +534,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chron
         }
     });
 
-    // Blocks until timeout elapses
+    // Blocks until timeout elapses.
     io.run();
 }
 
@@ -555,7 +556,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
         asio::async_write(*sock, asio::buffer("POST_RESET"), [](std::error_code, size_t) { /* Ignore write errors */ });
     }
 
-    // Blocks until all writes are done
+    // Blocks until all writes are done.
     io.run();
 }
 

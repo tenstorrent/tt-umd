@@ -80,34 +80,39 @@ private:
 // ------------------------- ParallelIO -------------------------
 class ParallelIO {
 public:
-    static constexpr size_t TLB_WINDOW_SIZE = 1ull * 1024 * 1024;  // 2 MiB
+    static constexpr size_t TLB_WINDOW_SIZE = 2ull * 1024 * 1024;  // 2 MiB
 
     ParallelIO(size_t num_threads, tt_xy_pair core, uint64_t base_addr, uint64_t size, uint32_t fd) :
         nthreads_(num_threads), core_(core), base_addr_(base_addr), size_(size), fd_(fd), pool_(num_threads) {
         tlb_windows_.reserve(nthreads_);
-        tlb_data tlb_config{};
-        tlb_config.local_offset = base_addr_;
-        tlb_config.x_end = core_.x;
-        tlb_config.y_end = core_.y;
-        tlb_config.noc_sel = 0;
-        tlb_config.ordering = tlb_data::Relaxed;
-        tlb_config.static_vc = true;
+        // tlb_data tlb_config{};
+        // tlb_config.local_offset = base_addr_;
+        // tlb_config.x_end = core_.x;
+        // tlb_config.y_end = core_.y;
+        // tlb_config.noc_sel = 0;
+        // tlb_config.ordering = tlb_data::Relaxed;
+        // tlb_config.static_vc = true;
+        // size_t chunk = size / num_threads;
         for (size_t i = 0; i < nthreads_; i++) {
             tlb_windows_.emplace_back(std::make_unique<TlbWindow>(
-                std::make_unique<TlbHandle>(fd_, TLB_WINDOW_SIZE, TlbMapping::WC), tlb_config));
-            tlb_config.local_offset += TLB_WINDOW_SIZE;
+                std::make_unique<TlbHandle>(fd_, TLB_WINDOW_SIZE, TlbMapping::WC), tlb_data{}));
+            // tlb_config.local_offset += chunk;
         }
     }
 
     void read_from_device(void *host_buffer) {
         run_parallel_io([&](TlbWindow &win, uint64_t chunk_size, uint64_t host_offset) {
-            win.read_block(0, (uint8_t *)host_buffer + host_offset, chunk_size);
+            std::cout << "Thread read" << std::endl;
+            win.read_block_reconfigure(
+                (uint8_t *)host_buffer + host_offset, core_, base_addr_ + host_offset, chunk_size, tlb_data::Relaxed);
         });
     }
 
     void write_to_device(const void *host_buffer) {
         run_parallel_io([&](TlbWindow &win, uint64_t chunk_size, uint64_t host_offset) {
-            win.write_block(0, (uint8_t *)host_buffer + host_offset, chunk_size);
+             std::cout << "Thread write" << std::endl;
+            win.write_block_reconfigure(
+                (uint8_t *)host_buffer + host_offset, core_, base_addr_ + host_offset, chunk_size, tlb_data::Relaxed);
         });
     }
 
@@ -119,9 +124,11 @@ private:
         uint64_t remaining = size_;
         uint64_t host_offset = 0;
 
+        uint64_t chunk = size_ / nthreads_;
+
         size_t idx = 0;
         while (remaining > 0 && idx < nthreads_) {
-            uint64_t chunk = std::min<uint64_t>(remaining, TLB_WINDOW_SIZE);
+            // uint64_t chunk = std::min<uint64_t>(remaining, TLB_WINDOW_SIZE);
 
             futures.push_back(
                 pool_.enqueue([&, idx, chunk, host_offset] { func(*tlb_windows_[idx], chunk, host_offset); }));

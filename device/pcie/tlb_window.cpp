@@ -114,8 +114,7 @@ void TlbWindow::write_block_reconfigure(
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
-    // config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    config.static_vc = false;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     configure(config);
 
     while (size > 0) {

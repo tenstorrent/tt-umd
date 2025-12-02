@@ -803,6 +803,9 @@ TEST(SiliconDriverWH, DMA2) {
             write_ops.push_back({dram_core, addr, pattern});
         }
 
+        // Add a membar on all dram_cores to ensure the write is completed before reading back.
+        cluster.dram_membar(chip);
+
         // Now, read back the patterns we wrote to DRAM and verify them.
         for (const auto& op : write_ops) {
             std::vector<uint8_t> readback(op.data.size());

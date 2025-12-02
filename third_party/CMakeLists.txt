@@ -160,13 +160,7 @@ CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTI
 ####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
-CPMAddPackage(
-    NAME asio
-    GITHUB_REPOSITORY chriskohlhoff/asio
-    GIT_TAG
-        asio-1-30-2 # Version 1.30.2
-    DOWNLOAD_ONLY YES
-)
+CPMAddPackage(NAME asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 DOWNLOAD_ONLY YES)
 
 if(asio_ADDED)
     add_library(umd_asio_lib INTERFACE)

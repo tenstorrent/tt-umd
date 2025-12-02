@@ -446,6 +446,7 @@ bool WarmResetCommunication::Monitor::start_monitoring(
         if (ec) {
             log_warning(
                 tt::LogUMD, "Monitor Thread: Failed to OPEN socket. Error: '{}' (Code: {})", ec.message(), ec.value());
+            keep_monitoring.store(false);
             return;
         }
 
@@ -464,6 +465,7 @@ bool WarmResetCommunication::Monitor::start_monitoring(
                     ec.value(),
                     socket_path.string());
             }
+            keep_monitoring.store(false);
             return;
         }
 
@@ -471,6 +473,7 @@ bool WarmResetCommunication::Monitor::start_monitoring(
         if (ec) {
             log_warning(
                 tt::LogUMD, "Monitor Thread: Failed to LISTEN. Error: '{}' (Code: {})", ec.message(), ec.value());
+            keep_monitoring.store(false);
             return;
         }
 
@@ -522,11 +525,12 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
         (do_accept)();
 
-        io->run();
+        if (keep_monitoring) {
+            io->run();
+        }
 
         // Cleanup on exit.
         ::unlink(socket_path.c_str());
-        keep_monitoring.store(false);
 
         // Detach so it runs in background.
     }).detach();

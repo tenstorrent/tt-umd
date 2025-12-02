@@ -51,8 +51,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    remote_communication =
-        RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
+    remote_communication = RemoteCommunication::create_remote_communication(
+        tt_device.get(),
+        {0, 0, 0, 0},
+        sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
@@ -82,8 +84,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    remote_communication =
-        RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
+    remote_communication = RemoteCommunication::create_remote_communication(
+        tt_device.get(),
+        {0, 0, 0, 0},
+        sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
@@ -400,7 +404,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
     auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     while (size > 0) {
@@ -456,7 +460,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
     auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -118,6 +119,9 @@ public:
     // to get the information to form cluster of chips, or just use base TTDevice functions.
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    virtual void safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -312,6 +316,8 @@ public:
 
     static void restore_sigbus_default_handler();
 
+    void set_reset_in_progress(bool in_progress);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -348,6 +354,8 @@ private:
     TlbWindow *get_cached_tlb_window(tlb_data config);
 
     std::mutex tt_device_io_lock;
+
+    std::atomic<bool> reset_in_progress{false};
 };
 
 }  // namespace tt::umd

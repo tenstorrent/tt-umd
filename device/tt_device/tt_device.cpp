@@ -52,6 +52,20 @@ static void sigbus_handler(int sig) {
 
 /* static */ void TTDevice::restore_sigbus_default_handler() { signal(SIGBUS, SIG_DFL); }
 
+struct ScopedJumpGuard {
+    ScopedJumpGuard() {
+        jump_set.store(true);
+        std::atomic_signal_fence(std::memory_order_seq_cst);
+    }
+
+    ~ScopedJumpGuard() {
+        std::atomic_signal_fence(std::memory_order_seq_cst);
+        jump_set.store(false);
+    }
+};
+
+void TTDevice::set_reset_in_progress(bool in_progress) { reset_in_progress.store(in_progress); }
+
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
@@ -241,6 +255,94 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 
         config.local_offset = addr;
         tlb_window->configure(config);
+    }
+}
+
+void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if (reset_in_progress) {
+        throw std::runtime_error("SIGBUS");
+    }
+
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = architecture_impl_->get_static_vc();
+    TlbWindow *tlb_window = get_cached_tlb_window(config);
+
+    if (sigsetjmp(point, 1) == 0) {
+        ScopedJumpGuard guard;
+
+        while (size > 0) {
+            uint32_t tlb_size = tlb_window->get_size();
+            uint32_t transfer_size = std::min(size, tlb_size);
+
+            tlb_window->read_block(0, buffer_addr, transfer_size);
+
+            size -= transfer_size;
+            addr += transfer_size;
+            buffer_addr += transfer_size;
+
+            config.local_offset = addr;
+            tlb_window->configure(config);
+        }
+    } else {
+        jump_set = false;
+        throw std::runtime_error("SIGBUS");
+    }
+}
+
+void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        return;
+    }
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if (reset_in_progress) {
+        throw std::runtime_error("SIGBUS");
+    }
+
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = architecture_impl_->get_static_vc();
+    TlbWindow *tlb_window = get_cached_tlb_window(config);
+
+    if (sigsetjmp(point, 1) == 0) {
+        ScopedJumpGuard guard;
+
+        while (size > 0) {
+            uint32_t tlb_size = tlb_window->get_size();
+
+            uint32_t transfer_size = std::min(size, tlb_size);
+
+            tlb_window->write_block(0, buffer_addr, transfer_size);
+
+            size -= transfer_size;
+            addr += transfer_size;
+            buffer_addr += transfer_size;
+
+            config.local_offset = addr;
+            tlb_window->configure(config);
+        }
+    } else {
+        jump_set = false;
+        throw std::runtime_error("SIGBUS");
     }
 }
 

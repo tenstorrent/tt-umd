@@ -308,6 +308,10 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    static void register_sigbus_safe_handler();
+
+    static void restore_sigbus_default_handler();
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

@@ -4,6 +4,8 @@
 #include "umd/device/tt_device/tt_device.hpp"
 
 #include <chrono>
+#include <csetjmp>
+#include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -28,6 +30,27 @@
 bool umd_use_noc1 = false;
 
 namespace tt::umd {
+
+static thread_local sigjmp_buf point;
+static thread_local std::atomic<bool> jump_set = false;
+
+void sigbus_handler(int sig) {
+    // When this runs, it runs inside the thread that crashed.
+    // So 'jump_set' refers to that thread's variable.
+    if (jump_set) {
+        // 'point' refers to that thread's buffer.
+        siglongjmp(point, 1);
+    } else {
+        // Crash happened outside our safe block.
+        // Revert to default handler (crash and dump core)
+        signal(sig, SIG_DFL);
+        raise(sig);
+    }
+}
+
+/* static */ void TTDevice::register_safe_handler() { signal(SIGBUS, sigbus_handler); }
+
+/* static */ void TTDevice::restore_default_handler() { signal(SIGBUS, SIG_DFL); }
 
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 

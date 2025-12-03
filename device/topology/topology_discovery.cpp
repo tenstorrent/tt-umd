@@ -180,7 +180,9 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core)) ||
+                (chip->get_tt_device()->get_arch() == ARCH::BLACKHOLE &&
+                 discovered_chips.find(get_remote_asic_id(chip, eth_core)) == discovered_chips.end())) {
                 uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
                 if (chip->get_chip_info().board_type == BoardType::P150) {
                     ethernet_connections_to_remote_devices.push_back(
@@ -198,8 +200,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
-            if (discovered_chips.find(remote_asic_id) == discovered_chips.end() &&
-                chip->get_tt_device()->get_arch() != ARCH::BLACKHOLE) {
+            if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(

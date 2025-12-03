@@ -31,7 +31,7 @@
 #endif
 
 static thread_local sigjmp_buf point;
-static thread_local bool jump_set = false;
+static thread_local std::atomic<bool> jump_set = false;
 
 void sigbus_handler(int sig) {
     if (jump_set) {
@@ -44,13 +44,13 @@ void sigbus_handler(int sig) {
 
 struct ScopedJumpGuard {
     ScopedJumpGuard() {
-        jump_set = true;
+        jump_set.store(true);
         std::atomic_signal_fence(std::memory_order_seq_cst);
     }
 
     ~ScopedJumpGuard() {
         std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
+        jump_set.store(false);
     }
 };
 
@@ -63,7 +63,7 @@ public:
             ScopedJumpGuard guard;
             operation();
         } else {
-            jump_set = false;
+            jump_set.store(false);
             std::atomic_signal_fence(std::memory_order_seq_cst);
             throw std::runtime_error("SIGBUS");
         }
@@ -76,7 +76,7 @@ protected:
         if (IS_SANITIZER_ACTIVE) {
             GTEST_SKIP() << "Skipping SIGBUS tests: Incompatible with Address/Thread Sanitizer (ASan/TSan)";
         }
-        jump_set = false;
+        jump_set.store(false);
         signal(SIGBUS, sigbus_handler);
     }
 

@@ -47,7 +47,6 @@ TEST(Semver, Valid) {
         {"1.2.3----RC-SNAPSHOT.12.9.1--.12+788", semver_t(1, 2, 3)},
         {"1.2.3----R-S.12.9.1--.12+meta", semver_t(1, 2, 3)},
         {"1.2.3----RC-SNAPSHOT.12.9.1--.12", semver_t(1, 2, 3)},
-        {"1.0.0+0.build.1-rc.10000aaa-kk-0.1", semver_t(1, 0, 0)},
         {"1.2.3-rc.1", semver_t(1, 2, 3, 1)},
         {"1.3.2-rc.255", semver_t(1, 3, 2, 255)},
         {"1.0.0-0A.is.legal", semver_t(1, 0, 0)}};

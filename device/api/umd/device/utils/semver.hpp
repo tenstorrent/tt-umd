@@ -114,7 +114,16 @@ public:
 
 private:
     static semver_t parse(const std::string& version_str) {
-        std::istringstream iss(version_str);
+    	std::string version = version_str;
+    	size_t pos = version_str.find("-rc.");
+	size_t count = 3; // -rc length
+	bool ispos = false;
+	if ( pos != std::string::npos) {
+		version.erase(pos, count);
+		ispos = true;
+	}
+	// 1.2.3.4
+        std::istringstream iss(version);
         std::string token;
         uint64_t major = 0;
         uint64_t minor = 0;
@@ -127,11 +136,10 @@ private:
             if (std::getline(iss, token, '.')) {
                 minor = std::stoull(token);
 
-                if (std::getline(iss, token, '-')) {
+                if (std::getline(iss, token, '.')) {
                     patch = std::stoull(token);
 
-                    if (std::getline(iss, token) && pre_release != 0) {
-						token.erase(0, 4); // Erase first four chracter i.e -rc. leaving only the version behind.
+                    if (std::getline(iss, token, '.') && ispos == true) {
                         pre_release = std::stoull(token);
                     }
                 }

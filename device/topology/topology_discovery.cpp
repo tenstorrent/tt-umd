@@ -147,6 +147,10 @@ void TopologyDiscovery::discover_remote_chips() {
         chips_to_discover.erase(it);
         Chip* chip = chips.at(current_chip_asic_id).get();
 
+        if (options.no_remote_discovery) {
+            continue;
+        }
+
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();

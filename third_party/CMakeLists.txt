@@ -175,3 +175,18 @@ if(picosha2_ADDED)
     target_include_directories(picosha2 INTERFACE ${picosha2_SOURCE_DIR})
     add_library(picosha2::picosha2 ALIAS picosha2)
 endif()
+
+####################################################################################################################
+# asio (Standalone)
+####################################################################################################################
+CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 DOWNLOAD_ONLY YES)
+
+if(umd_asio_ADDED)
+    add_library(umd_asio_lib INTERFACE)
+
+    target_include_directories(umd_asio_lib SYSTEM INTERFACE "${umd_asio_SOURCE_DIR}/asio/include")
+
+    # Attach the STANDALONE flag only to umd asio library
+    target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
+    target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
+endif()

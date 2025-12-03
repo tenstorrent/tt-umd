@@ -64,7 +64,7 @@ public:
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
 
     // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);

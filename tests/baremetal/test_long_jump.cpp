@@ -124,10 +124,10 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
         TTDeviceSafeDummy device;
         try {
             if (id % 2 == 0) {
-                // Even threads crash
+                // Even threads crash.
                 device.safe_execute([]() { std::raise(SIGBUS); });
             } else {
-                // Odd threads succeed
+                // Odd threads succeed.
                 device.safe_execute([]() { /* do nothing */ });
             }
         } catch (const std::runtime_error& e) {
@@ -135,11 +135,11 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
                 success_count++;
             }
         } catch (...) {
-            // Should not happen for odd threads
+            // Should not happen for odd threads.
         }
 
         if (id % 2 != 0) {
-            success_count++;  // Count successful runs
+            success_count++;
         }
     };
 
@@ -152,7 +152,7 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
         t.join();
     }
 
-    // 5 threads caught SIGBUS, 5 threads finished normally = 10
+    // 5 threads caught SIGBUS, 5 threads finished normally = 10.
     EXPECT_EQ(success_count, 10);
 }
 
@@ -170,12 +170,11 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
         if (pid == 0) {
             // In a forked child, we run the stress test independently.
             // We exit with 0 on success, 1 on failure.
-
             std::atomic<int> success_count{0};
-            std::atomic<int> failure_count{0};  // Track unexpected failures
+            std::atomic<int> failure_count{0};
 
             auto thread_work = [&](int id) {
-                // Using simple modulo logic to avoid complex random dependencies
+                // Using simple modulo logic to avoid complex random dependencies.
                 std::this_thread::sleep_for(std::chrono::milliseconds((id * 7) % 10));
 
                 TTDeviceSafeDummy device;
@@ -192,13 +191,13 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
                     if (id % 2 == 0 && std::string(e.what()) == "SIGBUS") {
                         success_count++;
                     } else {
-                        failure_count++;  // Wrong exception or wrong thread
+                        failure_count++;
                     }
                 } catch (...) {
-                    failure_count++;  // Unexpected exception type
+                    failure_count++;
                 }
 
-                // Odd threads should finish without throwing
+                // Odd threads should finish without throwing.
                 if (id % 2 != 0) {
                     success_count++;
                 }
@@ -213,16 +212,16 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
                 t.join();
             }
 
-            // Check if all threads behaved as expected
+            // Check if all threads behaved as expected.
             if (success_count == NUM_THREADS_PER_PROCESS && failure_count == 0) {
-                std::exit(0);  // Success
+                std::exit(0);
             } else {
                 std::cerr << "Process " << getpid() << " failed: Success=" << success_count
                           << ", Fail=" << failure_count << std::endl;
-                std::exit(1);  // Failure
+                std::exit(1);
             }
         } else {
-            // Parent: store child PID
+            // Parent: store child PID.
             children.push_back(pid);
         }
     }
@@ -232,7 +231,7 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
         int status;
         waitpid(pid, &status, 0);
 
-        // Ensure child exited normally (WIFEXITED) and with success code 0 (WEXITSTATUS)
+        // Ensure child exited normally (WIFEXITED) and with success code 0 (WEXITSTATUS).
         EXPECT_TRUE(WIFEXITED(status)) << "Child process " << pid << " crashed or was killed.";
         EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << pid << " reported test failure.";
     }
@@ -241,11 +240,11 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
 TEST_F(SigBusMechanismTest, CrashIfHandlerNotSet) {
     TTDeviceSafeDummy device;
 
-    // Manually remove the handler for this specific test
+    // Manually remove the handler for this specific test.
     signal(SIGBUS, SIG_DFL);
 
     // This checks that the process actually dies with signal SIGBUS
-    // regex ".*" matches any output to stderr
+    // regex ".*" matches any output to stderr.
     ASSERT_DEATH(
         {
             // Even though safe_execute does sigsetjmp, the OS doesn't know to call

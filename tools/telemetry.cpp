@@ -20,14 +20,15 @@
 
 #include "common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/cluster.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 
-std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware_info_provider, tt::ARCH arch) {
+std::string run_default_telemetry(tt::ChipId device_id, FirmwareInfoProvider* firmware_info_provider) {
     if (firmware_info_provider == nullptr) {
-        return fmt::format("Could not get information for device ID {}.", pci_device);
+        return fmt::format("Could not get information for device ID {}.", device_id);
     }
 
     double asic_temperature = firmware_info_provider->get_asic_temperature();
@@ -43,7 +44,7 @@ std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware
     return fmt::format(
         "Device ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
         "Fan {} rpm, TDP {} W, TDC {} A, VCORE {} mV",
-        pci_device,
+        device_id,
         asic_temperature,
         board_temperature,
         aiclk,
@@ -59,9 +60,6 @@ int main(int argc, char* argv[]) {
     cxxopts::Options options("telemetry", "Poll telemetry values from devices.");
 
     options.add_options()(
-        "d,devices",
-        "List of device pci ids to read telemetry for. If empty, will poll on all available devices",
-        cxxopts::value<std::vector<std::string>>())(
         "t,tag",
         "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
         "power, temperature and vcore. See device/api/umd/device/types/telemetry.hpp"
@@ -82,23 +80,6 @@ int main(int argc, char* argv[]) {
     int frequency_us = result["freq"].as<int>();
     int telemetry_tag = result["tag"].as<int>();
 
-    std::vector<int> discovered_pci_device_ids = PCIDevice::enumerate_devices();
-    std::vector<int> pci_device_ids;
-
-    if (result.count("devices")) {
-        for (int device_id : extract_int_vector(result["devices"])) {
-            if (std::find(discovered_pci_device_ids.begin(), discovered_pci_device_ids.end(), device_id) ==
-                discovered_pci_device_ids.end()) {
-                std::cerr << "Device ID with pci id " << device_id << " not found in the system." << std::endl;
-                // Ignore this device id and continue.
-            } else {
-                pci_device_ids.push_back(device_id);
-            }
-        }
-    } else {
-        pci_device_ids = discovered_pci_device_ids;
-    }
-
     std::ofstream output_file;
     if (result.count("outfile")) {
         output_file.open(result["outfile"].as<std::string>());
@@ -107,36 +88,26 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::vector<std::pair<int, std::unique_ptr<ArcTelemetryReader>>> telemetry_readers;
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
-        std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader =
-            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
-        tt_devices.push_back(std::move(tt_device));
-        telemetry_readers.push_back(std::make_pair(pci_device_id, std::move(arc_telemetry_reader)));
-    }
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     while (true) {
         auto start_time = std::chrono::steady_clock::now();
-        for (int i = 0; i < telemetry_readers.size(); i++) {
-            int device_id = telemetry_readers.at(i).first;
-            auto& telemetry_reader = telemetry_readers.at(i).second;
-            auto firmware_info_provider = tt_devices.at(i)->get_firmware_info_provider();
+        for (tt::ChipId chip_id : cluster->get_target_device_ids()) {
+            ArcTelemetryReader* telemetry_reader =
+                cluster->get_chip(chip_id)->get_tt_device()->get_arc_telemetry_reader();
 
             std::string telemetry_message;
             if (telemetry_tag == -1) {
-                auto arch = tt_devices.at(i)->get_arch();
+                auto arch = cluster->get_chip(chip_id)->get_tt_device()->get_arch();
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-                    telemetry_message = run_default_telemetry(device_id, firmware_info_provider, arch);
+                    telemetry_message = run_default_telemetry(
+                        chip_id, cluster->get_chip(chip_id)->get_tt_device()->get_firmware_info_provider());
                 } else {
                     throw std::runtime_error("Unsupported device architecture");
                 }
             } else {
                 uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);
-                telemetry_message = fmt::format("Device id {} - Telemetry value: 0x{:x}", device_id, telemetry_value);
+                telemetry_message = fmt::format("Device id {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
             }
             if (output_file.is_open()) {
                 auto timestamp = std::chrono::system_clock::now();

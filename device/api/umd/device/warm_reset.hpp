@@ -8,6 +8,9 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "umd/device/utils/timeouts.hpp"
@@ -36,6 +39,23 @@ private:
     static void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 
     static void ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms);
+};
+
+class WarmResetCommunication {
+public:
+    static constexpr auto LISTENER_DIR = "/tmp/tt_umd_listeners";
+
+    struct Monitor {
+        static bool start_monitoring(
+            std::function<void()>&& pre_event_callback, std::function<void()>&& post_event_callback);
+
+        static void stop_monitoring();
+    };
+
+    struct Notifier {
+        static void notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms);
+        static void notify_all_listeners_post_reset();
+    };
 };
 
 }  // namespace tt::umd

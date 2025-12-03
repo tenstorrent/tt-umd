@@ -56,6 +56,7 @@ TEST(Semver, Valid) {
         EXPECT_EQ(actual.major, expected.major);
         EXPECT_EQ(actual.minor, expected.minor);
         EXPECT_EQ(actual.patch, expected.patch);
+	EXPECT_EQ(actual.pre_release, expected.pre_release);
     }
 }
 

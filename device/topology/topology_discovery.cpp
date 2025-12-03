@@ -128,9 +128,6 @@ void TopologyDiscovery::get_connected_chips() {
             device_id,
             asic_id);
     }
-    for (auto& [asic_id, chip] : chips_to_discover) {
-        initialize_remote_communication(chip.get());
-    }
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -348,8 +345,6 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
-
-void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
 
 bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
     TTDevice* tt_device = chip->get_tt_device();

@@ -29,4 +29,11 @@ inline constexpr semver_t KMD_MAP_TO_NOC = semver_t(2, 0, 0);
  * IOCTL UMD can now reset different architectures without needing to have architecture specific reset IOCTLs.
  */
 inline constexpr semver_t KMD_ARCH_AGNOSTIC_RESET = semver_t{2, 4, 1};
+
+/**
+ * KMD version 1.34.0 introduced support for configuring and using PCIe TLBs for buffer mappings. This feature enables
+ * calls into KMD to reserve TLB by size, in order to enable multiple user processes to use the device safely at the
+ * same time.
+ */
+inline constexpr semver_t KMD_TLBS = semver_t(1, 34, 0);
 }  // namespace tt::umd

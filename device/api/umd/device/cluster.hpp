@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -186,14 +186,14 @@ public:
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
+     * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
      */
     void configure_tlb(
         ChipId logical_device_id,
         tt_xy_pair core,
-        int32_t tlb_index,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
 
@@ -203,14 +203,14 @@ public:
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
+     * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
      */
     void configure_tlb(
         ChipId logical_device_id,
         CoreCoord core,
-        int32_t tlb_index,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
 
@@ -447,7 +447,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -469,7 +469,7 @@ public:
      * @param chip Chip to target.
      * @param channels Channels being targeted.
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels = {});
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
 
     /**
      * DRAM memory barrier.
@@ -570,8 +570,7 @@ public:
      * @param logical_device_id Chip to target.
      * @param msg_code Specifies type of ARC message.
      * @param wait_for_done Block until ARC responds.
-     * @param arg0 Message related argument.
-     * @param arg1 Message related argument.
+     * @param args Arguments for the message (device-specific limits apply).
      * @param timeout_ms Timeout in milliseconds.
      * @param return3 Return value from ARC.
      * @param return4 Return value from ARC.
@@ -580,8 +579,7 @@ public:
         int logical_device_id,
         uint32_t msg_code,
         bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
+        const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);

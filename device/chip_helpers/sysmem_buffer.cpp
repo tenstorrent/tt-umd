@@ -9,7 +9,10 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+
+extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -36,21 +39,36 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
     validate(offset);
 
-    static const std::string tlb_name = "LARGE_WRITE_TLB";
-
     const uint8_t* buffer = reinterpret_cast<const uint8_t*>(get_device_io_addr(offset));
 
-    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
-    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
 
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
-    // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
+    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
+
+    auto axi_address_base = tt_device_->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .tlb_offset;
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+
+    // In order to properly initiate DMA transfer, we need to calculate the offset into the TLB window
+    // based on the target address. Bitwise operations work in this case since all our TLB windows are power-of-two
+    // sized.
+    auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+
     while (size > 0) {
-        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        auto tlb_size = tlb_window->get_size();
 
         size_t transfer_size = std::min({size, tlb_size});
 
@@ -59,6 +77,10 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
         size -= transfer_size;
         addr += transfer_size;
         buffer += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 }
 
@@ -72,11 +94,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     }
 
     validate(offset);
-
-    static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = reinterpret_cast<uint8_t*>(get_device_io_addr(offset));
-    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
-    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
@@ -84,11 +102,29 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     // inside sysmem buffer, or we keep API as it is and make application send
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
-    // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
+
+    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
+
+    auto axi_address_base = tt_device_->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .tlb_offset;
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+
+    // In order to properly initiate DMA transfer, we need to calculate the offset into the TLB window
+    // based on the target address. Bitwise operations work in this case since all our TLB windows are power-of-two
+    // sized.
+    auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
 
     while (size > 0) {
-        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
-
+        auto tlb_size = tlb_window->get_size();
         size_t transfer_size = std::min({size, tlb_size});
 
         tt_device_->dma_d2h_zero_copy(buffer, axi_address, transfer_size);
@@ -96,6 +132,10 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
         size -= transfer_size;
         addr += transfer_size;
         buffer += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 }
 

@@ -414,19 +414,15 @@ public:
 
     uint32_t get_debug_reg_addr() const override { return blackhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
-    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+    uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
-    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+    RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override { return blackhole::SOFT_RESET_STAGGERED_START; }
 
     uint32_t get_grid_size_x() const override { return blackhole::GRID_SIZE_X; }
 
     uint32_t get_grid_size_y() const override { return blackhole::GRID_SIZE_Y; }
-
-    uint32_t get_tlb_cfg_reg_size_bytes() const override { return blackhole::TLB_CFG_REG_SIZE_BYTES; }
-
-    uint32_t get_small_read_write_tlb() const override { return blackhole::MEM_SMALL_READ_WRITE_TLB; }
 
     uint64_t get_arc_apb_noc_base_address() const override { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
@@ -469,6 +465,10 @@ public:
     virtual uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
+
+    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 2MB
+
+    bool get_static_vc() const override { return false; }  // False due to a known HW issue.
 };
 
 }  // namespace tt::umd

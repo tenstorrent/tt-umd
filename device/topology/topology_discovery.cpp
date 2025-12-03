@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -16,6 +17,7 @@
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -66,11 +68,11 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : options(options) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
-    log_info(LogUMD, "Starting topology discovery.");
+    log_debug(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
     get_connected_chips();
     discover_remote_chips();
-    log_info(LogUMD, "Completed topology discovery.");
+    log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
 
@@ -133,13 +135,11 @@ void TopologyDiscovery::get_connected_chips() {
 
 void TopologyDiscovery::discover_remote_chips() {
     std::set<uint64_t> discovered_chips = {};
-
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
         discovered_chips.insert(current_chip_asic_id);
         remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
     }
-
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -307,7 +307,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         }
     }
     cluster_desc->io_device_type = options.io_device_type;
-    cluster_desc->eth_fw_version = first_eth_fw_version;
+    cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();
 
@@ -386,10 +386,10 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
         arch_to_str(tt_device->get_arch()));
 
     if (semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_bundle_version) > 0) {
-        log_warning(
+        log_info(
             LogUMD,
-            "Firmware bundle version {} on the system is newer than the maximum supported version {} for {} "
-            "architecture. New features may not be supported.",
+            "Firmware bundle version {} on the system is newer than the latest fully tested version {} for {} "
+            "architecture. Newest features may not be supported.",
             fw_bundle_version.to_string(),
             latest_supported_fw_bundle_version.to_string(),
             arch_to_str(tt_device->get_arch()));

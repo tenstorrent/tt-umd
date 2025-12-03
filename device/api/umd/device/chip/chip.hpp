@@ -64,7 +64,7 @@ public:
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
 
     // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);
@@ -107,8 +107,7 @@ public:
     virtual int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
+        const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);

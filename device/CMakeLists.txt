@@ -250,6 +250,8 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
+target_link_libraries(device PRIVATE umd_asio_lib)
+
 check_function_exists(
     backtrace
     HAVE_BACKTRACE

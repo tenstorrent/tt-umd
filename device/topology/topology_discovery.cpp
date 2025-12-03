@@ -198,7 +198,8 @@ void TopologyDiscovery::discover_remote_chips() {
 
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
-            if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
+            if (discovered_chips.find(remote_asic_id) == discovered_chips.end() &&
+                chip->get_tt_device()->get_arch() != ARCH::BLACKHOLE) {
                 uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(chip, eth_core);
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(

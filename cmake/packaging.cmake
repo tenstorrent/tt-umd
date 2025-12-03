@@ -91,4 +91,7 @@ cpack_add_component(
         umd-runtime # Makes the python package depend on the runtime
 )
 
-include(CPack)
+# Include CPack configuration only if not building as a static library
+if(NOT TT_UMD_BUILD_STATIC)
+    include(CPack)
+endif()

@@ -24,12 +24,12 @@ namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
-    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {

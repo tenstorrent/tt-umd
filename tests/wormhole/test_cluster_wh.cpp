@@ -48,7 +48,7 @@ static void set_barrier_params(Cluster& cluster) {
 }
 
 TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .sdesc_path = "tests/soc_descs/wormhole_b0_one_dram_one_tensix_no_eth.yaml",
     });
 }
@@ -802,6 +802,17 @@ TEST(SiliconDriverWH, DMA2) {
             // Store the operation details for verification.
             write_ops.push_back({dram_core, addr, pattern});
         }
+
+        // Add a membar on all dram_cores to ensure the write is completed before reading back.
+        // But before that we must set a dram membar which is not conflicting with the write and read we're doing.
+        // The DRAM buffer written will always start at 0x0, and we can set barrier after the maximum buffer size.
+        auto default_l1_address_params =
+            cluster.get_tt_device(chip)->get_architecture_implementation()->get_l1_address_params();
+        cluster.set_barrier_address_params(
+            {default_l1_address_params.tensix_l1_barrier_base,
+             default_l1_address_params.eth_l1_barrier_base,
+             MAX_BUF_SIZE});
+        cluster.dram_membar(chip);
 
         // Now, read back the patterns we wrote to DRAM and verify them.
         for (const auto& op : write_ops) {

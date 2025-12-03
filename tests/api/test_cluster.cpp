@@ -4,6 +4,7 @@
 
 // This file holds Cluster specific API examples.
 
+#include <fmt/format.h>
 #include <fmt/xchar.h>
 #include <gtest/gtest.h>
 #include <sys/types.h>
@@ -17,6 +18,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
@@ -31,9 +33,12 @@
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/warm_reset.hpp"
 #include "utils.hpp"
@@ -1317,4 +1322,61 @@ TEST(TestCluster, WriteDataReadReg) {
 
         EXPECT_EQ(write_data_l1[i], readback_value);
     }
+}
+
+TEST(TestCluster, EriscFirmwareHashCheck) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    auto eth_fw_version = cluster->get_ethernet_firmware_version();
+    if (!eth_fw_version.has_value()) {
+        GTEST_SKIP() << "No ETH cores in Cluster. Skipping test.";
+    }
+    auto first_chip = cluster->get_chip(*cluster->get_target_device_ids().begin());
+    auto first_eth_core = first_chip->get_soc_descriptor().get_cores(tt::CoreType::ETH)[0];
+
+    const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
+    switch (first_chip->get_tt_device()->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
+            break;
+        case ARCH::BLACKHOLE:
+            eth_fw_hashes = &erisc_firmware::BH_ERISC_FW_HASHES;
+            break;
+        default:
+            GTEST_SKIP() << "Unsupported architecture for test.";
+    }
+
+    // Check hash without changes, should pass
+    std::cout << "Checking ETH FW without changes." << std::endl;
+    auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
+    if (!result.has_value()) {
+        GTEST_SKIP() << "No known hash for found ETH firmware version.";
+    }
+    ASSERT_EQ(result, true);
+    std::cout << "Passed hash check." << std::endl;
+
+    // Corrupt a part of ERISC FW code.
+    std::cout << fmt::format("Corrupting ETH core {} firmware.", first_eth_core.str()) << std::endl;
+    const erisc_firmware::HashedAddressRange& range = eth_fw_hashes->find(eth_fw_version.value())->second;
+    size_t start_addr = range.start_address;
+    std::vector<uint32_t> ebreak_instr_vector(32, 0x00100073);
+
+    first_chip->assert_risc_reset(RiscType::ALL);
+    first_chip->write_to_device(first_eth_core, ebreak_instr_vector.data(), start_addr, ebreak_instr_vector.size());
+    first_chip->l1_membar(std::unordered_set<CoreCoord>{first_eth_core});
+    first_chip->deassert_risc_reset(RiscType::ALL, false);
+
+    result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
+    EXPECT_EQ(result.value(), false);
+    std::cout << "Passed hash check." << std::endl;
+
+    // Revert ERISC FW state with warm reset.
+    if (is_galaxy_configuration(cluster.get())) {
+        WarmReset::ubb_warm_reset();
+    } else {
+        WarmReset::warm_reset();
+    }
+    std::cout << "Completed warm reset." << std::endl;
 }

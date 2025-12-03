@@ -51,6 +51,7 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
@@ -204,13 +205,13 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-            use_ethernet_broadcast &= eth_fw_version >= ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED;
             // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
             // Temporarily enable this feature for 6.7.241 as well for testing.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
-                    (eth_fw_version >= ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                    (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
                      eth_fw_version == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
@@ -407,7 +408,7 @@ Cluster::Cluster(ClusterOptions options) {
     } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
         // Filter devices only when a cluster descriptor is passed for simulation.
         // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        auto visible_devices = utils::get_visible_devices(options.target_devices);
         if (!visible_devices.empty()) {
             cluster_desc =
                 ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
@@ -910,18 +911,6 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 void Cluster::noc_multicast_write(
     void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
-}
-
-int Cluster::arc_msg(
-    int logical_device_id,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    const std::chrono::milliseconds timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, {arg0, arg1}, timeout_ms, return_3, return_4);
 }
 
 int Cluster::arc_msg(

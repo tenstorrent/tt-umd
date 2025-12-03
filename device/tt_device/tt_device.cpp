@@ -34,7 +34,7 @@ namespace tt::umd {
 static thread_local sigjmp_buf point;
 static thread_local std::atomic<bool> jump_set = false;
 
-void sigbus_handler(int sig) {
+static void sigbus_handler(int sig) {
     // When this runs, it runs inside the thread that crashed.
     // So 'jump_set' refers to that thread's variable.
     if (jump_set) {

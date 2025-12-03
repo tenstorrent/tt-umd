@@ -469,7 +469,7 @@ public:
      * @param chip Chip to target.
      * @param channels Channels being targeted.
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels = {});
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
 
     /**
      * DRAM memory barrier.

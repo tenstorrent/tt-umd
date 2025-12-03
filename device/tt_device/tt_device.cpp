@@ -48,9 +48,9 @@ void sigbus_handler(int sig) {
     }
 }
 
-/* static */ void TTDevice::register_safe_handler() { signal(SIGBUS, sigbus_handler); }
+/* static */ void TTDevice::register_sigbus_safe_handler() { signal(SIGBUS, sigbus_handler); }
 
-/* static */ void TTDevice::restore_default_handler() { signal(SIGBUS, SIG_DFL); }
+/* static */ void TTDevice::restore_sigbus_default_handler() { signal(SIGBUS, SIG_DFL); }
 
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 

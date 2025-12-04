@@ -88,12 +88,12 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 }
 
 // Test large transfers (> 1024 bytes) to remote chips without sysmem
-// This test verifies that chunking works correctly when sysmem_manager is nullptr
+// This test verifies that chunking works correctly when sysmem_manager is nullptr.
 TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
-    // Discover cluster topology
+    // Discover cluster topology.
     auto [cluster_desc, _] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});
 
-    // Find a remote chip
+    // Find a remote chip.
     std::optional<ChipId> remote_chip_id;
     for (ChipId chip_id : cluster_desc->get_all_chips()) {
         if (!cluster_desc->is_chip_mmio_capable(chip_id)) {
@@ -120,12 +120,12 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
-    // Get a tensix core to test on
+    // Get a tensix core to test on.
     SocDescriptor remote_soc_desc(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
     auto tensix_core = *remote_soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED).begin();
     tt_xy_pair tensix_core_xy = tt_xy_pair(tensix_core.x, tensix_core.y);
 
-    // Test with 2048 bytes (2x the 1024 threshold)
+    // Test with 2048 bytes (2x the 1024 threshold).
     constexpr uint32_t test_size = 2048;
     constexpr uint64_t test_address = 0x100;
 
@@ -138,7 +138,7 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     remote_tt_device->wait_for_non_mmio_flush();
     remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);
 
-    // Verify data matches
+    // Verify data matches.
     ASSERT_EQ(data_to_write.size(), data_read.size()) << "Read and write data sizes do not match";
     for (size_t i = 0; i < data_to_write.size(); i++) {
         ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex
@@ -153,7 +153,7 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     remote_tt_device->wait_for_non_mmio_flush();
     remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);
 
-    // Verify data matches
+    // Verify data matches.
     ASSERT_EQ(data_to_write.size(), data_read.size()) << "Read and write data sizes do not match";
     for (size_t i = 0; i < data_to_write.size(); i++) {
         ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex

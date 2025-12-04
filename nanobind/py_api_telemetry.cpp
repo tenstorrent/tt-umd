@@ -123,7 +123,7 @@ void bind_telemetry(nb::module_ &m) {
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
-    // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed
+    // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
         .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
         .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))

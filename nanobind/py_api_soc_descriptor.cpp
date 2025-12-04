@@ -17,7 +17,7 @@ using namespace tt;
 using namespace tt::umd;
 
 void bind_soc_descriptor(nb::module_ &m) {
-    // Bind CoreType enum
+    // Bind CoreType enum.
     nb::enum_<CoreType>(m, "CoreType")
         .value("ARC", CoreType::ARC)
         .value("DRAM", CoreType::DRAM)
@@ -34,7 +34,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def("__str__", [](CoreType ct) { return to_str(ct); })
         .def("__repr__", [](CoreType ct) { return "CoreType." + to_str(ct); });
 
-    // Bind CoordSystem enum
+    // Bind CoordSystem enum.
     nb::enum_<CoordSystem>(m, "CoordSystem")
         .value("LOGICAL", CoordSystem::LOGICAL)
         .value("NOC0", CoordSystem::NOC0)
@@ -43,7 +43,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def("__str__", [](CoordSystem cs) { return to_str(cs); })
         .def("__repr__", [](CoordSystem cs) { return "CoordSystem." + to_str(cs); });
 
-    // Bind CoreCoord struct
+    // Bind CoreCoord struct.
     nb::class_<CoreCoord>(m, "CoreCoord")
         .def(
             nb::init<size_t, size_t, CoreType, CoordSystem>(),
@@ -60,7 +60,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def("__eq__", &CoreCoord::operator==)
         .def("__lt__", &CoreCoord::operator<);
 
-    // Bind SocDescriptor class
+    // Bind SocDescriptor class.
     nb::class_<SocDescriptor>(m, "SocDescriptor")
         .def(
             "__init__",

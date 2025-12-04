@@ -15,28 +15,33 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
-
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
-void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
         LogUMD,
-        "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
+        "Configuring TLB for chip: {} core: {} size: {} address: {} ordering: {}",
         tt_device_->get_pci_device()->get_device_num(),
         core.str(),
-        tlb_index,
+        tlb_size,
         address,
         ordering);
-    TT_ASSERT(tlb_config_map_.find(tlb_index) == tlb_config_map_.end(), "TLB index already configured {}", tlb_index);
 
-    tt_device_->set_dynamic_tlb(tlb_index, core, address, ordering);
-    auto tlb_size = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
-    tlb_config_map_.insert({tlb_index, (address / tlb_size) * tlb_size});
-    map_core_to_tlb_.insert({core, tlb_index});
+    tlb_data config{};
+    config.local_offset = address;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
+    std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
+
+    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
+    map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
+    tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
 }
 
 void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
@@ -58,7 +63,7 @@ void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t ad
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
     tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
@@ -74,38 +79,6 @@ TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     }
 }
 
-void TLBManager::set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t tlb_index) {
-    TT_ASSERT(
-        dynamic_tlb_config_.find(fallback_tlb_name) == dynamic_tlb_config_.end(),
-        "Dynamic TLB already configured for {}",
-        fallback_tlb_name);
-    dynamic_tlb_config_.insert({fallback_tlb_name, tlb_index});
-    dynamic_tlb_ordering_modes_[fallback_tlb_name] = DEFAULT_ORDERING_MODE;
-}
-
-void TLBManager::set_dynamic_tlb_config_ordering(std::string fallback_tlb_name, uint64_t ordering) {
-    TT_ASSERT(
-        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
-        "Invalid ordering specified in set_dynamic_tlb_config_ordering.");
-    TT_ASSERT(
-        fallback_tlb_name != "LARGE_READ_TLB" && fallback_tlb_name != "LARGE_WRITE_TLB",
-        "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
-    TT_ASSERT(
-        dynamic_tlb_config_.find(fallback_tlb_name) != dynamic_tlb_config_.end(),
-        "Dynamic TLB not configured {}",
-        fallback_tlb_name);
-
-    dynamic_tlb_ordering_modes_[fallback_tlb_name] = ordering;
-}
-
-bool TLBManager::address_in_tlb_space(uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size) {
-    if (tlb_config_map_.find(tlb_index) != tlb_config_map_.end()) {
-        auto mapped_address = tlb_config_map_.at(tlb_index);
-        return address >= mapped_address && (address + size_in_bytes <= mapped_address + tlb_size);
-    }
-    return false;
-}
-
 bool TLBManager::is_tlb_mapped(tt_xy_pair core) { return map_core_to_tlb_.find(core) != map_core_to_tlb_.end(); }
 
 bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes) {
@@ -113,10 +86,10 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
         return false;
     }
 
-    int32_t tlb_index = map_core_to_tlb_.at(core);
-    tlb_configuration tlb_description = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    TlbWindow* tlb_window = get_tlb_window(core);
 
-    return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size);
+    return tlb_window->get_base_address() <= address &&
+           address + size_in_bytes <= tlb_window->get_base_address() + tlb_window->get_size();
 }
 
 Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
@@ -124,16 +97,11 @@ Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
         throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
     }
 
-    if (!tt_device_->get_pci_device()->bar0_wc) {
-        throw std::runtime_error("No write-combined mapping for BAR0");
-    }
-
     auto tlb_index = map_core_to_tlb_.at(core);
     auto tlb_data = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    TlbWindow* tlb_window = tlb_windows_.at(tlb_index).get();
 
-    auto* base = reinterpret_cast<uint8_t*>(tt_device_->get_pci_device()->bar0_wc);
-
-    return Writer(base + tlb_data.tlb_offset, tlb_data.size);
+    return Writer(tlb_window->handle_ref().get_base(), tlb_data.size);
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {

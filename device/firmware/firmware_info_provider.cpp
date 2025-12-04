@@ -255,7 +255,7 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 

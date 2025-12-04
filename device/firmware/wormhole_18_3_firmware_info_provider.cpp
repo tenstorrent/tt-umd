@@ -78,7 +78,7 @@ std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_tra
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() const {
-    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(tt::umd::wormhole::AICLK);
+    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
@@ -155,7 +155,7 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 

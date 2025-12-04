@@ -33,7 +33,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return;
     }
-    // If pci_device_ids is empty, enumerate all devices
+    // If pci_device_ids is empty, enumerate all devices.
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
@@ -123,12 +123,12 @@ void WarmReset::warm_reset_arch_agnostic(
     }
 
     log_info(tt::LogUMD, "Starting reset on devices at PCI indices: {}", fmt::join(pci_device_id_set, ", "));
-    PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::RESET_PCIE_LINK);
+    PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     if (reset_m3) {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_DMC_RESET);
+        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);
     } else {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::ASIC_RESET);
+        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_RESET);
     }
 
     // Calculate post-reset wait time: use provided M3 timeout if M3 reset, otherwise scale based on device count
@@ -151,12 +151,12 @@ void WarmReset::warm_reset_arch_agnostic(
         }
     }
 
-    PCIDevice::reset_device_ioctl(pci_device_id_set, tt::umd::TenstorrentResetDevice::POST_RESET);
+    PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
 }
 
 void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
+    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
 
     std::map<int, bool> reset_bits;
 
@@ -241,14 +241,14 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     std::vector<uint32_t> arc_msg_return_values(1);
     for (const auto& tt_device : tt_devices) {
         tt_device->get_arc_messenger()->send_message(
-            MSG_TYPE_ARC_STATE3, arc_msg_return_values, default_arg_value, default_arg_value);
+            MSG_TYPE_ARC_STATE3, arc_msg_return_values, {default_arg_value, default_arg_value});
         usleep(30'000);
         if (reset_m3) {
             tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, 3, default_arg_value);
+                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {3, default_arg_value});
         } else {
             tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, default_arg_value, default_arg_value);
+                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {default_arg_value, default_arg_value});
         }
     }
 
@@ -309,12 +309,12 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
         int exit_code = WEXITSTATUS(status);
 
         if (exit_code == 0) {
-            // Success: Exit code is 0
+            // Success: Exit code is 0.
             log_info(tt::LogUMD, "Reset successfully completed. Exit code: {}", exit_code);
             return;
         }
 
-        // Failure: Program exited normally but with a non-zero code
+        // Failure: Program exited normally but with a non-zero code.
         log_error(tt::LogUMD, "Reset error! Program exited with code: {}", exit_code);
         return;
     }

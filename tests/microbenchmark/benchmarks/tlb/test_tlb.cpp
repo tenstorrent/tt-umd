@@ -106,7 +106,7 @@ TEST(MicrobenchmarkTLB, TLBStaticTensix) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
 
-    cluster->configure_tlb(0, tensix_core, tlb_1m_index, 0x0, tlb_data::Relaxed);
+    cluster->configure_tlb(0, tensix_core, 1 << 21, 0, tlb_data::Relaxed);
 
     const std::vector<size_t> sizes = {
         1,
@@ -165,7 +165,7 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
 
-    cluster->configure_tlb(0, dram_core, tlb_16m_index, 0x0, tlb_data::Relaxed);
+    cluster->configure_tlb(0, dram_core, 16 * (1 << 20), 0, tlb_data::Relaxed);
 
     const std::vector<std::string> headers = {
         "Size (bytes)",
@@ -233,7 +233,7 @@ TEST(MicrobenchmarkTLB, TLBStaticEth) {
     const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
 
     constexpr uint32_t address = 128 * one_kb;
-    cluster->configure_tlb(chip, eth_core, tlb_1m_index, address, tlb_data::Relaxed);
+    cluster->configure_tlb(chip, eth_core, 1 << 21, address, tlb_data::Relaxed);
 
     const std::vector<size_t> sizes = {
         1,

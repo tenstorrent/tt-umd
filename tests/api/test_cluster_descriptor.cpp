@@ -188,7 +188,7 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
  * expected.
  */
 TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
-    std::unique_ptr<ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     auto all_chips = cluster_desc->get_all_chips();
 

@@ -11,10 +11,6 @@ namespace tt::umd {
 const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString = {
     {MutexType::ARC_MSG, "ARC_MSG"},
     {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
-    // It is important that this mutex is named the same as corresponding fallback_tlb, this is due to the same tlb
-    // index being used. This will be changed once we have a cleaner way to allocate TLBs instead of hardcoding fallback
-    // tlbs.
-    {MutexType::TT_DEVICE_IO, "REG_TLB"},
     {MutexType::NON_MMIO, "NON_MMIO"},
     {MutexType::MEM_BARRIER, "MEM_BARRIER"},
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},

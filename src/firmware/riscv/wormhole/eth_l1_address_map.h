@@ -10,7 +10,7 @@ namespace eth_l1_mem {
 
 
 struct address_map {
-  // Sizes
+  // Sizes.
   static constexpr std::int32_t FIRMWARE_SIZE = 32 * 1024;
   static constexpr std::int32_t ERISC_BARRIER_SIZE = 0x20; // 32 bytes reserved for Barrier
   static constexpr std::int32_t COMMAND_Q_SIZE = 4 * 1024;
@@ -25,7 +25,7 @@ struct address_map {
   static constexpr std::int32_t NCRISC_L1_EPOCH_Q_SIZE = 32;
   static constexpr std::int32_t FW_L1_BLOCK_SIZE = OVERLAY_BLOB_SIZE + EPOCH_RUNTIME_CONFIG_SIZE + TILE_HEADER_BUF_SIZE;
   static constexpr std::int32_t FW_DRAM_BLOCK_SIZE = OVERLAY_BLOB_SIZE + OVERLAY_MAX_EXTRA_BLOB_SIZE + EPOCH_RUNTIME_CONFIG_SIZE + TILE_HEADER_BUF_SIZE;
-  // Base addresses
+  // Base addresses.
   static constexpr std::int32_t FIRMWARE_BASE = 0x9040;
   static constexpr std::int32_t ERISC_BARRIER_BASE = 0x11FE0;
   static constexpr std::int32_t L1_EPOCH_Q_BASE = 0x9000; // Epoch Q start in L1.

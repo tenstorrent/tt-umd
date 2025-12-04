@@ -4,9 +4,13 @@
 
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
@@ -319,23 +323,39 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
     semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
 
     bool eth_fw_problem = false;
-    if (!first_eth_fw_version.has_value()) {
-        log_info(LogUMD, "Established ETH FW version: {}", eth_fw_version.to_string());
-        log_debug(LogUMD, "UMD supported minimum WH ETH FW version: {}", ERISC_FW_SUPPORTED_VERSION_MIN.to_string());
-        first_eth_fw_version = eth_fw_version;
-        if (ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+    if (!expected_eth_fw_version.has_value()) {
+        expected_eth_fw_version =
+            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::WORMHOLE_B0);
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        } else {
+            expected_eth_fw_version = eth_fw_version;
+            log_debug(
+                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
+        }
+        if (erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
     }
 
-    if (eth_fw_version != first_eth_fw_version) {
+    if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
             "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
             get_local_asic_id(chip, eth_core),
             eth_core.str(),
             eth_fw_version.to_string());
+        eth_fw_problem = true;
+    }
+
+    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
+    if (hash_check.has_value() && hash_check.value() == false) {
+        log_warning(
+            LogUMD,
+            "ETH FW version hash check failed for chip {} ETH core {}",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str());
         eth_fw_problem = true;
     }
 

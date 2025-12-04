@@ -29,8 +29,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
-            0,
-            0);
+            {0, 0});
 
         EXPECT_EQ(
             CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
@@ -51,8 +50,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
         uint32_t response = arc_messenger->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(),
-            0,
-            0);
+            {0, 0});
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
@@ -64,8 +62,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
         response = arc_messenger->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
-            0,
-            0);
+            {0, 0});
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
@@ -94,8 +91,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
                     wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,
-                    0,
-                    0);
+                    {0, 0});
 
                 EXPECT_EQ(
                     CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
@@ -112,8 +108,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
                     wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,
-                    0,
-                    0);
+                    {0, 0});
 
                 EXPECT_EQ(
                     CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),

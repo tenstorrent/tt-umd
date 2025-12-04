@@ -10,7 +10,7 @@ namespace tt::umd {
 
 namespace blackhole {
 
-// Note, this only includes message IDs that have actually be implemented in CMFW
+// Note, this only includes message IDs that have actually be implemented in CMFW.
 enum class ArcMessageType : uint8_t {
     RESERVED_01 = 0x01,  // reserved to avoid conflict with initial SCRATCH[5] value
     NOP = 0x11,          // Do nothing

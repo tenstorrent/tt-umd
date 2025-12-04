@@ -14,7 +14,7 @@
 
 #include "tests/test_utils/fetch_local_files.hpp"
 
-// TODO: change to tt_cluster
+// TODO: change to tt_cluster.
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -30,7 +30,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // Expect to throw for remote chip for any worker core
+    // Expect to throw for remote chip for any worker core.
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
     if (!remote_chips.empty()) {
         ChipId any_remote_chip = *remote_chips.begin();
@@ -45,18 +45,6 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
     EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core), std::runtime_error);
 
-    // TODO: This should be part of TTDevice interface, not Cluster or Chip.
-    // Configure TLBs.
-    std::function<int(CoreCoord)> get_static_tlb_index = [&](CoreCoord core) -> int {
-        // TODO: Make this per arch.
-        if (core.core_type != CoreType::TENSIX) {
-            return -1;
-        }
-        // LOGICAL system needs to be used for the correct calculation of tlb_index.
-        core = umd_cluster->get_soc_descriptor(any_mmio_chip).translate_coord_to(core, CoordSystem::LOGICAL);
-        return core.x + core.y * umd_cluster->get_soc_descriptor(any_mmio_chip).get_grid_size(CoreType::TENSIX).x;
-    };
-
     std::int32_t c_zero_address = 0;
 
     // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
@@ -64,7 +52,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
         any_mmio_chip = mmio_chip;
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
         for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
-            umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
+            umd_cluster->configure_tlb(mmio_chip, core, 1 << 20, c_zero_address);
         }
     }
 
@@ -81,7 +69,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     }
 }
 
-// TODO: Move to test_chip
+// TODO: Move to test_chip.
 TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 

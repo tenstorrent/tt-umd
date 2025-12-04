@@ -256,7 +256,7 @@ private:
     void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
 
-    // Centralize mock/simulator-only default values that are not coming from YAML
+    // Centralize mock/simulator-only default values that are not coming from YAML.
     void fill_mock_hardcoded_data(ChipId logical_id);
 
     // Verify for some common mistakes.
@@ -273,7 +273,7 @@ private:
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;
-    // TODO: unify uint64_t with ChipUID
+    // TODO: unify uint64_t with ChipUID.
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<uint64_t, EthernetChannel>>>
         ethernet_connections_to_remote_devices;
     std::unordered_map<ChipId, EthCoord> chip_locations;
@@ -313,7 +313,7 @@ private:
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 
-    // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
+    // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays.
     std::unordered_map<ChipId, uint16_t> chip_to_bus_id = {};
 
     std::optional<semver_t> fw_bundle_version;

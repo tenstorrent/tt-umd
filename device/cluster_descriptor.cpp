@@ -279,7 +279,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
     return x_distance + y_distance;
 }
 
-// Returns the closest mmio chip to the given chip
+// Returns the closest mmio chip to the given chip.
 ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
     log_debug(LogUMD, "get_closest_mmio_chip to chip{}", chip);
 
@@ -1001,7 +1001,7 @@ tt::ARCH ClusterDescriptor::get_arch() const {
         TT_THROW("Unable to determine architecture because no chips were detected.");
     }
 
-    // We already validated that all chips have the same arch
+    // We already validated that all chips have the same arch.
     tt::ARCH arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
         TT_THROW("Chip {} has invalid architecture.", *chips.begin());

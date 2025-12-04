@@ -21,14 +21,37 @@ WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(t
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code,
     std::vector<uint32_t>& return_values,
-    uint16_t arg0,
-    uint16_t arg1,
+    const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error(LogUMD, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
 
-    TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
+    // Validate that only 2 args are passed for Wormhole.
+    if (args.size() > 2) {
+        throw std::runtime_error(
+            fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size()));
+    }
+
+    // Extract args (default to 0 if not provided).
+    uint16_t arg0 = 0;
+    uint16_t arg1 = 0;
+
+    if (args.size() >= 1) {
+        if (args[0] > 0xFFFF) {
+            throw std::runtime_error(
+                fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
+        }
+        arg0 = static_cast<uint16_t>(args[0]);
+    }
+
+    if (args.size() >= 2) {
+        if (args[1] > 0xFFFF) {
+            throw std::runtime_error(
+                fmt::format("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[1]));
+        }
+        arg1 = static_cast<uint16_t>(args[1]);
+    }
 
     const tt_xy_pair arc_core = umd_use_noc1 ? tt_xy_pair(
                                                    wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],

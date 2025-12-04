@@ -20,7 +20,7 @@ struct mailbox_type {
 };
 
 struct address_map {
-  // Sizes
+  // Sizes.
   static constexpr std::uint32_t FIRMWARE_SIZE = 20 * 1024;          // 20KB = 7KB + 1KB zeros + 12KB perf buffers
   static constexpr std::uint32_t L1_BARRIER_SIZE = 0x20; // 32 bytes reserved for L1 Barrier
   static constexpr std::uint32_t BRISC_FIRMWARE_SIZE = 7*1024 + 512 + 768; // Taking an extra 768B from perf buffer space
@@ -41,7 +41,7 @@ struct address_map {
   static constexpr std::uint32_t NCRISC_L1_EPOCH_Q_SIZE = 32;
   static constexpr std::uint32_t FW_L1_BLOCK_SIZE = FIRMWARE_SIZE + NCRISC_FIRMWARE_SIZE + TRISC0_SIZE + TRISC1_SIZE + TRISC2_SIZE + OVERLAY_BLOB_SIZE + EPOCH_RUNTIME_CONFIG_SIZE + TILE_HEADER_BUF_SIZE;
 
-  // Base addresses
+  // Base addresses.
   static constexpr std::uint32_t FIRMWARE_BASE = 0;
   static constexpr std::uint32_t L1_BARRIER_BASE = 0x16dfc0;
   static constexpr std::uint32_t ZEROS_BASE = FIRMWARE_BASE + BRISC_FIRMWARE_SIZE;
@@ -59,7 +59,7 @@ struct address_map {
   static constexpr std::uint32_t EPOCH_RUNTIME_CONFIG_BASE = TRISC2_BASE + TRISC2_SIZE + TILE_HEADER_BUF_SIZE;
   static constexpr std::uint32_t OVERLAY_BLOB_BASE = EPOCH_RUNTIME_CONFIG_BASE + EPOCH_RUNTIME_CONFIG_SIZE;
 
-  // MT: For Blackhole, this needs to be moved down at the expense of the data buffer
+  // MT: For Blackhole, this needs to be moved down at the expense of the data buffer.
   static constexpr std::uint32_t NCRISC_L1_RUNTIME_SECTION_BASE = EPOCH_RUNTIME_CONFIG_BASE + EPOCH_RUNTIME_CONFIG_SIZE + OVERLAY_BLOB_SIZE;
   static constexpr std::uint32_t NCRISC_L1_RUNTIME_SECTION_SIZE = 16*1024;
   static constexpr std::uint32_t NCRISC_L1_SCRATCH_BASE = NCRISC_L1_RUNTIME_SECTION_BASE + 0x200; // L1 Scratch used by NCRISC sized NCRISC_L1_SCRATCH_SIZE, skip 0x200 because some of the beginning of NCRISC is used .e.g. TEST_MAILBOX
@@ -84,7 +84,7 @@ struct address_map {
   static_assert(DATA_BUFFER_SPACE_BASE % NOC_ADDRESS_ALIGNMENT == 0, "DATA_BUFFER_SPACE_BASE must be aligned to NOC_ADDRESS_ALIGNMENT");
   static_assert(L1_BARRIER_BASE % NOC_ADDRESS_ALIGNMENT == 0, "L1_BARRIER_BASE must be aligned to NOC_ADDRESS_ALIGNMENT");
   
-  // Trisc Mailboxes
+  // Trisc Mailboxes.
   static constexpr std::uint32_t TRISC_L1_MAILBOX_OFFSET = 4;
   static constexpr std::uint32_t BRISC_L1_MAILBOX_OFFSET = 4;
   static constexpr std::uint32_t NRISC_L1_MAILBOX_OFFSET = 4;
@@ -99,14 +99,14 @@ struct address_map {
   static constexpr std::uint32_t FW_MAILBOX_BUF_SIZE     = 64;
   static constexpr std::uint32_t DEBUG_MAILBOX_BUF_SIZE  = 64; // For each T0/T1/T2/FW
 
-  // Used for TT_LOG
+  // Used for TT_LOG.
   static constexpr std::uint32_t TRISC_TT_LOG_MAILBOX_OFFSET = 28;
   static constexpr std::uint32_t TRISC_TT_LOG_MAILBOX_SIZE = 64;
   static constexpr std::uint32_t TRISC0_TT_LOG_MAILBOX_BASE = TRISC0_MAILBOX_BASE + TRISC_TT_LOG_MAILBOX_OFFSET;
   static constexpr std::uint32_t TRISC1_TT_LOG_MAILBOX_BASE = TRISC1_MAILBOX_BASE + TRISC_TT_LOG_MAILBOX_OFFSET;
   static constexpr std::uint32_t TRISC2_TT_LOG_MAILBOX_BASE = TRISC2_MAILBOX_BASE + TRISC_TT_LOG_MAILBOX_OFFSET;
 
-  // Upper 2KB of local space is used as debug buffer
+  // Upper 2KB of local space is used as debug buffer.
   static constexpr std::uint32_t DEBUG_BUFFER_SIZE  = 2 * 1024;
   static constexpr std::uint32_t TRISC0_DEBUG_BUFFER_BASE  = TRISC0_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
   static constexpr std::uint32_t TRISC1_DEBUG_BUFFER_BASE  = TRISC1_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
@@ -124,18 +124,18 @@ struct address_map {
   static constexpr std::uint32_t NCRISC_HAS_IRAM = 0;
 
   // Perf buffer (FIXME - update once location of the perf data buffer is finalized)
-  // Parameter UNPACK_PACK_PERF_BUF_SIZE_LEVEL_1 assumes the following PERF_BUF_SIZE = 12KB - 768
+  // Parameter UNPACK_PACK_PERF_BUF_SIZE_LEVEL_1 assumes the following PERF_BUF_SIZE = 12KB - 768.
   static constexpr std::uint32_t PERF_BUF_SIZE = FIRMWARE_SIZE - BRISC_FIRMWARE_SIZE - ZEROS_SIZE;
 
-  // This value must be equal to the sum of all all the subsequent sizes in this section
+  // This value must be equal to the sum of all all the subsequent sizes in this section.
   static constexpr std::uint32_t PERF_TOTAL_SETUP_BUFFER_SIZE = 64;
-  // Queue header below is used for the concurrent performance trace
+  // Queue header below is used for the concurrent performance trace.
   static constexpr std::uint32_t PERF_QUEUE_HEADER_SIZE = 16;
-  // Input and output overlay decoupling masks
+  // Input and output overlay decoupling masks.
   static constexpr std::uint32_t PERF_RISC_MAILBOX_SIZE = 8;
   // Signal to ncrisc that the performance buffer has been drained.
   static constexpr std::uint32_t PERF_RESET_PTR_MAILBOX_SIZE = 4;
-  // Signal to all cores within a chip that the epoch comamnd for all cores has been sent;
+  // Signal to all cores within a chip that the epoch comamnd for all cores has been sent;.
   static constexpr std::uint32_t PERF_ANALYZER_COMMAND_START_PTR_SIZE = 8;
   static constexpr std::uint32_t PERF_ANALYZER_COMMAND_START_VAL_SIZE = 4;
   static constexpr std::uint32_t PERF_UNUSED_SIZE = 24;

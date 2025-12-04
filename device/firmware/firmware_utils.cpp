@@ -4,13 +4,23 @@
 
 #include "umd/device/firmware/firmware_utils.hpp"
 
-#include <cstdint>
-#include <thread>
+#include <picosha2.h>
 
-#include "tt-logger/tt-logger.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <optional>
+#include <thread>
+#include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
+#include <utility>
+
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {
@@ -31,8 +41,7 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
         auto start = std::chrono::steady_clock::now();
         auto timeout_duration = std::chrono::milliseconds(250);
         while (std::chrono::steady_clock::now() - start < timeout_duration) {
-            auto fw_bundle_version =
-                smbus_telemetry_reader->read_entry(tt::umd::wormhole::TelemetryTag::FW_BUNDLE_VERSION);
+            auto fw_bundle_version = smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION);
             if (fw_bundle_version != 0) {
                 return fw_version_from_telemetry(fw_bundle_version);
             }
@@ -40,13 +49,40 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
         }
         log_warning(
             tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
-        return fw_version_from_telemetry(
-            smbus_telemetry_reader->read_entry(tt::umd::wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+        return fw_version_from_telemetry(smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
                ? fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
                : semver_t(0, 0, 0);
+}
+
+std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
+    semver_t fw_bundle_version, tt::ARCH arch) {
+    const auto* version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
+    switch (arch) {
+        case ARCH::WORMHOLE_B0:
+            version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
+            break;
+        case ARCH::BLACKHOLE:
+            version_map = &erisc_firmware::BH_ERISC_FW_VERSION_MAP;
+            break;
+        default:
+            return std::nullopt;
+    }
+
+    // Find the most recently updated ERISC FW version from a given firmware
+    // bundle version.
+    for (auto it = version_map->cbegin(); it != version_map->cend(); ++it) {
+        if (semver_t::compare_firmware_bundle(it->first, fw_bundle_version) > 0) {
+            if (it == version_map->cbegin()) {
+                return std::nullopt;
+            } else {
+                return std::prev(it)->second;
+            }
+        }
+    }
+    return version_map->back().second;
 }
 
 semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
@@ -55,6 +91,31 @@ semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
     }
 
     return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version) {
+    const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
+            break;
+        case ARCH::BLACKHOLE:
+            eth_fw_hashes = &erisc_firmware::BH_ERISC_FW_HASHES;
+            break;
+        default:
+            return std::nullopt;
+    }
+
+    if (eth_fw_hashes->find(eth_fw_version) == eth_fw_hashes->end()) {
+        return std::nullopt;
+    }
+
+    erisc_firmware::HashedAddressRange hashed_range = eth_fw_hashes->at(eth_fw_version);
+    std::vector<uint8_t> eth_fw_text(hashed_range.size);
+    tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
+    std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
+
+    return eth_fw_text_sha256_hash.compare(hashed_range.sha256_hash) == 0;
 }
 
 semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {

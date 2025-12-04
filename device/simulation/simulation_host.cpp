@@ -41,17 +41,17 @@ bool is_port_free(int port) {
 }
 
 SimulationHost::SimulationHost() {
-    // Initialize socket and listener
+    // Initialize socket and listener.
     host_socket = std::make_unique<nng_socket>();
     host_listener = std::make_unique<nng_listener>();
 }
 
 void SimulationHost::init() {
-    // Check if NNG_SOCKET_LOCAL_PORT is set
+    // Check if NNG_SOCKET_LOCAL_PORT is set.
     const char *local_socket_port_str = std::getenv("NNG_SOCKET_LOCAL_PORT");
     std::string nng_socket_addr_str;
 
-    // Generate socket address with hostname and random port
+    // Generate socket address with hostname and random port.
     char hostname[256];
     if (std::getenv("TT_SIMULATOR_LOCALHOST") || gethostname(hostname, sizeof(hostname)) != 0) {
         strcpy(hostname, "localhost");
@@ -63,7 +63,7 @@ void SimulationHost::init() {
         port = atoi(local_socket_port_str);
         log_info(tt::LogEmulationDriver, "Using specified NNG_SOCKET_LOCAL_PORT: {}", port);
     } else {
-        // Generate random port in range 50000-59999
+        // Generate random port in range 50000-59999.
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(50000, 59999);
@@ -78,7 +78,7 @@ void SimulationHost::init() {
     ss << "tcp://" << hostname << ":" << port;
     nng_socket_addr_str = ss.str();
 
-    // Export the address for client to use
+    // Export the address for client to use.
     if (std::getenv("NNG_SOCKET_ADDR") == nullptr) {
         setenv("NNG_SOCKET_ADDR", nng_socket_addr_str.c_str(), 1);
         log_info(tt::LogEmulationDriver, "Generated NNG_SOCKET_ADDR: {}", nng_socket_addr_str);
@@ -86,7 +86,7 @@ void SimulationHost::init() {
 
     const char *nng_socket_addr = nng_socket_addr_str.c_str();
 
-    // Open socket and create listener (server mode)
+    // Open socket and create listener (server mode).
     log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
     int rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
@@ -99,7 +99,7 @@ SimulationHost::~SimulationHost() {
 }
 
 void SimulationHost::start_host() {
-    // Start listening for connections from client
+    // Start listening for connections from client.
     int rv = nng_listener_start(*host_listener, 0);
     if (rv != 0) {
         log_error(tt::LogEmulationDriver, "Failed to start listener: {}", nng_strerror(rv));

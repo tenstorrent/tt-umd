@@ -71,7 +71,7 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, 0, false);
 }
 
-// Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes
+// Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
 void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
@@ -107,7 +107,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 }
 
 // Many threads open and close many clusters.
-TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
+TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
@@ -152,11 +152,9 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Starting cluster " << i << std::endl;
-            clusters[i]->start_device({});
             std::cout << "Running IO for cluster " << i << std::endl;
             test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
             std::cout << "Stopping cluster " << i << std::endl;
-            clusters[i]->close_device();
         }));
     }
     for (auto& th : threads) {

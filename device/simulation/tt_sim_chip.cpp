@@ -20,25 +20,33 @@
 
 #include "assert.hpp"
 
-// NOLINTBEGIN
+// NOLINTBEGIN.
 #define DLSYM_FUNCTION(func_name)                                                    \
     pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
     if (!pfn_##func_name) {                                                          \
         TT_THROW("Failed to find symbol: ", #func_name, dlerror());                  \
     }
 
-// NOLINTEND
+// NOLINTEND.
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
 
-TTSimChip::TTSimChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+TTSimChip::TTSimChip(
+    const std::filesystem::path& simulator_directory,
+    SocDescriptor soc_descriptor,
+    ChipId chip_id,
+    bool copy_sim_binary) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
-    create_simulator_binary();
-    copy_simulator_binary();
-    secure_simulator_binary();
-    load_simulator_library();
+    if (copy_sim_binary) {
+        create_simulator_binary();
+        copy_simulator_binary();
+        secure_simulator_binary();
+        load_simulator_library(fmt::format("/proc/self/fd/{}", copied_simulator_fd_));
+    } else {
+        load_simulator_library(simulator_directory_.string());
+    }
 }
 
 TTSimChip::~TTSimChip() {
@@ -50,7 +58,7 @@ void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
     pfn_libttsim_init();
 
-    // Read the PCI ID (first 32 bits of PCI config space)
+    // Read the PCI ID (first 32 bits of PCI config space).
     uint32_t pci_id = pfn_libttsim_pci_config_rd32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = pci_id >> 16;
@@ -205,8 +213,8 @@ void TTSimChip::secure_simulator_binary() {
     }
 }
 
-void TTSimChip::load_simulator_library() {
-    libttsim_handle = dlopen(fmt::format("/proc/self/fd/{}", copied_simulator_fd_).c_str(), RTLD_LAZY);
+void TTSimChip::load_simulator_library(const std::filesystem::path& path) {
+    libttsim_handle = dlopen(path.c_str(), RTLD_LAZY);
     if (!libttsim_handle) {
         close_simulator_binary();
         TT_THROW("Failed to dlopen simulator library: {}", dlerror());

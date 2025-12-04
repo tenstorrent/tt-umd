@@ -33,14 +33,14 @@ ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
         MutexType::REMOTE_ARC_MSG,
         tt_device->get_communication_device_id(),
         tt_device->get_communication_device_type());
-    // TODO: Remove this once we have proper mutex usage
+    // TODO: Remove this once we have proper mutex usage.
     lock_manager.initialize_mutex(MutexType::ARC_MSG);
 }
 
 uint32_t ArcMessenger::send_message(
-    const uint32_t msg_code, uint16_t arg0, uint16_t arg1, const std::chrono::milliseconds timeout_ms) {
+    const uint32_t msg_code, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
     std::vector<uint32_t> return_values;
-    return send_message(msg_code, return_values, arg0, arg1, timeout_ms);
+    return send_message(msg_code, return_values, args, timeout_ms);
 }
 
 ArcMessenger::~ArcMessenger() {

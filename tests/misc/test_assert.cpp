@@ -28,7 +28,7 @@ struct UnformattableType {
         return os << "UnformattableType(" << obj.value << ")";
     }
 
-    // Note: No fmt::formatter specialization - this makes it unformattable by fmt
+    // Note: No fmt::formatter specialization - this makes it unformattable by fmt.
 };
 
 TEST(Assert, AssertMessage) {
@@ -138,7 +138,7 @@ TEST(Assert, UnformattableTypes) {
 }
 
 TEST(Assert, MismatchedPlaceholders) {
-    // Test cases where placeholder count doesn't match parameter count
+    // Test cases where placeholder count doesn't match parameter count.
 
     {
         std::stringstream output;

@@ -38,7 +38,7 @@ TEST(ApiSysmemManager, BasicIO) {
         EXPECT_THROW(
             sysmem->write_to_sysmem(1, data_write.data(), 0, data_write.size() * sizeof(uint32_t)), std::runtime_error);
 
-        // When we write over the limit, the address is wrapped around the hugepage size
+        // When we write over the limit, the address is wrapped around the hugepage size.
         sysmem->write_to_sysmem(
             0, data_write.data(), HUGEPAGE_REGION_SIZE + 0x100, data_write.size() * sizeof(uint32_t));
         data_read = std::vector<uint32_t>(data_write.size(), 0);
@@ -91,7 +91,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     cluster->dma_read_from_device(readback.data(), one_mb, mmio_chip, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
-        EXPECT_EQ(sysmem_data[i], readback[i]);
+        ASSERT_EQ(sysmem_data[i], readback[i]);
     }
 
     uint8_t* sysmem_data_readback = sysmem_data + one_mb;
@@ -105,7 +105,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     sysmem_buffer->dma_read_from_device(one_mb, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
-        EXPECT_EQ(sysmem_data[i], sysmem_data_readback[i]);
+        ASSERT_EQ(sysmem_data[i], sysmem_data_readback[i]);
     }
 }
 
@@ -163,7 +163,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     cluster->dma_read_from_device(readback.data(), one_mb, mmio_chip, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
-        EXPECT_EQ(sysmem_data[i], readback[i]);
+        ASSERT_EQ(sysmem_data[i], readback[i]);
     }
 
     // Zero out sysmem_data before reading back.
@@ -175,7 +175,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
-        EXPECT_EQ(sysmem_data[i], readback[i]);
+        ASSERT_EQ(sysmem_data[i], readback[i]);
     }
 }
 
@@ -259,7 +259,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     EXPECT_EQ(readback, data_write);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
-        EXPECT_EQ(sysmem_data[i], data_write[i])
+        ASSERT_EQ(sysmem_data[i], data_write[i])
             << "Mismatch at index " << i << ": expected " << static_cast<int>(data_write[i]) << ", got "
             << static_cast<int>(sysmem_data[i]);
     }

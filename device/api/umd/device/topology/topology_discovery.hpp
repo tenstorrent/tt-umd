@@ -123,11 +123,6 @@ protected:
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
 
-    // This function is going to be implemented for Blackhole since it needs to load communication
-    // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW
-    // is loaded from SPI, not in runtime.
-    virtual void initialize_remote_communication(Chip* chip);
-
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 

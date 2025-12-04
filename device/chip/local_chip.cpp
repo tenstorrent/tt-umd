@@ -23,7 +23,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-// TLB size for DRAM on blackhole - 4GB
+// TLB size for DRAM on blackhole - 4GB.
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
 std::unique_ptr<LocalChip> LocalChip::create(
@@ -141,7 +141,7 @@ void LocalChip::initialize_default_chip_mutexes() {
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
-    // Initialize interprocess mutexes to make host -> device memory barriers atomic
+    // Initialize interprocess mutexes to make host -> device memory barriers atomic.
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 
     // Initialize mutex guarding initialized chips.
@@ -593,7 +593,7 @@ int LocalChip::test_setup_interface() {
         ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        // TODO #768 figure out BH implementation
+        // TODO #768 figure out BH implementation.
         return 0;
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
@@ -648,12 +648,12 @@ void LocalChip::set_membar_flag(
         }
     }
     // Ensure that reads or writes after this do not get reordered.
-    // Reordering can cause races where data gets transferred before the barrier has returned
+    // Reordering can cause races where data gets transferred before the barrier has returned.
     tt_driver_atomics::mfence();
 }
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
-    // Ensure that this memory barrier is atomic across processes/threads
+    // Ensure that this memory barrier is atomic across processes/threads.
     auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
@@ -661,7 +661,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
-        // Insert barrier on specific cores with L1
+        // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
 
@@ -678,7 +678,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
     } else {
-        // Insert barrier on all cores with L1
+        // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
@@ -697,7 +697,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     } else {
-        // Insert Barrier on all DRAM Cores
+        // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(

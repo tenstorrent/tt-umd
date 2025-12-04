@@ -21,7 +21,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RtlSimulationChip>(), "RtlSimulationChip must be non-abstract.");
 
-// Vector of DM RiscType values for iteration
+// Vector of DM RiscType values for iteration.
 static const std::vector<RiscType> RISC_TYPES_DMS = {
     RiscType::DM0,
     RiscType::DM1,
@@ -87,7 +87,7 @@ RtlSimulationChip::RtlSimulationChip(
 
     host.init();
 
-    // Start simulator process
+    // Start simulator process.
     uv_loop_t* loop = uv_default_loop();
     std::string simulator_path_string = simulator_directory / "run.sh";
     if (!std::filesystem::exists(simulator_path_string)) {
@@ -153,15 +153,15 @@ void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     void* rd_resp;
 
-    // Send read request
+    // Send read request.
     send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size));
 
-    // Get read response
+    // Get read response.
     size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
 
     auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
 
-    // Debug level polling as Metal will constantly poll the device, spamming the logs
+    // Debug level polling as Metal will constantly poll the device, spamming the logs.
     log_debug(tt::LogEmulationDriver, "Device reading vec");
     print_flatbuffer(rd_resp_buf);
 
@@ -195,12 +195,12 @@ void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selecte
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (arch_name == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            // Reset all DM cores
+            // Reset all DM cores.
             send_command_to_simulation_host(
                 host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, translate_core));
             return;
         }
-        // Check if this is a request per individual DM core reset
+        // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
                 send_command_to_simulation_host(
@@ -227,12 +227,12 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
     // See the comment in assert_risc_reset for more details.
     if (arch_name == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            // Reset all DM cores
+            // Reset all DM cores.
             send_command_to_simulation_host(
                 host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, translate_core));
             return;
         }
-        // Check if this is a request per individual DM core reset
+        // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
                 send_command_to_simulation_host(

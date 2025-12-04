@@ -481,7 +481,7 @@ public:
      */
     void dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {});
 
-    // Runtime functions
+    // Runtime functions.
     /**
      * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding
@@ -657,11 +657,11 @@ public:
 
 private:
     // Helper functions
-    // Broadcast
+    // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
 
-    // Communication Functions
+    // Communication Functions.
     void ethernet_broadcast_write(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -674,7 +674,7 @@ private:
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
 
-    // Test functions
+    // Test functions.
     void log_device_summary();
     void log_pci_device_summary();
     void verify_sysmem_initialized();
@@ -703,7 +703,7 @@ private:
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
-    // State variables
+    // State variables.
     std::set<ChipId> all_chip_ids_ = {};
     std::set<ChipId> remote_chip_ids_ = {};
     std::set<ChipId> local_chip_ids_ = {};

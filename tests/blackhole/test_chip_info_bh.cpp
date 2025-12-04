@@ -22,6 +22,6 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
             chip_info.board_type == BoardType::P300);
 
         // TODO: uncomment this when we can read asic location properly from telemetry.
-        // EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);
+        // EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);.
     }
 }

@@ -21,13 +21,13 @@ namespace tt::cpuset {
 //! Utility functions for various backend paramsf
 
 // CPU ID allocator for pinning threads to cpu_ids
-// It's a singleton that should be retrieved via get()
+// It's a singleton that should be retrieved via get().
 struct cpuset_allocator {
 public:
     cpuset_allocator(cpuset_allocator const &) = delete;
     void operator=(cpuset_allocator const &) = delete;
 
-    // Bind an already allocated memory region to particular numa nodes
+    // Bind an already allocated memory region to particular numa nodes.
     static bool bind_area_to_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len) {
         auto &instance = cpuset_allocator::get();
         return instance.bind_area_memory_nodeset(physical_device_id, addr, len);
@@ -65,12 +65,12 @@ private:
     bool init_is_cpu_model_supported();
     bool init_determine_cpuset_allocations();
 
-    // Helper Functions
+    // Helper Functions.
     std::string get_pci_bus_id(hwloc_obj_t pci_device_obj);
     int get_package_id_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id);
     hwloc_nodeset_t get_numa_nodeset_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id);
 
-    // Debug Functions
+    // Debug Functions.
     void print_hwloc_cpuset(hwloc_obj_t &obj);
     void print_hwloc_nodeset(hwloc_obj_t &obj);
     void print_hwloc_object(hwloc_obj_t &obj, int depth = 0, bool verbose = false, bool show_cpuids = true);
@@ -99,7 +99,7 @@ private:
     std::map<int, int> m_package_id_to_num_l3_per_ccx_map;
     std::map<int, int> m_package_id_to_num_ccx_per_ccd_map;
 
-    // Memory Binding
+    // Memory Binding.
     std::map<ChipId, hwloc_nodeset_t> m_physical_device_id_to_numa_nodeset_map;
 
     // Helper for some dynamic multi-threading.

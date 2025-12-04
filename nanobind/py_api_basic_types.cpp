@@ -90,7 +90,7 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("board_id", &ChipInfo::board_id)
         .def_rw("asic_location", &ChipInfo::asic_location);
 
-    // Utility functions for BoardType
+    // Utility functions for BoardType.
     m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
     m.def(
         "board_type_from_string",

@@ -181,7 +181,7 @@ private:
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 
-    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter
+    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter.
     void write_coords(void *out, const CoreCoord &core) const;
     void write_core_locations(void *out, const CoreType &core_type) const;
     void serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const;

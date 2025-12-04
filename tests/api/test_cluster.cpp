@@ -47,7 +47,7 @@ using namespace tt::umd;
 
 // These tests are intended to be run with the same code on all kinds of systems:
 // N150. N300
-// Galaxy
+// Galaxy.
 
 constexpr std::uint32_t L1_BARRIER_BASE = 12;
 constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
@@ -174,7 +174,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
             other_chips.insert(chip);
         }
     }
-    // Continue the test only if there there is more than one card in the system
+    // Continue the test only if there there is more than one card in the system.
     if (!other_chips.empty()) {
         std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
             .target_devices = other_chips,
@@ -388,9 +388,9 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     static const uint32_t num_loops = 100;
 
     for (const ChipId chip : cluster->get_target_device_ids()) {
-        // Just make sure to skip L1_BARRIER_BASE
+        // Just make sure to skip L1_BARRIER_BASE.
         std::uint32_t address = 0x100;
-        // Write to each core a 100 times at different statically mapped addresses
+        // Write to each core a 100 times at different statically mapped addresses.
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
         std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
         for (int loop = 0; loop < num_loops; loop++) {
@@ -398,7 +398,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
                 cluster->write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
 
-                // Barrier to ensure that all writes over ethernet were commited
+                // Barrier to ensure that all writes over ethernet were commited.
                 cluster->wait_for_non_mmio_flush();
                 cluster->read_from_device(readback_vec.data(), chip, core, address, 40);
 
@@ -640,7 +640,7 @@ TEST(TestCluster, WarmReset) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
@@ -657,7 +657,7 @@ TEST(TestCluster, WarmReset) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            // Zero out first 8 bytes on L1
+            // Zero out first 8 bytes on L1.
             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
             cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
@@ -1095,7 +1095,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     }
 }
 
-// Instantiate the test suite AFTER all TEST_P definitions
+// Instantiate the test suite AFTER all TEST_P definitions.
 INSTANTIATE_TEST_SUITE_P(
     SiliconAndSimulationCluster,
     ClusterReadWriteL1Test,

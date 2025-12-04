@@ -16,4 +16,11 @@ repos:
   rev: v1.0.3
   hooks:
     - id: check-copyright
-      args: ['--config', '.check-copyright-config.yaml', "--ignore", ""]
+      args: ['--config', '.pre-commit-hooks/check-copyright-config.yaml', "--ignore", ""]
+- repo: local
+  hooks:
+    - id: check-cpp-comment-periods
+      name: Check C++ comments end with period
+      entry: .pre-commit-hooks/check_cpp_comments.py
+      language: script
+      types: [c++]

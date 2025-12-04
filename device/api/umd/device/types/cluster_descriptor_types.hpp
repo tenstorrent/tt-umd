@@ -98,7 +98,7 @@ struct EthCoord {
 
 // Centralized mapping from lowercase name (including aliases) to BoardType for fast lookup.
 inline const std::unordered_map<std::string_view, BoardType> board_type_name_map = {
-    // Canonical forms (stored in lowercase for case-insensitive lookup)
+    // Canonical forms (stored in lowercase for case-insensitive lookup).
     {"e75", BoardType::E75},
     {"e150", BoardType::E150},
     {"e300", BoardType::E300},
@@ -113,7 +113,7 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"ubb_wormhole", BoardType::UBB_WORMHOLE},
     {"quasar", BoardType::QUASAR},
     {"unknown", BoardType::UNKNOWN},
-    // Aliases (input only)
+    // Aliases (input only).
     {"p150a", BoardType::P150},
     {"p150c", BoardType::P150},
     {"p300a", BoardType::P300},

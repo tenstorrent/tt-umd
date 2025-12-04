@@ -205,13 +205,13 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED;
             // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
             // Temporarily enable this feature for 6.7.241 as well for testing.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
-                    (eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                    (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
                      eth_fw_version == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
@@ -426,7 +426,7 @@ Cluster::Cluster(ClusterOptions options) {
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        // Combine passed simulated_harvesting_masks
+        // Combine passed simulated_harvesting_masks.
         HarvestingMasks simulated_harvesting_masks =
             options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
                                                    options.simulated_harvesting_masks_per_chip.end())
@@ -598,12 +598,12 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         ChipId first_mmio_chip = *(get_target_mmio_device_ids().begin());
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
-                // Get shelf local physical chip id included in broadcast
+                // Get shelf local physical chip id included in broadcast.
                 ChipId physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
                 EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
-                // Rack word to be set in header
+                // Rack word to be set in header.
                 uint32_t rack_word = eth_coords.rack >> 2;
-                // Rack byte to be set in header
+                // Rack byte to be set in header.
                 uint32_t rack_byte = eth_coords.rack % 4;
                 // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
                 // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each
@@ -636,7 +636,7 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
                         .insert({physical_chip_id, broadcast_mask});
 
                 } else {
-                    // Target was seen before -> include curr rack and shelf in header
+                    // Target was seen before -> include curr rack and shelf in header.
                     broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip)
                         .at(physical_chip_id)
                         .at(rack_word) |= static_cast<uint32_t>(1 << eth_coords.shelf) << rack_byte;
@@ -647,19 +647,19 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         // number of groups after this step represent the final set of broadcast grids.
         for (auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
             for (auto& chip : mmio_group.second) {
-                // Generate a hash for this MMIO Chip + Rack + Shelf group
+                // Generate a hash for this MMIO Chip + Rack + Shelf group.
                 std::vector<int> header_hash = {
                     mmio_group.first, chip.second.at(0), chip.second.at(1), chip.second.at(2)};
                 if (broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
                     broadcast_header_union_per_group.insert(
                         {header_hash, std::make_tuple(mmio_group.first, chip.second)});
                 } else {
-                    // If group found, update chip header entry
+                    // If group found, update chip header entry.
                     std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
                 }
             }
         }
-        // Get all broadcast headers per MMIO group
+        // Get all broadcast headers per MMIO group.
         for (const auto& header : broadcast_header_union_per_group) {
             ChipId mmio_chip = std::get<0>(header.second);
             if (bcast_header_cache[chips_to_exclude].find(mmio_chip) == bcast_header_cache[chips_to_exclude].end()) {
@@ -667,7 +667,7 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
             }
             bcast_header_cache[chips_to_exclude].at(mmio_chip).push_back(std::get<1>(header.second));
         }
-        // Invert headers (FW convention)
+        // Invert headers (FW convention).
         for (auto& bcast_group : bcast_header_cache[chips_to_exclude]) {
             for (auto& header : bcast_group.second) {
                 int header_idx = 0;
@@ -716,7 +716,7 @@ void Cluster::ethernet_broadcast_write(
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
     if (use_ethernet_broadcast) {
-        // Broadcast through ERISC core supported
+        // Broadcast through ERISC core supported.
         std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
             get_ethernet_broadcast_headers(chips_to_exclude);
         // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
@@ -740,7 +740,7 @@ void Cluster::ethernet_broadcast_write(
             }
         }
     } else {
-        // Broadcast not supported. Implement this at the software level as a for loop
+        // Broadcast not supported. Implement this at the software level as a for loop.
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
@@ -769,7 +769,7 @@ void Cluster::broadcast_write_to_cluster(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
-                // When broadcast includes column zero do not exclude anything
+                // When broadcast includes column zero do not exclude anything.
                 std::set<uint32_t> unsafe_rows = {};
                 std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
                 std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
@@ -951,7 +951,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
     broadcast_write_to_cluster(
         &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
-    // Ensure that reset signal is globally visible
+    // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }
 
@@ -962,21 +962,21 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 }
 
 void Cluster::deassert_resets_and_set_power_state() {
-    // Assert tensix resets on all chips in cluster
+    // Assert tensix resets on all chips in cluster.
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();
     }
 
-    // MT Initial BH - ARC messages not supported in Blackhole
+    // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
             get_chip(chip)->enable_ethernet_queue();
         }
     }
 
-    // Set power state to busy
+    // Set power state to busy.
     set_power_state(DevicePowerState::BUSY);
 }
 
@@ -991,7 +991,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
-    // Close remote device first because sending risc reset requires corresponding pcie device to be active
+    // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();
     }

@@ -135,7 +135,7 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
     }
 }
 
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc
+// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("write_regs is not applicable for JTAG communication type.");

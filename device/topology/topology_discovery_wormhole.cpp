@@ -334,7 +334,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
             log_debug(
                 LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
         }
-        if (erisc_firmware::WH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
+        if (erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
@@ -347,6 +347,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
             get_local_asic_id(chip, eth_core),
             eth_core.str(),
             eth_fw_version.to_string());
+        eth_fw_problem = true;
+    }
+
+    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
+    if (hash_check.has_value() && hash_check.value() == false) {
+        log_warning(
+            LogUMD,
+            "ETH FW version hash check failed for chip {} ETH core {}",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str());
         eth_fw_problem = true;
     }
 

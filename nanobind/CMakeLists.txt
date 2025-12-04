@@ -95,8 +95,11 @@ if(TT_UMD_BUILD_PIP)
 
     # Install device library to root for Python package (co-located with the module)
     # Only when building Python bindings to avoid conflicts with main install
-    if(TT_UMD_BUILD_PYTHON)
+    # Skip for static libraries as they are linked statically into the Python module
+    if(TT_UMD_BUILD_PYTHON AND NOT TT_UMD_BUILD_STATIC)
         install(FILES $<TARGET_FILE:umd::device> DESTINATION . COMPONENT pip_wheel)
+    elseif(TT_UMD_BUILD_PYTHON AND TT_UMD_BUILD_STATIC)
+        message(STATUS "Skipping device library install for pip wheel: device is built as static library")
     endif()
 else()
     # --- FHS/CPACK LOGIC ---

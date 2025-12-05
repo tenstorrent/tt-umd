@@ -121,9 +121,10 @@ void TopologyDiscovery::get_connected_chips() {
 
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
+
         log_debug(
             LogUMD,
-            "Discovered {} chip with ID {} and asic ID {}",
+            "Discovered {} chip w/ MMIO, ID: {}, ASIC ID {}",
             DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);

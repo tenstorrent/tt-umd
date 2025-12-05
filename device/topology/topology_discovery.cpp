@@ -112,9 +112,6 @@ void TopologyDiscovery::get_connected_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            if (!is_eth_trained(chip.get(), eth_core)) {
-                continue;
-            }
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);

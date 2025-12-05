@@ -112,6 +112,9 @@ void TopologyDiscovery::get_connected_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
+            if (!is_eth_trained(chip.get(), eth_core)) {
+                continue;
+            }
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);
@@ -121,9 +124,10 @@ void TopologyDiscovery::get_connected_chips() {
 
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
+
         log_debug(
             LogUMD,
-            "Discovered {} chip with ID {} and asic ID {}",
+            "Discovered {} chip w/ MMIO, ID: {}, ASIC ID {}",
             DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);

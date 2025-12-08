@@ -459,7 +459,7 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        TT_THROW("Error: device descriptor file {} does not exist!", device_descriptor_path);
+        TT_THROW("Device descriptor file {} does not exist.", device_descriptor_path);
     }
     fdesc.close();
 

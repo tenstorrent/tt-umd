@@ -48,14 +48,14 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
 
 void BlackholeCoordinateManager::assert_coordinate_manager_constructor() {
     if (get_num_harvested(harvesting_masks.dram_harvesting_mask) > 1) {
-        throw std::runtime_error("At most DRAM bank can be harvested on Blackhole");
+        TT_THROW("At most DRAM bank can be harvested on Blackhole");
     }
 
     const size_t num_harvested_eth_cores = get_num_harvested(harvesting_masks.eth_harvesting_mask);
     // If we're running on full grid, exactly 2 or all ETH cores should be harvested.
     if (eth_cores.size() == blackhole::NUM_ETH_CHANNELS && num_harvested_eth_cores != 2 &&
         num_harvested_eth_cores != blackhole::NUM_ETH_CHANNELS) {
-        throw std::runtime_error(
+        TT_THROW(
             "Exactly 2 or " + std::to_string(blackhole::NUM_ETH_CHANNELS) +
             " ETH cores should be harvested on full Blackhole");
     }

@@ -120,7 +120,7 @@ uint64_t wormhole_implementation::get_noc_reg_base(
         }
     }
 
-    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+    TT_THROW("Invalid core type or NOC for getting NOC register addr base.");
 }
 
 uint32_t wormhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {

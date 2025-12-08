@@ -42,8 +42,7 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
         results_buf = 0x1ec0;
         routing_firmware_state = 0x104c;
     } else {
-        throw std::runtime_error(
-            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
+        TT_THROW("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version);
     }
 
     if (masked_version >= 0x06C000) {
@@ -177,7 +176,7 @@ uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair 
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
-        throw std::runtime_error(
+        TT_THROW(
             "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
     }
     uint32_t remote_eth_id;
@@ -381,9 +380,9 @@ void TopologyDiscoveryWormhole::validate_routing_firmware_state(
         tt_device->read_from_device(
             &routing_firmware_disabled, eth_cores[0], eth_addresses.routing_firmware_state, sizeof(uint32_t));
         if (is_running_on_6u && routing_firmware_disabled == 0) {
-            throw std::runtime_error("Routing Firmware should not be enabled on 6U-Galaxy Systems.");
+            TT_THROW("Routing Firmware should not be enabled on 6U-Galaxy Systems.");
         } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
-            throw std::runtime_error("Routing Firmware should be enabled on Non 6U-Galaxy Systems.");
+            TT_THROW("Routing Firmware should be enabled on Non 6U-Galaxy Systems.");
         }
     }
 }

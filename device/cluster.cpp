@@ -244,7 +244,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
 #else
-        throw std::runtime_error(
+        TT_THROW(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
             "configuration to enable simulation device.");
 #endif
@@ -287,8 +287,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
     // In case of SILICON chip type, this chip has to exist in the cluster descriptor. But it doesn't have to exist in
     // case of Mock or Simulation chip type.
     if (chip_type == ChipType::SILICON && !chip_in_cluster_descriptor) {
-        throw std::runtime_error(
-            fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
+        TT_THROW("Chip {} not found in cluster descriptor. Cannot create device.", chip_id);
     }
 
     ChipInfo chip_info;
@@ -311,11 +310,11 @@ SocDescriptor Cluster::construct_soc_descriptor(
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
         if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
-            throw std::runtime_error(fmt::format(
+            TT_THROW(
                 "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
                 arch_to_str(soc_desc.arch),
                 chip_id,
-                arch_to_str(cluster_desc->get_arch(chip_id))));
+                arch_to_str(cluster_desc->get_arch(chip_id)));
         }
 
         return soc_desc;

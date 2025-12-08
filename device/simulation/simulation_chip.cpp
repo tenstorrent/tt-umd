@@ -103,32 +103,26 @@ int SimulationChip::arc_msg(
 
 int SimulationChip::get_num_host_channels() { return 0; }
 
-int SimulationChip::get_host_channel_size(std::uint32_t channel) {
-    throw std::runtime_error("There are no host channels available.");
-}
+int SimulationChip::get_host_channel_size(std::uint32_t channel) { TT_THROW("There are no host channels available."); }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("SimulationChip::write_to_sysmem is not available for this chip.");
+    TT_THROW("SimulationChip::write_to_sysmem is not available for this chip.");
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("SimulationChip::read_from_sysmem is not available for this chip.");
+    TT_THROW("SimulationChip::read_from_sysmem is not available for this chip.");
 }
 
-int SimulationChip::get_numa_node() {
-    throw std::runtime_error("SimulationChip::get_numa_node is not available for this chip.");
-}
+int SimulationChip::get_numa_node() { TT_THROW("SimulationChip::get_numa_node is not available for this chip."); }
 
-TTDevice* SimulationChip::get_tt_device() {
-    throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
-}
+TTDevice* SimulationChip::get_tt_device() { TT_THROW("SimulationChip::get_tt_device is not available for this chip."); }
 
 SysmemManager* SimulationChip::get_sysmem_manager() {
-    throw std::runtime_error("SimulationChip::get_sysmem_manager is not available for this chip.");
+    TT_THROW("SimulationChip::get_sysmem_manager is not available for this chip.");
 }
 
 TLBManager* SimulationChip::get_tlb_manager() {
-    throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");
+    TT_THROW("SimulationChip::get_tlb_manager is not available for this chip.");
 }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}

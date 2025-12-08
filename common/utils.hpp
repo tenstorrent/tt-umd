@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <fmt/ranges.h>
+
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -13,7 +15,7 @@
 #include <string>
 #include <unordered_set>
 
-#include "fmt/ranges.h"
+#include "assert.hpp"
 
 namespace tt::umd::utils {
 
@@ -50,8 +52,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
         try {
             result_set.insert(std::stoi(token));
         } catch (const std::exception& e) {
-            throw std::runtime_error(
-                fmt::format("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what()));
+            TT_THROW("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what());
         }
     }
 
@@ -94,7 +95,7 @@ static void check_timeout(
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
     if (elapsed > timeout) {
-        throw std::runtime_error(error_msg);
+        TT_THROW(error_msg);
     }
 }
 

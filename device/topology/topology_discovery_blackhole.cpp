@@ -130,7 +130,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
-    throw std::runtime_error(
+    TT_THROW(
         "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
         "bug.");
 }
@@ -164,8 +164,7 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pa
 
 uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
     if (chip->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
-            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
+        TT_THROW("Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
     }
     auto translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);

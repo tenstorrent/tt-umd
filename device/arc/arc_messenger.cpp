@@ -23,7 +23,7 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
             return std::make_unique<BlackholeArcMessenger>(tt_device);
             break;
         default:
-            throw std::runtime_error("Unsupported architecture for creating ArcMessenger.");
+            TT_THROW("Unsupported architecture for creating ArcMessenger.");
     }
 }
 

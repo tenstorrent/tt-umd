@@ -30,8 +30,7 @@ uint32_t WormholeArcMessenger::send_message(
 
     // Validate that only 2 args are passed for Wormhole.
     if (args.size() > 2) {
-        throw std::runtime_error(
-            fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size()));
+        TT_THROW("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size());
     }
 
     // Extract args (default to 0 if not provided).
@@ -40,16 +39,14 @@ uint32_t WormholeArcMessenger::send_message(
 
     if (args.size() >= 1) {
         if (args[0] > 0xFFFF) {
-            throw std::runtime_error(
-                fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
+            TT_THROW("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]);
         }
         arg0 = static_cast<uint16_t>(args[0]);
     }
 
     if (args.size() >= 2) {
         if (args[1] > 0xFFFF) {
-            throw std::runtime_error(
-                fmt::format("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[1]));
+            TT_THROW("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[1]);
         }
         arg1 = static_cast<uint16_t>(args[1]);
     }
@@ -100,7 +97,7 @@ uint32_t WormholeArcMessenger::send_message(
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if ((duration.count() > timeout_ms.count()) && (timeout_ms != std::chrono::milliseconds(0))) {
-            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
+            TT_THROW(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
         tt_device->read_from_arc_apb(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));

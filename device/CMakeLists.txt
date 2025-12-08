@@ -232,6 +232,7 @@ target_include_directories(
     device
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/common>
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>

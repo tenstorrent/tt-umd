@@ -334,7 +334,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     mappings.query_mappings.in.output_mapping_count = 8;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        throw std::runtime_error(fmt::format("Query mappings failed on device {}.", pci_device_num));
+        TT_THROW("Query mappings failed on device {}.", pci_device_num);
     }
 
     // Mapping resource to BAR
@@ -382,7 +382,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
-        throw std::runtime_error(fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
+        TT_THROW("Device {} has no BAR0 UC mapping.", pci_device_num);
     }
 
     bar0 = mmap(
@@ -394,12 +394,12 @@ PCIDevice::PCIDevice(int pci_device_number) :
         bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
 
     if (bar0 == MAP_FAILED) {
-        throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
+        TT_THROW("BAR0 mapping failed for device {}.", pci_device_num);
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
+            TT_THROW("Device {} has no BAR4 UC mapping.", pci_device_num);
         }
 
         bar2_uc_size = bar2_uc_mapping.mapping_size;
@@ -412,11 +412,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar2_uc_mapping.mapping_base);
 
         if (bar2_uc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
+            TT_THROW("BAR2 UC mapping failed for device {}.", pci_device_num);
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
+            TT_THROW("Device {} has no BAR2 UC mapping.", pci_device_num);
         }
 
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
@@ -430,11 +430,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar2_uc_mapping.mapping_base);
 
         if (bar2_uc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
+            TT_THROW("BAR2 UC mapping failed for device {}.", pci_device_num);
         }
 
         if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR4 WC mapping.", pci_device_num));
+            TT_THROW("Device {} has no BAR4 WC mapping.", pci_device_num);
         }
 
         // Using Write-Combine memory mode. This is used for accessing DRAM on Blackhole.
@@ -449,7 +449,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar4_wc_mapping.mapping_base);
 
         if (bar4_wc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
+            TT_THROW("BAR4 WC mapping failed for device {}.", pci_device_num);
         }
     }
 

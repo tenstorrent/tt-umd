@@ -306,7 +306,7 @@ public:
             } break;
 
             default:
-                throw std::runtime_error("Invalid transfer type");
+                TT_THROW("Invalid transfer type");
         };
     }
 
@@ -378,7 +378,7 @@ static void print_command(remote_transfer_sample_t const& command) {
                       << ", size_in_bytes: " << command_args.size_in_bytes << std::endl;
         } break;
         default:
-            throw std::runtime_error("Invalid transfer type");
+            TT_THROW("Invalid transfer type");
     };
 }
 
@@ -418,7 +418,7 @@ static inline void dispatch_remote_transfer_command(
                 command_args.size_in_bytes);
         } break;
         default:
-            throw std::runtime_error("Invalid transfer type");
+            TT_THROW("Invalid transfer type");
     };
 }
 
@@ -457,7 +457,7 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
             // command_args.size);
         } break;
         default:
-            throw std::runtime_error("Invalid transfer type");
+            TT_THROW("Invalid transfer type");
     };
 
     std::cout << "}" << std::endl;

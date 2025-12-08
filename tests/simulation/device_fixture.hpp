@@ -24,7 +24,7 @@ protected:
         // yaml path is dummy and won't change test behavior
         const char* simulator_path = getenv("TT_UMD_SIMULATOR");
         if (simulator_path == nullptr) {
-            throw std::runtime_error(
+            TT_THROW(
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
         auto soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);

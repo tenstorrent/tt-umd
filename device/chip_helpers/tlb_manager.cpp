@@ -77,7 +77,7 @@ TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
         return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
     } else {
-        throw std::runtime_error(fmt::format("TLB window for core ({}, {}) not found.", core.x, core.y));
+        TT_THROW("TLB window for core ({}, {}) not found.", core.x, core.y);
     }
 }
 
@@ -96,7 +96,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
 
 Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     if (!is_tlb_mapped(core)) {
-        throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
+        TT_THROW("TLBs not initialized for core: {}", core.str());
     }
 
     auto tlb_index = map_core_to_tlb_.at(core);
@@ -122,7 +122,7 @@ const std::vector<size_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return {2 * one_mb, 4ULL * one_gb};
         default:
-            throw std::runtime_error(fmt::format("Unsupported architecture: {}", static_cast<int>(arch)));
+            TT_THROW("Unsupported architecture: {}", static_cast<int>(arch));
     }
 }
 
@@ -144,7 +144,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
         }
     }
 
-    throw std::runtime_error(fmt::format("Failed to allocate TLB window."));
+    TT_THROW("Failed to allocate TLB window.");
 }
 
 };  // namespace tt::umd

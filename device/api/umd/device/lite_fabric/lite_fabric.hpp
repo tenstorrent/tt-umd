@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/lite_fabric/fabric_edm_types.hpp"
@@ -204,14 +205,14 @@ struct HostToLiteFabricInterface {
             read_one_page(&read_barrier, sizeof(uint32_t), translated_core_sender, dest_noc_addr);
 
             if (read_barrier != barrier_value) {
-                throw std::runtime_error(fmt::format(
+                TT_THROW(
                     "Lite fabric barrier failed. Chip memory corruption on {} translated core ({}, {}): barrier value "
                     "mismatch {:#x} != {:#x}",
                     core_type_name,
                     translated_core.x,
                     translated_core.y,
                     read_barrier,
-                    barrier_value));
+                    barrier_value);
             }
         };
 
@@ -265,8 +266,7 @@ private:
             } else if (
                 header.command_fields.noc_read.event != 0xdeadbeef &&
                 header.command_fields.noc_read.event > expectedOrderId) {
-                throw std::runtime_error(fmt::format(
-                    "Read event out of order: {} > {}", header.command_fields.noc_read.event, expectedOrderId));
+                TT_THROW("Read event out of order: {} > {}", header.command_fields.noc_read.event, expectedOrderId);
             }
         };
 
@@ -303,7 +303,7 @@ private:
             return;
         }
         if (size > CHANNEL_BUFFER_SIZE - sizeof(FabricLiteHeader)) {
-            throw std::runtime_error("Payload size exceeds channel buffer size");
+            TT_THROW("Payload size exceeds channel buffer size");
         }
         uint32_t addr = get_next_send_buffer_slot_address(channel_address) + sizeof(FabricLiteHeader);
         log_debug(LogUMD, "Send {}B payload only {:#x}", size, addr);

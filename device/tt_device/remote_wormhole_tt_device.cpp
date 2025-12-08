@@ -40,7 +40,7 @@ RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return
 
 void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC APB address range");
+        TT_THROW("Address is out of ARC APB address range.");
     }
     read_from_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
@@ -48,7 +48,7 @@ void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_
 
 void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC APB address range");
+        TT_THROW("Address is out of ARC APB address range.");
     }
     write_to_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
@@ -56,7 +56,7 @@ void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_
 
 void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC CSM address range");
+        TT_THROW("Address is out of ARC CSM address range");
     }
     read_from_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
@@ -64,7 +64,7 @@ void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_
 
 void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC CSM address range");
+        TT_THROW("Address is out of ARC CSM address range");
     }
     write_to_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);

@@ -21,7 +21,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (telemetry == nullptr) {
-        throw std::runtime_error("No telemetry reader present in tt_device.");
+        TT_THROW("No telemetry reader present in tt_device.");
     }
 
     aiclk_available = telemetry->is_entry_available(TelemetryTag::AICLK);
@@ -65,7 +65,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
             return std::make_unique<Blackhole_18_7_FirmwareInfoProvider>(tt_device);
         }
         default:
-            throw std::runtime_error("Unsupported architecture for firmware versioner.");
+            TT_THROW("Unsupported architecture for firmware versioner.");
     }
 }
 
@@ -82,7 +82,7 @@ semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH 
             return semver_t(18, 5, 0);
         }
         default:
-            throw std::runtime_error("Unsupported architecture for firmware info provider.");
+            TT_THROW("Unsupported architecture for firmware info provider.");
     }
 }
 

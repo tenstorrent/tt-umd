@@ -483,11 +483,11 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Size must be a multiple of 4 bytes");
+        TT_THROW("Size must be a multiple of 4 bytes");
     }
 
     if (reg_dest % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Register address must be 4-byte aligned");
+        TT_THROW("Register address must be 4-byte aligned");
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
@@ -512,11 +512,11 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Size must be a multiple of 4 bytes");
+        TT_THROW("Size must be a multiple of 4 bytes");
     }
 
     if (reg_src % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Register address must be 4-byte aligned");
+        TT_THROW("Register address must be 4-byte aligned");
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
@@ -579,7 +579,7 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int
 
 void LocalChip::check_pcie_device_initialized() {
     if (test_setup_interface()) {
-        throw std::runtime_error(
+        TT_THROW(
             "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
             "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
     }
@@ -596,7 +596,7 @@ int LocalChip::test_setup_interface() {
         // TODO #768 figure out BH implementation.
         return 0;
     } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
+        TT_THROW("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch));
     }
 }
 
@@ -607,7 +607,7 @@ void LocalChip::init_pcie_iatus() {
         size_t region_size = hugepage_map.mapping_size;
 
         if (!hugepage_map.mapping) {
-            throw std::runtime_error(fmt::format("Hugepages are not allocated for ch: {}", channel));
+            TT_THROW("Hugepages are not allocated for ch: {}", channel);
         }
 
         if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {

@@ -59,11 +59,11 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
     if (region_size % (1ULL << 30) != 0 || region_size > (1ULL << 32)) {
         // If you hit this, the suggestion is to not use iATU: map your buffer
         // with the driver, and use the IOVA it provides in your device code.
-        throw std::runtime_error("Constraint: region_size % (1ULL << 30) == 0; region_size <= (1ULL <<32)");
+        TT_THROW("Constraint: region_size % (1ULL << 30) == 0; region_size <= (1ULL <<32)");
     }
 
     if (bar2 == nullptr || bar2 == MAP_FAILED) {
-        throw std::runtime_error("BAR2 not mapped");
+        TT_THROW("BAR2 not mapped");
     }
 
     auto write_iatu_reg = [bar2](uint64_t offset, uint32_t value) {
@@ -185,30 +185,30 @@ uint32_t BlackholeTTDevice::get_clock() {
         return telemetry->read_entry(TelemetryTag::AICLK);
     }
 
-    throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
+    TT_THROW("AICLK telemetry not available for Blackhole device.");
 }
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
+    TT_THROW("D2H DMA is not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+    TT_THROW("H2D DMA is not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+    TT_THROW("H2D DMA is not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
+    TT_THROW("D2H DMA is not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range.");
+        TT_THROW("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -230,7 +230,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
 
 void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range.");
+        TT_THROW("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -251,11 +251,11 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
 }
 
 void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM write not supported for Blackhole.");
+    TT_THROW("CSM write not supported for Blackhole.");
 }
 
 void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM read not supported for Blackhole.");
+    TT_THROW("CSM read not supported for Blackhole.");
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
@@ -285,9 +285,9 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {
-    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+    // TT_THROW("Hardware hang detection is not supported on Blackhole.");.
 
-    // TODO: I am commented that out because we end up in this code path if we
+    // TODO: I have commented that out because we end up in this code path if we
     // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
     // it doesn't necessarily mean the hardware is hung. It's possible to write
     // 0xffffffff to device memory and reading it back should not trigger an

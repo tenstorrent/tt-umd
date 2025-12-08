@@ -30,7 +30,7 @@ std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_p
 }
 
 tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
+    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
         return tlb_configuration{
             .size = blackhole::DYNAMIC_TLB_4G_SIZE,
@@ -117,7 +117,7 @@ uint64_t blackhole_implementation::get_noc_reg_base(
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
 
-uint32_t blackhole_implementation::get_soft_reset_reg_value(tt::umd::RiscType risc_type) const {
+uint32_t blackhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
         TT_THROW("NEO risc cores should not be used on Blackhole architecture.");

@@ -59,7 +59,7 @@ enum class arc_message_type {
     DEASSERT_RISCV_RESET = 0xba
 };
 
-// DEVICE_DATA
+// DEVICE_DATA.
 inline constexpr tt_xy_pair GRID_SIZE = {17, 12};
 // Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
 // NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
@@ -153,7 +153,7 @@ static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
 // We are using P0 on the NOC for all L2CPU cores.
 static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 3}, {8, 5}, {8, 7}, {8, 9}};
 
-// Return to std::array instead of std::vector once we get std::span support in C++20
+// Return to std::array instead of std::vector once we get std::span support in C++20.
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
@@ -188,7 +188,7 @@ inline constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.
-// Revisit for BH
+// Revisit for BH.
 inline constexpr unsigned int REG_TLB = TLB_BASE_INDEX_2M + 191;
 
 inline constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 180;
@@ -203,15 +203,15 @@ inline constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  /
 inline constexpr uint32_t GRID_SIZE_X = 17;
 inline constexpr uint32_t GRID_SIZE_Y = 12;
 
-// AXI Resets accessed through TLB
+// AXI Resets accessed through TLB.
 inline constexpr uint32_t TENSIX_SM_TLB_INDEX = 188;
 inline constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX * TLB_2M_SIZE;
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
-// Computed this value from AXI_RESET_OFFSET
+// Computed this value from AXI_RESET_OFFSET.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
-// MT: This is no longer valid for Blackhole. Review messages to ARC
+// MT: This is no longer valid for Blackhole. Review messages to ARC.
 inline constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET + 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET + 0x784C4;
@@ -414,9 +414,9 @@ public:
 
     uint32_t get_debug_reg_addr() const override { return blackhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
-    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+    uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
-    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+    RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override { return blackhole::SOFT_RESET_STAGGERED_START; }
 
@@ -465,6 +465,10 @@ public:
     virtual uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
+
+    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 2MB
+
+    bool get_static_vc() const override { return false; }  // False due to a known HW issue.
 };
 
 }  // namespace tt::umd

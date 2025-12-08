@@ -22,6 +22,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
@@ -37,7 +38,7 @@ static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 // TLB windows and there is no longer a pre-defined WC/UC split.
 static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
 
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
+// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
@@ -59,7 +60,7 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
 
     std::istringstream iss(value_str);
 
-    // Handle hexadecimal input for integer types
+    // Handle hexadecimal input for integer types.
     if constexpr (std::is_integral_v<T>) {
         if (value_str.substr(0, 2) == "0x") {
             iss >> std::hex;
@@ -237,7 +238,7 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         return device_ids;
     }
 
-    std::unordered_set<int> visible_devices = tt::umd::utils::get_visible_devices(pci_target_devices);
+    std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
 
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
@@ -297,6 +298,17 @@ PCIDevice::PCIDevice(int pci_device_number) :
             "Running with IOMMU support prior to KMD version {} is of limited support.",
             KMD_MAP_TO_NOC.to_string());
     }
+
+    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle);
+
+    if (ret_code != 0) {
+        if (tt_device_handle != nullptr) {
+            tt_device_close(tt_device_handle);
+        }
+        TT_THROW(
+            "tt_device_open failed with error code {} for PCI device with device ID {}.", ret_code, pci_device_number);
+    }
+
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
@@ -328,7 +340,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // Mapping resource to BAR
     // Resource 0 -> BAR0
     // Resource 1 -> BAR2
-    // Resource 2 -> BAR4
+    // Resource 2 -> BAR4.
     tenstorrent_mapping bar0_uc_mapping{};
     tenstorrent_mapping bar0_wc_mapping{};
     tenstorrent_mapping bar2_uc_mapping{};
@@ -445,6 +457,16 @@ PCIDevice::PCIDevice(int pci_device_number) :
 }
 
 PCIDevice::~PCIDevice() {
+    int ret_code = tt_device_close(tt_device_handle);
+
+    if (ret_code != 0) {
+        log_warning(
+            LogUMD,
+            "tt_device_close failed with error code {} for PCI device with device ID {}.",
+            ret_code,
+            pci_device_num);
+    }
+
     close(pci_device_file_desc);
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
@@ -674,7 +696,7 @@ semver_t PCIDevice::read_kmd_version() {
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
-    return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
+    return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
 }
 
 void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {

@@ -43,7 +43,13 @@ add_custom_command(
 
 add_custom_target(generate_lite_fabric_embed ALL DEPENDS ${LITE_FABRIC_EMBED})
 
-add_library(device SHARED)
+if(TT_UMD_BUILD_STATIC)
+    add_library(device STATIC)
+    message(STATUS "Building device library as STATIC")
+else()
+    add_library(device SHARED)
+    message(STATUS "Building device library as SHARED")
+endif()
 add_library(${PROJECT_NAME}::device ALIAS device)
 
 add_dependencies(device generate_lite_fabric_embed)
@@ -252,9 +258,12 @@ target_link_libraries(
         rt
         spdlog::spdlog_header_only
         fmt::fmt-header-only
+        picosha2::picosha2
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )
+
+target_link_libraries(device PRIVATE umd_asio_lib)
 
 check_function_exists(
     backtrace
@@ -279,7 +288,8 @@ if(TT_UMD_BUILD_SIMULATION)
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+# Skip install for static libraries as they are typically used for internal linking only
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
     install(
         TARGETS
             device

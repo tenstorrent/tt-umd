@@ -135,7 +135,7 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
     }
 }
 
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc
+// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("write_regs is not applicable for JTAG communication type.");
@@ -147,8 +147,8 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 
 TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     if (cached_tlb_window == nullptr) {
-        cached_tlb_window =
-            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        cached_tlb_window = std::make_unique<TlbWindow>(
+            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC), config);
         return cached_tlb_window.get();
     }
     cached_tlb_window->configure(config);
@@ -170,7 +170,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {
@@ -202,7 +202,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {
@@ -353,7 +353,7 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     config.mcast = true;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {

@@ -18,15 +18,17 @@
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
+using namespace tt::umd;
+
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     Cluster device;
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
 
-    // Test
+    // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
     std::iota(vector_to_write.begin(), vector_to_write.end(), 0);
     float write_size = vector_to_write.size() * 4;
@@ -111,7 +113,7 @@ void run_data_mover_test(
     Cluster device;
     auto target_devices = device.get_target_device_ids();
 
-    // Verify that sender chip and receiver chip are in the cluster
+    // Verify that sender chip and receiver chip are in the cluster.
     auto it = std::find(target_devices.begin(), target_devices.end(), sender_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Sender core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
@@ -120,19 +122,19 @@ void run_data_mover_test(
     ASSERT_TRUE(it != target_devices.end())
         << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
 
-    // Test
+    // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
     std::iota(vector_to_write.begin(), vector_to_write.end(), 0);
     float write_size = vector_to_write.size() * 4;
     std::vector<uint32_t> readback_vec = {};
 
     std::vector<float> send_bw;
-    // Set up data in sender core
+    // Set up data in sender core.
     device.write_to_device(
         vector_to_write.data(),
         vector_to_write.size() * sizeof(std::uint32_t),
@@ -141,7 +143,7 @@ void run_data_mover_test(
         sender_core.addr);
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
-    // Send data from sender core to receiver core
+    // Send data from sender core to receiver core.
     auto start = std::chrono::high_resolution_clock::now();
     move_data(device, sender_core, receiver_core, write_size);
     auto end = std::chrono::high_resolution_clock::now();
@@ -149,7 +151,7 @@ void run_data_mover_test(
     send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
     // std::cout << "move data duration "<< duration << std::endl;
 
-    // Verify data is correct in receiver core
+    // Verify data is correct in receiver core.
     test_utils::read_data_from_device(
         device, readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
     EXPECT_EQ(vector_to_write, readback_vec)
@@ -164,7 +166,7 @@ void run_data_mover_test(
     device.close_device();
 }
 
-// L1 to L1
+// L1 to L1.
 TEST(GalaxyDataMovement, TwoChipMoveData1) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -177,7 +179,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData1) {
     run_data_mover_test(30000, sender_core, receiver_core);
 }
 
-// L1 to Dram
+// L1 to Dram.
 TEST(GalaxyDataMovement, TwoChipMoveData2) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -190,7 +192,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData2) {
     run_data_mover_test(20000, sender_core, receiver_core);
 }
 
-// Dram to L1
+// Dram to L1.
 TEST(GalaxyDataMovement, TwoChipMoveData3) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -203,7 +205,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData3) {
     run_data_mover_test(8800, sender_core, receiver_core);
 }
 
-// Dram to Dram
+// Dram to Dram.
 TEST(GalaxyDataMovement, TwoChipMoveData4) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -221,7 +223,7 @@ void run_data_broadcast_test(
     Cluster device;
     auto target_devices = device.get_target_device_ids();
 
-    // Verify that sender chip and receiver chip are in the cluster
+    // Verify that sender chip and receiver chip are in the cluster.
     auto it = std::find(target_devices.begin(), target_devices.end(), sender_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Sender core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
@@ -232,19 +234,19 @@ void run_data_broadcast_test(
             << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
     }
 
-    tt::umd::test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device);
 
     DeviceParams default_params;
     device.start_device(default_params);
 
-    // Test
+    // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
     std::iota(vector_to_write.begin(), vector_to_write.end(), 0);
     float write_size = vector_to_write.size() * 4;
     std::vector<uint32_t> readback_vec = {};
 
     std::vector<float> send_bw;
-    //  Set up data in sender core
+    //  Set up data in sender core.
     device.write_to_device(
         vector_to_write.data(),
         vector_to_write.size() * sizeof(std::uint32_t),
@@ -253,7 +255,7 @@ void run_data_broadcast_test(
         sender_core.addr);
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
-    // Send data from sender core to receiver core
+    // Send data from sender core to receiver core.
     auto start = std::chrono::high_resolution_clock::now();
     broadcast_data(device, sender_core, receiver_cores, write_size);
     auto end = std::chrono::high_resolution_clock::now();
@@ -261,7 +263,7 @@ void run_data_broadcast_test(
     send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
     // std::cout << "broadcast duration "<< duration << std::endl;
 
-    // Verify data is correct in receiver core
+    // Verify data is correct in receiver core.
     for (const auto& receiver_core : receiver_cores) {
         test_utils::read_data_from_device(
             device, readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
@@ -279,7 +281,7 @@ void run_data_broadcast_test(
     device.close_device();
 }
 
-// L1 to L1 single chip
+// L1 to L1 single chip.
 TEST(GalaxyDataMovement, BroadcastData1) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -292,7 +294,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
     run_data_broadcast_test(100, sender_core, receiver_cores);
 }
 
-// L1 to L1 multi chip
+// L1 to L1 multi chip.
 TEST(GalaxyDataMovement, BroadcastData2) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -334,7 +336,7 @@ TEST(GalaxyDataMovement, BroadcastData2) {
     run_data_broadcast_test(1000, sender_core, receiver_cores);
 }
 
-// Dram to L1
+// Dram to L1.
 TEST(GalaxyDataMovement, BroadcastData3) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -352,7 +354,7 @@ TEST(GalaxyDataMovement, BroadcastData3) {
     run_data_broadcast_test(2000, sender_core, receiver_cores);
 }
 
-// L1 to Dram
+// L1 to Dram.
 TEST(GalaxyDataMovement, BroadcastData4) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -374,7 +376,7 @@ TEST(GalaxyDataMovement, BroadcastData4) {
     run_data_broadcast_test(150, sender_core, receiver_cores);
 }
 
-// Dram to Dram
+// Dram to Dram.
 TEST(GalaxyDataMovement, BroadcastData5) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
 
@@ -393,7 +395,7 @@ TEST(GalaxyDataMovement, BroadcastData5) {
 }
 
 // L1 to L1 cores on many chips
-// TODO: Failing with mismatch
+// TODO: Failing with mismatch.
 TEST(GalaxyDataMovement, DISABLED_BroadcastData6) {
     SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
     tt_multichip_core_addr sender_core(1, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);

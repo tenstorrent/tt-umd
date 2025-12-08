@@ -18,6 +18,18 @@ find_package(Python REQUIRED COMPONENTS Development.Module)
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp)
 
+# Error out if trying to build Python bindings with sanitizers
+# Python interpreters are not built with sanitizers, so the resulting wheel cannot be loaded
+if(CMAKE_BUILD_TYPE MATCHES "ASan|TSan")
+    message(
+        FATAL_ERROR
+        "Cannot build Python bindings (nanobind_tt_umd) with CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}. "
+        "Python interpreters are not built with sanitizers, resulting in undefined symbol errors. "
+        "Please use Release, RelWithDebInfo or Debug for Python builds, "
+        "or disable Python bindings with -DTT_UMD_BUILD_PYTHON=OFF"
+    )
+endif()
+
 # Set properties for the Python module
 set_target_properties(
     nanobind_tt_umd
@@ -95,8 +107,11 @@ if(TT_UMD_BUILD_PIP)
 
     # Install device library to root for Python package (co-located with the module)
     # Only when building Python bindings to avoid conflicts with main install
-    if(TT_UMD_BUILD_PYTHON)
+    # Skip for static libraries as they are linked statically into the Python module
+    if(TT_UMD_BUILD_PYTHON AND NOT TT_UMD_BUILD_STATIC)
         install(FILES $<TARGET_FILE:umd::device> DESTINATION . COMPONENT pip_wheel)
+    elseif(TT_UMD_BUILD_PYTHON AND TT_UMD_BUILD_STATIC)
+        message(STATUS "Skipping device library install for pip wheel: device is built as static library")
     endif()
 else()
     # --- FHS/CPACK LOGIC ---

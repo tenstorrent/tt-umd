@@ -67,10 +67,9 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
-    const std::optional<std::string> env_var_value = tt::umd::utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+    const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
     return target_devices.empty() && env_var_value.has_value()
-               ? tt::umd::utils::get_unordered_set_from_string(env_var_value.value())
-                     .value_or(std::unordered_set<int>{})
+               ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
                : target_devices;
 }
 

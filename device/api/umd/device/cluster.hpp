@@ -469,7 +469,7 @@ public:
      * @param chip Chip to target.
      * @param channels Channels being targeted.
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels = {});
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
 
     /**
      * DRAM memory barrier.
@@ -481,7 +481,7 @@ public:
      */
     void dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {});
 
-    // Runtime functions
+    // Runtime functions.
     /**
      * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding
@@ -563,17 +563,6 @@ public:
     std::uint64_t get_pcie_base_addr_from_device(const ChipId chip_id) const;
 
     //---------- Misc system functions
-
-    // TODO: Deprecated. To be removed once clients switch to the new arc_msg API.
-    int arc_msg(
-        int logical_device_id,
-        uint32_t msg_code,
-        bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
-        uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr);
 
     /**
      * Issue message to device, meant to be picked up by ARC firmware.
@@ -668,11 +657,11 @@ public:
 
 private:
     // Helper functions
-    // Broadcast
+    // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
 
-    // Communication Functions
+    // Communication Functions.
     void ethernet_broadcast_write(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -685,7 +674,7 @@ private:
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
 
-    // Test functions
+    // Test functions.
     void log_device_summary();
     void log_pci_device_summary();
     void verify_sysmem_initialized();
@@ -714,7 +703,7 @@ private:
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
-    // State variables
+    // State variables.
     std::set<ChipId> all_chip_ids_ = {};
     std::set<ChipId> remote_chip_ids_ = {};
     std::set<ChipId> local_chip_ids_ = {};

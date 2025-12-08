@@ -24,12 +24,12 @@ namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
-    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -267,7 +267,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
 
     // Port status should be last state to settle during the eth training sequence
-    // PORT_UNKNOWN means that eth is still training
+    // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));

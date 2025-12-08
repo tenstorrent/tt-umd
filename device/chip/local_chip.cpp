@@ -23,7 +23,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-// TLB size for DRAM on blackhole - 4GB
+// TLB size for DRAM on blackhole - 4GB.
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
 std::unique_ptr<LocalChip> LocalChip::create(
@@ -51,8 +51,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    remote_communication =
-        RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
+    remote_communication = RemoteCommunication::create_remote_communication(
+        tt_device.get(),
+        {0, 0, 0, 0},
+        sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
@@ -82,8 +84,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    remote_communication =
-        RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_manager.get());
+    remote_communication = RemoteCommunication::create_remote_communication(
+        tt_device.get(),
+        {0, 0, 0, 0},
+        sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
@@ -137,7 +141,7 @@ void LocalChip::initialize_default_chip_mutexes() {
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
-    // Initialize interprocess mutexes to make host -> device memory barriers atomic
+    // Initialize interprocess mutexes to make host -> device memory barriers atomic.
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 
     // Initialize mutex guarding initialized chips.
@@ -294,7 +298,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         config.y_end = translated_core.y;
         config.noc_sel = umd_use_noc1 ? 1 : 0;
         config.ordering = tlb_data::Strict;
-        config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
         TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
 
         while (size > 0) {
@@ -345,7 +349,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         config.y_end = translated_core.y;
         config.noc_sel = umd_use_noc1 ? 1 : 0;
         config.ordering = tlb_data::Relaxed;
-        config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
         TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
 
         while (size > 0) {
@@ -394,13 +398,13 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
     auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     while (size > 0) {
@@ -450,13 +454,13 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .base;
+                                .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
     auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
@@ -500,7 +504,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
     tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
@@ -529,7 +533,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.y_end = translated_core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
@@ -589,7 +593,7 @@ int LocalChip::test_setup_interface() {
         ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        // TODO #768 figure out BH implementation
+        // TODO #768 figure out BH implementation.
         return 0;
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
@@ -644,12 +648,12 @@ void LocalChip::set_membar_flag(
         }
     }
     // Ensure that reads or writes after this do not get reordered.
-    // Reordering can cause races where data gets transferred before the barrier has returned
+    // Reordering can cause races where data gets transferred before the barrier has returned.
     tt_driver_atomics::mfence();
 }
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
-    // Ensure that this memory barrier is atomic across processes/threads
+    // Ensure that this memory barrier is atomic across processes/threads.
     auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
@@ -657,7 +661,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
-        // Insert barrier on specific cores with L1
+        // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
 
@@ -674,7 +678,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
     } else {
-        // Insert barrier on all cores with L1
+        // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
@@ -693,7 +697,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     } else {
-        // Insert Barrier on all DRAM Cores
+        // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(

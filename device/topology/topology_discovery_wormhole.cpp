@@ -100,13 +100,9 @@ uint64_t TopologyDiscoveryWormhole::get_local_board_id(Chip* chip, tt_xy_pair et
     }
 
     TTDevice* tt_device = chip->get_tt_device();
-    uint32_t board_id;
-    tt_device->read_from_device(
-        &board_id,
-        eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
-        sizeof(uint32_t));
-    return board_id;
+    // WH-ERISC mangles the ARC board id into 32 bits, just enough to be uniquely identifying.
+    uint64_t board_id = tt_device->get_board_id();
+    return ((board_id >> 4) & 0xF0000000) | (board_id & 0x0FFFFFFF);
 }
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {

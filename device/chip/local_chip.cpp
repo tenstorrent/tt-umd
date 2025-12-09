@@ -506,8 +506,22 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
+    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
+    while (size > 0) {
+        uint32_t tlb_size = tlb_window->get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        tlb_window->write_register(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        reg_dest += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = reg_dest;
+        tlb_window->configure(config);
+    }
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
@@ -526,6 +540,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
+    uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
     auto translated_core = translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_src;
@@ -536,7 +551,19 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
-    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
+    while (size > 0) {
+        uint32_t tlb_size = tlb_window->get_size();
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        tlb_window->read_register(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        reg_src += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = reg_src;
+        tlb_window->configure(config);
+    }
 }
 
 void LocalChip::ethernet_broadcast_write(

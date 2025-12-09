@@ -92,6 +92,7 @@ public:
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
+    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
     // Serialize the soc descriptor to a YAML string, or directly to a file.
     // A default file in /tmp directory will be used if no path is passed.

@@ -34,7 +34,7 @@ SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator binary not found at: ", simulator_directory_);
+        TT_THROW("Simulator binary not found at: {}", simulator_directory_.string());
     }
 }
 

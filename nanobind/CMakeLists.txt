@@ -66,6 +66,7 @@ target_link_libraries(
     nanobind_tt_umd
     PRIVATE
         umd::device
+        umd::Common
         fmt::fmt-header-only
         tt-logger::tt-logger
 )

@@ -249,8 +249,6 @@ target_include_directories(
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-    INTERFACE
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/common>
 )
 
 target_link_libraries(

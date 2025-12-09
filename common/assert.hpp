@@ -87,7 +87,7 @@ template <typename... Ts>
     std::stringstream trace_message_ss = {};
     trace_message_ss << assert_type << " @ " << file << ":" << line << ": " << condition_str << std::endl;
     if constexpr (sizeof...(messages) > 0) {
-        trace_message_ss << fmt::format(messages...) << std::endl;
+        tt_assert_message(trace_message_ss, messages...);
     }
     trace_message_ss << "Backtrace:\n";
     trace_message_ss << tt::assert::backtrace_to_string(100, 3, " --- ");

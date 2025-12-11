@@ -19,6 +19,7 @@ target_include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
         "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
 )
+target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)

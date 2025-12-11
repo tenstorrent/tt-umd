@@ -645,24 +645,6 @@ std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {
     return soc_path;
 }
 
-std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
-        case tt::ARCH::BLACKHOLE: {
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/blackhole_140_arch.yaml");
-        }
-        case tt::ARCH::QUASAR: {
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/quasar_simulation_1x1.yaml");
-        }
-        default:
-            throw std::runtime_error("Invalid architecture");
-    }
-}
-
 void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     const tt_xy_pair empty = {0, 0};
     for (const auto &core_type :

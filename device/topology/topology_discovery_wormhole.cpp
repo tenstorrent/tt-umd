@@ -11,6 +11,7 @@
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -363,25 +364,27 @@ uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
     return chip->get_tt_device()->get_board_id();
 }
 
-void TopologyDiscoveryWormhole::validate_routing_firmware_state(
-    const std::map<uint64_t, std::unique_ptr<Chip>>& chips) {
-    for (const auto& [asic_id, chip] : chips) {
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-        if (eth_cores.empty()) {
-            continue;
-        }
-        TTDevice* tt_device = chip->get_tt_device();
-
-        uint32_t routing_firmware_disabled;
-        tt_device->read_from_device(
-            &routing_firmware_disabled, eth_cores[0], eth_addresses.routing_firmware_state, sizeof(uint32_t));
-        if (is_running_on_6u && routing_firmware_disabled == 0) {
-            throw std::runtime_error("Routing Firmware should not be enabled on 6U-Galaxy Systems.");
-        } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
-            throw std::runtime_error("Routing Firmware should be enabled on Non 6U-Galaxy Systems.");
-        }
+bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) {
+    uint32_t routing_firmware_disabled;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(
+        &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
+    if (is_running_on_6u && routing_firmware_disabled == 0) {
+        log_warning(
+            LogUMD,
+            "Routing FW on 6U unexpectedly enabled on chip {} core {}.",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str());
+        return false;
+    } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
+        log_warning(
+            LogUMD,
+            "Routing FW unexpectedly disabled on chip {} core {}.",
+            get_local_asic_id(chip, eth_core),
+            eth_core.str());
+        return false;
     }
+    return true;
 }
 
 }  // namespace tt::umd

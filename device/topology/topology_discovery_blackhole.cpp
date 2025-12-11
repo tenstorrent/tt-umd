@@ -356,7 +356,6 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
-void TopologyDiscoveryBlackhole::validate_routing_firmware_state(
-    const std::map<uint64_t, std::unique_ptr<Chip>>& chips) {}
+bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) { return true; }
 
 }  // namespace tt::umd

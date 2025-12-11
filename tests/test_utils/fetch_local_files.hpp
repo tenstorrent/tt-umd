@@ -25,10 +25,10 @@ inline std::string GetAbsPath(const std::string& relative_path) {
     std::filesystem::path current_file_path = std::filesystem::path(__FILE__);
     std::filesystem::path umd_test_root;
     if (current_file_path.is_absolute()) {
-        umd_test_root = current_file_path.parent_path().parent_path().parent_path();
+        umd_test_root = current_file_path.parent_path().parent_path();
     } else {
         std::filesystem::path umd_root_relative =
-            std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
+            std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path(), "../");
         umd_test_root = std::filesystem::canonical(umd_root_relative);
     }
 #endif
@@ -37,12 +37,10 @@ inline std::string GetAbsPath(const std::string& relative_path) {
     return abs_path.string();
 }
 
-inline std::string GetSocDescAbsPath(std::string soc_desc_name) {
-    return GetAbsPath("tests/soc_descs/" + soc_desc_name);
-}
+inline std::string GetSocDescAbsPath(std::string soc_desc_name) { return GetAbsPath("soc_descs/" + soc_desc_name); }
 
 inline std::string GetClusterDescAbsPath(std::string cluster_desc_name) {
-    return GetAbsPath("tests/cluster_descriptor_examples/" + cluster_desc_name);
+    return GetAbsPath("cluster_descriptor_examples/" + cluster_desc_name);
 }
 
 inline std::vector<std::string> GetAllClusterDescs() {
@@ -93,11 +91,11 @@ inline std::vector<std::string> GetAllSocDescs() {
 inline std::string get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
+            return GetAbsPath("soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE:
-            return GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml");
+            return GetAbsPath("soc_descs/blackhole_140_arch.yaml");
         case tt::ARCH::QUASAR:
-            return GetAbsPath("tests/soc_descs/quasar_simulation_1x1.yaml");
+            return GetAbsPath("soc_descs/quasar_simulation_1x1.yaml");
         default:
             throw std::runtime_error("Invalid architecture");
     }

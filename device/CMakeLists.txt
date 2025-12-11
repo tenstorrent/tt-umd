@@ -24,25 +24,6 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
-# --- Embed lite_fabric.bin as a C header ---
-set(LITE_FABRIC_BIN ${CMAKE_CURRENT_SOURCE_DIR}/libs/lite_fabric.bin)
-set(LITE_FABRIC_EMBED ${CMAKE_CURRENT_BINARY_DIR}/lite_fabric.embed)
-
-add_custom_command(
-    OUTPUT
-        ${LITE_FABRIC_EMBED}
-    COMMAND
-        ${CMAKE_COMMAND} -E echo "Generating ${LITE_FABRIC_EMBED} from ${LITE_FABRIC_BIN}"
-    COMMAND
-        cat ${LITE_FABRIC_BIN} | xxd -i > ${LITE_FABRIC_EMBED}
-    DEPENDS
-        ${LITE_FABRIC_BIN}
-    COMMENT "Embedding lite_fabric.bin as C array"
-    VERBATIM
-)
-
-add_custom_target(generate_lite_fabric_embed ALL DEPENDS ${LITE_FABRIC_EMBED})
-
 if(TT_UMD_BUILD_STATIC)
     add_library(device STATIC)
     message(STATUS "Building device library as STATIC")
@@ -51,8 +32,6 @@ else()
     message(STATUS "Building device library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::device ALIAS device)
-
-add_dependencies(device generate_lite_fabric_embed)
 
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
@@ -126,11 +105,8 @@ target_sources(
         topology/topology_discovery_wormhole.cpp
         tt_device/remote_communication.cpp
         tt_device/remote_communication_legacy_firmware.cpp
-        tt_device/remote_communication_lite_fabric.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
-        lite_fabric/lite_fabric_host_utils.cpp
-        ${LITE_FABRIC_EMBED} # include generated embed file
         tt_kmd_lib/tt_kmd_lib.c
 )
 
@@ -195,13 +171,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
-                api/umd/device/tt_device/remote_communication_lite_fabric.hpp
-                api/umd/device/lite_fabric/lite_fabric.hpp
-                api/umd/device/lite_fabric/fabric_edm_types.hpp
-                api/umd/device/lite_fabric/lf_dev_mem_map.hpp
-                api/umd/device/lite_fabric/lite_fabric_constants.hpp
-                api/umd/device/lite_fabric/lite_fabric_header.hpp
-                api/umd/device/lite_fabric/lite_fabric_host_utils.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp
                 api/umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp

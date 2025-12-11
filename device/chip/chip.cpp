@@ -245,15 +245,7 @@ void Chip::set_power_state(DevicePowerState state) {
 }
 
 tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
-    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the umd_use_noc1 flag.
-    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (soc_descriptor_.noc_translation_enabled && soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    }
-
-    return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    return soc_descriptor_.translate_chip_coord_to_translated(core);
 }
 
 void Chip::wait_for_aiclk_value(

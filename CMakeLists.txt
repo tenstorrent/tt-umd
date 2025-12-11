@@ -150,7 +150,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-nonnull)
 endif()
 
-add_subdirectory(common)
 if(TT_UMD_BUILD_SIMULATION)
     message(STATUS "Building ${PROJECT_NAME} with Simulation")
 endif()

@@ -13,6 +13,7 @@
 #include <ostream>
 #include <vector>
 
+#include "assert.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -121,7 +122,7 @@ inline std::ostream& operator<<(std::ostream& os, const DevicePowerState power_s
             os << "LONG_IDLE";
             break;
         default:
-            throw("Unknown DevicePowerState");
+            TT_THROW("Unknown DevicePowerState");
     }
     return os;
 }

@@ -82,7 +82,7 @@ RtlSimulationChip::RtlSimulationChip(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 
     if (!std::filesystem::exists(simulator_directory)) {
-        TT_THROW("Simulator binary not found at: ", simulator_directory);
+        TT_THROW("Simulator binary not found at: ", simulator_directory.string());
     }
 
     host.init();

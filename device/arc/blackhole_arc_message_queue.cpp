@@ -89,8 +89,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 uint32_t BlackholeArcMessageQueue::send_message(
     const ArcMessageType message_type, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
     if (args.size() > 7) {
-        throw std::runtime_error(
-            fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
+        TT_THROW(fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
     }
 
     // Initialize with zeros for unused args.
@@ -111,11 +110,9 @@ uint32_t BlackholeArcMessageQueue::send_message(
     if (status < blackhole::ARC_MSG_RESPONSE_OK_LIMIT) {
         return response[0] >> 16;
     } else if (status == 0xFF) {
-        throw std::runtime_error(fmt::format("Message code {} not recognized by ARC fw.", (uint32_t)message_type));
-        return 0;
+        TT_THROW(fmt::format("Message code {} not recognized by ARC firmware.", (uint32_t)message_type));
     } else {
-        throw std::runtime_error(fmt::format("Uknown message error code {}", status));
-        return 0;
+        TT_THROW(fmt::format("Unknown message code: {}", status));
     }
 }
 

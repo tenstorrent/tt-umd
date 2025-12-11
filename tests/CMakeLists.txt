@@ -4,6 +4,7 @@ target_link_libraries(
     INTERFACE
         umd::device
         umd::Firmware
+        umd::Common
         gtest_main
         gtest
         pthread

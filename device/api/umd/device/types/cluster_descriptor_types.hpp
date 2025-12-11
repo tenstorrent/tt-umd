@@ -14,6 +14,7 @@
 #include <optional>
 #include <unordered_map>
 
+#include "assert.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -142,7 +143,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
     if (auto it = board_type_canonical_name_map.find(board_type); it != board_type_canonical_name_map.end()) {
         return std::string(it->second);
     }
-    throw std::runtime_error("Unknown board type passed for conversion to string.");
+    TT_THROW("Unknown board type passed for conversion to string.");
 }
 
 inline BoardType board_type_from_string(std::string_view board_type_str) {
@@ -164,7 +165,7 @@ enum BlackholeChipType : uint32_t {
 inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const uint8_t asic_location) {
     if (asic_location != 0) {
         if (board_type != BoardType::P300) {
-            throw std::runtime_error("Remote chip is supported only for Blackhole P300 board.");
+            TT_THROW("Remote chip is supported only for Blackhole P300 board.");
         }
     }
 
@@ -180,11 +181,10 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
                 case 1:
                     return BlackholeChipType::Type1;
                 default:
-                    throw std::runtime_error(
-                        "Invalid asic location for Blackhole P300 board: " + std::to_string(asic_location));
+                    TT_THROW("Invalid asic location for Blackhole P300 board: " + std::to_string(asic_location));
             }
         default:
-            throw std::runtime_error("Invalid board type for Blackhole architecture.");
+            TT_THROW("Invalid board type for Blackhole architecture.");
     }
 }
 
@@ -207,7 +207,7 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         case BoardType::UBB_BLACKHOLE:
             return 32;
         default:
-            throw std::runtime_error("Unknown board type for number of chips calculation.");
+            TT_THROW("Unknown board type for number of chips calculation.");
     }
 }
 
@@ -235,7 +235,7 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return board_type_it->second;
     }
 
-    throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
+    TT_THROW("No existing board type for board id 0x{:x}", board_id);
 }
 
 static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_units_map = {

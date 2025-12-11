@@ -50,8 +50,8 @@ void* Jtag::load_function(const char* name) {
         void* funcPtr = dlsym(handle.get(), name);
         const char* dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol: " << dlsym_error << '\n';
-            throw std::runtime_error("Failed to load function");
+            log_error(tt::LogUMD, "Cannot load symbol: {}", dlsym_error);
+            TT_THROW("Failed to load function.");
         }
         func_map[name] = funcPtr;
     }

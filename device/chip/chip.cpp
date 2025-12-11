@@ -97,8 +97,7 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
         if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            throw std::runtime_error(fmt::format(
-                "Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count()));
+            TT_THROW("Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count());
         }
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
@@ -191,7 +190,7 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
             break;
         }
         default:
-            throw std::runtime_error("Unrecognized power state.");
+            TT_THROW("Unrecognized power state.");
     }
     return msg;
 }

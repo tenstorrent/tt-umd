@@ -326,9 +326,9 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
 
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
-        throw std::runtime_error(fmt::format(
-            "Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path));
+        TT_THROW("Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path);
     }
+
     fdesc.close();
 
     YAML::Node yaml = YAML::LoadFile(cluster_descriptor_file_path);
@@ -816,12 +816,12 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     if (yaml["boards"]) {
         YAML::Node boardsNode = yaml["boards"];
         if (!boardsNode || !boardsNode.IsSequence()) {
-            throw std::runtime_error("Invalid or missing 'boards' node.");
+            TT_THROW("Invalid or missing 'boards' node.");
         }
 
         for (const auto &boardEntry : boardsNode) {
             if (!boardEntry.IsSequence() || boardEntry.size() != 3) {
-                throw std::runtime_error("Each board entry should be a sequence of 3 maps.");
+                TT_THROW("Each board entry should be a sequence of 3 maps.");
             }
 
             uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
@@ -849,7 +849,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             if (bus_str.substr(0, 2) != "0x") {
                 std::string msg =
                     "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
-                throw std::runtime_error(msg);
+                TT_THROW(msg);
             }
             bus_str = bus_str.substr(2);
 
@@ -1209,8 +1209,7 @@ HarvestingMasks ClusterDescriptor::get_harvesting_masks(ChipId chip_id) const {
 
 void ClusterDescriptor::add_chip_to_board(ChipId chip_id, uint64_t board_id) {
     if (chip_to_board_id.find(chip_id) != chip_to_board_id.end() && chip_to_board_id[chip_id] != board_id) {
-        throw std::runtime_error(
-            fmt::format("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]));
+        TT_THROW("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]);
     }
     chip_to_board_id[chip_id] = board_id;
     board_to_chips[board_id].insert(chip_id);
@@ -1221,7 +1220,7 @@ uint64_t ClusterDescriptor::get_board_id_for_chip(const ChipId chip) const {
     if (it != chip_to_board_id.end()) {
         return it->second;
     }
-    throw std::runtime_error(fmt::format("Chip to board mapping for chip {} not found.", chip));
+    TT_THROW("Chip to board mapping for chip {} not found.", chip);
 }
 
 std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t board_id) const {
@@ -1229,7 +1228,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t boa
     if (it != board_to_chips.end()) {
         return it->second;
     }
-    throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
+    TT_THROW("Board to chips mapping for board {:#x} not found.", board_id);
 }
 
 bool ClusterDescriptor::verify_board_info_for_chips() {

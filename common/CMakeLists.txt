@@ -12,4 +12,4 @@ target_sources(
         utils.hpp
 )
 
-target_include_directories(umd_common INTERFACE .)
+target_include_directories(umd_common INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -31,7 +31,7 @@ std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communic
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<RemoteCommunicationLiteFabric>(local_tt_device, sysmem_manager);
         default:
-            throw std::runtime_error("Remote communication is not supported for this architecture.");
+            TT_THROW("Remote communication is not supported for this architecture.");
     }
 }
 
@@ -54,14 +54,14 @@ tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
             LogUMD, "Number of active ethernet cores {} exceeds the maximum of 8.", remote_transfer_eth_cores_.size());
     }
     if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("No remote transfer ethernet cores set.");
+        TT_THROW("No remote transfer ethernet cores set.");
     }
     return remote_transfer_eth_cores_.at(active_eth_core_idx);
 }
 
 void RemoteCommunication::update_active_eth_core_idx() {
     if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
+        TT_THROW("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
     }
     active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
 }

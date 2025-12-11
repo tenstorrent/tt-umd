@@ -57,8 +57,11 @@ TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_imp
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
     if (!wait_arc_core_start(timeout_ms)) {
-        throw std::runtime_error(fmt::format(
-            "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
+        TT_THROW(
+            "Timed out after waiting {} ms for ARC core ({}, {}) to start.",
+            timeout_ms.count(),
+            arc_core.x,
+            arc_core.y);
     }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
@@ -112,7 +115,7 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
                 new RemoteBlackholeTTDevice(std::move(remote_communication)));
         }
         default:
-            throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
+            TT_THROW("Remote TTDevice creation is not supported for this architecture.");
     }
 }
 
@@ -131,7 +134,7 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
         return;
     }
     if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+        TT_THROW("Read 0xffffffff from PCIe: you should reset the board.");
     }
 }
 
@@ -222,15 +225,15 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    throw std::runtime_error("configure_iatu_region is not implemented for this device");
+    TT_THROW("configure_iatu_region is not implemented for this device");
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
-        throw std::runtime_error(fmt::format(
+        TT_THROW(
             "Invalid DRAM channel index {}, maximum index for given architecture is {}",
             dram_channel,
-            architecture_impl_->get_dram_banks_number() - 1));
+            architecture_impl_->get_dram_banks_number() - 1);
     }
     auto start = std::chrono::steady_clock::now();
     while (true) {
@@ -243,7 +246,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            throw std::runtime_error("DRAM training failed");
+            TT_THROW("DRAM training failed");
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
@@ -260,7 +263,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
     const uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
-        throw std::runtime_error("Write Invalid BAR address for this device.");
+        TT_THROW("Write Invalid BAR address for this device.");
     }
     addr -= bar0_offset;
     *reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(get_pci_device()->bar0) + addr) = data;
@@ -269,7 +272,7 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
 uint32_t TTDevice::bar_read32(uint32_t addr) {
     const uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
-        throw std::runtime_error("Read Invalid BAR address for this device.");
+        TT_THROW("Read Invalid BAR address for this device.");
     }
     addr -= bar0_offset;
     return *reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(get_pci_device()->bar0) + addr);
@@ -339,7 +342,7 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
+        TT_THROW("noc_multicast_write is not applicable for JTAG communication type.");
     }
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
 

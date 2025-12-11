@@ -6,8 +6,7 @@
 namespace tt::umd {
 
 RtlSimulationTTDevice::RtlSimulationTTDevice() {
-    throw std::runtime_error(
-        "Creating RtlSimulationTTDevice without an underlying communication device is not supported.");
+    TT_THROW("Creating RtlSimulationTTDevice without an underlying communication device is not supported.");
 }
 
 }  // namespace tt::umd

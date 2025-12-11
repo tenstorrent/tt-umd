@@ -12,21 +12,28 @@
 #include <iostream>
 #include <string>
 
+#include "umd/device/types/arch.hpp"
+
 namespace test_utils {
 
-inline std::string GetAbsPath(std::string path_) {
+inline std::string GetAbsPath(const std::string& relative_path) {
+#ifdef UMD_TESTS_ROOT_PATH
+    std::filesystem::path umd_test_root(UMD_TESTS_ROOT_PATH);
+#else
     // Note that __FILE__ might be resolved at compile time to an absolute or relative address, depending on the
     // compiler.
     std::filesystem::path current_file_path = std::filesystem::path(__FILE__);
-    std::filesystem::path umd_root;
+    std::filesystem::path umd_test_root;
     if (current_file_path.is_absolute()) {
-        umd_root = current_file_path.parent_path().parent_path().parent_path();
+        umd_test_root = current_file_path.parent_path().parent_path().parent_path();
     } else {
         std::filesystem::path umd_root_relative =
             std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
-        umd_root = std::filesystem::canonical(umd_root_relative);
+        umd_test_root = std::filesystem::canonical(umd_root_relative);
     }
-    std::filesystem::path abs_path = umd_root / path_;
+#endif
+    std::filesystem::path abs_path = umd_test_root / relative_path;
+
     return abs_path.string();
 }
 
@@ -81,6 +88,19 @@ inline std::vector<std::string> GetAllSocDescs() {
         soc_desc_names.push_back(GetSocDescAbsPath(soc_desc_name));
     }
     return soc_desc_names;
+}
+
+inline std::string get_soc_descriptor_path(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
+        case tt::ARCH::BLACKHOLE:
+            return GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml");
+        case tt::ARCH::QUASAR:
+            return GetAbsPath("tests/soc_descs/quasar_simulation_1x1.yaml");
+        default:
+            throw std::runtime_error("Invalid architecture");
+    }
 }
 
 }  // namespace test_utils

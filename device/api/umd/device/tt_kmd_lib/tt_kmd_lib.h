@@ -14,11 +14,6 @@
 extern "C" {
 #endif
 
-#define TENSTORRENT_DRIVER_VERSION_MAJOR 2
-#define TENSTORRENT_DRIVER_VERSION_MINOR 3
-#define TENSTORRENT_DRIVER_VERSION_PATCH 0
-#define TENSTORRENT_DRIVER_VERSION_SUFFIX ""  // e.g. "-rc1"
-
 /**
  * @brief Opaque handle to a Tenstorrent PCIe device.
  */

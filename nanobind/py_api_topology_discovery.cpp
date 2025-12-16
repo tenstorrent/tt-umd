@@ -24,7 +24,7 @@ namespace nb = nanobind;
 using namespace tt;
 using namespace tt::umd;
 
-// Forward declaration of helper function from py_api_tt_device.cpp
+// Forward declaration of helper function from py_api_tt_device.cpp.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice* local_chip, ClusterDescriptor* cluster_descriptor, ChipId remote_chip_id);
 
@@ -90,7 +90,7 @@ void bind_topology_discovery(nb::module_& m) {
                         tt_devices[chip_id] = TTDevice::create(pci_device_num);
                         tt_devices[chip_id]->init_tt_device();
                     } else {
-                        // Skip creating remote devices if no_remote_discovery is true
+                        // Skip creating remote devices if no_remote_discovery is true.
                         if (!options.no_remote_discovery) {
                             ChipId closest_mmio = cluster_desc->get_closest_mmio_capable_chip(chip_id);
                             tt_devices[chip_id] = create_remote_wormhole_tt_device(

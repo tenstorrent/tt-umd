@@ -1348,7 +1348,7 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
             GTEST_SKIP() << "Unsupported architecture for test.";
     }
 
-    // Check hash without changes, should pass
+    // Check hash without changes, should pass.
     std::cout << "Checking ETH FW without changes." << std::endl;
     auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
     if (!result.has_value()) {

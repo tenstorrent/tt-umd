@@ -27,7 +27,7 @@ public:
      * Creates a Coordinate Manager object. Main function for creating CoordinateManager. Given the cores for all
      * core types, harvesting masks and NOC0 to NOC1 mapping, it creates a CoordinateManager object.
      */
-    static std::shared_ptr<CoordinateManager> create_coordinate_manager(
+    static std::unique_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
         HarvestingMasks harvesting_masks,
@@ -60,7 +60,7 @@ public:
      * @param asic_location ASIC location of the device.
      * @return CoordinateManager object.
      */
-    static std::shared_ptr<CoordinateManager> create_coordinate_manager(
+    static std::unique_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
         const HarvestingMasks harvesting_masks = {0, 0, 0},

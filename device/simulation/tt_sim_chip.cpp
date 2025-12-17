@@ -39,7 +39,7 @@ TTSimChip::TTSimChip(
     SocDescriptor soc_descriptor,
     ChipId chip_id,
     bool copy_sim_binary) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id),
+    SimulationChip(simulator_directory, std::move(soc_descriptor), chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
     if (copy_sim_binary) {
         create_simulator_binary();

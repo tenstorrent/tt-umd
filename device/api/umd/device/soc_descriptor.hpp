@@ -206,10 +206,7 @@ private:
     std::vector<uint32_t> noc0_x_to_noc1_x;
     std::vector<uint32_t> noc0_y_to_noc1_y;
 
-    // TODO: change this to unique pointer as soon as copying of SocDescriptor
-    // is not needed anymore. Soc descriptor and coordinate manager should be
-    // created once per chip.
-    std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
+    std::unique_ptr<CoordinateManager> coordinate_manager = nullptr;
     std::map<CoreType, std::vector<CoreCoord>> cores_map;
     std::map<CoreType, tt_xy_pair> grid_size_map;
     std::map<CoreType, std::vector<CoreCoord>> harvested_cores_map;

@@ -10,7 +10,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
 
-MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
+MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor)) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 

@@ -582,7 +582,7 @@ uint32_t CoordinateManager::get_num_harvested_eth_channels() const {
     return CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 }
 
-std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
+std::unique_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
     const bool noc_translation_enabled,
     const HarvestingMasks harvesting_masks,
@@ -636,7 +636,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     }
 }
 
-std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
+std::unique_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
     const bool noc_translation_enabled,
     const HarvestingMasks harvesting_masks,
@@ -656,7 +656,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<uint32_t>& noc0_y_to_noc1_y) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_shared<WormholeCoordinateManager>(
+            return std::make_unique<WormholeCoordinateManager>(
                 noc_translation_enabled,
                 harvesting_masks,
                 tensix_grid_size,
@@ -675,7 +675,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 noc0_y_to_noc1_y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
-            return std::make_shared<BlackholeCoordinateManager>(
+            return std::make_unique<BlackholeCoordinateManager>(
                 noc_translation_enabled,
                 harvesting_masks,
                 tensix_grid_size,

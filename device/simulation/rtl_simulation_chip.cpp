@@ -78,7 +78,7 @@ inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::F
 
 RtlSimulationChip::RtlSimulationChip(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id) {
+    SimulationChip(simulator_directory, std::move(soc_descriptor), chip_id) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 
     if (!std::filesystem::exists(simulator_directory)) {

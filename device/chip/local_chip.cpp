@@ -57,7 +57,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
+        std::move(soc_descriptor),
         std::move(tt_device),
         std::move(tlb_manager),
         std::move(sysmem_manager),
@@ -90,7 +90,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
+        std::move(soc_descriptor),
         std::move(tt_device),
         std::move(tlb_manager),
         std::move(sysmem_manager),
@@ -105,7 +105,7 @@ LocalChip::LocalChip(
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
     int num_host_mem_channels) :
-    Chip(tt_device->get_chip_info(), soc_descriptor),
+    Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),

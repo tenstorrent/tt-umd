@@ -237,12 +237,13 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     int num_host_mem_channels,
     const std::filesystem::path& simulator_directory) {
     if (chip_type == ChipType::MOCK) {
-        return std::make_unique<MockChip>(soc_desc);
+        return std::make_unique<MockChip>(std::move(soc_desc));
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
+        return SimulationChip::create(
+            simulator_directory, std::move(soc_desc), chip_id, cluster_desc->get_number_of_chips());
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -253,7 +254,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         auto chip = LocalChip::create(
             (cluster_desc->get_chips_with_mmio().at(chip_id)),
-            soc_desc,
+            std::move(soc_desc),
             num_host_mem_channels,
             cluster_desc->io_device_type);
 
@@ -270,7 +271,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             local_chip,
             cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
-            soc_desc);
+            std::move(soc_desc));
     }
 }
 

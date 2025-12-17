@@ -20,17 +20,7 @@ inline std::string GetAbsPath(const std::string& relative_path) {
 #ifdef UMD_TESTS_ROOT_PATH
     std::filesystem::path umd_test_root(UMD_TESTS_ROOT_PATH);
 #else
-    // Note that __FILE__ might be resolved at compile time to an absolute or relative address, depending on the
-    // compiler.
-    std::filesystem::path current_file_path = std::filesystem::path(__FILE__);
-    std::filesystem::path umd_test_root;
-    if (current_file_path.is_absolute()) {
-        umd_test_root = current_file_path.parent_path().parent_path();
-    } else {
-        std::filesystem::path umd_root_relative =
-            std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path(), "../");
-        umd_test_root = std::filesystem::canonical(umd_root_relative);
-    }
+#error "UMD_TESTS_ROOT_PATH not defined. The UMD tests project cannot find cluster and SoC descriptors."
 #endif
     std::filesystem::path abs_path = umd_test_root / relative_path;
 

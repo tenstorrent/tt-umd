@@ -5,6 +5,8 @@
  */
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 
+#include <fmt/format.h>
+
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
 
@@ -370,19 +372,23 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const 
     tt_device->read_from_device(
         &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
     if (is_running_on_6u && routing_firmware_disabled == 0) {
-        log_warning(
-            LogUMD,
+        auto message = fmt::format(
             "Routing FW on 6U unexpectedly enabled on chip {} core {}.",
             get_local_asic_id(chip, eth_core),
             eth_core.str());
-        return false;
+        if (options.no_eth_firmware_strictness) {
+            log_warning(LogUMD, message);
+            return false;
+        }
+        TT_THROW(message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
-        log_warning(
-            LogUMD,
-            "Routing FW unexpectedly disabled on chip {} core {}.",
-            get_local_asic_id(chip, eth_core),
-            eth_core.str());
-        return false;
+        auto message = fmt::format(
+            "Routing FW unexpectedly disabled on chip {} core {}.", get_local_asic_id(chip, eth_core), eth_core.str());
+        if (options.no_eth_firmware_strictness) {
+            log_warning(LogUMD, message);
+            return false;
+        }
+        TT_THROW(message);
     }
     return true;
 }

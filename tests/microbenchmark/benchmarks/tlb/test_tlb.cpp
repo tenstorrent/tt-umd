@@ -8,16 +8,16 @@
 
 #include <chrono>
 
+#include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
 
 using namespace tt;
 using namespace tt::umd;
+using namespace tt::umd::test::utils;
 
 constexpr ChipId CHIP_ID = 0;
-constexpr size_t ONE_KB = 1 << 10;
-constexpr size_t ONE_MB = 1 << 20;
 
-TEST(New, TLBDRAM) {
+TEST(MicrobenchmarkTLB, DRAM) {
     auto bench = ankerl::nanobench::Bench().title("TLB DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
@@ -76,7 +76,7 @@ TEST(New, TLBDRAM) {
     }
 }
 
-TEST(New, TLBTensix) {
+TEST(MicrobenchmarkTLB, Tensix) {
     auto bench =
         ankerl::nanobench::Bench().title("TLB Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
@@ -122,7 +122,7 @@ TEST(New, TLBTensix) {
     }
 }
 
-TEST(New, TLBEthernet) {
+TEST(MicrobenchmarkTLB, Ethernet) {
     auto bench =
         ankerl::nanobench::Bench().title("TLB Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     uint64_t ADDRESS = 0x20000;  // 128 KiB

@@ -55,8 +55,9 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (tlb_manager_->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    std::cout << "-SysmemBuffer::dma_write_to_device allocating TLB window with size " << tlb_manager_->get_tlb_window(core)->get_size() << std::endl;
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
-
+    std::cout << "-SysmemBuffer::dma_write_to_device TLB window allocated with id " << tlb_window->handle_ref().get_tlb_id() << std::endl;
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .base;
@@ -111,8 +112,9 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.ordering = tlb_data::Relaxed;
     config.static_vc = (tlb_manager_->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
 
+    std::cout << "-SysmemBuffer::dma_read_from_device allocating TLB window with size " << tlb_manager_->get_tlb_window(core)->get_size() << std::endl;
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
-
+    std::cout << "-SysmemBuffer::dma_read_from_device TLB window allocated with id " << tlb_window->handle_ref().get_tlb_id() << std::endl;
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .base;

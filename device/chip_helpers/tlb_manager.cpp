@@ -41,8 +41,9 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    std::cout << "-TLBManager::configure_tlb allocating TLB window with size " << tlb_size << " for core " << core.str() << std::endl;
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
-
+    std::cout << "-TLBManager::configure_tlb TLB window allocated with id " << tlb_window->handle_ref().get_tlb_id() << std::endl;
     tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
     tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
@@ -68,8 +69,9 @@ void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t ad
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    std::cout << "--TLBManager::configure_tlb_kmd allocating TLB window with size " << tlb_size << " for core " << core.str() << std::endl;
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
-
+    std::cout << "--TLBManager::configure_tlb_kmd TLB window allocated with id " << tlb_window->handle_ref().get_tlb_id() << std::endl;
     tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
     tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
@@ -131,6 +133,7 @@ const std::vector<size_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) {
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     if (tlb_size != 0) {
+        std::cout << "---TLBManager::allocate_tlb_window allocating TLB window with size " << tlb_size << std::endl;
         return std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
     }
 
@@ -140,6 +143,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
         std::unique_ptr<TlbWindow> tlb_window = nullptr;
         try {
             tlb_window = std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(size, mapping), config);
+            std::cout << "---TLBManager::allocate_tlb_window TLB window allocated with id " << tlb_window->handle_ref().get_tlb_id() << std::endl;
             return tlb_window;
         } catch (const std::exception& e) {
             log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", size, e.what());

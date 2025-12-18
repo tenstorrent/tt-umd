@@ -147,8 +147,10 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 
 TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     if (cached_tlb_window == nullptr) {
+        std::cout << "-TTDevice::get_cached_tlb_window allocating TLB window with size 1 << 21" << std::endl;
         cached_tlb_window =
             std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        std::cout << "-TTDevice::get_cached_tlb_window TLB window allocated with id " << cached_tlb_window->handle_ref().get_tlb_id() << std::endl;
         return cached_tlb_window.get();
     }
     cached_tlb_window->configure(config);

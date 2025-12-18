@@ -727,8 +727,10 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
     if (cached_wc_tlb_window == nullptr) {
+        std::cout << "-WC cached TLB window allocating with size 1 << 21" << std::endl;
         cached_wc_tlb_window = std::make_unique<TlbWindow>(
             get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+        std::cout << "-WC cached TLB window allocated with id " << cached_wc_tlb_window->handle_ref().get_tlb_id() << std::endl;
         return cached_wc_tlb_window.get();
     }
 
@@ -738,8 +740,10 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
     if (cached_uc_tlb_window == nullptr) {
+        std::cout << "-UC cached TLB window allocating with size 1 << 21" << std::endl;
         cached_uc_tlb_window = std::make_unique<TlbWindow>(
             get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        std::cout << "-UC cached TLB window allocated with id " << cached_uc_tlb_window->handle_ref().get_tlb_id() << std::endl;
         return cached_uc_tlb_window.get();
     }
 
@@ -749,8 +753,10 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
 
 TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
+        std::cout << "-PCIe DMA cached TLB window allocating with size 16 * 1024 * 1024" << std::endl;
         cached_pcie_dma_tlb_window = std::make_unique<TlbWindow>(
             get_tt_device()->get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        std::cout << "-PCIe DMA cached TLB window allocated with id " << cached_pcie_dma_tlb_window->handle_ref().get_tlb_id() << std::endl;
         return cached_pcie_dma_tlb_window.get();
     }
 

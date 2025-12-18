@@ -19,10 +19,11 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
     tlb_size(size), fd(fd), tlb_mapping(tlb_mapping) {
     tenstorrent_allocate_tlb allocate_tlb{};
     allocate_tlb.in.size = size;
+    std::cout << "Allocating TLB with size " << size << std::endl;
     if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
         throw std::runtime_error(fmt::format("Failed to allocate the TLB with size {}", size));
     }
-
+    std::cout << "  TLB allocated with id " << allocate_tlb.out.id << std::endl;
     tlb_id = allocate_tlb.out.id;
 
     void* mapped_tlb =
@@ -39,6 +40,7 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
 }
 
 TlbHandle::~TlbHandle() noexcept {
+    std::cout << "  Unmapping TLB with id " << tlb_id << std::endl;
     munmap(tlb_base, tlb_size);
     free_tlb();
 }

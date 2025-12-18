@@ -175,6 +175,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
+            if (!verify_routing_firmware_state(chip, eth_core)) {
+                channel++;
+                continue;
+            }
+
             if (is_using_eth_coords()) {
                 auto local_eth_coord = get_local_eth_coord(chip, eth_core);
                 if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
@@ -224,7 +229,6 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     patch_eth_connections();
-    validate_routing_firmware_state(chips);
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {

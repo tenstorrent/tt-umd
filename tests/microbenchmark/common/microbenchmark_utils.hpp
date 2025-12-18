@@ -17,5 +17,6 @@ namespace tt::umd::test::utils {
 
 inline constexpr size_t ONE_KB = 1 << 10;
 inline constexpr size_t ONE_MB = 1 << 20;
+inline constexpr size_t ONE_GB = 1 << 30;
 
 }  // namespace tt::umd::test::utils

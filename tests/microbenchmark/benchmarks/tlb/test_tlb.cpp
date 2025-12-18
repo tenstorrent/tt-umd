@@ -125,7 +125,7 @@ TEST(MicrobenchmarkTLB, Tensix) {
 TEST(MicrobenchmarkTLB, Ethernet) {
     auto bench =
         ankerl::nanobench::Bench().title("TLB Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
-    uint64_t ADDRESS = 0x20000;  // 128 KiB
+    const uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     if (cluster->get_cluster_description()->get_number_of_chips() == 0) {

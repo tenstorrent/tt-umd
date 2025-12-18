@@ -21,7 +21,7 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
     tlb_size(size), fd(fd), tlb_mapping(tlb_mapping) {
     tenstorrent_allocate_tlb allocate_tlb{};
     allocate_tlb.in.size = size;
-    std::cout << "Allocating TLB with size " << size << std::endl;
+    std::cout << "Allocating TLB with size " << size << " and mapping " << (tlb_mapping == TlbMapping::UC ? "UC" : "WC") << std::endl;
     if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
         throw std::runtime_error(fmt::format("Failed to allocate the TLB with size {}", size));
     }

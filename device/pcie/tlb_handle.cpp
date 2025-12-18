@@ -8,6 +8,8 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
+#include <iostream>
+
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 

@@ -22,7 +22,7 @@ inline void export_results(const Bench& bench) {
     if (const char* results_path = std::getenv(OUTPUT_ENV_VAR)) {
         std::filesystem::path filepath = std::filesystem::path(results_path) / (bench.title() + ".json");
         std::ofstream file(filepath);
-        ankerl::nanobench::render(ankerl::nanobench::templates::pyperf(), bench, file);
+        ankerl::nanobench::render(ankerl::nanobench::templates::json(), bench, file);
     }
 }
 

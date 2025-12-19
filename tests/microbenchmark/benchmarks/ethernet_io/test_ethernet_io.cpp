@@ -7,6 +7,7 @@
 #include <nanobench.h>
 
 #include "common/microbenchmark_utils.hpp"
+#include "umd/device/cluster.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -14,7 +15,7 @@ using namespace tt::umd::test::utils;
 
 TEST(MicrobenchmarkEthernetIO, DRAM) {
     auto bench =
-        ankerl::nanobench::Bench().title("Ethernet IO DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("EthernetIO_DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB, 2 * ONE_MB, 4 * ONE_MB, 8 * ONE_MB};
@@ -43,13 +44,12 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
             cluster->read_from_device(pattern.data(), chip, dram_core, ADDRESS, batch_size);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkEthernetIO, Tensix) {
-    auto bench = ankerl::nanobench::Bench()
-                     .title("Ethernet IO Tensix")
-                     .timeUnit(std::chrono::milliseconds(1), "ms")
-                     .unit("byte");
+    auto bench =
+        ankerl::nanobench::Bench().title("EthernetIO_Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB, 2 * ONE_MB, 4 * ONE_MB};
@@ -78,11 +78,12 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
             cluster->read_from_device(pattern.data(), chip, tensix_core, ADDRESS, batch_size);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkEthernetIO, Ethernet) {
     auto bench = ankerl::nanobench::Bench()
-                     .title("Ethernet IO Ethernet")
+                     .title("EthernetIO_Ethernet")
                      .timeUnit(std::chrono::milliseconds(1), "ms")
                      .unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
@@ -112,4 +113,5 @@ TEST(MicrobenchmarkEthernetIO, Ethernet) {
             cluster->read_from_device(pattern.data(), chip, eth_core, ADDRESS, batch_size);
         });
     }
+    test::utils::export_results(bench);
 }

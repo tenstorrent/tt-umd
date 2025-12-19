@@ -8,15 +8,16 @@
 #include <sys/mman.h>
 
 #include "common/microbenchmark_utils.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/cluster.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
 constexpr ChipId CHIP_ID = 0;
 
 TEST(MicrobenchmarkPCIeDMA, DRAM) {
-    auto bench = ankerl::nanobench::Bench().title("DMA DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         4,
@@ -55,11 +56,12 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
             cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, dram_core, ADDRESS);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkPCIeDMA, Tensix) {
     auto bench =
-        ankerl::nanobench::Bench().title("DMA Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("DMA_Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -80,11 +82,12 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
             cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, tensix_core, ADDRESS);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkPCIeDMA, Ethernet) {
     auto bench =
-        ankerl::nanobench::Bench().title("DMA Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("DMA_Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -105,11 +108,12 @@ TEST(MicrobenchmarkPCIeDMA, Ethernet) {
             cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, eth_core, ADDRESS);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
     auto bench =
-        ankerl::nanobench::Bench().title("DMA DRAM Sweep").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("DMA_DRAM_Sweep").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
@@ -128,11 +132,12 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
             cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, dram_core, ADDRESS);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     auto bench =
-        ankerl::nanobench::Bench().title("DMA Tensix Sweep").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("DMA_Tensix_Sweep").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
@@ -151,11 +156,12 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
             cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, tensix_core, ADDRESS);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     auto bench = ankerl::nanobench::Bench()
-                     .title("DMA Ethernet Sweep")
+                     .title("DMA_Ethernet_Sweep")
                      .timeUnit(std::chrono::milliseconds(1), "ms")
                      .unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
@@ -176,4 +182,5 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
             cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, eth_core, ADDRESS);
         });
     }
+    test::utils::export_results(bench);
 }

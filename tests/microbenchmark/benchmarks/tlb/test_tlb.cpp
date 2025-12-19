@@ -18,7 +18,7 @@ using namespace tt::umd::test::utils;
 constexpr ChipId CHIP_ID = 0;
 
 TEST(MicrobenchmarkTLB, DRAM) {
-    auto bench = ankerl::nanobench::Bench().title("TLB DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("TLB_DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         1,
@@ -74,11 +74,12 @@ TEST(MicrobenchmarkTLB, DRAM) {
             cluster->read_from_device(pattern.data(), CHIP_ID, dram_core, ADDRESS, batch_size);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkTLB, Tensix) {
     auto bench =
-        ankerl::nanobench::Bench().title("TLB Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("TLB_Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -120,11 +121,12 @@ TEST(MicrobenchmarkTLB, Tensix) {
             cluster->read_from_device(pattern.data(), CHIP_ID, tensix_core, ADDRESS, batch_size);
         });
     }
+    test::utils::export_results(bench);
 }
 
 TEST(MicrobenchmarkTLB, Ethernet) {
     auto bench =
-        ankerl::nanobench::Bench().title("TLB Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+        ankerl::nanobench::Bench().title("TLB_Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -169,4 +171,5 @@ TEST(MicrobenchmarkTLB, Ethernet) {
             cluster->read_from_device(pattern.data(), CHIP_ID, eth_core, ADDRESS, batch_size);
         });
     }
+    test::utils::export_results(bench);
 }

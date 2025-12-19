@@ -54,6 +54,20 @@ add_library(${PROJECT_NAME}::device ALIAS device)
 
 add_dependencies(device generate_lite_fabric_embed)
 
+# Enable unity builds for faster compilation 
+# Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
+if(COMMAND TT_ENABLE_UNITY_BUILD)
+    tt_enable_unity_build(device)
+    # Exclude files that cause ODR violations due to conflicting eth_interface.h headers 
+    set_source_files_properties(
+        arch/wormhole_implementation.cpp
+        arch/blackhole_implementation.cpp
+        PROPERTIES
+            SKIP_UNITY_BUILD_INCLUSION
+                ON
+    )
+endif()
+
 target_sources(
     device
     PRIVATE

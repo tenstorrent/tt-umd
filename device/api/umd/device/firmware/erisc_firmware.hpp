@@ -33,13 +33,15 @@ static const std::vector<std::pair<semver_t, semver_t>> WH_ERISC_FW_VERSION_MAP 
     {{18, 4, 0}, {6, 15, 0}},
     {{18, 6, 0}, {7, 0, 0}},
     {{18, 12, 0}, {7, 1, 0}},
-    {{19, 0, 0}, {7, 2, 0}}};
+    {{19, 0, 0}, {7, 2, 0}},
+    {{19, 4, 0}, {7, 3, 0}}};
 static const std::vector<std::pair<semver_t, semver_t>> BH_ERISC_FW_VERSION_MAP = {
     {{18, 5, 0}, {1, 4, 1}},
     {{18, 6, 0}, {1, 4, 2}},
     {{18, 9, 0}, {1, 5, 0}},
     {{18, 10, 0}, {1, 6, 0}},
-    {{18, 12, 0}, {1, 7, 0}}};
+    {{18, 12, 0}, {1, 7, 0}},
+    {{19, 3, 0}, {1, 7, 1}}};
 
 struct HashedAddressRange {
     size_t start_address;

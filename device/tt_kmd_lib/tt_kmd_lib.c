@@ -81,33 +81,6 @@ int tt_device_open(const char* chardev_path, tt_device_t** out_dev) {
         return -e;
     }
 
-    uint64_t major = 0;
-    uint64_t minor = 0;
-    uint64_t patch = 0;
-
-    int ret;
-    if ((ret = tt_driver_get_attr(dev, TT_DRIVER_SEMVER_MAJOR, &major)) != 0 ||
-        (ret = tt_driver_get_attr(dev, TT_DRIVER_SEMVER_MINOR, &minor)) != 0 ||
-        (ret = tt_driver_get_attr(dev, TT_DRIVER_SEMVER_PATCH, &patch)) != 0) {
-        close(dev->fd);
-        free(dev);
-        return ret;
-    }
-
-    if (major != TENSTORRENT_DRIVER_VERSION_MAJOR || minor < TENSTORRENT_DRIVER_VERSION_MINOR) {
-        DEBUG(
-            "Driver version mismatch: compiled for v%d.%d.%d; detected v%lu.%lu.%lu\n",
-            TENSTORRENT_DRIVER_VERSION_MAJOR,
-            TENSTORRENT_DRIVER_VERSION_MINOR,
-            TENSTORRENT_DRIVER_VERSION_PATCH,
-            major,
-            minor,
-            patch);
-        close(dev->fd);
-        free(dev);
-        return -ENODEV;
-    }
-
     *out_dev = dev;
 
     return 0;

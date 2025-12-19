@@ -98,8 +98,6 @@ public:
     std::string serialize() const;
     std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
 
-    static std::string get_soc_descriptor_path(tt::ARCH arch);
-
     std::vector<CoreCoord> get_cores(
         const CoreType core_type,
         const CoordSystem coord_system = CoordSystem::NOC0,

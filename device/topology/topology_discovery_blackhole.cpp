@@ -330,9 +330,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
         eth_fw_problem = true;
     }
 
-    // Perform this check only on local chips, as remote chips cannot do I/O without Lite Fabric,
-    // which doesn't seem to work at this point.
-    if (chip->is_mmio_capable()) {
+    if (options.verify_eth_fw_hash && !is_running_on_6u && chip->is_mmio_capable()) {
         tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
             eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
         auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), translated_eth_core, eth_fw_version);

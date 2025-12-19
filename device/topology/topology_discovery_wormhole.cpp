@@ -349,14 +349,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
         eth_fw_problem = true;
     }
 
-    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
-    if (hash_check.has_value() && hash_check.value() == false) {
-        log_warning(
-            LogUMD,
-            "ETH FW version hash check failed for chip {} ETH core {}",
-            get_local_asic_id(chip, eth_core),
-            eth_core.str());
-        eth_fw_problem = true;
+    if (options.verify_eth_fw_hash && !is_running_on_6u) {
+        auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
+        if (hash_check.has_value() && hash_check.value() == false) {
+            log_warning(
+                LogUMD,
+                "ETH FW version hash check failed for chip {} ETH core {}",
+                get_local_asic_id(chip, eth_core),
+                eth_core.str());
+            eth_fw_problem = true;
+        }
     }
 
     return options.no_eth_firmware_strictness || !eth_fw_problem;

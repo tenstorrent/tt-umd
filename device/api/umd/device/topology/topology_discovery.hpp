@@ -35,6 +35,9 @@ struct TopologyDiscoveryOptions {
     // Allow unsupported ETH firmware versions and do not fail when
     // cores have different ETH firmware versions.
     bool no_eth_firmware_strictness = false;
+
+    // Enables verifying ERISC FW on cores to ensure reliability of discovery.
+    bool verify_eth_fw_hash = false;
 };
 
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.

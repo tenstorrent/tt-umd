@@ -32,6 +32,10 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
             tlb_manager->configure_tlb(translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
         }
+        auto core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        for (int i = 0 ; i < 200; i ++) {
+            tlb_manager->configure_tlb(core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
+        }
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
         auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];

@@ -732,7 +732,9 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
     if (cached_wc_tlb_window == nullptr) {
         cached_wc_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+            get_tt_device()->get_pci_device()->allocate_tlb(
+                get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC),
+            config);
         return cached_wc_tlb_window.get();
     }
 
@@ -743,7 +745,9 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
 TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
     if (cached_uc_tlb_window == nullptr) {
         cached_uc_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+            get_tt_device()->get_pci_device()->allocate_tlb(
+                get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC),
+            config);
         return cached_uc_tlb_window.get();
     }
 

@@ -163,26 +163,26 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pa
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
-    if (chip->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
-            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
-    }
+    auto fw_bundle_version = chip->get_tt_device()->get_firmware_version();
     auto translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
         local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t remote_logical_eth_id;
     chip->get_tt_device()->read_from_device(
         &remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
 
-    auto fw_bundle_version = chip->get_tt_device()->get_firmware_version();
-
+    // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
+    // for P150 Board Types (with a  SW workaround).
     if (fw_bundle_version >= semver_t(18, 12, 0)) {
         return remote_logical_eth_id;
-    } else {
-        // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
-        // the first 4 ethernet channels (these channels are using SerDes for PCIe)
-        // These channels are visible to UMD, and are thus accounted for in this API.
-        return remote_logical_eth_id + 4;
     }
+    if (chip->get_chip_info().board_type != BoardType::P150) {
+        throw std::runtime_error(
+            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
+    }
+    // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
+    // the first 4 ethernet channels (these channels are using SerDes for PCIe)
+    // These channels are visible to UMD, and are thus accounted for in this API.
+    return remote_logical_eth_id + 4;
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
@@ -330,9 +330,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
         eth_fw_problem = true;
     }
 
-    // Perform this check only on local chips, as remote chips cannot do I/O without Lite Fabric,
-    // which doesn't seem to work at this point.
-    if (chip->is_mmio_capable()) {
+    if (options.verify_eth_fw_hash && chip->is_mmio_capable()) {
         tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
             eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
         auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), translated_eth_core, eth_fw_version);

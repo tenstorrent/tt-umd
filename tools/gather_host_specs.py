@@ -4,12 +4,8 @@
 """
 This script gathers machine specification information.
 
-It is divided into two parts based on the availability of the `tt-smi` tool:
-1. **If `tt-smi` is available**, information is gathered through it.
-2. **If `tt-smi` is not available**, information is gathered manually.
-
-Regardless of the method used, the script should always result in the same
-machine specification on a given machine.
+Information is gathered manually through sysfs, /proc, and psutil methods.
+This avoids any dependency on external tools.
 """
 
 import os
@@ -20,7 +16,6 @@ import psutil
 import pandas as pd
 import argparse
 import sys
-import subprocess
 from datetime import datetime
 
 # Helper Functions (Manual Gathering)
@@ -65,13 +60,13 @@ def get_io_perf_settings():
 
 def get_pcie_gen(speed_str):
     """Converts Linux speed string (e.g. '16.0 GT/s') to PCIe Gen integer."""
-    # Handle tt-smi's int output
+    # Handle integer input
     if isinstance(speed_str, int):
         return speed_str
-    # Handle tt-smi's "N/A" output
+    # Handle "N/A" output
     if speed_str == "N/A":
         return 0
-    # Handle manual sysfs output
+    # Handle sysfs output
     if not speed_str or "GT/s" not in speed_str: return 0
     try:
         speed_val = float(speed_str.split()[0])
@@ -171,9 +166,8 @@ def get_tenstorrent_pcie_info_manual():
 
 # Main Logic
 
-def gather_specs_manual():
+def gather_specs():
     """Aggregates all system info using manual sysfs/psutil methods."""
-    print("INFO: 'tt-smi' not found or failed. Using manual fallback.", file=sys.stderr)
     io_settings = get_io_perf_settings()
     mem_gb = round(psutil.virtual_memory().total / (1024**3), 2)
     pcie_info = get_tenstorrent_pcie_info_manual()
@@ -196,76 +190,6 @@ def gather_specs_manual():
         "tt_pcie_lane_info": pcie_info
     }
     return data
-
-def gather_specs_from_tt_smi(smi_json):
-    """Parses the JSON output from 'tt-smi -s' and enriches it."""
-    
-    # 1. Get host_info from tt-smi
-    host_info = smi_json.get("host_info", {})
-    
-    # 2. Enrich host_info with data tt-smi misses
-    io_settings = get_io_perf_settings()
-    host_info["Hugepages"] = io_settings.get("hugepages", "N/A")
-    host_info["CPU_Governor"] = io_settings.get("cpu_governor", "N/A")
-    host_info["CPU_Cores_Phys_Log"] = f"{psutil.cpu_count(logical=False)}/{psutil.cpu_count(logical=True)}"
-    
-    # 3. Parse device_info to create tt_pcie_lane_info
-    tt_pcie_lane_info = []
-    device_list = smi_json.get("device_info", [])
-    for device in device_list:
-        board_info = device.get("board_info", {})
-        
-        # FIX: Filter out devices with no local bus_id
-        if board_info.get("bus_id", "N/A") == "N/A":
-            continue
-            
-        pcie_speed_raw = board_info.get("pcie_speed", 0)
-        
-        config = {
-            "pcie_width": board_info.get("pcie_width", "N/A"),
-            # Pass speed to get_pcie_gen to handle "N/A" or int
-            "pcie_speed": get_pcie_gen(pcie_speed_raw) 
-        }
-        tt_pcie_lane_info.append(config)
-        
-    # 4. Assemble final data structure
-    data = {
-        "time": smi_json.get("time", datetime.now().isoformat()),
-        "host_info": host_info,
-        "tt_pcie_lane_info": tt_pcie_lane_info
-    }
-    return data
-
-def gather_specs():
-    """
-    Dispatcher function. Tries tt-smi first, then falls back to manual.
-    """
-    try:
-        # Try to run tt-smi -s
-        result = subprocess.run(
-            ["tt-smi", "-s"],
-            capture_output=True, 
-            text=True, 
-            check=True,
-            encoding='utf-8'
-        )
-        
-        # Find the start of the JSON (tt-smi prints "Gathering Information...")
-        json_output = result.stdout
-        json_start_index = json_output.find('{')
-        if json_start_index == -1:
-            # If no JSON found, fall back
-            return gather_specs_manual()
-            
-        json_output = json_output[json_start_index:]
-        smi_data = json.loads(json_output)
-        
-        # If JSON is valid, parse and enrich it
-        return gather_specs_from_tt_smi(smi_data)
-        
-    except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
-        # If tt-smi not found, fails, or gives bad JSON, fall back
-        return gather_specs_manual()
 
 def export_data(data, base_filename, do_json=False, do_csv=False, do_md=False):
     """Exports the data dictionary to specified file formats."""
@@ -367,7 +291,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 1. Always gather the specs (dispatcher decides source)
+    # 1. Gather the specs using manual methods
     specs = gather_specs()
     
     # 2. Determine filenames and formats

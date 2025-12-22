@@ -115,39 +115,41 @@ jobs:
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
 
-      - name: Get ttsim ref
-        id: get-ttsim-ref
+      - name: Get ttsim version
+        id: get-ttsim-version
         run: |
-          # Extract the ref value from tt-metal's ttsim.yaml
-          # Look for the ttsim-ref input default value
+          # Extract the default ttsim-version value from tt-metal's ttsim.yaml
           if [ -f "tt-metal/.github/workflows/ttsim.yaml" ]; then
-            TTSIM_REF=$(grep -A 5 "ttsim-ref:" tt-metal/.github/workflows/ttsim.yaml \
+            TTSIM_VERSION=$(grep -A 5 "ttsim-version:" tt-metal/.github/workflows/ttsim.yaml \
                       | grep "default:" \
                       | sed 's/.*default: *"\?\([^"]*\)"\?.*/\1/' \
                       | tr -d ' ')
-            if [ -z "$TTSIM_REF" ]; then
-              echo "Warning: Could not extract ttsim ref from input default, using main branch"
-              TTSIM_REF="main"
+            if [ -z "$TTSIM_VERSION" ]; then
+              echo "Warning: Could not extract ttsim version from input default, using v1.0.0"
+              TTSIM_VERSION="v1.0.0"
             fi
           else
-            echo "Warning: ttsim.yaml not found, using main branch"
-            TTSIM_REF="main"
+            echo "Warning: ttsim.yaml not found, using v1.0.0"
+            TTSIM_VERSION="v1.0.0"
           fi
-          echo "Extracted ttsim ref: $TTSIM_REF"
-          echo "ttsim-ref=$TTSIM_REF" >> $GITHUB_OUTPUT
+          echo "Extracted ttsim version: $TTSIM_VERSION"
+          echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Checkout ttsim repo
-        uses: actions/checkout@v4
+      - name: Download ttsim binary (wh)
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
         with:
-          path: ttsim
           repository: tenstorrent/ttsim
-          ref: ${{ steps.get-ttsim-ref.outputs.ttsim-ref }}
-          submodules: recursive
+          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          fileName: "libttsim_wh.so"
+          out-file-path: /tmp/ttsim-wh
 
-      - name: Build tt-sim
-        run: |
-          cd ttsim
-          ./make.py src/_out/release_wh/libttsim.so src/_out/release_bh/libttsim.so src/_out/release_qsr/libttsim.so
+      - name: Download ttsim binary (bh)
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        with:
+          repository: tenstorrent/ttsim
+          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          fileName: "libttsim_bh.so"
+          out-file-path: /tmp/ttsim-bh
 
       - name: Build tt-metal
         run: |
@@ -165,8 +167,8 @@ jobs:
         run: |
           echo "Preparing sim paths"
           mkdir -p sim_wh sim_bh
-          cp ttsim/src/_out/release_wh/libttsim.so sim_wh/libttsim.so
-          cp ttsim/src/_out/release_bh/libttsim.so sim_bh/libttsim.so
+          mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
+          mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
 

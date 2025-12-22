@@ -68,12 +68,13 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Checkout repository (for tools)
+      - name: Checkout gather_host_specs.py tool
         uses: actions/checkout@v4
         with:
-          submodules: false
+          sparse-checkout: |
+            tests/microbenchmark/tools/gather_host_specs.py
+          sparse-checkout-cone-mode: false
           path: tt-umd
-          clean: false
 
       - name: Install python dependencies
         run: python3 -m pip install --no-cache-dir pandas psutil tabulate

@@ -15,7 +15,6 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/lite_fabric/lite_fabric_host_utils.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
@@ -223,42 +222,6 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
     }
 }
 
-void TopologyDiscoveryBlackhole::initialize_remote_communication(Chip* chip) {
-    // We don't want to initialize lite fabric on non-P300 boards. For all configurations we have at the moment,
-    // we would need to init lite fabric just on LocalChips of P300 boards.
-    // TODO: Think about future configurations where we might want to init lite fabric on other boards as well.
-    if (chip->get_tt_device()->get_board_type() != BoardType::P300) {
-        return;
-    }
-
-    auto eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-
-    std::unordered_map<uint64_t, std::vector<CoreCoord>> remote_asic_ids_to_eth_cores;
-
-    for (const auto& eth_core : eth_cores) {
-        if (!is_eth_trained(chip, eth_core)) {
-            continue;
-        }
-
-        uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
-        if (chips_to_discover.find(remote_asic_id) != chips_to_discover.end()) {
-            log_debug(
-                LogUMD,
-                "Chip {} found through ETH core {} already connected locally. Lite Fabric will not be loaded.",
-                remote_asic_id,
-                eth_core.str());
-            continue;
-        }
-        remote_asic_ids_to_eth_cores[remote_asic_id].push_back(eth_core);
-    }
-
-    // TODO: be careful to not launch lite fabric on ETH cores that already have it running.
-    for (const auto& [remote_asic_id, eth_cores] : remote_asic_ids_to_eth_cores) {
-        lite_fabric::launch_lite_fabric(chip, eth_cores);
-    }
-}
-
 void TopologyDiscoveryBlackhole::init_topology_discovery() {
     int device_id = 0;
     switch (options.io_device_type) {
@@ -330,9 +293,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
         eth_fw_problem = true;
     }
 
-    // Perform this check only on local chips, as remote chips cannot do I/O without Lite Fabric,
-    // which doesn't seem to work at this point.
-    if (chip->is_mmio_capable()) {
+    if (options.verify_eth_fw_hash && chip->is_mmio_capable()) {
         tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
             eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
         auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), translated_eth_core, eth_fw_version);

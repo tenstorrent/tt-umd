@@ -140,10 +140,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: ttsim
-          repository: tenstorrent/ttsim-private
+          repository: tenstorrent/ttsim
           ref: ${{ steps.get-ttsim-ref.outputs.ttsim-ref }}
           submodules: recursive
-          token: ${{ secrets.TTSIM_TOKEN }}
 
       - name: Build tt-sim
         run: |

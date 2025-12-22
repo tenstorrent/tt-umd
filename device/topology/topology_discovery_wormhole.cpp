@@ -349,7 +349,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
         eth_fw_problem = true;
     }
 
-    if (options.verify_eth_fw_hash && !is_running_on_6u) {
+    if (options.verify_eth_fw_hash) {
         auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
         if (hash_check.has_value() && hash_check.value() == false) {
             log_warning(

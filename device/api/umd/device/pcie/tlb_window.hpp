@@ -8,12 +8,13 @@
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
 class TlbWindow {
 public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config);
+    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
 
     void write32(uint64_t offset, uint32_t value);
 
@@ -26,6 +27,12 @@ public:
     void write_block(uint64_t offset, const void* data, size_t size);
 
     void read_block(uint64_t offset, void* data, size_t size);
+
+    void read_block_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+
+    void write_block_reconfigure(
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
 
     TlbHandle& handle_ref() const;
 

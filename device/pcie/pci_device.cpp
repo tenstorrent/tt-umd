@@ -430,25 +430,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar2_uc == MAP_FAILED) {
             throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
-
-        if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR4 WC mapping.", pci_device_num));
-        }
-
-        // Using Write-Combine memory mode. This is used for accessing DRAM on Blackhole.
-        // WC doesn't guarantee write ordering but has better performance.
-        bar4_wc_size = bar4_wc_mapping.mapping_size;
-        bar4_wc = mmap(
-            NULL,
-            bar4_wc_mapping.mapping_size,
-            PROT_READ | PROT_WRITE,
-            MAP_SHARED,
-            pci_device_file_desc,
-            bar4_wc_mapping.mapping_base);
-
-        if (bar4_wc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
-        }
     }
 
     allocate_pcie_dma_buffer();
@@ -473,10 +454,6 @@ PCIDevice::~PCIDevice() {
 
     if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
         munmap(bar2_uc, bar2_uc_size);
-    }
-
-    if (bar4_wc != nullptr && bar4_wc != MAP_FAILED) {
-        munmap(bar4_wc, bar4_wc_size);
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {

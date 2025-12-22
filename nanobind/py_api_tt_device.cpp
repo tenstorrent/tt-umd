@@ -79,6 +79,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::rv_policy::take_ownership)
         .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+        .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
@@ -87,6 +88,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
+        .def_static("use_noc1", &TTDevice::use_noc1, nb::arg("use_noc1"))
         // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",

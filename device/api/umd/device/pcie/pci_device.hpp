@@ -291,9 +291,6 @@ public:
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
 
-    void *bar4_wc = nullptr;
-    uint64_t bar4_wc_size;
-
     uint32_t read_checking_offset;
 
 private:

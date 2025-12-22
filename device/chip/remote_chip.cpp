@@ -9,7 +9,6 @@
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
-#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -78,8 +77,7 @@ RemoteChip::RemoteChip(
         remote_communication_ =
             dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
     } else {
-        remote_communication_ =
-            dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+        remote_communication_ = nullptr;
     }
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();

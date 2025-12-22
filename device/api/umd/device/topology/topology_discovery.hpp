@@ -10,7 +10,9 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -32,6 +34,9 @@ struct TopologyDiscoveryOptions {
     // Allow unsupported ETH firmware versions and do not fail when
     // cores have different ETH firmware versions.
     bool no_eth_firmware_strictness = false;
+
+    // Enables verifying ERISC FW on cores to ensure reliability of discovery.
+    bool verify_eth_fw_hash = false;
 };
 
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
@@ -116,16 +121,11 @@ protected:
 
     virtual bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) = 0;
 
-    virtual void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) = 0;
+    virtual bool verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
-
-    // This function is going to be implemented for Blackhole since it needs to load communication
-    // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW
-    // is loaded from SPI, not in runtime.
-    virtual void initialize_remote_communication(Chip* chip);
 
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;

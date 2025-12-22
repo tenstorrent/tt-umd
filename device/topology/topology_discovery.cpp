@@ -120,15 +120,13 @@ void TopologyDiscovery::get_connected_chips() {
 
         uint64_t asic_id = get_asic_id(chip.get());
         chips_to_discover.emplace(asic_id, std::move(chip));
+
         log_debug(
             LogUMD,
-            "Discovered {} chip with ID {} and asic ID {}",
+            "Discovered {} chip w/ MMIO, ID: {}, ASIC ID {}",
             DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);
-    }
-    for (auto& [asic_id, chip] : chips_to_discover) {
-        initialize_remote_communication(chip.get());
     }
 }
 
@@ -173,6 +171,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
+            if (!verify_routing_firmware_state(chip, eth_core)) {
+                channel++;
+                continue;
+            }
+
             if (is_using_eth_coords()) {
                 auto local_eth_coord = get_local_eth_coord(chip, eth_core);
                 if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
@@ -182,16 +185,13 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core)) ||
+                (chip->get_tt_device()->get_arch() == ARCH::BLACKHOLE &&
+                 discovered_chips.find(get_remote_asic_id(chip, eth_core)) == discovered_chips.end())) {
                 uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
-                if (chip->get_chip_info().board_type == BoardType::P150) {
-                    ethernet_connections_to_remote_devices.push_back(
-                        {{current_chip_asic_id, channel},
-                         {remote_asic_id, get_logical_remote_eth_channel(chip, eth_core)}});
-                } else {
-                    ethernet_connections_to_remote_devices.push_back(
-                        {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
-                }
+                ethernet_connections_to_remote_devices.push_back(
+                    {{current_chip_asic_id, channel},
+                     {remote_asic_id, get_logical_remote_eth_channel(chip, eth_core)}});
                 log_debug(LogUMD, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
@@ -222,7 +222,6 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     patch_eth_connections();
-    validate_routing_firmware_state(chips);
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -347,8 +346,6 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
-
-void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
 
 bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
     TTDevice* tt_device = chip->get_tt_device();

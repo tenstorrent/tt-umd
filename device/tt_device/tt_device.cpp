@@ -16,7 +16,6 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
-#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -105,11 +104,7 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
             return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
-            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
-                TT_THROW("Remote TTDevice creation over JTAG is not yet supported for Blackhole architecture.");
-            }
-            return std::unique_ptr<RemoteBlackholeTTDevice>(
-                new RemoteBlackholeTTDevice(std::move(remote_communication)));
+            return nullptr;
         }
         default:
             throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");

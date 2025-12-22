@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <csetjmp>
 #include <csignal>
@@ -349,6 +350,7 @@ void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
             tlb_window->configure(config);
         }
     } else {
+        std::atomic_signal_fence(std::memory_order_seq_cst);
         jump_set = false;
         throw std::runtime_error("SIGBUS");
     }

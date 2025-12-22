@@ -364,7 +364,7 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
 
 // Free helper function for extracting pid.
 static int extract_pid_from_socket_name(const std::string& filename) {
-    // Format: "client_<PID>.sock"
+    // Format: "client_<PID>.sock".
     static const std::regex pid_pattern(R"(client_(\d+)\.sock)");
     std::smatch match;
 

@@ -34,12 +34,12 @@ public:
             return 1;
         }
 
-        // Wait for PRE
+        // Wait for PRE.
         if (pre_future.wait_for(process_wait_time) != std::future_status::ready) {
             return 101;  // Code 101: Pre Timeout
         }
 
-        // Wait for POST
+        // Wait for POST.
         if (post_future.wait_for(process_wait_time) != std::future_status::ready) {
             return 102;  // Code 102: Post Timeout
         }
@@ -49,7 +49,7 @@ public:
 
 protected:
     void SetUp() override {
-        // Clean the slate before every test
+        // Clean the slate before every test.
         std::error_code ec;
         std::filesystem::remove_all(WarmResetCommunication::LISTENER_DIR, ec);
     }
@@ -106,7 +106,7 @@ TEST_P(WarmResetTimingTest, MultiProcess) {
         child_pids.push_back(pid);
     }
 
-    // Allow startup of processes
+    // Allow startup of processes.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     std::chrono::milliseconds sleep_duration_ms = std::chrono::milliseconds(GetParam());
@@ -115,7 +115,7 @@ TEST_P(WarmResetTimingTest, MultiProcess) {
     std::this_thread::sleep_for(sleep_duration_ms);
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 
-    // Verify
+    // Verify.
     for (pid_t pid : child_pids) {
         int status;
         waitpid(pid, &status, 0);
@@ -145,7 +145,7 @@ TEST_F(WarmResetNotificationTest, NotifierIgnoresStaleSockets) {
 TEST_F(WarmResetNotificationTest, ResilientToClientFailure) {
     pid_t good_pid = fork();
     if (good_pid == 0) {
-        // This client behaves nicely
+        // This client behaves nicely.
         _exit(run_child_monitor_logic());
     }
 
@@ -158,7 +158,7 @@ TEST_F(WarmResetNotificationTest, ResilientToClientFailure) {
         _exit(1);  // Die unexpectedly
     }
 
-    // Give time for setup and for bad_pid to die
+    // Give time for setup and for bad_pid to die.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // The Bad PID's socket is likely still there (OS cleanup might lag or file persists),
@@ -166,12 +166,12 @@ TEST_F(WarmResetNotificationTest, ResilientToClientFailure) {
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(500));
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 
-    // Verify Good PID succeeded
+    // Verify Good PID succeeded.
     int status;
     waitpid(good_pid, &status, 0);
     EXPECT_EQ(WEXITSTATUS(status), 0);
 
-    // Cleanup bad pid (already dead)
+    // Cleanup bad pid (already dead).
     waitpid(bad_pid, &status, 0);
 }
 

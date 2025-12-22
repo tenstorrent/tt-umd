@@ -88,9 +88,9 @@ void TlbWindow::read_block_reconfigure(
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    configure(config);
 
     while (size > 0) {
+        configure(config);
         uint32_t tlb_size = get_size();
         uint32_t transfer_size = std::min(size, tlb_size);
 
@@ -101,7 +101,6 @@ void TlbWindow::read_block_reconfigure(
         buffer_addr += transfer_size;
 
         config.local_offset = addr;
-        configure(config);
     }
 }
 
@@ -115,9 +114,9 @@ void TlbWindow::write_block_reconfigure(
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
-    configure(config);
 
     while (size > 0) {
+        configure(config);
         uint32_t tlb_size = get_size();
 
         uint32_t transfer_size = std::min(size, tlb_size);
@@ -129,7 +128,6 @@ void TlbWindow::write_block_reconfigure(
         buffer_addr += transfer_size;
 
         config.local_offset = addr;
-        configure(config);
     }
 }
 

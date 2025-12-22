@@ -5,8 +5,8 @@
 This script gathers machine specification information.
 
 It is divided into two parts based on the availability of the `tt-smi` tool:
-1. **If `tt-smi` is not available**, information is gathered manually.
-2. **If `tt-smi` is available**, information is gathered through it.
+1. **If `tt-smi` is available**, information is gathered through it.
+2. **If `tt-smi` is not available**, information is gathered manually.
 
 Regardless of the method used, the script should always result in the same
 machine specification on a given machine.

@@ -136,7 +136,6 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
 void TLBManager::map_default_static_tlbs(SocDescriptor& soc_descriptor) {
     log_info(LogUMD, "Mapping default static TLBs.");
 
-    tt::ARCH arch = tt_device_->get_arch();
     uint32_t static_tlb_size = tt_device_->get_architecture_implementation()->get_static_tlb_size();
 
     std::int32_t address = 0;
@@ -156,15 +155,19 @@ void TLBManager::map_default_static_tlbs(SocDescriptor& soc_descriptor) {
         configure_tlb(translated_core, static_tlb_size, address, tlb_data::Strict);
     }
 
-    if (arch == tt::ARCH::BLACKHOLE) {
+    if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
         // Setup static 4GB tlbs for DRAM cores.
         // Get the last port of each DRAM channel for configuring 4GB TLB.
         constexpr uint64_t four_gb = 4ULL * (1ULL << 30);
 
-        for (auto dram_cores_for_channel : soc_descriptor.get_dram_cores()) {
-            auto dram_core = dram_cores_for_channel[-1];  // Last core in the channel
-            tt_xy_pair translated_core(dram_core.x, dram_core.y);
-            configure_tlb(translated_core, four_gb, address, tlb_data::Strict);
+        for (const auto& dram_cores_for_channel : soc_descriptor.get_dram_cores()) {
+            // Get the last core in the channel (last port).
+            const CoreCoord& dram_core_noc0 = dram_cores_for_channel.back();
+            // Translate to TRANSLATED coordinates for configure_tlb.
+            CoreCoord dram_core_translated =
+                soc_descriptor.translate_coord_to(dram_core_noc0, tt::CoordSystem::TRANSLATED);
+            tt_xy_pair translated_core(dram_core_translated.x, dram_core_translated.y);
+            configure_tlb(translated_core, four_gb, address, tlb_data::Posted);
         }
     }
 }

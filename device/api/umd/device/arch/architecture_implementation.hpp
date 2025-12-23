@@ -56,8 +56,6 @@ public:
     virtual uint32_t get_mem_large_read_tlb() const = 0;
     virtual uint32_t get_mem_large_write_tlb() const = 0;
     virtual uint32_t get_num_eth_channels() const = 0;
-    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
-    virtual uint32_t get_static_tlb_size() const = 0;
     virtual uint32_t get_read_checking_offset() const = 0;
     virtual uint32_t get_reg_tlb() const = 0;
     virtual uint32_t get_tlb_base_index_16m() const = 0;

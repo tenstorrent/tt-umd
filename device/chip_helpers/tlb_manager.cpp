@@ -136,7 +136,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
 void TLBManager::map_default_static_tlbs(SocDescriptor& soc_descriptor) {
     log_info(LogUMD, "Mapping default static TLBs.");
 
-    uint32_t static_tlb_size = tt_device_->get_architecture_implementation()->get_static_tlb_size();
+    uint32_t static_tlb_size = tt_device_->get_architecture_implementation()->get_cached_tlb_size();
 
     std::int32_t address = 0;
     // Setup static TLBs for all worker cores.

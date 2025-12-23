@@ -183,3 +183,118 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     }
     test::utils::export_results(bench);
 }
+
+/**
+ * This test measures BW of IO using PCIe DMA engine where user buffer is mapped through IOMMU
+ * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+ * to and from the device.
+ */
+TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+
+    auto bench =
+        ankerl::nanobench::Bench().title("DMA_DRAM_ZeroCopy").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    const uint64_t ADDRESS = 0x0;
+    const size_t BUFFER_SIZE = ONE_MB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MB);
+    const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
+
+    bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core, ADDRESS);
+    });
+    bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
+        sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core, ADDRESS);
+    });
+    test::utils::export_results(bench);
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size pattern
+ * to address 0 of Tensix core, then reading them back and verifying.
+ * This test measures BW of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
+ */
+TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+
+    auto bench = ankerl::nanobench::Bench()
+                     .title("DMA_Tensix_ZeroCopy")
+                     .timeUnit(std::chrono::milliseconds(1), "ms")
+                     .unit("byte");
+    const uint64_t ADDRESS = 0x0;
+    const size_t BUFFER_SIZE = ONE_MB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MB);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+
+    bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+    });
+    bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
+        sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+    });
+    test::utils::export_results(bench);
+}
+
+/**
+ * This test measures BW of IO using PCIe DMA engine where user buffer is mapped through IOMMU
+ * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+ * to and from the device.
+ */
+TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+
+    auto bench = ankerl::nanobench::Bench()
+                     .title("DMA_Tensix_MapBuffer_ZeroCopy")
+                     .timeUnit(std::chrono::milliseconds(1), "ms")
+                     .unit("byte");
+    const uint64_t ADDRESS = 0x0;
+    const size_t BUFFER_SIZE = ONE_MB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    void* mapping =
+        mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+
+    bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
+        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+    });
+    bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
+        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
+        sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+    });
+    munmap(mapping, BUFFER_SIZE);
+    test::utils::export_results(bench);
+}

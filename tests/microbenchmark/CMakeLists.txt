@@ -3,6 +3,7 @@ set(UBENCH_SRC
     benchmarks/pcie_dma/test_pcie_dma.cpp
     benchmarks/open_cluster/test_open_cluster.cpp
     benchmarks/ethernet_io/test_ethernet_io.cpp
+    benchmarks/iommu/test_iommu.cpp
 )
 add_executable(ubench ${UBENCH_SRC})
 target_link_libraries(

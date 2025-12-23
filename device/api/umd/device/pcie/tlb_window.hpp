@@ -27,6 +27,18 @@ public:
 
     void read_block(uint64_t offset, void* data, size_t size);
 
+    void safe_write32(uint64_t offset, uint32_t value);
+
+    uint32_t safe_read32(uint64_t offset);
+
+    void safe_write_register(uint64_t offset, const void* data, size_t size);
+
+    void safe_read_register(uint64_t offset, void* data, size_t size);
+
+    void safe_write_block(uint64_t offset, const void* data, size_t size);
+
+    void safe_read_block(uint64_t offset, void* data, size_t size);
+
     TlbHandle& handle_ref() const;
 
     size_t get_size() const;
@@ -34,6 +46,8 @@ public:
     void configure(const tlb_data& new_config);
 
     uint64_t get_base_address() const;
+
+    static void set_sigbus_safe_handler(bool set_safe_handler = true);
 
 private:
     void validate(uint64_t offset, size_t size) const;

@@ -325,8 +325,6 @@ bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32
             return false;
         }
     }
-
-    std::cout << "Device " << device_id << ": Data verification passed!" << std::endl;
     return true;
 }
 
@@ -342,7 +340,7 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
     int delay_us = GetParam();
     std::atomic<bool> sigbus_caught{false};
 
-    TTDevice::register_sigbus_safe_handler();
+    TTDevice::set_sigbus_safe_handler();
 
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

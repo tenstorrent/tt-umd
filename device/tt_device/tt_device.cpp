@@ -31,38 +31,9 @@ bool umd_use_noc1 = false;
 
 namespace tt::umd {
 
-static thread_local sigjmp_buf point;
-static thread_local std::atomic<bool> jump_set = false;
-
-static void sigbus_handler(int sig) {
-    // When this runs, it runs inside the thread that crashed.
-    // So 'jump_set' refers to that thread's variable.
-    if (jump_set) {
-        // 'point' refers to that thread's buffer.
-        siglongjmp(point, 1);
-    } else {
-        // Crash happened outside our safe block.
-        // Revert to default handler (crash and dump core)
-        signal(sig, SIG_DFL);
-        raise(sig);
-    }
+/* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
+    TlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
-
-/* static */ void TTDevice::register_sigbus_safe_handler() { signal(SIGBUS, sigbus_handler); }
-
-/* static */ void TTDevice::restore_sigbus_default_handler() { signal(SIGBUS, SIG_DFL); }
-
-struct ScopedJumpGuard {
-    ScopedJumpGuard() {
-        jump_set.store(true);
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-    }
-
-    ~ScopedJumpGuard() {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set.store(false);
-    }
-};
 
 void TTDevice::set_reset_in_progress(bool in_progress) { reset_in_progress.store(in_progress); }
 
@@ -280,29 +251,22 @@ void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
     config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-
-        while (size > 0) {
-            if (reset_in_progress) {
-                throw std::runtime_error("SIGBUS");
-            }
-
-            uint32_t tlb_size = tlb_window->get_size();
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->read_block(0, buffer_addr, transfer_size);
-
-            size -= transfer_size;
-            addr += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = addr;
-            tlb_window->configure(config);
+    while (size > 0) {
+        if (reset_in_progress) {
+            throw std::runtime_error("SIGBUS");
         }
-    } else {
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
+
+        uint32_t tlb_size = tlb_window->get_size();
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        tlb_window->safe_read_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
     }
 }
 
@@ -327,31 +291,23 @@ void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
     config.static_vc = architecture_impl_->get_static_vc();
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-
-        while (size > 0) {
-            if (reset_in_progress) {
-                throw std::runtime_error("SIGBUS");
-            }
-
-            uint32_t tlb_size = tlb_window->get_size();
-
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->write_block(0, buffer_addr, transfer_size);
-
-            size -= transfer_size;
-            addr += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = addr;
-            tlb_window->configure(config);
+    while (size > 0) {
+        if (reset_in_progress) {
+            throw std::runtime_error("SIGBUS");
         }
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
+
+        uint32_t tlb_size = tlb_window->get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        tlb_window->safe_write_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
     }
 }
 

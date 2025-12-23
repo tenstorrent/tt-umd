@@ -312,9 +312,7 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
-    static void register_sigbus_safe_handler();
-
-    static void restore_sigbus_default_handler();
+    static void set_sigbus_safe_handler(bool set_safe_handler = true);
 
     void set_reset_in_progress(bool in_progress);
 

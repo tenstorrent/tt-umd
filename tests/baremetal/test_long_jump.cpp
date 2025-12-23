@@ -172,6 +172,12 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
     constexpr int NUMBER_OF_THREADS = 10;
     constexpr int NUMBER_OF_ITERATIONS = 10;
 
+    // Calculate expectations based on the Even/Odd logic
+    // Even threads (0, 2, 4, 6, 8) = (10 + 1) / 2 = 5 threads
+    // Odd threads (1, 3, 5, 7, 9) = 10 / 2 = 5 threads
+    constexpr int EXPECTED_CAUGHT = ((NUMBER_OF_THREADS + 1) / 2) * NUMBER_OF_ITERATIONS;
+    constexpr int EXPECTED_SUCCESS = (NUMBER_OF_THREADS / 2) * NUMBER_OF_ITERATIONS;
+
     std::atomic<int> success_count{0};
     std::atomic<int> caught_count{0};
     std::atomic<int> failure_count{0};
@@ -215,8 +221,8 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
     }
 
     EXPECT_EQ(failure_count, 0);
-    EXPECT_EQ(caught_count, 500);
-    EXPECT_EQ(success_count, 500);
+    EXPECT_EQ(caught_count, EXPECTED_CAUGHT);
+    EXPECT_EQ(success_count, EXPECTED_SUCCESS);
 }
 
 // Spawns multiple child processes, each spawning multiple threads.

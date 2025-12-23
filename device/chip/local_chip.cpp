@@ -724,6 +724,8 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
         TT_THROW("noc_multicast_write is only supported on PCIe devices.");
     }
 
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+
     get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
         dst,
         size,

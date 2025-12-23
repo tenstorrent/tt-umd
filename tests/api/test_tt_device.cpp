@@ -414,3 +414,124 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
 }
 
 INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, ApiTTDeviceParamTest, ::testing::Values(0, 10, 50, 100, 500, 1000));
+
+TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    TTDevice::set_sigbus_safe_handler();
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
+
+    tt_xy_pair tensix_core;
+
+    for (int pci_device_id : pci_device_ids) {
+        tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
+
+        tt_devices[pci_device_id]->init_tt_device();
+
+        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
+
+        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+
+        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    }
+
+    std::atomic<int> caught_sigbus{0};
+
+    auto worker = [&](int id) {
+        try {
+            // This thread hammers the device and waits for the reset to kill it
+            while (true) {
+                tt_devices[pci_device_ids[0]]->safe_read_from_device(
+                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
+        } catch (const std::exception& e) {
+            if (std::string(e.what()) == "SIGBUS") {
+                caught_sigbus++;
+            }
+        }
+    };
+
+    std::thread t1(worker, 1);
+    std::thread t2(worker, 2);
+
+    // Trigger the reset after a small delay
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    WarmReset::warm_reset();
+
+    t1.join();
+    t2.join();
+
+    EXPECT_EQ(caught_sigbus, 2);
+}
+
+TEST(ApiTTDeviceStressTest, DISABLED_SafeApiMultiProcess) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr int NUM_CHILDREN = 3;
+    std::vector<pid_t> pids;
+
+    for (int i = 0; i < NUM_CHILDREN; ++i) {
+        pid_t pid = fork();
+        if (pid == 0) {  // Child Process
+            // 1. Re-register handler in the new process context
+            TTDevice::set_sigbus_safe_handler();
+
+            uint64_t address = 0x0;
+            std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            std::vector<uint32_t> data_read(data_write.size(), 0);
+            std::map<int, std::unique_ptr<TTDevice>> tt_devices;
+
+            tt_xy_pair tensix_core;
+
+            for (int pci_device_id : pci_device_ids) {
+                tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
+
+                tt_devices[pci_device_id]->init_tt_device();
+
+                ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
+
+                SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+
+                tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            }
+
+            try {
+                // The "Hammer" loop
+                while (true) {
+                    tt_devices[pci_device_ids[0]]->safe_read_from_device(
+                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                }
+            } catch (const std::exception& e) {
+                if (std::string(e.what()) == "SIGBUS") {
+                    std::exit(0);  // Success: SIGBUS was isolated and caught
+                }
+                std::exit(1);  // Error: Wrong exception
+            }
+            std::exit(2);  // Error: Timed out/Loop exited without signal
+        }
+        pids.push_back(pid);
+    }
+
+    // Parent triggers the reset that affects ALL windows on that PCIe link
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    WarmReset::warm_reset();
+
+    for (pid_t p : pids) {
+        int status;
+        waitpid(p, &status, 0);
+        EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << p << " failed.";
+    }
+}

@@ -37,10 +37,6 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
-    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
-    map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
-    tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
-
     log_debug(
         LogUMD,
         "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
@@ -50,6 +46,10 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
         address,
         ordering,
         tlb_window->handle_ref().get_tlb_id());
+
+    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
+    map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
+    tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
 }
 
 void TLBManager::clear_tlb_mapping(tt_xy_pair core) {

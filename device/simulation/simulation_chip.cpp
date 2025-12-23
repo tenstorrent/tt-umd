@@ -69,6 +69,12 @@ void SimulationChip::noc_multicast_write(
     const tt_xy_pair translated_end = soc_descriptor_.translate_coord_to(core_end, CoordSystem::TRANSLATED);
     for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
         for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
+            // Since we are doing set of unicasts, we must skip cores that are not actual Tensix cores.
+            // These are in columns where x = 8 (ARC core, L2CPU) and x = 9 (GDDR).
+            // TODO: investigate proper multicast support for simulations so we can remove this workaround.
+            if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
+                continue;
+            }
             write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size);
         }
     }

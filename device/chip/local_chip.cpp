@@ -712,4 +712,18 @@ TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
     cached_pcie_dma_tlb_window->configure(config);
     return cached_pcie_dma_tlb_window.get();
 }
+
+void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    // TODO: Support other core types once needed.
+    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
+        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+    }
+    get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
+        dst,
+        size,
+        translate_chip_coord_to_translated(core_start),
+        translate_chip_coord_to_translated(core_end),
+        addr,
+        tlb_data::Relaxed);
+}
 }  // namespace tt::umd

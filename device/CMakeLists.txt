@@ -216,12 +216,12 @@ target_include_directories(
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/common
 )
 
 target_link_libraries(
     device
     PRIVATE
-        umd::Common
         umd::Firmware
         hwloc
         rt
@@ -296,16 +296,4 @@ add_custom_command(
     COMMAND
         ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
     COMMENT "Copying device library to build/lib"
-)
-
-install(
-    DIRECTORY
-        ${PROJECT_SOURCE_DIR}/common
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
-    COMPONENT umd-dev
-    FILES_MATCHING
-    PATTERN
-    "*.h"
-    PATTERN
-    "*.hpp"
 )

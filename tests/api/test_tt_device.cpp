@@ -310,3 +310,109 @@ TEST(ApiTTDeviceTest, MulticastIO) {
         }
     }
 }
+
+bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, int device_id) {
+    if (expected.size() != actual.size()) {
+        std::cerr << "Device " << device_id << ": Size mismatch! Expected " << expected.size() << " but got "
+                  << actual.size() << std::endl;
+        return false;
+    }
+
+    for (size_t i = 0; i < expected.size(); i++) {
+        if (expected[i] != actual[i]) {
+            std::cerr << "Device " << device_id << ": Data mismatch at index " << i << "! Expected " << expected[i]
+                      << " but got " << actual[i] << std::endl;
+            return false;
+        }
+    }
+
+    std::cout << "Device " << device_id << ": Data verification passed!" << std::endl;
+    return true;
+}
+
+class ApiTTDeviceParamTest : public ::testing::TestWithParam<int> {};
+
+TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    int delay_us = GetParam();
+    std::atomic<bool> sigbus_caught{false};
+
+    TTDevice::register_sigbus_safe_handler();
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
+
+    tt_xy_pair tensix_core;
+
+    for (int pci_device_id : pci_device_ids) {
+        tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
+
+        tt_devices[pci_device_id]->init_tt_device();
+
+        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
+
+        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+
+        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    }
+
+    std::thread background_reset_thread([&]() {
+        std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
+        WarmReset::warm_reset();
+    });
+
+    auto start_time = std::chrono::steady_clock::now();
+    auto timeout = std::chrono::seconds(5);
+
+    try {
+        while (!sigbus_caught) {
+            if (std::chrono::steady_clock::now() - start_time > timeout) {
+                break;
+            }
+
+            for (int i = 0; i < 100; ++i) {
+                for (int pci_device_id : pci_device_ids) {
+                    tt_devices[pci_device_id]->safe_write_to_device(
+                        data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+                    tt_devices[pci_device_id]->safe_read_from_device(
+                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+                    verify_data(data_write, data_read, pci_device_id);
+
+                    data_read = std::vector<uint32_t>(data_write.size(), 0);
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
+    } catch (const std::exception& e) {
+        if (std::string(e.what()) == "SIGBUS") {
+            sigbus_caught = true;
+
+        } else {
+            if (background_reset_thread.joinable()) {
+                background_reset_thread.join();
+            }
+            FAIL() << "Caught unexpected exception: " << e.what();
+        }
+    }
+
+    if (background_reset_thread.joinable()) {
+        background_reset_thread.join();
+    }
+
+    if (sigbus_caught) {
+        SUCCEED() << "Successfully triggered SIGBUS within timeout.";
+    } else {
+        FAIL() << "Timed out after 5 seconds without hitting SIGBUS. Reset did not invalidate mappings in time.";
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, ApiTTDeviceParamTest, ::testing::Values(0, 10, 50, 100, 500, 1000));

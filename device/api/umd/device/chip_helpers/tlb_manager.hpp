@@ -17,6 +17,7 @@ namespace tt::umd {
 
 class Writer;
 class TTDevice;
+class SocDescriptor;
 
 class TLBManager {
 public:
@@ -24,7 +25,7 @@ public:
 
     // All tt_xy_pairs should be in TRANSLATED coords.
     void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
-    void configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
+    void clear_tlb_mapping(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 
@@ -42,6 +43,12 @@ public:
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
+
+    // Setup recommended static TLBs for the given architecture.
+    void map_default_static_tlbs(SocDescriptor& soc_descriptor);
+
+    // Clear all static TLB mappings.
+    void clear_mapped_tlbs();
 
 private:
     // TODO: move these functions to the layer below, or make separate functions

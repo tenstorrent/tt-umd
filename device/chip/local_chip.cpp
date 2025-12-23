@@ -189,6 +189,9 @@ void LocalChip::start_device() {
         init_pcie_iatus();
     }
     initialize_membars();
+    if (tlb_manager_) {
+        tlb_manager_->map_default_static_tlbs(soc_descriptor_);
+    }
 }
 
 void LocalChip::close_device() {
@@ -201,6 +204,9 @@ void LocalChip::close_device() {
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
         }
+    }
+    if (tlb_manager_) {
+        tlb_manager_->clear_mapped_tlbs();
     }
     chip_started_lock_.reset();
 };

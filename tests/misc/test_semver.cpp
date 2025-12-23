@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
 
@@ -33,8 +31,8 @@ TEST(Semver, Valid) {
         {"1.0.0-alpha0.valid", semver_t(1, 0, 0)},
         {"1.0.0-alpha.0valid", semver_t(1, 0, 0)},
         {"1.0.0-alpha-a.b-c-somethinglong+build.1-aef.1-its-okay", semver_t(1, 0, 0)},
-        {"1.0.0-rc.1+build.1", semver_t(1, 0, 0)},
-        {"2.0.0-rc.1+build.123", semver_t(2, 0, 0)},
+        {"1.0.0-rc.1+build.1", semver_t(1, 0, 0, 1)},
+        {"2.0.0-rc.1+build.123", semver_t(2, 0, 0, 1)},
         {"1.2.3-beta", semver_t(1, 2, 3)},
         {"10.2.3-DEV-SNAPSHOT", semver_t(10, 2, 3)},
         {"1.2.3-SNAPSHOT-123", semver_t(1, 2, 3)},
@@ -47,7 +45,8 @@ TEST(Semver, Valid) {
         {"1.2.3----RC-SNAPSHOT.12.9.1--.12+788", semver_t(1, 2, 3)},
         {"1.2.3----R-S.12.9.1--.12+meta", semver_t(1, 2, 3)},
         {"1.2.3----RC-SNAPSHOT.12.9.1--.12", semver_t(1, 2, 3)},
-        {"1.0.0+0.build.1-rc.10000aaa-kk-0.1", semver_t(1, 0, 0)},
+        {"1.2.3-rc.1", semver_t(1, 2, 3, 1)},
+        {"1.3.2-rc.255", semver_t(1, 3, 2, 255)},
         {"1.0.0-0A.is.legal", semver_t(1, 0, 0)}};
 
     for (const auto &[version_str, expected] : valid_test_cases) {
@@ -55,6 +54,7 @@ TEST(Semver, Valid) {
         EXPECT_EQ(actual.major, expected.major);
         EXPECT_EQ(actual.minor, expected.minor);
         EXPECT_EQ(actual.patch, expected.patch);
+        EXPECT_EQ(actual.pre_release, expected.pre_release);
     }
 }
 

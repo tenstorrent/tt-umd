@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/topology/topology_discovery.hpp"
 
 #include <memory>
@@ -129,9 +128,6 @@ void TopologyDiscovery::get_connected_chips() {
             device_id,
             asic_id);
     }
-    for (auto& [asic_id, chip] : chips_to_discover) {
-        initialize_remote_communication(chip.get());
-    }
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -189,7 +185,9 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core)) ||
+                (chip->get_tt_device()->get_arch() == ARCH::BLACKHOLE &&
+                 discovered_chips.find(get_remote_asic_id(chip, eth_core)) == discovered_chips.end())) {
                 uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_chip_asic_id, channel},
@@ -348,8 +346,6 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
-
-void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
 
 bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
     TTDevice* tt_device = chip->get_tt_device();

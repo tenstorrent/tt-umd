@@ -26,7 +26,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
-    log_debug(LogUMD, "Requesting TLB window of size {}", tlb_size);
+    log_info(LogUMD, "Requesting TLB window of size {}", tlb_size);
 
     tlb_data config{};
     config.local_offset = address;
@@ -37,7 +37,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
-    log_debug(
+    log_info(
         LogUMD,
         "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -55,7 +55,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
 void TLBManager::clear_tlb_mapping(tt_xy_pair core) {
     if (is_tlb_mapped(core)) {
         auto tlb_id = map_core_to_tlb_.at(core);
-        log_debug(LogUMD, "Clearing TLB mapping for core: {} with tlb_id: {}", core.str(), tlb_id);
+        log_info(LogUMD, "Clearing TLB mapping for core: {} with tlb_id: {}", core.str(), tlb_id);
         tlb_config_map_.erase(tlb_id);
         map_core_to_tlb_.erase(core);
         tlb_windows_.erase(tlb_id);

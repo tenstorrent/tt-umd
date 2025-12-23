@@ -166,6 +166,59 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
     EXPECT_EQ(success_count, 10);
 }
 
+TEST_F(SigBusMechanismTest, ThreadSharing) {
+    TTDeviceSafeDummy global_device;
+
+    constexpr int NUMBER_OF_THREADS = 10;
+    constexpr int NUMBER_OF_ITERATIONS = 10;
+
+    std::atomic<int> success_count{0};
+    std::atomic<int> caught_count{0};
+    std::atomic<int> failure_count{0};
+
+    auto thread_work = [&](int id) {
+        // Jitter to break perfect alignment
+        std::this_thread::sleep_for(std::chrono::microseconds(id * 10));
+
+        for (int i = 0; i < NUMBER_OF_ITERATIONS; ++i) {
+            try {
+                global_device.safe_execute([id]() {
+                    if (id % 2 == 0) {
+                        // Chaos threads: Trigger SIGBUS
+                        std::raise(SIGBUS);
+                    } else {
+                        // Worker threads: Do light work
+                        volatile int x = 0;
+                        for (int i = 0; i < 50; ++i) {
+                            x += i;
+                        }
+                    }
+                });
+                success_count++;
+            } catch (const std::runtime_error& e) {
+                if (std::string(e.what()) == "SIGBUS") {
+                    caught_count++;
+                } else {
+                    failure_count++;
+                }
+            }
+        }
+    };
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < NUMBER_OF_THREADS; ++i) {
+        threads.emplace_back(thread_work, i);
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    EXPECT_EQ(failure_count, 0);
+    EXPECT_EQ(caught_count, 500);
+    EXPECT_EQ(success_count, 500);
+}
+
 // Spawns multiple child processes, each spawning multiple threads.
 // Threads execute in random-ish order (via scheduling) and randomly crash or succeed.
 TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {

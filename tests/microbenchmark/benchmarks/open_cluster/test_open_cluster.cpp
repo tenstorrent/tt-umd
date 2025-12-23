@@ -21,7 +21,6 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
     auto bench = ankerl::nanobench::Bench()
                      .maxEpochTime(std::chrono::seconds(30))
                      .title("ClusterConstructor")
-                     .timeUnit(std::chrono::milliseconds(1), "ms")
                      .unit("cluster")
                      .name("default")
                      .run([&] {

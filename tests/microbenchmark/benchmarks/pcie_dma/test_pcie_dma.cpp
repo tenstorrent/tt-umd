@@ -16,7 +16,7 @@ using namespace tt::umd::test::utils;
 constexpr ChipId CHIP_ID = 0;
 
 TEST(MicrobenchmarkPCIeDMA, DRAM) {
-    auto bench = ankerl::nanobench::Bench().title("DMA_DRAM").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_DRAM").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         4,
@@ -59,8 +59,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
 }
 
 TEST(MicrobenchmarkPCIeDMA, Tensix) {
-    auto bench =
-        ankerl::nanobench::Bench().title("DMA_Tensix").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -85,8 +84,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
 }
 
 TEST(MicrobenchmarkPCIeDMA, Ethernet) {
-    auto bench =
-        ankerl::nanobench::Bench().title("DMA_Ethernet").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Ethernet").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -111,8 +109,7 @@ TEST(MicrobenchmarkPCIeDMA, Ethernet) {
 }
 
 TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
-    auto bench =
-        ankerl::nanobench::Bench().title("DMA_DRAM_Sweep").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_Sweep").unit("byte");
     const uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
@@ -135,8 +132,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
 }
 
 TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
-    auto bench =
-        ankerl::nanobench::Bench().title("DMA_Tensix_Sweep").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_Sweep").unit("byte");
     const uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
@@ -161,7 +157,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
 TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     auto bench = ankerl::nanobench::Bench()
                      .title("DMA_Ethernet_Sweep")
-                     .timeUnit(std::chrono::milliseconds(1), "ms")
+
                      .unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -198,8 +194,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
 
-    auto bench =
-        ankerl::nanobench::Bench().title("DMA_DRAM_ZeroCopy").timeUnit(std::chrono::milliseconds(1), "ms").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -236,7 +231,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 
     auto bench = ankerl::nanobench::Bench()
                      .title("DMA_Tensix_ZeroCopy")
-                     .timeUnit(std::chrono::milliseconds(1), "ms")
+
                      .unit("byte");
     const uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MB;
@@ -272,10 +267,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
 
-    auto bench = ankerl::nanobench::Bench()
-                     .title("DMA_Tensix_MapBuffer_ZeroCopy")
-                     .timeUnit(std::chrono::milliseconds(1), "ms")
-                     .unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{

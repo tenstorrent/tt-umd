@@ -37,8 +37,7 @@ void sigbus_handler(int sig) {
     if (jump_set) {
         siglongjmp(point, 1);
     } else {
-        signal(sig, SIG_DFL);
-        raise(sig);
+        _exit(sig);
     }
 }
 
@@ -56,7 +55,18 @@ struct ScopedJumpGuard {
 
 class TTDeviceSafeDummy {
 public:
-    TTDeviceSafeDummy() { signal(SIGBUS, sigbus_handler); }
+    static void setup_signal_handler() {
+        struct sigaction sa;
+        sa.sa_handler = sigbus_handler;
+        sigemptyset(&sa.sa_mask);
+        // SA_NODEFER: Don't block SIGBUS after we longjmp out
+        sa.sa_flags = SA_NODEFER;
+
+        if (sigaction(SIGBUS, &sa, nullptr) == -1) {
+            perror("sigaction");
+            _exit(1);
+        }
+    }
 
     void safe_execute(std::function<void()> operation) {
         if (sigsetjmp(point, 1) == 0) {
@@ -77,7 +87,7 @@ protected:
             GTEST_SKIP() << "Skipping SIGBUS tests: Incompatible with Address/Thread Sanitizer (ASan/TSan)";
         }
         jump_set.store(false);
-        signal(SIGBUS, sigbus_handler);
+        TTDeviceSafeDummy::setup_signal_handler();
     }
 
     void TearDown() override { signal(SIGBUS, SIG_DFL); }

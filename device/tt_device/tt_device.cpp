@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.hpp"
 
-#include <atomic>
 #include <chrono>
 #include <csetjmp>
 #include <csignal>

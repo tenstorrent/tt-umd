@@ -137,6 +137,11 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
 }
 
 void TLBManager::map_default_static_tlbs(SocDescriptor& soc_descriptor) {
+    if (tlb_windows_.size() > 0) {
+        log_info(LogUMD, "Static TLBs already mapped. Skipping mapping default static TLBs.");
+        return;
+    }
+
     log_info(LogUMD, "Mapping default static TLBs.");
 
     uint32_t static_tlb_size = tt_device_->get_architecture_implementation()->get_cached_tlb_size();

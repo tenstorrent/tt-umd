@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/tt_device/remote_communication.hpp"
 
 #include <tt-logger/tt-logger.hpp>
@@ -12,7 +11,6 @@
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
-#include "umd/device/tt_device/remote_communication_lite_fabric.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -29,7 +27,7 @@ std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communic
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<RemoteCommunicationLiteFabric>(local_tt_device, sysmem_manager);
+            return nullptr;
         default:
             throw std::runtime_error("Remote communication is not supported for this architecture.");
     }

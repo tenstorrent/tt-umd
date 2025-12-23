@@ -60,7 +60,28 @@ At the moment, ```std::chrono``` is used to measure time for performance inside 
 
 This section specifies machine specification for all configurations
 
-- N150 machine - PCIe Gen4 x16, CPU AMD EPYC 7352 24-Core Processor 96 cores, 2.3 GHz
+### N150 Machine Configuration
+
+**PCIe:** Gen4 x16  
+**CPU:** AMD EPYC 7352 24-Core Processor (96 cores)  
+**Clock Speed:** 2.3 GHz  
+
+**Host Specifications:**
+  | Metric             | Value                      |
+  |--------------------|----------------------------|
+  | Timestamp          | 2025-11-19T08:07:13.530674 |
+  | OS                 | Linux                      |
+  | Distro             | Ubuntu 22.04.5 LTS         |
+  | Kernel             | 5.15.0-157-generic         |
+  | Hostname           | c7dc3264cac9               |
+  | Platform           | x86_64                     |
+  | Python             | 3.10.12                    |
+  | Memory             | 54.92 GB                   |
+  | Driver             | TT-KMD 2.4.0               |
+  | Hugepages          | 0                          |
+  | CPU_Governor       | N/A                        |
+  | CPU_Cores_Phys_Log | 16/16                      |
+  | TT_PCIe_Info       | x16 Gen4                   |
 
 ## List of benchmarks
 

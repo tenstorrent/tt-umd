@@ -21,18 +21,18 @@ namespace tt::umd {
 
 SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) :
     SysmemManager()
-    // tlb_manager_(tlb_manager),
-    // tt_device_(tlb_manager_->get_tt_device()),
-    // pcie_base_(
-    //     tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
-    //         ? 0x800000000
-    //         : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0))
-    {
+// tlb_manager_(tlb_manager),
+// tt_device_(tlb_manager_->get_tt_device()),
+// pcie_base_(
+//     tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
+//         ? 0x800000000
+//         : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0))
+{
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
-    pcie_base_ =  tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
-            ? 0x800000000
-            : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0);
+    pcie_base_ = tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
+                     ? 0x800000000
+                     : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0);
     TT_ASSERT(
         num_host_mem_channels <= 4,
         "Only 4 host memory channels are supported per device, but {} requested.",
@@ -112,7 +112,9 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
         log_warning(
-            LogUMD, "SiliconSysmemManager::init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
+            LogUMD,
+            "SiliconSysmemManager::init_hugepage: no huge page mount found for hugepage_size: {}.",
+            hugepage_size);
         return false;
     }
 
@@ -127,7 +129,8 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
             // Probably a permissions problem.
             log_warning(
                 LogUMD,
-                "SiliconSysmemManager::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.",
+                "SiliconSysmemManager::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file "
+                "failed.",
                 physical_device_id,
                 ch);
             success = false;
@@ -338,7 +341,8 @@ void SiliconSysmemManager::print_file_contents(std::string filename, std::string
     }
 }
 
-std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(size_t sysmem_buffer_size, const bool map_to_noc) {
+std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
+    size_t sysmem_buffer_size, const bool map_to_noc) {
     void *mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);

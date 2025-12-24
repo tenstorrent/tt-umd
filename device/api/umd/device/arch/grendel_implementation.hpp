@@ -451,6 +451,13 @@ public:
         return {grendel::TLB_BASE_4G, grendel::TLB_COUNT_4G};
     }
 
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static constexpr size_t one_gb = 1024ULL * one_mb;
+        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
+        return tlb_sizes;
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 

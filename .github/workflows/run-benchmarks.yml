@@ -48,6 +48,7 @@ jobs:
 
     env:
       LD_LIBRARY_PATH: ./build/lib
+      UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results
 
     steps:
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
@@ -79,6 +80,9 @@ jobs:
       - name: Install python dependencies
         run: python3 -m pip install --no-cache-dir pandas psutil tabulate
 
+      - name: Create benchmark results directory
+        run: mkdir -p /tmp/umd_microbenchmark_results
+
       - name: Gather host machine specification
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
@@ -108,3 +112,15 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkEthernetIO*
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          path: /tmp/umd_microbenchmark_results/
+          if-no-files-found: warn
+
+      - name: Cleanup benchmark results directory
+        if: always()
+        run: rm -rf /tmp/umd_microbenchmark_results

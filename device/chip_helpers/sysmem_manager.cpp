@@ -23,9 +23,8 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
-        "write_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
+        "write_buffer: Hugepages are not allocated ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        tt_device_->get_pci_device()->get_device_num(),
         channel);
 
     TT_ASSERT(
@@ -49,9 +48,8 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
-        "read_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
+        "read_buffer: Hugepages are not allocated ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        tt_device_->get_pci_device()->get_device_num(),
         channel);
 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);

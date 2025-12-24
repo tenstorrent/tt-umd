@@ -30,6 +30,9 @@ public:
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
 protected:
+    bool init_sysmem(uint32_t num_host_mem_channels) override;
+
+private:
     bool init_hugepages(uint32_t num_host_mem_channels);
 
     bool init_iommu(uint32_t num_fake_mem_channels);

@@ -44,6 +44,8 @@ public:
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
 protected:
+    virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
+
     TLBManager* tlb_manager_;
     TTDevice* tt_device_;
     // const uint64_t pcie_base_;

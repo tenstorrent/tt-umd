@@ -24,6 +24,9 @@ public:
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
 protected:
+    bool init_sysmem(uint32_t num_host_mem_channels) override;
+
+private:
     std::vector<uint8_t> system_memory_;
 };
 

@@ -18,8 +18,12 @@
 namespace tt::umd {
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) : SysmemManager() {
+    init_sysmem(num_host_mem_channels);
+}
+
+bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     if (num_host_mem_channels == 0) {
-        return;
+        return true;
     }
 
     if (num_host_mem_channels > 4) {
@@ -41,6 +45,8 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels)
         hugepage_mapping_per_channel.push_back(
             {system_memory_.data() + i * (1ULL << 30), channel_size, pcie_base_ + i * (1ULL << 30)});
     }
+
+    return true;
 }
 
 bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }

@@ -19,15 +19,7 @@
 
 namespace tt::umd {
 
-SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) :
-    SysmemManager()
-// tlb_manager_(tlb_manager),
-// tt_device_(tlb_manager_->get_tt_device()),
-// pcie_base_(
-//     tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
-//         ? 0x800000000
-//         : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0))
-{
+SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) : SysmemManager() {
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
     pcie_base_ = tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
@@ -37,11 +29,8 @@ SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num
         num_host_mem_channels <= 4,
         "Only 4 host memory channels are supported per device, but {} requested.",
         num_host_mem_channels);
-    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
-        init_iommu(num_host_mem_channels);
-    } else {
-        init_hugepages(num_host_mem_channels);
-    }
+
+    init_sysmem(num_host_mem_channels);
 }
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
@@ -53,6 +42,14 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
 }
 
 SiliconSysmemManager::~SiliconSysmemManager() { unpin_or_unmap_sysmem(); }
+
+bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+        return init_iommu(num_host_mem_channels);
+    } else {
+        return init_hugepages(num_host_mem_channels);
+    }
+}
 
 void SiliconSysmemManager::unpin_or_unmap_sysmem() {
     // This will unmap the iommu buffer if it was mapped through kmd.

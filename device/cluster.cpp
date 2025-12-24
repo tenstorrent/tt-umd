@@ -913,6 +913,24 @@ void Cluster::noc_multicast_write(
     get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
 }
 
+void Cluster::safe_write_to_device(
+    const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+    get_chip(chip)->safe_write_to_device(core, mem_ptr, addr, size_in_bytes);
+}
+
+void Cluster::safe_read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    get_chip(chip)->safe_read_from_device(core, mem_ptr, addr, size);
+}
+
+void Cluster::safe_write_to_device_reg(
+    const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+    get_chip(chip)->safe_write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
+}
+
+void Cluster::safe_read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    get_chip(chip)->safe_read_from_device_reg(core, mem_ptr, addr, size);
+}
+
 int Cluster::arc_msg(
     int logical_device_id,
     uint32_t msg_code,

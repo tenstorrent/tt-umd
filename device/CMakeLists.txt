@@ -58,6 +58,7 @@ target_sources(
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
+        chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
@@ -152,6 +153,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp
                 api/umd/device/chip_helpers/simulation_sysmem_manager.hpp
+                api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/cluster.hpp

@@ -1372,6 +1372,8 @@ TEST(TestCluster, DISABLED_SafeApiClusterMultiProcess) {
     }
 
     constexpr int NUM_CHILDREN = 3;
+
+    utils::MultiProcessPipe pipes(NUM_CHILDREN);
     std::vector<pid_t> pids;
 
     for (int i = 0; i < NUM_CHILDREN; ++i) {
@@ -1382,10 +1384,11 @@ TEST(TestCluster, DISABLED_SafeApiClusterMultiProcess) {
 
             std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
+            pipes.signal_ready_from_child(i);
+
             uint64_t address = 0x0;
             std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
             std::vector<uint32_t> data_read(data_write.size(), 0);
-            std::map<int, std::unique_ptr<TTDevice>> tt_devices;
 
             const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -1396,19 +1399,24 @@ TEST(TestCluster, DISABLED_SafeApiClusterMultiProcess) {
                     std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }
             } catch (const std::exception& e) {
-                fprintf(stderr, "Child %d caught exception: %s\n", getpid(), e.what());
                 if (std::string(e.what()) == "SIGBUS") {
-                    std::exit(0);  // Success: SIGBUS was isolated and caught
+                    std::exit(0);
                 }
-                std::exit(1);  // Error: Wrong exception
+                std::exit(1);
             }
-            std::exit(2);  // Error: Timed out/Loop exited without signal
+            // Error: Timed out/Loop exited without signal.
+            std::exit(2);
         }
-        pids.push_back(pid);
+        pids.push_back(pid);  // Parent Process
     }
 
-    // Parent triggers the reset that affects ALL windows on that PCIe link
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    auto start = std::chrono::high_resolution_clock::now();
+    pipes.wait_for_all_children(20);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Execution took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+              << " us" << std::endl;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     WarmReset::warm_reset();
 
     for (pid_t p : pids) {

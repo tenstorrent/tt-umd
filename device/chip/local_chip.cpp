@@ -515,7 +515,8 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     }
 }
 
-void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+template <bool safe>
+void LocalChip::write_to_device_reg_impl(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -541,10 +542,15 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
-    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
+    if constexpr (safe) {
+        tlb_window->safe_write_register(reg_dest - tlb_window->get_base_address(), src, size);
+    } else {
+        tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
+    }
 }
 
-void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
+template <bool safe>
+void LocalChip::read_from_device_reg_impl(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -570,65 +576,27 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
-    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
+    if constexpr (safe) {
+        tlb_window->safe_read_register(reg_src - tlb_window->get_base_address(), dest, size);
+    } else {
+        tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
+    }
 }
 
 void LocalChip::safe_write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    if (size % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Size must be a multiple of 4 bytes");
-    }
-
-    if (reg_dest % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Register address must be 4-byte aligned");
-    }
-
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, reg_dest, size);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(uc_tlb_lock);
-
-    auto translated_core = translate_chip_coord_to_translated(core);
-    tlb_data config{};
-    config.local_offset = reg_dest;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
-
-    tlb_window->safe_write_register(reg_dest - tlb_window->get_base_address(), src, size);
+    write_to_device_reg_impl<true>(core, src, reg_dest, size);
 }
 
 void LocalChip::safe_read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    if (size % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Size must be a multiple of 4 bytes");
-    }
+    read_from_device_reg_impl<true>(core, dest, reg_src, size);
+}
 
-    if (reg_src % sizeof(uint32_t) != 0) {
-        throw std::runtime_error("Register address must be 4-byte aligned");
-    }
+void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device_reg_impl<false>(core, src, reg_dest, size);
+}
 
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, reg_src, size);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(uc_tlb_lock);
-
-    auto translated_core = translate_chip_coord_to_translated(core);
-    tlb_data config{};
-    config.local_offset = reg_src;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
-
-    tlb_window->safe_read_register(reg_src - tlb_window->get_base_address(), dest, size);
+void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device_reg_impl<false>(core, dest, reg_src, size);
 }
 
 void LocalChip::ethernet_broadcast_write(

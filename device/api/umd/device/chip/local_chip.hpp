@@ -108,6 +108,12 @@ private:
     template <bool safe>
     void read_from_device_impl(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size);
 
+    template <bool safe>
+    void write_to_device_reg_impl(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size);
+
+    template <bool safe>
+    void read_from_device_reg_impl(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size);
+
     void check_pcie_device_initialized();
     int test_setup_interface();
     void init_pcie_iatus();

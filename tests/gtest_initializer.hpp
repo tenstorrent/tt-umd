@@ -18,43 +18,43 @@ public:
     explicit SilentEventListener(testing::TestEventListener* default_event_listener) :
         m_default_event_listener(default_event_listener) {}
 
-    virtual void OnTestProgramStart(const testing::UnitTest& unit_test) override {
+    void OnTestProgramStart(const testing::UnitTest& unit_test) override {
         m_default_event_listener->OnTestProgramStart(unit_test);
     }
 
-    virtual void OnTestIterationStart(const testing::UnitTest& unit_test, int iteration) override {
+    void OnTestIterationStart(const testing::UnitTest& unit_test, int iteration) override {
         m_default_event_listener->OnTestIterationStart(unit_test, iteration);
     }
 
-    virtual void OnEnvironmentsSetUpStart(const testing::UnitTest& unit_test) override {}
+    void OnEnvironmentsSetUpStart(const testing::UnitTest& unit_test) override {}
 
-    virtual void OnEnvironmentsSetUpEnd(const testing::UnitTest& unit_test) override {}
+    void OnEnvironmentsSetUpEnd(const testing::UnitTest& unit_test) override {}
 
-    virtual void OnTestStart(const testing::TestInfo& test_info) override {}
+    void OnTestStart(const testing::TestInfo& test_info) override {}
 
-    virtual void OnTestPartResult(const testing::TestPartResult& result) override {}
+    void OnTestPartResult(const testing::TestPartResult& result) override {}
 
-    virtual void OnTestEnd(const testing::TestInfo& test_info) override {}
+    void OnTestEnd(const testing::TestInfo& test_info) override {}
 
-    virtual void OnTestSuiteEnd(const testing::TestSuite& test_suite) override {
+    void OnTestSuiteEnd(const testing::TestSuite& test_suite) override {
         m_default_event_listener->OnTestSuiteEnd(test_suite);
     }
 
 #ifndef GTEST_REMOVE_LEGACY_TEST_CASEAPI_
-    virtual void OnTestCaseEnd(const testing::TestCase& test_case) {
+    void OnTestCaseEnd(const testing::TestCase& test_case) override {
         m_default_event_listener->OnTestCaseEnd(test_case);
     }
 #endif  // GTEST_REMOVE_LEGACY_TEST_CASEAPI_
 
-    virtual void OnEnvironmentsTearDownStart(const testing::UnitTest& unit_test) override {}
+    void OnEnvironmentsTearDownStart(const testing::UnitTest& unit_test) override {}
 
-    virtual void OnEnvironmentsTearDownEnd(const testing::UnitTest& unit_test) override {}
+    void OnEnvironmentsTearDownEnd(const testing::UnitTest& unit_test) override {}
 
-    virtual void OnTestIterationEnd(const testing::UnitTest& unit_test, int iteration) override {
+    void OnTestIterationEnd(const testing::UnitTest& unit_test, int iteration) override {
         m_default_event_listener->OnTestIterationEnd(unit_test, iteration);
     }
 
-    virtual void OnTestProgramEnd(const testing::UnitTest& unit_test) override {
+    void OnTestProgramEnd(const testing::UnitTest& unit_test) override {
         m_default_event_listener->OnTestProgramEnd(unit_test);
         // Separating test outputs for different projects.
         std::cout << std::endl;

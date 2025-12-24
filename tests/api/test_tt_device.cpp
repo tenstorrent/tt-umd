@@ -473,7 +473,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
     EXPECT_EQ(caught_sigbus, 2);
 }
 
-TEST(ApiTTDeviceStressTest, DISABLED_SafeApiMultiProcess) {
+TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     if (pci_device_ids.empty()) {
@@ -513,6 +513,7 @@ TEST(ApiTTDeviceStressTest, DISABLED_SafeApiMultiProcess) {
                 while (true) {
                     tt_devices[pci_device_ids[0]]->safe_read_from_device(
                         data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                    std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }
             } catch (const std::exception& e) {
                 if (std::string(e.what()) == "SIGBUS") {

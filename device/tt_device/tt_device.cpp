@@ -163,13 +163,20 @@ TlbWindow *TTDevice::get_cached_tlb_window(tlb_data config) {
     return cached_tlb_window.get();
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+template <bool safe>
+void TTDevice::read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if constexpr (safe) {
+        if (reset_in_progress) {
+            throw std::runtime_error("SIGBUS");
+        }
+    }
 
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     tlb_data config{};
@@ -182,10 +189,20 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {
+        if constexpr (safe) {
+            if (reset_in_progress) {
+                throw std::runtime_error("SIGBUS");
+            }
+        }
+
         uint32_t tlb_size = tlb_window->get_size();
         uint32_t transfer_size = std::min(size, tlb_size);
 
-        tlb_window->read_block(0, buffer_addr, transfer_size);
+        if constexpr (safe) {
+            tlb_window->safe_read_block(0, buffer_addr, transfer_size);
+        } else {
+            tlb_window->read_block(0, buffer_addr, transfer_size);
+        }
 
         size -= transfer_size;
         addr += transfer_size;
@@ -196,12 +213,19 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+template <bool safe>
+void TTDevice::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
         return;
     }
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
+
+    if constexpr (safe) {
+        if (reset_in_progress) {
+            throw std::runtime_error("SIGBUS");
+        }
+    }
 
     const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
     tlb_data config{};
@@ -214,11 +238,21 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     TlbWindow *tlb_window = get_cached_tlb_window(config);
 
     while (size > 0) {
+        if constexpr (safe) {
+            if (reset_in_progress) {
+                throw std::runtime_error("SIGBUS");
+            }
+        }
+
         uint32_t tlb_size = tlb_window->get_size();
 
         uint32_t transfer_size = std::min(size, tlb_size);
 
-        tlb_window->write_block(0, buffer_addr, transfer_size);
+        if constexpr (safe) {
+            tlb_window->safe_write_block(0, buffer_addr, transfer_size);
+        } else {
+            tlb_window->write_block(0, buffer_addr, transfer_size);
+        }
 
         size -= transfer_size;
         addr += transfer_size;
@@ -227,88 +261,22 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         config.local_offset = addr;
         tlb_window->configure(config);
     }
+}
+
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    read_from_device_impl<false>(mem_ptr, core, addr, size);
 }
 
 void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
-
-    if (reset_in_progress) {
-        throw std::runtime_error("SIGBUS");
-    }
-
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = architecture_impl_->get_static_vc();
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
-
-    while (size > 0) {
-        if (reset_in_progress) {
-            throw std::runtime_error("SIGBUS");
-        }
-
-        uint32_t tlb_size = tlb_window->get_size();
-        uint32_t transfer_size = std::min(size, tlb_size);
-
-        tlb_window->safe_read_block(0, buffer_addr, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-    }
+    read_from_device_impl<true>(mem_ptr, core, addr, size);
 }
 
 void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
-        return;
-    }
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    write_to_device_impl<true>(mem_ptr, core, addr, size);
+}
 
-    if (reset_in_progress) {
-        throw std::runtime_error("SIGBUS");
-    }
-
-    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = architecture_impl_->get_static_vc();
-    TlbWindow *tlb_window = get_cached_tlb_window(config);
-
-    while (size > 0) {
-        if (reset_in_progress) {
-            throw std::runtime_error("SIGBUS");
-        }
-
-        uint32_t tlb_size = tlb_window->get_size();
-
-        uint32_t transfer_size = std::min(size, tlb_size);
-
-        tlb_window->safe_write_block(0, buffer_addr, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-    }
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    write_to_device_impl<false>(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

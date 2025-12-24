@@ -347,6 +347,12 @@ private:
 
     virtual void post_init_hook(){};
 
+    template <bool safe>
+    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    template <bool safe>
+    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     TlbWindow *get_cached_tlb_window(tlb_data config);

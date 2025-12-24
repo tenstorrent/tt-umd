@@ -41,7 +41,16 @@ struct ScopedJumpGuard {
 
 /* static */ void TlbWindow::set_sigbus_safe_handler(bool set_safe_handler) {
     if (set_safe_handler) {
-        signal(SIGBUS, sigbus_handler);
+        struct sigaction sa;
+        sa.sa_handler = sigbus_handler;
+        sigemptyset(&sa.sa_mask);
+        // SA_NODEFER: Don't block SIGBUS after we longjmp out
+        sa.sa_flags = SA_NODEFER;
+
+        if (sigaction(SIGBUS, &sa, nullptr) == -1) {
+            perror("sigaction");
+            _exit(1);
+        }
         return;
     }
     signal(SIGBUS, SIG_DFL);

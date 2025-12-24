@@ -266,7 +266,8 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+template <bool safe>
+void LocalChip::write_to_device_impl(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     log_trace(
         LogUMD,
         "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
@@ -287,7 +288,11 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
+        if constexpr (safe) {
+            tlb_window->safe_write_block(l1_dest - tlb_window->get_base_address(), src, size);
+        } else {
+            tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
+        }
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
 
@@ -306,7 +311,11 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 
             uint32_t transfer_size = std::min(size, tlb_size);
 
-            tlb_window->write_block(0, buffer_addr, transfer_size);
+            if constexpr (safe) {
+                tlb_window->safe_write_block(0, buffer_addr, transfer_size);
+            } else {
+                tlb_window->write_block(0, buffer_addr, transfer_size);
+            }
 
             size -= transfer_size;
             l1_dest += transfer_size;
@@ -318,7 +327,8 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     }
 }
 
-void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+template <bool safe>
+void LocalChip::read_from_device_impl(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     log_trace(
         LogUMD,
         "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
@@ -333,12 +343,16 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        tt_device_->safe_read_from_device(dest, translated_core, l1_src, size);
         return;
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
+        if constexpr (safe) {
+            tlb_window->safe_read_block(l1_src - tlb_window->get_base_address(), dest, size);
+        } else {
+            tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
+        }
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
 
@@ -356,7 +370,11 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             uint32_t tlb_size = tlb_window->get_size();
             uint32_t transfer_size = std::min(size, tlb_size);
 
-            tlb_window->read_block(0, buffer_addr, transfer_size);
+            if constexpr (safe) {
+                tlb_window->safe_read_block(0, buffer_addr, transfer_size);
+            } else {
+                tlb_window->read_block(0, buffer_addr, transfer_size);
+            }
 
             size -= transfer_size;
             l1_src += transfer_size;
@@ -366,6 +384,22 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             tlb_window->configure(config);
         }
     }
+}
+
+void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+    write_to_device_impl<false>(core, src, l1_dest, size);
+}
+
+void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+    read_from_device_impl<false>(core, dest, l1_src, size);
+}
+
+void LocalChip::safe_write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+    write_to_device_impl<true>(core, src, l1_dest, size);
+}
+
+void LocalChip::safe_read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+    read_from_device_impl<true>(core, dest, l1_src, size);
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
@@ -537,108 +571,6 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
 
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
-}
-
-void LocalChip::safe_write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    log_trace(
-        LogUMD,
-        "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
-        DeviceTypeToString.at(tt_device_->get_communication_device_type()),
-        tt_device_->get_communication_device_id(),
-        core.str(),
-        l1_dest,
-        size);
-
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
-
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, translated_core, l1_dest, size);
-        return;
-    }
-
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
-
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->safe_write_block(l1_dest - tlb_window->get_base_address(), src, size);
-    } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-        uint8_t* buffer_addr = static_cast<uint8_t*>(const_cast<void*>(src));
-        tlb_data config{};
-        config.local_offset = l1_dest;
-        config.x_end = translated_core.x;
-        config.y_end = translated_core.y;
-        config.noc_sel = umd_use_noc1 ? 1 : 0;
-        config.ordering = tlb_data::Strict;
-        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-        TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
-
-        while (size > 0) {
-            uint32_t tlb_size = tlb_window->get_size();
-
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->safe_write_block(0, buffer_addr, transfer_size);
-
-            size -= transfer_size;
-            l1_dest += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = l1_dest;
-            tlb_window->configure(config);
-        }
-    }
-}
-
-void LocalChip::safe_read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    log_trace(
-        LogUMD,
-        "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
-        DeviceTypeToString.at(tt_device_->get_communication_device_type()),
-        tt_device_->get_communication_device_id(),
-        core.str(),
-        l1_src,
-        size);
-
-    uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
-
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
-
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->safe_read_from_device(dest, translated_core, l1_src, size);
-        return;
-    }
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->safe_read_block(l1_src - tlb_window->get_base_address(), dest, size);
-    } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-        uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
-        tlb_data config{};
-        config.local_offset = l1_src;
-        config.x_end = translated_core.x;
-        config.y_end = translated_core.y;
-        config.noc_sel = umd_use_noc1 ? 1 : 0;
-        config.ordering = tlb_data::Relaxed;
-        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-        TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
-
-        while (size > 0) {
-            uint32_t tlb_size = tlb_window->get_size();
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->safe_read_block(0, buffer_addr, transfer_size);
-
-            size -= transfer_size;
-            l1_src += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = l1_src;
-            tlb_window->configure(config);
-        }
-    }
 }
 
 void LocalChip::safe_write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {

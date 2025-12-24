@@ -114,12 +114,20 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
 
-      - name: Upload benchmark results
+      - name: Upload JSON benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          path: /tmp/umd_microbenchmark_results/
+          name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          path: /tmp/umd_microbenchmark_results/*.json
+          if-no-files-found: warn
+
+      - name: Upload HTML benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-html-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          path: /tmp/umd_microbenchmark_results/*.html
           if-no-files-found: warn
 
       - name: Cleanup benchmark results directory

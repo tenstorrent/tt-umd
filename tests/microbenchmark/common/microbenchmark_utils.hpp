@@ -23,6 +23,9 @@ inline void export_results(const Bench& bench) {
         std::filesystem::path filepath = std::filesystem::path(results_path) / (bench.title() + ".json");
         std::ofstream file(filepath);
         ankerl::nanobench::render(ankerl::nanobench::templates::json(), bench, file);
+        std::filesystem::path html_filepath = std::filesystem::path(results_path) / (bench.title() + ".html");
+        std::ofstream html_file(html_filepath);
+        ankerl::nanobench::render(ankerl::nanobench::templates::htmlBoxplot(), bench, html_file);
     }
 }
 

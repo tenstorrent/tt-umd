@@ -19,12 +19,6 @@
 
 namespace tt::umd {
 
-SysmemManager::SysmemManager() {}
-
-SysmemManager::~SysmemManager() {
-    // unpin_or_unmap_sysmem();
-}
-
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
@@ -81,7 +75,5 @@ HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
         return hugepage_mapping_per_channel[channel];
     }
 }
-
-void SysmemManager::print_file_contents(std::string filename, std::string hint) {}
 
 }  // namespace tt::umd

@@ -14,8 +14,8 @@ namespace tt::umd {
 
 class SysmemManager {
 public:
-    SysmemManager();
-    virtual ~SysmemManager();
+    SysmemManager() = default;
+    virtual ~SysmemManager() = default;
 
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
@@ -34,6 +34,7 @@ public:
     virtual void unpin_or_unmap_sysmem() = 0;
 
     size_t get_num_host_mem_channels() const;
+
     HugepageMapping get_hugepage_mapping(size_t channel) const;
 
     virtual std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
@@ -43,25 +44,6 @@ public:
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
 protected:
-    /**
-     * Allocate sysmem with hugepages.
-     */
-    virtual bool init_hugepages(uint32_t num_host_mem_channels) = 0;
-    /**
-     * Allocate sysmem without hugepages and map it through IOMMU.
-     * This is used when the system is protected by an IOMMU.  The mappings will
-     * still appear as hugepages to the caller.
-     * @param num_fake_mem_channels number of fake mem channels to allocate
-     * @return whether allocation/mapping succeeded.
-     */
-    virtual bool init_iommu(uint32_t num_fake_mem_channels) = 0;
-
-    virtual bool pin_or_map_hugepages() = 0;
-    virtual bool pin_or_map_iommu() = 0;
-
-    // For debug purposes when various stages fails.
-    virtual void print_file_contents(std::string filename, std::string hint = "");
-
     TLBManager* tlb_manager_;
     TTDevice* tt_device_;
     // const uint64_t pcie_base_;

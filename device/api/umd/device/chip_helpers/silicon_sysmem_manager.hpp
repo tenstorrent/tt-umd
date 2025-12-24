@@ -30,14 +30,14 @@ public:
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
 protected:
-    bool init_hugepages(uint32_t num_host_mem_channels) override;
+    bool init_hugepages(uint32_t num_host_mem_channels);
 
-    bool init_iommu(uint32_t num_fake_mem_channels) override;
+    bool init_iommu(uint32_t num_fake_mem_channels);
 
-    bool pin_or_map_hugepages() override;
-    bool pin_or_map_iommu() override;
+    bool pin_or_map_hugepages();
+    bool pin_or_map_iommu();
 
-    void print_file_contents(std::string filename, std::string hint = "") override;
+    void print_file_contents(std::string filename, std::string hint = "");
 };
 
 }  // namespace tt::umd

@@ -18,61 +18,8 @@
 namespace tt::umd {
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) : SysmemManager() {
-    init_hugepages(num_host_mem_channels);
-}
-
-// SimulationSysmemManager::SimulationSysmemManager() {}
-
-bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return pin_or_map_hugepages(); }
-
-SimulationSysmemManager::~SimulationSysmemManager() { unpin_or_unmap_sysmem(); }
-
-void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
-
-void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
-    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    TT_ASSERT(
-        hugepage_map.mapping,
-        "write_buffer: Hugepages are not allocated for simulation device ch: {}."
-        " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        channel);
-
-    TT_ASSERT(
-        size <= hugepage_map.mapping_size,
-        "write_buffer data has larger size {} than destination buffer {}",
-        size,
-        hugepage_map.mapping_size);
-    log_debug(
-        LogUMD,
-        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
-        hugepage_map.mapping,
-        (sysmem_dest % hugepage_map.mapping_size),
-        channel,
-        size);
-    void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
-
-    memcpy(user_scratchspace, src, size);
-}
-
-void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
-    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    TT_ASSERT(
-        hugepage_map.mapping,
-        "read_buffer: Hugepages are not allocated for simulation device ch: {}."
-        " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        channel);
-
-    void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
-
-    log_debug(LogUMD, "Cluster::read_buffer (ch: {}) from {:p}", channel, user_scratchspace);
-
-    memcpy(dest, user_scratchspace, size);
-}
-
-bool SimulationSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     if (num_host_mem_channels == 0) {
-        // No hugepage channels requested, so just skip initialization.
-        return true;
+        return;
     }
 
     if (num_host_mem_channels > 4) {
@@ -94,15 +41,13 @@ bool SimulationSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         hugepage_mapping_per_channel.push_back(
             {system_memory_.data() + i * (1ULL << 30), channel_size, pcie_base_ + i * (1ULL << 30)});
     }
-
-    return true;
 }
 
-bool SimulationSysmemManager::pin_or_map_hugepages() { return true; }
+bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 
-bool SimulationSysmemManager::init_iommu(uint32_t num_fake_mem_channels) { return true; }
+SimulationSysmemManager::~SimulationSysmemManager() { unpin_or_unmap_sysmem(); }
 
-bool SimulationSysmemManager::pin_or_map_iommu() { return true; }
+void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {

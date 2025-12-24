@@ -68,6 +68,9 @@ private:
 
     void read_regs(void* src_reg, uint32_t word_len, void* data);
 
+    template <typename Func, typename... Args>
+    decltype(auto) execute_safe(Func&& func, Args&&... args);
+
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
 };

@@ -10,6 +10,7 @@
 #include <atomic>
 #include <csetjmp>
 #include <csignal>
+#include <functional>
 #include <stdexcept>
 
 #include "umd/device/pcie/pci_device.hpp"
@@ -119,10 +120,11 @@ void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     }
 }
 
-void TlbWindow::safe_write32(uint64_t offset, uint32_t value) {
+template <typename Func, typename... Args>
+decltype(auto) TlbWindow::execute_safe(Func &&func, Args &&...args) {
     if (sigsetjmp(point, 1) == 0) {
         ScopedJumpGuard guard;
-        write32(offset, value);
+        return std::invoke(std::forward<Func>(func), this, std::forward<Args>(args)...);
     } else {
         std::atomic_signal_fence(std::memory_order_seq_cst);
         jump_set = false;
@@ -130,59 +132,24 @@ void TlbWindow::safe_write32(uint64_t offset, uint32_t value) {
     }
 }
 
-uint32_t TlbWindow::safe_read32(uint64_t offset) {
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-        return read32(offset);
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
-    }
-}
+void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { execute_safe(&TlbWindow::write32, offset, value); }
+
+uint32_t TlbWindow::safe_read32(uint64_t offset) { return execute_safe(&TlbWindow::read32, offset); }
 
 void TlbWindow::safe_write_register(uint64_t offset, const void *data, size_t size) {
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-        write_register(offset, data, size);
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
-    }
+    execute_safe(&TlbWindow::write_register, offset, data, size);
 }
 
 void TlbWindow::safe_read_register(uint64_t offset, void *data, size_t size) {
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-        return read_register(offset, data, size);
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
-    }
+    execute_safe(&TlbWindow::read_register, offset, data, size);
 }
 
 void TlbWindow::safe_write_block(uint64_t offset, const void *data, size_t size) {
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-        write_block(offset, data, size);
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
-    }
+    execute_safe(&TlbWindow::write_block, offset, data, size);
 }
 
 void TlbWindow::safe_read_block(uint64_t offset, void *data, size_t size) {
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-        return read_block(offset, data, size);
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
-        throw std::runtime_error("SIGBUS");
-    }
+    execute_safe(&TlbWindow::read_block, offset, data, size);
 }
 
 TlbHandle &TlbWindow::handle_ref() const { return *tlb_handle; }

@@ -1410,11 +1410,7 @@ TEST(TestCluster, DISABLED_SafeApiClusterMultiProcess) {
         pids.push_back(pid);  // Parent Process
     }
 
-    auto start = std::chrono::high_resolution_clock::now();
     pipes.wait_for_all_children(20);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Execution took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-              << " us" << std::endl;
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     WarmReset::warm_reset();

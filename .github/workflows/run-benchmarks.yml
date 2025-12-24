@@ -91,27 +91,27 @@ jobs:
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkTLB*
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkTLB*
 
       - name: Run PCIe benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkPCIeDMA*
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkPCIeDMA*
 
       - name: Run IOMMU benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkIOMMU*
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkIOMMU*
 
       - name: Run Cluster open benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkOpenCluster*
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkOpenCluster*
 
       - name: Run ethernet IO benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkEthernetIO*
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
 
       - name: Upload benchmark results
         if: always()

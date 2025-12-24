@@ -1,26 +1,26 @@
-set(UBENCH_SRC
+set(MICROBENCHMARK_SRC_FILES
     benchmarks/tlb/test_tlb.cpp
     benchmarks/pcie_dma/test_pcie_dma.cpp
     benchmarks/open_cluster/test_open_cluster.cpp
     benchmarks/ethernet_io/test_ethernet_io.cpp
     benchmarks/iommu/test_iommu.cpp
 )
-add_executable(ubench ${UBENCH_SRC})
+add_executable(umd_microbenchmark ${MICROBENCHMARK_SRC_FILES})
 target_link_libraries(
-    ubench
+    umd_microbenchmark
     PRIVATE
         test_common
         nanobench
 )
 target_include_directories(
-    ubench
+    umd_microbenchmark
     PRIVATE
         ${nanobench_SOURCE_DIR}/src/include
         .
 )
 set_target_properties(
-    ubench
+    umd_microbenchmark
     PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY
-            ${CMAKE_BINARY_DIR}/test/umd/ubenchmarks
+            ${CMAKE_BINARY_DIR}/test/umd/microbenchmark
 )

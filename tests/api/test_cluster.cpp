@@ -83,7 +83,7 @@ bool is_ipmitool_ready() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = get_default_cluster(); }
 
 TEST(ApiClusterTest, OpenChipsByPciId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -120,7 +120,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
         // Make sure that Cluster construction is without exceptions.
         // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = get_default_cluster();
 
         if (!target_pci_device_ids.empty()) {
             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
@@ -192,7 +192,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::unique_ptr<Cluster> umd_cluster;
 
     // 1. Simplest constructor. Creates Cluster with all the chips available.
-    umd_cluster = std::make_unique<Cluster>();
+    umd_cluster = get_default_cluster();
     bool chips_available = !umd_cluster->get_target_device_ids().empty();
     umd_cluster = nullptr;
 
@@ -219,7 +219,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
     // created Cluster class.
     std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
-    umd_cluster = std::make_unique<Cluster>();
+    umd_cluster = get_default_cluster();
     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
@@ -238,7 +238,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 }
 
 TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -281,7 +281,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
 }
 
 TEST(ApiClusterTest, RemoteFlush) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -376,7 +376,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs
     // to be reconfigured for each transaction
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -417,7 +417,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 }
 
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
     for (ChipId chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
@@ -460,7 +460,7 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
 // chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
 // into acount. This test verifies that both for Wormhole and Blackhole.
 TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -479,7 +479,7 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
 }
 
 TEST(TestCluster, TestClusterAICLKControl) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     auto get_expected_clock_val = [&cluster](ChipId chip_id, bool busy) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
@@ -509,7 +509,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, DISABLED_WarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -533,7 +533,7 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = get_default_cluster();
     chip_id = *cluster->get_target_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
@@ -545,7 +545,7 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
 }
 
 TEST(TestCluster, GalaxyWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
     static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
 
     if (cluster->get_target_device_ids().empty()) {
@@ -579,7 +579,7 @@ TEST(TestCluster, GalaxyWarmResetScratch) {
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = get_default_cluster();
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
@@ -597,7 +597,7 @@ TEST(TestCluster, WarmReset) {
     if constexpr (is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -632,7 +632,7 @@ TEST(TestCluster, WarmReset) {
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = get_default_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -669,7 +669,7 @@ TEST(TestCluster, WarmReset) {
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestCluster, DeassertResetBrisc) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -726,7 +726,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 }
 
 TEST(TestCluster, DeassertResetWithCounterBrisc) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -801,7 +801,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 }
 
 TEST(TestCluster, SocDescriptorSerialize) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
@@ -815,7 +815,7 @@ TEST(TestCluster, SocDescriptorSerialize) {
 }
 
 TEST(TestCluster, GetEthernetFirmware) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -832,7 +832,7 @@ TEST(TestCluster, GetEthernetFirmware) {
 }
 
 TEST(TestCluster, TestMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -878,7 +878,7 @@ TEST(TestCluster, TestMulticastWrite) {
 }
 
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -1002,7 +1002,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
 TEST(TestCluster, StartDeviceWithValidRiscProgram) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
     constexpr uint64_t write_address = 0x1000;
 
     if (cluster->get_target_device_ids().empty()) {
@@ -1240,7 +1240,7 @@ TEST(TestCluster, SysmemReadWrite) {
 }
 
 TEST(TestCluster, RegReadWrite) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
@@ -1288,7 +1288,7 @@ TEST(TestCluster, RegReadWrite) {
 }
 
 TEST(TestCluster, WriteDataReadReg) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
@@ -1318,7 +1318,7 @@ TEST(TestCluster, WriteDataReadReg) {
 }
 
 TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }

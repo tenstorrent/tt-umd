@@ -162,7 +162,7 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
     }
 
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = get_default_cluster();
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
@@ -192,7 +192,7 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
     // even though this is a TTDevice test.
-    cluster = std::make_unique<Cluster>();
+    cluster = get_default_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -214,7 +214,7 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 

@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-
+#include "tests/test_utils/test_api_common.hpp"
 // TODO: change to tt_cluster.
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -24,7 +24,7 @@ using namespace tt::umd;
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.
 TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
     if (umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -71,7 +71,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
 
 // TODO: Move to test_chip.
 TEST(ApiChipTest, SimpleAPIShowcase) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
     if (umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -88,7 +88,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // This tests puts a specific core into reset and then deasserts it using default deassert value
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, DeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
 //     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -111,7 +111,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // This tests puts a specific core into reset and then specifies a legal deassert value
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
 //     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -133,7 +133,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // // This tests puts a specific core into reset and then specifies an illegal deassert value
 // // // It reads back the risc reset reg to validate that reset reg is in a legal state
 // TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     std::unique_ptr<Cluster> umd_cluster = get_default_cluster();
 
 //     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";

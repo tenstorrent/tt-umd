@@ -7,6 +7,7 @@
 #include <memory>
 #include <thread>
 
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -64,7 +65,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 }
 
 TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     const uint32_t num_loops = 1000;
 

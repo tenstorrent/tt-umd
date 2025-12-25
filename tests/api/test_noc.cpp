@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
@@ -13,7 +14,7 @@ using namespace tt;
 using namespace tt::umd;
 
 TEST(TestNoc, TestNoc0NodeId) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
         const uint64_t noc_node_id_offset = 0x2C;
@@ -74,7 +75,7 @@ TEST(TestNoc, TestNoc0NodeId) {
 TEST(TestNoc, TestNoc1NodeId) {
     TTDevice::use_noc1(true);
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
         const uint64_t noc_node_id_reg_addr =

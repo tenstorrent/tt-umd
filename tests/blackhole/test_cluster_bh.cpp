@@ -13,6 +13,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -630,7 +631,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
 
 // Verifies that all ETH channels are classified as either active/idle.
 TEST(ClusterBH, TotalNumberOfEthCores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
 
@@ -642,7 +643,7 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 }
 
 TEST(ClusterBH, PCIECores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     for (ChipId chip : cluster->get_target_device_ids()) {
         const auto& pcie_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE);
@@ -658,7 +659,7 @@ TEST(ClusterBH, PCIECores) {
 }
 
 TEST(ClusterBH, L2CPUCores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = get_default_cluster();
 
     for (ChipId chip : cluster->get_target_device_ids()) {
         const auto& l2cpu_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::L2CPU);

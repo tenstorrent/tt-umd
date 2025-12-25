@@ -8,12 +8,12 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/l1_address_map.h"
-
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
 namespace tt::umd::test::utils {
@@ -51,7 +51,7 @@ protected:
             GTEST_SKIP() << "Test is skipped due to incorrect number of chips";
         }
 
-        cluster = std::make_unique<Cluster>();
+        cluster = get_default_cluster();
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

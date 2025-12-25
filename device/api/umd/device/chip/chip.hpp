@@ -58,11 +58,6 @@ public:
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
-    virtual void safe_write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
-    virtual void safe_read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) = 0;
-    virtual void safe_write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
-    virtual void safe_read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
-
     virtual void wait_for_non_mmio_flush() = 0;
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;

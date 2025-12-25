@@ -264,8 +264,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-template <bool safe>
-void LocalChip::write_to_device_impl(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     log_trace(
         LogUMD,
         "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
@@ -286,25 +285,14 @@ void LocalChip::write_to_device_impl(CoreCoord core, const void* src, uint64_t l
 
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        if constexpr (safe) {
-            tlb_window->safe_write_block(l1_dest - tlb_window->get_base_address(), src, size);
-        } else {
-            tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
-        }
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(wc_tlb_lock);
-    if constexpr (safe) {
-        get_cached_wc_tlb_window()->safe_write_block_reconfigure(
-            src, translated_core, l1_dest, size, tlb_data::Relaxed);
+        tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
+        std::lock_guard<std::mutex> lock(wc_tlb_lock);
         get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
     }
 }
 
-template <bool safe>
-void LocalChip::read_from_device_impl(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     log_trace(
         LogUMD,
         "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
@@ -319,42 +307,16 @@ void LocalChip::read_from_device_impl(CoreCoord core, void* dest, uint64_t l1_sr
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->safe_read_from_device(dest, translated_core, l1_src, size);
+        tt_device_->read_from_device(dest, translated_core, l1_src, size);
         return;
     }
-
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        if constexpr (safe) {
-            tlb_window->safe_read_block(l1_src - tlb_window->get_base_address(), dest, size);
-        } else {
-            tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
-        }
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(wc_tlb_lock);
-    if constexpr (safe) {
-        get_cached_wc_tlb_window()->safe_read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
+        tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
+        std::lock_guard<std::mutex> lock(wc_tlb_lock);
         get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
     }
-}
-
-void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    write_to_device_impl<false>(core, src, l1_dest, size);
-}
-
-void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    read_from_device_impl<false>(core, dest, l1_src, size);
-}
-
-void LocalChip::safe_write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    write_to_device_impl<true>(core, src, l1_dest, size);
-}
-
-void LocalChip::safe_read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    read_from_device_impl<true>(core, dest, l1_src, size);
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
@@ -470,8 +432,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     }
 }
 
-template <bool safe>
-void LocalChip::write_to_device_reg_impl(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -498,15 +459,10 @@ void LocalChip::write_to_device_reg_impl(CoreCoord core, const void* src, uint64
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
-    if constexpr (safe) {
-        tlb_window->safe_write_register(reg_dest - tlb_window->get_base_address(), src, size);
-    } else {
-        tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
-    }
+    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
 }
 
-template <bool safe>
-void LocalChip::read_from_device_reg_impl(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
+void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -533,27 +489,7 @@ void LocalChip::read_from_device_reg_impl(CoreCoord core, void* dest, uint64_t r
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
-    if constexpr (safe) {
-        tlb_window->safe_read_register(reg_src - tlb_window->get_base_address(), dest, size);
-    } else {
-        tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
-    }
-}
-
-void LocalChip::safe_write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device_reg_impl<true>(core, src, reg_dest, size);
-}
-
-void LocalChip::safe_read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device_reg_impl<true>(core, dest, reg_src, size);
-}
-
-void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device_reg_impl<false>(core, src, reg_dest, size);
-}
-
-void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device_reg_impl<false>(core, dest, reg_src, size);
+    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
 
 void LocalChip::ethernet_broadcast_write(

@@ -414,15 +414,6 @@ public:
     void noc_multicast_write(
         void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
-    void safe_write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
-
-    void safe_read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
-
-    void safe_write_to_device_reg(
-        const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
-
-    void safe_read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
-
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
      * from the broadcast. The function has to be called either only for Tensix cores or only for DRAM cores.
@@ -662,8 +653,6 @@ public:
      * Exposes how TLBs are configured for a specific device.
      */
     tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core);
-
-    static void set_sigbus_safe_handler(bool set_safe_handler);
 
 private:
     // Helper functions

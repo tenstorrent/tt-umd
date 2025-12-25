@@ -54,11 +54,6 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
-    void safe_write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void safe_read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
-    void safe_write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void safe_read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
-
     void wait_for_non_mmio_flush() override;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;

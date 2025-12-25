@@ -122,22 +122,6 @@ void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, ui
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
-void RemoteChip::safe_write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    tt_device_->safe_write_to_device(src, translate_chip_coord_to_translated(core), l1_dest, size);
-}
-
-void RemoteChip::safe_read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    tt_device_->safe_read_from_device(dest, translate_chip_coord_to_translated(core), l1_src, size);
-}
-
-void RemoteChip::safe_write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    safe_write_to_device(core, src, reg_dest, size);
-}
-
-void RemoteChip::safe_read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    safe_read_from_device(core, dest, reg_src, size);
-}
-
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }

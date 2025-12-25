@@ -18,7 +18,7 @@ class ArcTelemetryReader {
 public:
     virtual ~ArcTelemetryReader() = default;
 
-    virtual uint32_t read_entry(const uint8_t telemetry_tag);
+    virtual uint32_t read_entry(const uint8_t telemetry_tag, bool use_safe_api = false);
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 

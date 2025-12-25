@@ -358,8 +358,6 @@ private:
     TlbWindow *get_cached_tlb_window(tlb_data config);
 
     std::mutex tt_device_io_lock;
-
-    std::atomic<bool> reset_in_progress{false};
 };
 
 }  // namespace tt::umd

@@ -35,8 +35,6 @@ namespace tt::umd {
     TlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-void TTDevice::set_reset_in_progress(bool in_progress) { reset_in_progress.store(in_progress); }
-
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(

@@ -56,11 +56,11 @@ constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
-    options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
+    options.push_back(
+        ClusterOptions{.chip_type = ChipType::SILICON, .num_host_mem_ch_per_mmio_device = get_default_num_host_ch()});
     if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
-            .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
             .target_devices = {0},
             .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }

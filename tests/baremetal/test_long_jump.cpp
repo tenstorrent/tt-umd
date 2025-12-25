@@ -59,7 +59,7 @@ public:
         struct sigaction sa;
         sa.sa_handler = sigbus_handler;
         sigemptyset(&sa.sa_mask);
-        // SA_NODEFER: Don't block SIGBUS after we longjmp out
+        // SA_NODEFER: Don't block SIGBUS after we longjmp out.
         sa.sa_flags = SA_NODEFER;
 
         if (sigaction(SIGBUS, &sa, nullptr) == -1) {
@@ -174,7 +174,7 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
 
     // Calculate expectations based on the Even/Odd logic
     // Even threads (0, 2, 4, 6, 8) = (10 + 1) / 2 = 5 threads
-    // Odd threads (1, 3, 5, 7, 9) = 10 / 2 = 5 threads
+    // Odd threads (1, 3, 5, 7, 9) = 10 / 2 = 5 threads.
     constexpr int EXPECTED_CAUGHT = ((NUMBER_OF_THREADS + 1) / 2) * NUMBER_OF_ITERATIONS;
     constexpr int EXPECTED_SUCCESS = (NUMBER_OF_THREADS / 2) * NUMBER_OF_ITERATIONS;
 
@@ -183,17 +183,17 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
     std::atomic<int> failure_count{0};
 
     auto thread_work = [&](int id) {
-        // Jitter to break perfect alignment
+        // Jitter to break perfect alignment.
         std::this_thread::sleep_for(std::chrono::microseconds(id * 10));
 
         for (int i = 0; i < NUMBER_OF_ITERATIONS; ++i) {
             try {
                 global_device.safe_execute([id]() {
                     if (id % 2 == 0) {
-                        // Chaos threads: Trigger SIGBUS
+                        // Chaos threads: Trigger SIGBUS.
                         std::raise(SIGBUS);
                     } else {
-                        // Worker threads: Do light work
+                        // Worker threads: Do light work.
                         volatile int x = 0;
                         for (int i = 0; i < 50; ++i) {
                             x += i;
@@ -249,14 +249,14 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
                 TTDeviceSafeDummy device;
                 try {
                     if (id % 2 == 0) {
-                        // Even threads trigger SIGBUS
+                        // Even threads trigger SIGBUS.
                         device.safe_execute([]() { std::raise(SIGBUS); });
                     } else {
-                        // Odd threads run normally
+                        // Odd threads run normally.
                         device.safe_execute([]() { /* Happy path */ });
                     }
                 } catch (const std::runtime_error& e) {
-                    // Even threads should catch SIGBUS
+                    // Even threads should catch SIGBUS.
                     if (id % 2 == 0 && std::string(e.what()) == "SIGBUS") {
                         success_count++;
                     } else {

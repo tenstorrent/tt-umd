@@ -98,21 +98,20 @@ inline bool is_galaxy_configuration(Cluster* cluster) {
     return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
 }
 
-inline std::unique_ptr<Cluster> get_default_cluster() {
+inline uint32_t get_default_num_host_ch() {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
-        return nullptr;
+        return 0;
     }
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
     tt_device->init_tt_device();
-
     auto board_type = tt_device->get_board_type();
     bool has_remote_chips = board_type == tt::BoardType::N300 || board_type == tt::BoardType::GALAXY;
+    return static_cast<uint32_t>(has_remote_chips ? 1 : 0);
+}
 
-    // Skip allocating host memory for each chip if there are no remote chips.
-    // Using 0 for local only chips significantly speeds up tests for 6U galaxy configuration.
-    return std::make_unique<Cluster>(
-        ClusterOptions{.num_host_mem_ch_per_mmio_device = static_cast<uint32_t>(has_remote_chips ? 1 : 0)});
+inline std::unique_ptr<Cluster> get_default_cluster() {
+    return std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_default_num_host_ch()});
 }
 
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};

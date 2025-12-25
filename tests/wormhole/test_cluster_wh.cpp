@@ -10,6 +10,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -51,6 +52,7 @@ static void set_barrier_params(Cluster& cluster) {
 
 TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
         .sdesc_path = "tests/soc_descs/wormhole_b0_one_dram_one_tensix_no_eth.yaml",
     });
 }
@@ -59,6 +61,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
+            .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
             .perform_harvesting = false,
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });

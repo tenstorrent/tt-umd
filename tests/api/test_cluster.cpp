@@ -60,6 +60,7 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
+            .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
             .target_devices = {0},
             .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }
@@ -158,6 +159,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // The first cluster will open the first chip only, and the second cluster will open the rest of them.
     ChipId first_chip_only = chips_with_pcie.begin()->first;
     std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
         .target_devices = {first_chip_only},
         .cluster_descriptor = cluster_desc.get(),
     });
@@ -177,6 +179,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // Continue the test only if there there is more than one card in the system.
     if (!other_chips.empty()) {
         std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
+            .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
             .target_devices = other_chips,
             .cluster_descriptor = cluster_desc.get(),
         });
@@ -199,6 +202,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     if (chips_available) {
         // 2. Constructor which allows choosing a subset of Chips to open.
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+            .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
             .target_devices = {0},
         });
         EXPECT_EQ(umd_cluster->get_target_device_ids().size(), 1);
@@ -209,6 +213,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
         // You can add a custom soc descriptor here.
         std::string sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+            .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
             .sdesc_path = sdesc_path,
         });
         umd_cluster = nullptr;
@@ -225,6 +230,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 
     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
         .cluster_descriptor = cluster_desc.get(),
     });
     umd_cluster = nullptr;
@@ -329,6 +335,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     }
 
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = get_default_num_host_ch(),
         .target_devices = {0},
     });
 

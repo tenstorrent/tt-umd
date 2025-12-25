@@ -174,8 +174,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, 
         return remote_logical_eth_id;
     }
     if (chip->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
-            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
+        UMD_THROW("Querying logical ETH channels on a remote host is only supported for P150 board types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
     // the first 4 ethernet channels (these channels are using SerDes for PCIe)

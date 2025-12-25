@@ -37,7 +37,7 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
             log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
             return std::make_unique<BlackholeArcTelemetryReader>(tt_device);
         default:
-            UMD_THROW("Unsupported architecture for creating Arc telemetry reader.");
+            UMD_THROW("Unsupported architecture for creating ArcTelemetryReader.");
     }
 }
 

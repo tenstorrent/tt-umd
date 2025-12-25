@@ -246,7 +246,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
 #else
         UMD_THROW(
-            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
+            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during CMake "
             "configuration to enable simulation device.");
 #endif
     }
@@ -312,7 +312,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
         // descriptor.
         if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
             UMD_THROW(
-                "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
+                "Passed SoC descriptor has {} arch, but for chip id {} has {} arch.",
                 arch_to_str(soc_desc.arch),
                 chip_id,
                 arch_to_str(cluster_desc->get_arch(chip_id)));

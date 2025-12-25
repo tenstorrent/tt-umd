@@ -120,13 +120,13 @@ uint64_t wormhole_implementation::get_noc_reg_base(
         }
     }
 
-    UMD_THROW("Invalid core type or NOC for getting NOC register addr base.");
+    UMD_THROW("Invalid core type or NOC for getting NOC register address base.");
 }
 
 uint32_t wormhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        UMD_THROW("NEO risc cores should not be used on Wormhole architecture.");
+        UMD_THROW("NEO RISC cores should not be used on Wormhole architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

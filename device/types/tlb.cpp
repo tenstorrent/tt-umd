@@ -36,7 +36,7 @@ void pack_bits(std::uint64_t &lower, std::uint64_t &upper, std::uint64_t value, 
 
 std::pair<std::uint64_t, std::uint64_t> tlb_data::apply_offset(const tlb_offsets &offset) const {
     if (this->check(offset)) {
-        UMD_THROW("Invalid offsets for TLB index");
+        UMD_THROW("Invalid offset for TLB index.");
     }
 
     std::uint64_t lower = 0;

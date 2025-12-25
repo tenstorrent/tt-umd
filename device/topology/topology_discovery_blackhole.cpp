@@ -128,9 +128,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
-    UMD_THROW(
-        "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
-        "bug.");
+    UMD_THROW("get_remote_eth_core is not implemented for Blackhole.");
 }
 
 uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
@@ -174,7 +172,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, 
         return remote_logical_eth_id;
     }
     if (chip->get_chip_info().board_type != BoardType::P150) {
-        UMD_THROW("Querying logical ETH channels on a remote host is only supported for P150 board types.");
+        UMD_THROW("Querying logical ETH channels on a remote host is only supported for p150 board types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
     // the first 4 ethernet channels (these channels are using SerDes for PCIe)

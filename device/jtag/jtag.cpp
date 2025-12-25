@@ -26,10 +26,7 @@ void DlCloser::operator()(void* handle) const {
 
 void Jtag::openLibrary(const std::string& filePath, int flags) {
     if (!std::filesystem::exists(filePath)) {
-        UMD_THROW(
-            "You do not have a JTAG library at {}.\n"
-            "File path could be wrong.",
-            filePath);
+        UMD_THROW("JTAG library not found at path: {}", filePath);
     }
     if (handle != nullptr) {
         return;
@@ -52,7 +49,7 @@ void* Jtag::load_function(const char* name) {
         const char* dlsym_error = dlerror();
         if (dlsym_error) {
             log_error(tt::LogUMD, "Cannot load symbol: {}", dlsym_error);
-            UMD_THROW("Failed to load function.");
+            UMD_THROW("Failed to load function: {}", name);
         }
         func_map[name] = funcPtr;
     }

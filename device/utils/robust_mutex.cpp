@@ -17,6 +17,7 @@
 #include <unistd.h>    // ftruncate, close, gettid
 
 #include <chrono>
+#include <cstring>
 #include <functional>
 #include <mutex>
 #include <stdexcept>
@@ -370,7 +371,7 @@ void RobustMutex::unlock() {
     mutex_wrapper_ptr_->owner_pid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
-        UMD_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+        UMD_THROW("pthread_mutex_unlock failed for mutex {}: {}", mutex_name_, std::strerror(err));
     }
 }
 
@@ -390,8 +391,7 @@ void RobustMutex::lock() {
             // Process crashed before unlocking the mutex. Recover it.
             int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
             if (err != 0) {
-                UMD_THROW(fmt::format(
-                    "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+                UMD_THROW("pthread_mutex_consistent failed for mutex {}: {}", mutex_name_, std::strerror(err));
             }
             // Break out of the loop as we can now successfully lock.
             lock_res = 0;
@@ -409,8 +409,7 @@ void RobustMutex::lock() {
             lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));
         } else {
             // Lock operation failed, either after first or second attempt.
-            UMD_THROW(
-                fmt::format("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
+            UMD_THROW("pthread_mutex_lock failed for mutex {}: {}", mutex_name_, std::strerror(lock_res));
         }
     }
 

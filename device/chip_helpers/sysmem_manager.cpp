@@ -313,9 +313,7 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
 
     if (iommu_mapping == MAP_FAILED) {
         UMD_THROW(
-            "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
-            size,
-            strerror(errno));
+            "Failed to allocate memory for device/host shared buffer (size: {} errno: {}).", size, strerror(errno));
     }
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -353,7 +351,7 @@ bool SysmemManager::pin_or_map_iommu() {
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
         log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        UMD_THROW("Proceeding could lead to undefined behavior");
+        UMD_THROW("Proceeding could lead to undefined behavior.");
     }
 
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);

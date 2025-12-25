@@ -141,9 +141,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
     // Test shouldn't last long since there's a limited number of PCIe devices on the system.
     for (const auto& pci_device_id : pci_device_ids) {
         auto pci_tt_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
-        if (!pci_tt_device) {
-            UMD_THROW("Failed to create PCI TT device.");
-        }
+        ASSERT_TRUE(pci_tt_device != nullptr) << "Failed to create PCIe TTDevice.";
         pci_tt_device->init_tt_device();
 
         ChipInfo chip_info = pci_tt_device->get_chip_info();

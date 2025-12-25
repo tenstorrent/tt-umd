@@ -77,7 +77,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
         {0, 0});
 
     if (ret_code != 0) {
-        UMD_THROW("Failed to get harvesting masks with exit code {}", ret_code);
+        UMD_THROW("Failed to get harvesting masks with error code: {}", ret_code);
     }
 
     chip_info.harvesting_masks.tensix_harvesting_mask =
@@ -94,7 +94,7 @@ uint32_t WormholeTTDevice::get_clock() {
         arc_msg_return_values,
         {0xFFFF, 0xFFFF});
     if (exit_code != 0) {
-        UMD_THROW("Failed to get AICLK value with exit code {}", exit_code);
+        UMD_THROW("Failed to get AICLK value with error code: {}", exit_code);
     }
     return arc_msg_return_values[0];
 }
@@ -161,19 +161,19 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
     if (!completion || !dma_buffer.buffer) {
-        UMD_THROW("DMA buffer is not initialized");
+        UMD_THROW("DMA buffer is not initialized.");
     }
 
     if (src % 4 != 0) {
-        UMD_THROW("DMA source address must be aligned to 4 bytes");
+        UMD_THROW("DMA source address must be aligned to 4 bytes: 0x{:x}", src);
     }
 
     if (size % 4 != 0) {
-        UMD_THROW("DMA size must be a multiple of 4");
+        UMD_THROW("DMA size must be a multiple of 4: 0x{:x}", src);
     }
 
     if (!bar2) {
-        UMD_THROW("BAR2 is not mapped");
+        UMD_THROW("BAR2 is not mapped.");
     }
 
     // Reset completion flag.
@@ -209,7 +209,7 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            UMD_THROW("DMA timeout");
+            UMD_THROW("DMA timeout.");
         }
     }
 }
@@ -239,19 +239,19 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
     if (!completion || !dma_buffer.buffer) {
-        UMD_THROW("DMA buffer is not initialized");
+        UMD_THROW("DMA buffer is not initialized.");
     }
 
     if (dst % 4 != 0) {
-        UMD_THROW("DMA destination address must be aligned to 4 bytes");
+        UMD_THROW("DMA destination address must be aligned to 4 bytes: 0x{:x}", dst);
     }
 
     if (size % 4 != 0) {
-        UMD_THROW("DMA size must be a multiple of 4");
+        UMD_THROW("DMA size must be a multiple of 4: 0x{:x}", dst);
     }
 
     if (!bar2) {
-        UMD_THROW("BAR2 is not mapped");
+        UMD_THROW("BAR2 is not mapped.");
     }
 
     // Reset completion flag.
@@ -287,7 +287,7 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            UMD_THROW("DMA timeout");
+            UMD_THROW("DMA timeout.");
         }
     }
 }
@@ -304,7 +304,7 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
-        UMD_THROW("DMA size exceeds buffer size");
+        UMD_THROW("DMA size {} exceeds buffer size {}.", size, dma_buffer.size);
     }
 
     dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
@@ -318,7 +318,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
-        UMD_THROW("DMA size exceeds buffer size");
+        UMD_THROW("DMA size {} exceeds buffer size {}.", size, dma_buffer.size);
     }
 
     memcpy(dma_buffer.buffer, src, size);
@@ -341,7 +341,7 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        UMD_THROW("Address is out of ARC APB address range");
+        UMD_THROW("Address 0x{:x} is out of ARC APB address range.", arc_addr_offset);
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -359,7 +359,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        UMD_THROW("Address is out of ARC APB address range");
+        UMD_THROW("Address 0x{:x} is out of ARC APB address range.", arc_addr_offset);
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -377,7 +377,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
 
 void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        UMD_THROW("Address is out of ARC CSM address range");
+        UMD_THROW("Address 0x{:x} is out of ARC APB address range.", arc_addr_offset);
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -395,7 +395,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        UMD_THROW("Address is out of ARC CSM address range");
+        UMD_THROW("Address 0x{:x} is out of ARC APB address range.", arc_addr_offset);
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -440,7 +440,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
         if (time_taken_port > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 UMD_THROW(
-                    "ETH training timed out after {} ms, on eth core {}, {}",
+                    "ETH training timed out after {} ms, on eth core ({}, {}).",
                     timeout_ms.count(),
                     eth_core.x,
                     eth_core.y);

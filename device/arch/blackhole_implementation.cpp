@@ -120,7 +120,7 @@ uint64_t blackhole_implementation::get_noc_reg_base(
 uint32_t blackhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        UMD_THROW("NEO risc cores should not be used on Blackhole architecture.");
+        UMD_THROW("NEO RISC cores should not be used on Blackhole architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

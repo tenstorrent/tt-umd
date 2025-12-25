@@ -174,8 +174,7 @@ uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair 
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
-        UMD_THROW(
-            "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
+        UMD_THROW("get_remote_eth_id should not be called on non-6U configurations.");
     }
     uint32_t remote_eth_id;
     TTDevice* tt_device = chip->get_tt_device();
@@ -260,8 +259,8 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     switch (options.io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                UMD_THROW("Topology discovery initialisation failed, no JTAG devices were found..");
+            if (device_cnt == 0) {
+                return;
             }
             // JTAG devices (j-links) are referred to with their index within a vector
             // that's stored inside of a JtagDevice object.

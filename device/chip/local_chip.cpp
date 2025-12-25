@@ -434,11 +434,11 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
-        UMD_THROW("Size must be a multiple of 4 bytes");
+        UMD_THROW("Size must be a multiple of 4 bytes.");
     }
 
     if (reg_dest % sizeof(uint32_t) != 0) {
-        UMD_THROW("Register address must be 4-byte aligned");
+        UMD_THROW("Register address must be 4-byte aligned.");
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
@@ -464,11 +464,11 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
-        UMD_THROW("Size must be a multiple of 4 bytes");
+        UMD_THROW("Size must be a multiple of 4 bytes.");
     }
 
     if (reg_src % sizeof(uint32_t) != 0) {
-        UMD_THROW("Register address must be 4-byte aligned");
+        UMD_THROW("Register address must be 4-byte aligned.");
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
@@ -534,7 +534,7 @@ void LocalChip::check_pcie_device_initialized() {
     if (test_setup_interface()) {
         UMD_THROW(
             "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
-            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
+            "translation tables are not enabled on the device. These need to be enabled for UMD to run.");
     }
 }
 
@@ -560,7 +560,7 @@ void LocalChip::init_pcie_iatus() {
         size_t region_size = hugepage_map.mapping_size;
 
         if (!hugepage_map.mapping) {
-            UMD_THROW("Hugepages are not allocated for ch: {}", channel);
+            UMD_THROW("Hugepages are not allocated for channel: {}", channel);
         }
 
         if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {

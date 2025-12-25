@@ -82,7 +82,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         auto new_arch = jtag_device->get_jtag_arch(i);
 
         if (arch != new_arch) {
-            UMD_THROW("Jtag ERROR: Not all devices have the same architecture.");
+            UMD_THROW("JTAG error: Not all devices have the same architecture.");
         }
     }
 
@@ -109,7 +109,7 @@ std::optional<uint32_t> JtagDevice::get_efuse_harvesting(uint8_t chip_id) const 
 void JtagDevice::select_device(uint8_t chip_id) {
     if (chip_id >= get_device_cnt()) {
         UMD_THROW(
-            "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
+            "Device with chip ID {} doesn't exist. "
             "There are currently {} registered devices.",
             chip_id,
             get_device_cnt());
@@ -120,7 +120,7 @@ void JtagDevice::select_device(uint8_t chip_id) {
 
         // Underlying JTAG library uses unix-style status returns. Success is represented by 0.
         if (jtag->open_jlink_by_serial_wrapper(jlink_devices[chip_id])) {
-            UMD_THROW("JtagDevice::select_device: Failed to open JTAG device with chip_id {}", chip_id);
+            UMD_THROW("Failed to open JTAG device with chip ID: {}", chip_id);
         }
         curr_device_idx = chip_id;
     }
@@ -290,7 +290,7 @@ std::optional<uint8_t> JtagDevice::get_current_device_idx() const { return curr_
 int JtagDevice::get_device_id(uint8_t chip_id) const {
     if (chip_id >= get_device_cnt()) {
         UMD_THROW(
-            "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
+            "Device with chip ID {} doesn't exist. "
             "There are currently {} registered devices.",
             chip_id,
             get_device_cnt());

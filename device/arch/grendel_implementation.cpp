@@ -112,13 +112,13 @@ uint64_t grendel_implementation::get_noc_reg_base(
         }
     }
 
-    UMD_THROW("Invalid core type or NOC for getting NOC register addr base.");
+    UMD_THROW("Invalid core type or NOC for getting NOC register address base.");
 }
 
 uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        UMD_THROW("TENSIX risc cores should not be used on Grendel architecture.");
+        UMD_THROW("TENSIX RISC cores should not be used on Grendel architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

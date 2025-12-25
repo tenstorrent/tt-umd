@@ -95,7 +95,7 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
         if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            UMD_THROW("Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count());
+            UMD_THROW("Timed out after waiting {} ms for for DRAM to complete training.", timeout_ms.count());
         }
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;

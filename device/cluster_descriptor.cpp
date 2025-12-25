@@ -98,7 +98,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         UMD_ASSERT(
             galaxy_shelves_exit_chip_coords_per_y_dim.find(location_a.shelf) !=
                 galaxy_shelves_exit_chip_coords_per_y_dim.end(),
-            "Expected shelf-to-shelf connection");
+            "Expected shelf-to-shelf connection.");
         // this row does not have a shelf-to-shelf connection
         if (galaxy_shelves_exit_chip_coords_per_y_dim.at(location_a.shelf).find(location_a.y) ==
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_a.shelf).end()) {
@@ -109,7 +109,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_a.shelf).at(location_a.y);
         UMD_ASSERT(
             shelf_to_shelf_connection.destination_chip_coords.size(),
-            "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
+            "Expecting at least one shelf-to-shelf connection, possibly one-to-many.");
 
         // for each shelf-to-shelf connection at location_a.y, find the distance to location_b, take min
         int distance = std::numeric_limits<int>::max();
@@ -118,12 +118,12 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
             UMD_ASSERT(
                 exit_shelf.y == location_a.y && exit_shelf.shelf == location_a.shelf &&
                     exit_shelf.rack == location_a.rack,
-                "Invalid shelf exit coordinates");
+                "Invalid shelf exit coordinates.");
 
             // next shelf could be at a different y-dim in nebula->galaxy systems
             UMD_ASSERT(
                 next_shelf.shelf == (location_a.shelf + 1) && next_shelf.rack == location_a.rack,
-                "Invalid shelf entry coordinates");
+                "Invalid shelf entry coordinates.");
 
             // hop onto the next shelf and find distance from there
             int distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_shelf);
@@ -142,7 +142,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         UMD_ASSERT(
             galaxy_shelves_exit_chip_coords_per_y_dim.find(location_b.shelf) !=
                 galaxy_shelves_exit_chip_coords_per_y_dim.end(),
-            "Expected shelf-to-shelf connection");
+            "Expected shelf-to-shelf connection.");
         // this row does not have a shelf-to-shelf connection
         if (galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).find(location_b.y) ==
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).end()) {
@@ -153,7 +153,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).at(location_b.y);
         UMD_ASSERT(
             shelf_to_shelf_connection.destination_chip_coords.size(),
-            "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
+            "Expecting at least one shelf-to-shelf connection, possibly one-to-many.");
 
         // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
         int distance = std::numeric_limits<int>::max();
@@ -162,11 +162,11 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
             UMD_ASSERT(
                 exit_shelf.y == location_b.y && exit_shelf.shelf == location_b.shelf &&
                     exit_shelf.rack == location_b.rack,
-                "Invalid shelf exit coordinates");
+                "Invalid shelf exit coordinates.");
             // next shelf could be at a different y-dim in nebula->galaxy systems
             UMD_ASSERT(
                 next_shelf.shelf == (location_b.shelf + 1) && next_shelf.rack == location_b.rack,
-                "Invalid shelf entry coordinates");
+                "Invalid shelf entry coordinates.");
 
             // hop onto the next shelf and find distance from there
             int distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_shelf);
@@ -188,7 +188,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         UMD_ASSERT(
             galaxy_racks_exit_chip_coords_per_x_dim.find(location_a.rack) !=
                 galaxy_racks_exit_chip_coords_per_x_dim.end(),
-            "Expected rack-to-rack connection");
+            "Expected rack-to-rack connection.");
 
         // this row does not have a rack-to-rack connection
         if (galaxy_racks_exit_chip_coords_per_x_dim.at(location_a.rack).find(location_a.x) ==
@@ -200,7 +200,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
             galaxy_racks_exit_chip_coords_per_x_dim.at(location_a.rack).at(location_a.x);
         UMD_ASSERT(
             rack_to_rack_connection.destination_chip_coords.size(),
-            "Expecting at least one rack-to-rack connection, possibly one-to-many");
+            "Expecting at least one rack-to-rack connection, possibly one-to-many.");
 
         // for each rack-to-rack connection at location_a.x, find the distance to location_b, take min
         int distance = std::numeric_limits<int>::max();
@@ -208,11 +208,11 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         for (EthCoord next_rack : rack_to_rack_connection.destination_chip_coords) {
             UMD_ASSERT(
                 exit_rack.x == location_a.x && exit_rack.shelf == location_a.shelf && exit_rack.rack == location_a.rack,
-                "Invalid rack exit coordinates");
+                "Invalid rack exit coordinates.");
             UMD_ASSERT(
                 next_rack.x == location_a.x && next_rack.shelf == location_a.shelf &&
                     next_rack.rack == (location_a.rack + 1),
-                "Invalid rack entry coordinates");
+                "Invalid rack entry coordinates.");
 
             // hop onto the next rack and find distance from there
             int distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_rack);
@@ -232,7 +232,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         UMD_ASSERT(
             galaxy_racks_exit_chip_coords_per_x_dim.find(location_b.rack) !=
                 galaxy_racks_exit_chip_coords_per_x_dim.end(),
-            "Expected rack-to-rack connection");
+            "Expected rack-to-rack connection.");
 
         // this row does not have a rack-to-rack connection
         if (galaxy_racks_exit_chip_coords_per_x_dim.at(location_b.rack).find(location_b.x) ==
@@ -244,7 +244,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
             galaxy_racks_exit_chip_coords_per_x_dim.at(location_b.rack).at(location_b.x);
         UMD_ASSERT(
             rack_to_rack_connection.destination_chip_coords.size(),
-            "Expecting at least one rack-to-rack connection, possibly one-to-many");
+            "Expecting at least one rack-to-rack connection, possibly one-to-many.");
 
         // for each rack-to-rack connection at location_a.x, find the distance to location_b, take min
         int distance = std::numeric_limits<int>::max();
@@ -252,11 +252,11 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         for (EthCoord next_rack : rack_to_rack_connection.destination_chip_coords) {
             UMD_ASSERT(
                 exit_rack.x == location_b.x && exit_rack.shelf == location_b.shelf && exit_rack.rack == location_b.rack,
-                "Invalid rack exit coordinates");
+                "Invalid rack exit coordinates.");
             UMD_ASSERT(
                 next_rack.x == location_b.x && next_rack.shelf == location_b.shelf &&
                     next_rack.rack == (location_b.rack + 1),
-                "Invalid rack entry coordinates");
+                "Invalid rack entry coordinates.");
 
             // hop onto the next rack and find distance from there
             int distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_rack);
@@ -309,9 +309,9 @@ ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
         }
     }
     UMD_ASSERT(
-        min_distance != std::numeric_limits<int>::max(), "Chip{} is not connected to any MMIO capable chip", chip);
+        min_distance != std::numeric_limits<int>::max(), "Chip {} is not connected to any MMIO capable chip.", chip);
 
-    UMD_ASSERT(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
+    UMD_ASSERT(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable.");
 
     log_debug(LogUMD, "closest_mmio_chip to chip{} is chip{} distance:{}", chip, closest_chip, min_distance);
 
@@ -326,7 +326,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
 
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
-        UMD_THROW("Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path);
+        UMD_THROW("Cluster connectivity descriptor file does not exist: {}", cluster_descriptor_file_path);
     }
 
     fdesc.close();
@@ -525,7 +525,7 @@ void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
 }
 
 void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml) {
-    UMD_ASSERT(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+    UMD_ASSERT(yaml["ethernet_connections"].IsSequence(), "Invalid YAML.");
 
     // Preload idle eth channels.
     for (const auto &chip : all_chips) {
@@ -541,7 +541,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     }
 
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
-        UMD_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+        UMD_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML.");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
         UMD_ASSERT(
@@ -559,7 +559,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             UMD_ASSERT(
                 (std::get<0>(eth_conn_chip_0.at(channel_0)) == chip_1) &&
                     (std::get<1>(eth_conn_chip_0.at(channel_0)) == channel_1),
-                "Duplicate eth connection found in cluster desc yaml");
+                "Duplicate Ethernet connection found in cluster descriptor YAML.");
         } else {
             eth_conn_chip_0.insert({channel_0, {chip_1, channel_1}});
         }
@@ -568,7 +568,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             UMD_ASSERT(
                 (std::get<0>(eth_conn_chip_1.at(channel_1)) == chip_0) &&
                     (std::get<1>(eth_conn_chip_1.at(channel_1)) == channel_0),
-                "Duplicate eth connection found in cluster desc yaml");
+                "Duplicate Ethernet connection found in cluster descriptor YAML.");
         } else {
             eth_conn_chip_1.insert({channel_1, {chip_0, channel_0}});
         }
@@ -610,7 +610,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
         for (YAML::Node &connected_endpoints :
              yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
-            UMD_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+            UMD_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML.");
 
             std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
             UMD_ASSERT(
@@ -869,9 +869,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
 
             // Enforce '0x' prefix.
             if (bus_str.substr(0, 2) != "0x") {
-                std::string msg =
-                    "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
-                UMD_THROW(msg);
+                UMD_THROW("Bus string without 0x prefix for chip {}: \"{}\"", chip, bus_str);
             }
             bus_str = bus_str.substr(2);
 
@@ -1231,7 +1229,7 @@ HarvestingMasks ClusterDescriptor::get_harvesting_masks(ChipId chip_id) const {
 
 void ClusterDescriptor::add_chip_to_board(ChipId chip_id, uint64_t board_id) {
     if (chip_to_board_id.find(chip_id) != chip_to_board_id.end() && chip_to_board_id[chip_id] != board_id) {
-        UMD_THROW("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]);
+        UMD_THROW("Chip {} is already mapped to board {:#x}.", chip_id, chip_to_board_id[chip_id]);
     }
     chip_to_board_id[chip_id] = board_id;
     board_to_chips[board_id].insert(chip_id);
@@ -1290,7 +1288,7 @@ bool ClusterDescriptor::verify_same_architecture() {
         bool all_same_arch =
             std::all_of(chips.begin(), chips.end(), [&](ChipId chip_id) { return this->get_arch(chip_id) == arch; });
         if (!all_same_arch) {
-            UMD_THROW("Chips with differing architectures detected. This is unsupported.");
+            UMD_THROW("Chips with different architectures detected. This is unsupported.");
         }
     }
 

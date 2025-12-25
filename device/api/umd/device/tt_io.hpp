@@ -35,11 +35,11 @@ public:
         auto dst = reinterpret_cast<uintptr_t>(base) + address;
 
         if (address >= tlb_size) {
-            UMD_THROW("Address out of bounds for TLB");
+            UMD_THROW("Address {} out of bounds for TLB size {}.", address, tlb_size);
         }
 
         if (alignof(T) > 1 && (dst & (alignof(T) - 1))) {
-            UMD_THROW("Unaligned write");
+            UMD_THROW("Unaligned write: {}", dst);
         }
 
         *reinterpret_cast<volatile T *>(dst) = value;

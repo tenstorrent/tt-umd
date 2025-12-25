@@ -52,7 +52,7 @@ tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
             LogUMD, "Number of active ethernet cores {} exceeds the maximum of 8.", remote_transfer_eth_cores_.size());
     }
     if (remote_transfer_eth_cores_.empty()) {
-        UMD_THROW("No remote transfer ethernet cores set.");
+        UMD_THROW("No remote transfer Ethernet cores set.");
     }
     return remote_transfer_eth_cores_.at(active_eth_core_idx);
 }

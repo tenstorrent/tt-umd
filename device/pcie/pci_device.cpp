@@ -174,7 +174,7 @@ static PciDeviceInfo read_device_info(int fd) {
     info.in.output_size_bytes = sizeof(info.out);
 
     if (ioctl(fd, TENSTORRENT_IOCTL_GET_DEVICE_INFO, &info) < 0) {
-        UMD_THROW("TENSTORRENT_IOCTL_GET_DEVICE_INFO failed");
+        UMD_THROW("TENSTORRENT_IOCTL_GET_DEVICE_INFO failed, errno: {}", errno);
     }
 
     uint16_t bus = info.out.bus_dev_fn >> 8;
@@ -210,7 +210,7 @@ static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint3
             reset_info.out.output_size_bytes = 0;
             reset_info.out.result = 0;
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
-                UMD_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
+                UMD_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed, errno: {}", errno);
             }
         } catch (...) {
         }
@@ -284,7 +284,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
     if (iommu_enabled && kmd_version < KMD_IOMMU) {
-        UMD_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
+        UMD_THROW("Running UMD with IOMMU support requires KMD version {} or newer.", KMD_IOMMU.to_string());
     }
     if (kmd_version < KMD_TLBS) {
         UMD_THROW("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string());
@@ -310,7 +310,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
-        UMD_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+        UMD_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed, errno: {}", errno);
     }
 
     log_debug(
@@ -494,18 +494,18 @@ bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_km
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
     if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
-        UMD_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
+        UMD_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
     if (size > page_size && !is_iommu_enabled()) {
-        UMD_THROW("Cannot map buffer of size {} to NOC with IOMMU disabled", size);
+        UMD_THROW("Cannot map buffer of size {} to NOC with IOMMU disabled.", size);
     }
 
     struct {
@@ -548,11 +548,11 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     const uint64_t vaddr = reinterpret_cast<uint64_t>(hugepage);
 
     if (size > (1 << 30)) {
-        UMD_THROW("Not a hugepage");
+        UMD_THROW("Not a hugepage.");
     }
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
     if (is_iommu_enabled()) {
@@ -598,7 +598,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     const uint32_t flags = is_iommu_enabled() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
     tenstorrent_pin_pages pin_pages{};
@@ -633,7 +633,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
     tenstorrent_unpin_pages unpin_pages{};

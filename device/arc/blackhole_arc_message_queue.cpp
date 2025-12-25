@@ -88,7 +88,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 uint32_t BlackholeArcMessageQueue::send_message(
     const ArcMessageType message_type, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
     if (args.size() > 7) {
-        UMD_THROW(fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
+        UMD_THROW(fmt::format("Blackhole ARC messages are limited to 7 arguments, but {} were provided.", args.size()));
     }
 
     // Initialize with zeros for unused args.

@@ -162,7 +162,7 @@ enum BlackholeChipType : uint32_t {
 inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const uint8_t asic_location) {
     if (asic_location != 0) {
         if (board_type != BoardType::P300) {
-            UMD_THROW("Remote chip is supported only for Blackhole P300 board.");
+            UMD_THROW("Remote chip is supported only for Blackhole p300 boards.");
         }
     }
 
@@ -178,7 +178,7 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
                 case 1:
                     return BlackholeChipType::Type1;
                 default:
-                    UMD_THROW("Invalid asic location for Blackhole P300 board: " + std::to_string(asic_location));
+                    UMD_THROW("Invalid ASIC location for Blackhole p300 board: " + std::to_string(asic_location));
             }
         default:
             UMD_THROW("Invalid board type for Blackhole architecture.");
@@ -232,7 +232,7 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return board_type_it->second;
     }
 
-    UMD_THROW("No existing board type for board id 0x{:x}", board_id);
+    UMD_THROW("No existing board type for board ID: 0x{:x}", board_id);
 }
 
 static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_units_map = {

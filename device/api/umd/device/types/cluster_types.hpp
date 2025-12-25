@@ -120,7 +120,7 @@ inline std::ostream& operator<<(std::ostream& os, const DevicePowerState power_s
             os << "LONG_IDLE";
             break;
         default:
-            UMD_THROW("Unknown DevicePowerState");
+            UMD_THROW("Unknown DevicePowerState.");
     }
     return os;
 }

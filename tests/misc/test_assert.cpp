@@ -163,7 +163,7 @@ TEST(Assert, MismatchedPlaceholders) {
 
 TEST(Assert, MacroIntegration) {
     try {
-        UMD_THROW("Error with value {}", 42);
+        UMD_THROW("Error with value: {}", 42);
         FAIL() << "Expected exception";
     } catch (const std::runtime_error& e) {
         std::string error_msg = e.what();

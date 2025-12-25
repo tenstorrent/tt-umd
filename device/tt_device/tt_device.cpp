@@ -130,7 +130,7 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
         return;
     }
     if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        UMD_THROW("Read 0xffffffff from PCIe: you should reset the board.");
+        UMD_THROW("Hang detected. Please reset the board.");
     }
 }
 
@@ -174,13 +174,13 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    UMD_THROW("configure_iatu_region is not implemented for this device");
+    UMD_THROW("configure_iatu_region is not implemented for this device.");
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         UMD_THROW(
-            "Invalid DRAM channel index {}, maximum index for given architecture is {}",
+            "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
             dram_channel,
             architecture_impl_->get_dram_banks_number() - 1);
     }
@@ -195,7 +195,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            UMD_THROW("DRAM training failed");
+            UMD_THROW("DRAM training failed.");
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
@@ -205,14 +205,14 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         utils::check_timeout(
             start,
             timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
+            fmt::format("DRAM training for channel {} timed out after {} ms.", dram_channel, timeout_ms));
     }
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
     const uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
-        UMD_THROW("Write Invalid BAR address for this device.");
+        UMD_THROW("Invalid BAR address for this device: 0x{:x}", addr);
     }
     addr -= bar0_offset;
     *reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(get_pci_device()->bar0) + addr) = data;
@@ -221,7 +221,7 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
 uint32_t TTDevice::bar_read32(uint32_t addr) {
     const uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
-        UMD_THROW("Read Invalid BAR address for this device.");
+        UMD_THROW("Invalid BAR address for this device: 0x{:x}", addr);
     }
     addr -= bar0_offset;
     return *reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(get_pci_device()->bar0) + addr);

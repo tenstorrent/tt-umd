@@ -51,7 +51,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             break;
         }
         default:
-            UMD_THROW("Unsupported device type for topology discovery");
+            UMD_THROW("Unsupported device type for topology discovery.");
     }
 
     switch (current_arch) {

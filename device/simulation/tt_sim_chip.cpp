@@ -202,7 +202,7 @@ void TTSimChip::copy_simulator_binary() {
     }
     if (bytes_copied != file_size) {
         close_simulator_binary();
-        UMD_THROW("Incomplete copy with sendfile: copied {} of {} bytes", bytes_copied, file_size);
+        UMD_THROW("Incomplete copy with sendfile: copied {} of {} bytes.", bytes_copied, file_size);
     }
 }
 

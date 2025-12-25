@@ -33,6 +33,14 @@ public:
     void write_block_reconfigure(
         const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
 
+    void noc_multicast_write_reconfigure(
+        void* dst,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        uint64_t ordering = tlb_data::Strict);
+
     TlbHandle& handle_ref() const;
 
     size_t get_size() const;

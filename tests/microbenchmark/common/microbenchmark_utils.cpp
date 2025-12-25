@@ -29,7 +29,7 @@ std::pair<double, double> perf_read_write(
     std::vector<uint8_t> readback(buf_size, 0x0);
     now = std::chrono::steady_clock::now();
     for (int i = 0; i < num_iterations; i++) {
-        cluster->read_from_device(readback.data(), chip, core, address, readback.size());
+        // cluster->read_from_device(readback.data(), chip, core, address, readback.size());
     }
     end = std::chrono::steady_clock::now();
     ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();

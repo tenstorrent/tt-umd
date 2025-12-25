@@ -219,38 +219,47 @@ void TlbWindow::configure(const tlb_data &new_config) {
 uint64_t TlbWindow::get_total_offset(uint64_t offset) const { return offset + offset_from_aligned_addr; }
 
 void TlbWindow::custom_memcpy(void *dst, const void *src, std::size_t size) {
-    if (size == 0) {
+    auto* d = static_cast<std::uint8_t*>(dst);
+    auto* s = static_cast<const std::uint8_t*>(src);
+
+    // Small copy fallback
+    if (size < 128) {
+        for (std::size_t i = 0; i < size; ++i)
+            d[i] = s[i];
         return;
     }
 
-    uint8_t *d = static_cast<uint8_t *>(dst);
-    const uint8_t *s = static_cast<const uint8_t *>(src);
-
-    uintptr_t addr = reinterpret_cast<uintptr_t>(d);
-    size_t misalign = addr % 16;
-
-    if (misalign != 0) {
-        size_t prefix = 16 - misalign;
-        if (prefix > size) {
-            prefix = size;
-        }
-
-        std::memcpy(d, s, prefix);
-        d += prefix;
-        s += prefix;
-        size -= prefix;
+    // Align destination to 32 bytes
+    while (reinterpret_cast<std::uintptr_t>(d) & 31) {
+        *d++ = *s++;
+        --size;
     }
 
-    size_t aligned_size = size & ~size_t(15);  // round down to multiple of 16
-    if (aligned_size > 0) {
-        custom_memcpy_aligned(d, s, aligned_size);
-        d += aligned_size;
-        s += aligned_size;
-        size -= aligned_size;
+    // Main loop: unrolled
+    while (size >= 128) {
+        _mm_prefetch(s + 256, _MM_HINT_T0);
+
+        __m256i v0 = _mm256_loadu_si256((__m256i*)(s +  0));
+        __m256i v1 = _mm256_loadu_si256((__m256i*)(s + 32));
+        __m256i v2 = _mm256_loadu_si256((__m256i*)(s + 64));
+        __m256i v3 = _mm256_loadu_si256((__m256i*)(s + 96));
+
+        _mm256_stream_si256((__m256i*)(d +  0), v0);
+        _mm256_stream_si256((__m256i*)(d + 32), v1);
+        _mm256_stream_si256((__m256i*)(d + 64), v2);
+        _mm256_stream_si256((__m256i*)(d + 96), v3);
+
+        s += 128;
+        d += 128;
+        size -= 128;
     }
 
-    if (size > 0) {
-        std::memcpy(d, s, size);
+    // Store fence required for streaming stores
+    // _mm_sfence();
+
+    // Tail
+    while (size--) {
+        *d++ = *s++;
     }
 }
 

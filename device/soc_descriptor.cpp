@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -642,24 +642,6 @@ std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {
     std::filesystem::path soc_path = soc_path_dir / "soc_descriptor.yaml";
 
     return soc_path;
-}
-
-std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
-        case tt::ARCH::BLACKHOLE: {
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/blackhole_140_arch.yaml");
-        }
-        case tt::ARCH::QUASAR: {
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/quasar_simulation_1x1.yaml");
-        }
-        default:
-            TT_THROW("Invalid architecture");
-    }
 }
 
 void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {

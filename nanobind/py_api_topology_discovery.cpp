@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/pair.h>
@@ -38,6 +37,14 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_chip_locations", &ClusterDescriptor::get_chip_locations)
         .def("get_chips_with_mmio", &ClusterDescriptor::get_chips_with_mmio)
         .def("get_active_eth_channels", &ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
+        .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids)
+        .def(
+            "serialize_to_file",
+            [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {
+                std::filesystem::path file_path = self.serialize_to_file(dest_file);
+                return file_path.string();
+            },
+            nb::arg("dest_file") = "")
         .def(
             "get_arch",
             static_cast<tt::ARCH (ClusterDescriptor::*)(ChipId) const>(&ClusterDescriptor::get_arch),

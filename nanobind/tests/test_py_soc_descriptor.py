@@ -1,5 +1,6 @@
-# SPDX-FileCopyrightText: 2025 Tenstorrent Inc.
+# SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 # SPDX-License-Identifier: Apache-2.0
+
 import unittest
 import tt_umd
 
@@ -89,6 +90,57 @@ class TestSocDescriptor(unittest.TestCase):
             all_cores = soc_descriptor.get_all_cores()
             print(f"Total cores: {len(all_cores)}")
             print(f"First 5 cores: {[str(c) for c in all_cores[:5]]}")
+
+    def test_translate_coord_to(self):
+        """Test translate_coord_to method with both overloads."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found. Skipping test.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.init_tt_device()
+
+            print(f"\n=== Testing translate_coord_to on device {pci_id} ===")
+            soc_descriptor = tt_umd.SocDescriptor(dev)
+
+            # Get some cores to test with
+            tensix_cores = soc_descriptor.get_cores(tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.NOC0)
+            if len(tensix_cores) == 0:
+                print("No TENSIX cores found. Skipping translate_coord_to test.")
+                continue
+
+            # Test first overload: translate_coord_to(CoreCoord, CoordSystem)
+            print("\n=== Testing translate_coord_to with CoreCoord ===")
+            test_core = tensix_cores[0]
+            print(f"Original core (NOC0): {test_core}")
+            
+            # Translate to different coordinate systems
+            for target_coord_sys in [tt_umd.CoordSystem.LOGICAL, tt_umd.CoordSystem.NOC1, tt_umd.CoordSystem.TRANSLATED]:
+                translated = soc_descriptor.translate_coord_to(test_core, target_coord_sys)
+                print(f"  Translated to {target_coord_sys}: {translated}")
+                # Verify the translated core has the correct coordinate system
+                self.assertEqual(translated.coord_system, target_coord_sys,
+                               f"Translated core should have coord_system {target_coord_sys}")
+
+            # Test second overload: translate_coord_to(tt_xy_pair, CoordSystem, CoordSystem)
+            print("\n=== Testing translate_coord_to with tt_xy_pair ===")
+            # Use the x, y coordinates from the test core
+            xy_pair = tt_umd.tt_xy_pair(test_core.x, test_core.y)
+            print(f"Original xy_pair: {xy_pair}")
+            
+            # Translate from NOC0 to different coordinate systems
+            for target_coord_sys in [tt_umd.CoordSystem.LOGICAL, tt_umd.CoordSystem.NOC1]:
+                translated = soc_descriptor.translate_coord_to(
+                    xy_pair, 
+                    tt_umd.CoordSystem.NOC0, 
+                    target_coord_sys
+                )
+                print(f"  Translated from NOC0 to {target_coord_sys}: {translated}")
+                # Verify the translated core has the correct coordinate system
+                self.assertEqual(translated.coord_system, target_coord_sys,
+                               f"Translated core should have coord_system {target_coord_sys}")
 
 
 if __name__ == "__main__":

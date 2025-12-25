@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -97,8 +95,6 @@ public:
     // A default file in /tmp directory will be used if no path is passed.
     std::string serialize() const;
     std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
-
-    static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<CoreCoord> get_cores(
         const CoreType core_type,

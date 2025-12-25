@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -28,6 +26,4 @@ inline constexpr auto WARM_RESET_DEVICES_REAPPEAR_TIMEOUT = std::chrono::millise
 
 inline constexpr auto UBB_WARM_RESET_TIMEOUT = std::chrono::milliseconds(100'000);
 inline constexpr auto BH_WARM_RESET_TIMEOUT = std::chrono::milliseconds(2'000);
-
-inline constexpr auto BH_LITE_FABRIC_STATE_CHANGE_TIMEOUT = std::chrono::milliseconds(10'000);
 }  // namespace tt::umd::timeout

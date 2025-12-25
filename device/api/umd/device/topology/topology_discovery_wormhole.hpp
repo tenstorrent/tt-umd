@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include "umd/device/topology/topology_discovery.hpp"
@@ -68,7 +67,7 @@ protected:
 
     bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
 
-    void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) override;
+    bool verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) override;
 
     EthAddresses eth_addresses;
 

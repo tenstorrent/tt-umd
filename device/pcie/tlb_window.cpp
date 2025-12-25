@@ -174,6 +174,36 @@ void TlbWindow::write_block_reconfigure(
     }
 }
 
+void TlbWindow::noc_multicast_write_reconfigure(
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    uint8_t *buffer_addr = static_cast<uint8_t *>(dst);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_start = core_start.x;
+    config.y_start = core_start.y;
+    config.x_end = core_end.x;
+    config.y_end = core_end.y;
+    config.mcast = true;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+
+    while (size > 0) {
+        configure(config);
+        size_t tlb_size = get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        write_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+    }
+}
+
 template <typename Func, typename... Args>
 decltype(auto) TlbWindow::execute_safe(Func &&func, Args &&...args) {
     if (sigsetjmp(point, 1) == 0) {
@@ -214,6 +244,11 @@ void TlbWindow::safe_write_block_reconfigure(
 void TlbWindow::safe_read_block_reconfigure(
     void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
     execute_safe(&TlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, ordering);
+}
+
+void TlbWindow::safe_noc_multicast_write_reconfigure(
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    execute_safe(&TlbWindow::safe_noc_multicast_write_reconfigure, dst, size, core_start, core_end, addr, ordering);
 }
 
 TlbHandle &TlbWindow::handle_ref() const { return *tlb_handle; }

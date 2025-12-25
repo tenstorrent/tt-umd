@@ -15,12 +15,12 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
-#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "utils.hpp"
 
 // #include "l1_address_map.h"
@@ -39,7 +39,7 @@ tt_xy_pair format_node(std::string str) {
         x_coord = std::stoi(x_y_pair[1]);
         y_coord = std::stoi(x_y_pair[2]);
     } else {
-        TT_THROW("Could not parse the core id: {}", str);
+        UMD_THROW("Could not parse the core id: {}", str);
     }
 
     tt_xy_pair xy(x_coord, y_coord);
@@ -137,19 +137,19 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
     // Either have two separate enums or completely remove the check here.
     // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
     // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-    //     TT_THROW("P100 card should always have PCIE core (2, 0) harvested.");
+    //     UMD_THROW("P100 card should always have PCIE core (2, 0) harvested.");
     // }
 
     if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        TT_THROW("P150 card should always have PCIE core (11, 0) harvested.");
+        UMD_THROW("P150 card should always have PCIE core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 0 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        TT_THROW("P300 card left chip should always have PCIE core (11, 0) harvested.");
+        UMD_THROW("P300 card left chip should always have PCIE core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 1 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-        TT_THROW("P300 card right chip should always have PCIE core (2, 0) harvested.");
+        UMD_THROW("P300 card right chip should always have PCIE core (2, 0) harvested.");
     }
 
     pcie_grid_size = SocDescriptor::calculate_grid_size(pcie_cores);
@@ -348,7 +348,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
             break;
         }
         default:
-            TT_THROW("Invalid architecture for creating SocDescriptorInfo.");
+            UMD_THROW("Invalid architecture for creating SocDescriptorInfo.");
     }
 }
 
@@ -459,7 +459,7 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        TT_THROW("Device descriptor file {} does not exist.", device_descriptor_path);
+        UMD_THROW("Device descriptor file {} does not exist.", device_descriptor_path);
     }
     fdesc.close();
 
@@ -707,8 +707,8 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
     // Filter cores by channel if specified.
     // At this time, only applicable for DRAM cores.
     if (channel.has_value()) {
-        TT_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
-        TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
+        UMD_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
+        UMD_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
         std::vector<CoreCoord> filtered_cores;
         for (const auto &core : cores) {
             auto logical_core = translate_coord_to(core, CoordSystem::LOGICAL);
@@ -728,7 +728,7 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
     const CoreType core_type, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LOGICAL) {
-        TT_THROW("Harvested cores are not supported for logical coordinates");
+        UMD_THROW("Harvested cores are not supported for logical coordinates");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
     if (coord_system != CoordSystem::NOC0) {

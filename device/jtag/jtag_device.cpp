@@ -10,8 +10,8 @@
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/jtag/jtag.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 
@@ -82,7 +82,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         auto new_arch = jtag_device->get_jtag_arch(i);
 
         if (arch != new_arch) {
-            TT_THROW("Jtag ERROR: Not all devices have the same architecture.");
+            UMD_THROW("Jtag ERROR: Not all devices have the same architecture.");
         }
     }
 
@@ -108,7 +108,7 @@ std::optional<uint32_t> JtagDevice::get_efuse_harvesting(uint8_t chip_id) const 
 
 void JtagDevice::select_device(uint8_t chip_id) {
     if (chip_id >= get_device_cnt()) {
-        TT_THROW(
+        UMD_THROW(
             "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
             "There are currently {} registered devices.",
             chip_id,
@@ -120,7 +120,7 @@ void JtagDevice::select_device(uint8_t chip_id) {
 
         // Underlying JTAG library uses unix-style status returns. Success is represented by 0.
         if (jtag->open_jlink_by_serial_wrapper(jlink_devices[chip_id])) {
-            TT_THROW("JtagDevice::select_device: Failed to open JTAG device with chip_id {}", chip_id);
+            UMD_THROW("JtagDevice::select_device: Failed to open JTAG device with chip_id {}", chip_id);
         }
         curr_device_idx = chip_id;
     }
@@ -219,7 +219,7 @@ void JtagDevice::write(
 
         auto read_result = read32(chip_id, noc_x, noc_y, addr, noc_id);
         if (!read_result) {
-            TT_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
+            UMD_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
         }
 
         uint8_t* data_bytes = reinterpret_cast<uint8_t*>(&(*read_result));
@@ -257,7 +257,7 @@ void JtagDevice::read(
         // JTAG protocol doesn't require address alignment to word size (4 bytes).
         auto result = read32(chip_id, noc_x, noc_y, addr, noc_id);
         if (!result) {
-            TT_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
+            UMD_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
         }
         uint32_t data = *result;
         std::memcpy(buffer_addr, &data, transfer_size);
@@ -289,7 +289,7 @@ std::optional<uint8_t> JtagDevice::get_current_device_idx() const { return curr_
 
 int JtagDevice::get_device_id(uint8_t chip_id) const {
     if (chip_id >= get_device_cnt()) {
-        TT_THROW(
+        UMD_THROW(
             "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
             "There are currently {} registered devices.",
             chip_id,

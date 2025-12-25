@@ -34,12 +34,12 @@ std::ostream& operator<<(std::ostream& os, tt::OStreamJoin<A, B> const& join) {
 template <typename A, typename B>
 struct fmt::formatter<tt::OStreamJoin<A, B>> : fmt::ostream_formatter {};
 
-namespace tt::assert {
+namespace tt::umd::assert {
 
-inline void tt_assert_message(std::ostream& os) {}
+inline void umd_assert_message(std::ostream& os) {}
 
 template <typename T, typename... Ts>
-void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
+void umd_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
     if constexpr (sizeof...(ts) == 0) {
         os << t << std::endl;
         return;
@@ -80,22 +80,22 @@ void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
 }
 
 template <typename... Ts>
-[[noreturn]] void tt_throw(
+[[noreturn]] void umd_throw(
     char const* file, int line, const std::string& assert_type, char const* condition_str, Ts const&... messages) {
     std::stringstream trace_message_ss = {};
     trace_message_ss << assert_type << " @ " << file << ":" << line << ": " << condition_str << std::endl;
     if constexpr (sizeof...(messages) > 0) {
-        tt_assert_message(trace_message_ss, messages...);
+        umd_assert_message(trace_message_ss, messages...);
     }
     trace_message_ss << "Backtrace:\n";
-    trace_message_ss << tt::assert::backtrace_to_string(100, 3, " --- ");
+    trace_message_ss << tt::umd::assert::backtrace_to_string(100, 3, " --- ");
     trace_message_ss << std::flush;
     spdlog::default_logger()->flush();
     throw std::runtime_error(trace_message_ss.str());
 }
 
 template <typename... Ts>
-void tt_assert(
+void umd_assert(
     char const* file,
     int line,
     const std::string& assert_type,
@@ -103,12 +103,12 @@ void tt_assert(
     char const* condition_str,
     Ts const&... messages) {
     if (not condition) {
-        ::tt::assert::tt_throw(file, line, assert_type, condition_str, messages...);
+        ::tt::umd::assert::umd_throw(file, line, assert_type, condition_str, messages...);
     }
 }
 
-}  // namespace tt::assert
+}  // namespace tt::umd::assert
 
-#define TT_ASSERT(condition, ...) \
-    ::tt::assert::tt_assert(__FILE__, __LINE__, "TT_ASSERT", (condition), #condition, ##__VA_ARGS__)
-#define TT_THROW(...) ::tt::assert::tt_throw(__FILE__, __LINE__, "TT_THROW", "tt::exception", ##__VA_ARGS__)
+#define UMD_ASSERT(condition, ...) \
+    ::tt::umd::assert::umd_assert(__FILE__, __LINE__, "UMD_ASSERT", (condition), #condition, ##__VA_ARGS__)
+#define UMD_THROW(...) ::tt::umd::assert::umd_throw(__FILE__, __LINE__, "UMD_THROW", "tt::exception", ##__VA_ARGS__)

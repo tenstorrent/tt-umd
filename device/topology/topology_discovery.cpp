@@ -13,12 +13,12 @@
 #include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
-#include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
@@ -40,7 +40,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
         }
         case IODeviceType::JTAG: {
             if (current_arch == tt::ARCH::BLACKHOLE) {
-                TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
+                UMD_THROW("Blackhole architecture is not yet supported over JTAG interface.");
             }
 
             auto jtag_device = JtagDevice::create();
@@ -51,7 +51,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             break;
         }
         default:
-            TT_THROW("Unsupported device type for topology discovery");
+            UMD_THROW("Unsupported device type for topology discovery");
     }
 
     switch (current_arch) {
@@ -60,7 +60,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<TopologyDiscoveryBlackhole>(options);
         default:
-            TT_THROW("Unsupported architecture for topology discovery.");
+            UMD_THROW("Unsupported architecture for topology discovery.");
     }
 }
 
@@ -102,7 +102,7 @@ void TopologyDiscovery::get_connected_chips() {
             break;
         }
         default:
-            TT_THROW("Unsupported device type.");
+            UMD_THROW("Unsupported device type.");
     }
     for (auto& device_id : device_ids) {
         std::unique_ptr<LocalChip> chip =
@@ -377,7 +377,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
         minimum_compatible_fw_bundle_version.to_string(),
         latest_supported_fw_bundle_version.to_string());
 
-    TT_ASSERT(
+    UMD_ASSERT(
         semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) >= 0,
         "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
         "architecture.",

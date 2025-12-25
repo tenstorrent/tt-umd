@@ -11,9 +11,9 @@
 #include <fstream>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -24,7 +24,7 @@ SysmemManager::SysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_chan
         tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
             ? 0x800000000
             : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0)) {
-    TT_ASSERT(
+    UMD_ASSERT(
         num_host_mem_channels <= 4,
         "Only 4 host memory channels are supported per device, but {} requested.",
         num_host_mem_channels);
@@ -77,14 +77,14 @@ void SysmemManager::unpin_or_unmap_sysmem() {
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    TT_ASSERT(
+    UMD_ASSERT(
         hugepage_map.mapping,
         "write_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         tt_device_->get_pci_device()->get_device_num(),
         channel);
 
-    TT_ASSERT(
+    UMD_ASSERT(
         size <= hugepage_map.mapping_size,
         "write_buffer data has larger size {} than destination buffer {}",
         size,
@@ -103,7 +103,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    TT_ASSERT(
+    UMD_ASSERT(
         hugepage_map.mapping,
         "read_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
@@ -305,14 +305,14 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     log_info(LogUMD, "Initializing iommu for sysmem (size: {:#x}).", iommu_mapping_size);
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
-        TT_THROW("IOMMU is required for sysmem without hugepages.");
+        UMD_THROW("IOMMU is required for sysmem without hugepages.");
     }
 
     log_info(LogUMD, "Allocating sysmem without hugepages (size: {:#x}).", iommu_mapping_size);
     iommu_mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
 
     if (iommu_mapping == MAP_FAILED) {
-        TT_THROW(
+        UMD_THROW(
             "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
             size,
             strerror(errno));
@@ -345,7 +345,7 @@ bool SysmemManager::pin_or_map_iommu() {
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
     if (map_buffer_to_noc && !noc_address.has_value()) {
-        TT_THROW("NOC address is not set for sysmem buffer.");
+        UMD_THROW("NOC address is not set for sysmem buffer.");
     }
 
     if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
@@ -353,7 +353,7 @@ bool SysmemManager::pin_or_map_iommu() {
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
         log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        TT_THROW("Proceeding could lead to undefined behavior");
+        UMD_THROW("Proceeding could lead to undefined behavior");
     }
 
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -35,11 +35,11 @@ public:
         auto dst = reinterpret_cast<uintptr_t>(base) + address;
 
         if (address >= tlb_size) {
-            TT_THROW("Address out of bounds for TLB");
+            UMD_THROW("Address out of bounds for TLB");
         }
 
         if (alignof(T) > 1 && (dst & (alignof(T) - 1))) {
-            TT_THROW("Unaligned write");
+            UMD_THROW("Unaligned write");
         }
 
         *reinterpret_cast<volatile T *>(dst) = value;

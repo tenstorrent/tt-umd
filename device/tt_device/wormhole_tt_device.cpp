@@ -9,13 +9,13 @@
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "utils.hpp"
 
 extern bool umd_use_noc1;
@@ -77,7 +77,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
         {0, 0});
 
     if (ret_code != 0) {
-        TT_THROW("Failed to get harvesting masks with exit code {}", ret_code);
+        UMD_THROW("Failed to get harvesting masks with exit code {}", ret_code);
     }
 
     chip_info.harvesting_masks.tensix_harvesting_mask =
@@ -94,7 +94,7 @@ uint32_t WormholeTTDevice::get_clock() {
         arc_msg_return_values,
         {0xFFFF, 0xFFFF});
     if (exit_code != 0) {
-        TT_THROW("Failed to get AICLK value with exit code {}", exit_code);
+        UMD_THROW("Failed to get AICLK value with exit code {}", exit_code);
     }
     return arc_msg_return_values[0];
 }
@@ -113,7 +113,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     }
 
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("configure_iatu_region is redundant for JTAG communication type.");
+        UMD_THROW("configure_iatu_region is redundant for JTAG communication type.");
     }
 
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 0 * 4, region_id_to_use);
@@ -137,7 +137,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
 
 void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_d2h_transfer is not applicable for JTAG communication type.");
+        UMD_THROW("dma_d2h_transfer is not applicable for JTAG communication type.");
     }
 
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
@@ -161,19 +161,19 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
     if (!completion || !dma_buffer.buffer) {
-        TT_THROW("DMA buffer is not initialized");
+        UMD_THROW("DMA buffer is not initialized");
     }
 
     if (src % 4 != 0) {
-        TT_THROW("DMA source address must be aligned to 4 bytes");
+        UMD_THROW("DMA source address must be aligned to 4 bytes");
     }
 
     if (size % 4 != 0) {
-        TT_THROW("DMA size must be a multiple of 4");
+        UMD_THROW("DMA size must be a multiple of 4");
     }
 
     if (!bar2) {
-        TT_THROW("BAR2 is not mapped");
+        UMD_THROW("BAR2 is not mapped");
     }
 
     // Reset completion flag.
@@ -209,14 +209,14 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            TT_THROW("DMA timeout");
+            UMD_THROW("DMA timeout");
         }
     }
 }
 
 void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
+        UMD_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
     }
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
@@ -239,19 +239,19 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
     if (!completion || !dma_buffer.buffer) {
-        TT_THROW("DMA buffer is not initialized");
+        UMD_THROW("DMA buffer is not initialized");
     }
 
     if (dst % 4 != 0) {
-        TT_THROW("DMA destination address must be aligned to 4 bytes");
+        UMD_THROW("DMA destination address must be aligned to 4 bytes");
     }
 
     if (size % 4 != 0) {
-        TT_THROW("DMA size must be a multiple of 4");
+        UMD_THROW("DMA size must be a multiple of 4");
     }
 
     if (!bar2) {
-        TT_THROW("BAR2 is not mapped");
+        UMD_THROW("BAR2 is not mapped");
     }
 
     // Reset completion flag.
@@ -287,7 +287,7 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            TT_THROW("DMA timeout");
+            UMD_THROW("DMA timeout");
         }
     }
 }
@@ -299,12 +299,12 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
 // the application will require IOMMU support.  One day...
 void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_d2h is not applicable for JTAG communication type.");
+        UMD_THROW("dma_d2h is not applicable for JTAG communication type.");
     }
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
-        TT_THROW("DMA size exceeds buffer size");
+        UMD_THROW("DMA size exceeds buffer size");
     }
 
     dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
@@ -313,12 +313,12 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
+        UMD_THROW("dma_h2d is not applicable for JTAG communication type.");
     }
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
-        TT_THROW("DMA size exceeds buffer size");
+        UMD_THROW("DMA size exceeds buffer size");
     }
 
     memcpy(dma_buffer.buffer, src, size);
@@ -327,21 +327,21 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
 
 void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
+        UMD_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
     }
     dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
 void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
+        UMD_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
     }
     dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
 }
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        TT_THROW("Address is out of ARC APB address range");
+        UMD_THROW("Address is out of ARC APB address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -359,7 +359,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        TT_THROW("Address is out of ARC APB address range");
+        UMD_THROW("Address is out of ARC APB address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -377,7 +377,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
 
 void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        TT_THROW("Address is out of ARC CSM address range");
+        UMD_THROW("Address is out of ARC CSM address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(
@@ -395,7 +395,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        TT_THROW("Address is out of ARC CSM address range");
+        UMD_THROW("Address is out of ARC CSM address range");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(
@@ -439,7 +439,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
         time_taken_port = duration;
         if (time_taken_port > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
-                TT_THROW(
+                UMD_THROW(
                     "ETH training timed out after {} ms, on eth core {}, {}",
                     timeout_ms.count(),
                     eth_core.x,
@@ -479,7 +479,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         eth_conn_info = 0x1200;
         results_buf = 0x1ec0;
     } else {
-        TT_THROW("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version);
+        UMD_THROW("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version);
     }
 
     if (masked_version >= 0x06C000) {
@@ -619,7 +619,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
 bool WormholeTTDevice::is_hardware_hung() {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+        UMD_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
     uint32_t scratch_data = bar_read32(

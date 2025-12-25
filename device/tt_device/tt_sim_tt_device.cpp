@@ -7,7 +7,7 @@
 namespace tt::umd {
 
 TTSimTTDevice::TTSimTTDevice() {
-    TT_THROW("Creating TTSimTTDevice without an underlying communication device is not supported.");
+    UMD_THROW("Creating TTSimTTDevice without an underlying communication device is not supported.");
 }
 
 }  // namespace tt::umd

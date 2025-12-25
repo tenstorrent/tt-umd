@@ -7,7 +7,6 @@
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
@@ -18,6 +17,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/assert.hpp"
 
 extern bool umd_use_noc1;
 
@@ -128,7 +128,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
-    TT_THROW(
+    UMD_THROW(
         "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
         "bug.");
 }
@@ -244,7 +244,7 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
             break;
         }
         default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
+            UMD_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);

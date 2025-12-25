@@ -6,7 +6,6 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
@@ -14,6 +13,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/utils/assert.hpp"
 
 extern bool umd_use_noc1;
 
@@ -230,9 +230,9 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
         return 0;
     }
 
-    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    UMD_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
     HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
-    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    UMD_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 
@@ -321,7 +321,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
+        UMD_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
@@ -377,7 +377,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
+        UMD_THROW(
             "DMA operations are not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
@@ -434,11 +434,11 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
-        TT_THROW("Size must be a multiple of 4 bytes");
+        UMD_THROW("Size must be a multiple of 4 bytes");
     }
 
     if (reg_dest % sizeof(uint32_t) != 0) {
-        TT_THROW("Register address must be 4-byte aligned");
+        UMD_THROW("Register address must be 4-byte aligned");
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
@@ -464,11 +464,11 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
-        TT_THROW("Size must be a multiple of 4 bytes");
+        UMD_THROW("Size must be a multiple of 4 bytes");
     }
 
     if (reg_src % sizeof(uint32_t) != 0) {
-        TT_THROW("Register address must be 4-byte aligned");
+        UMD_THROW("Register address must be 4-byte aligned");
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
@@ -497,7 +497,7 @@ void LocalChip::ethernet_broadcast_write(
     // Depending on the device type, the implementation may vary.
     // Currently JTAG doesn't support remote communication.
     if (!remote_communication_) {
-        TT_THROW(
+        UMD_THROW(
             "Ethernet remote transfer is currently not supported for {} devices.",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
     }
@@ -532,7 +532,7 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int
 
 void LocalChip::check_pcie_device_initialized() {
     if (test_setup_interface()) {
-        TT_THROW(
+        UMD_THROW(
             "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
             "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
     }
@@ -549,7 +549,7 @@ int LocalChip::test_setup_interface() {
         // TODO #768 figure out BH implementation.
         return 0;
     } else {
-        TT_THROW("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch));
+        UMD_THROW("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch));
     }
 }
 
@@ -560,7 +560,7 @@ void LocalChip::init_pcie_iatus() {
         size_t region_size = hugepage_map.mapping_size;
 
         if (!hugepage_map.mapping) {
-            TT_THROW("Hugepages are not allocated for ch: {}", channel);
+            UMD_THROW("Hugepages are not allocated for ch: {}", channel);
         }
 
         if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
@@ -625,7 +625,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
             } else if (core_from_soc.core_type == CoreType::ETH) {
                 eth_to_sync.push_back(core);
             } else {
-                TT_THROW("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
+                UMD_THROW("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
             }
         }
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
@@ -643,7 +643,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
         for (const auto& core : cores) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
@@ -716,12 +716,12 @@ TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
 void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW("noc_multicast_write is only supported for Tensix cores.");
     }
 
     // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW("noc_multicast_write is only supported on PCIe devices.");
+        UMD_THROW("noc_multicast_write is only supported on PCIe devices.");
     }
 
     std::lock_guard<std::mutex> lock(wc_tlb_lock);

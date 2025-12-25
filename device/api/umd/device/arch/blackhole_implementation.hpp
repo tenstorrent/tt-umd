@@ -7,10 +7,10 @@
 #include <array>
 #include <stdexcept>
 
-#include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/common.hpp"
 
 namespace tt::umd {
@@ -343,7 +343,7 @@ public:
 
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(blackhole::arc_message_type::TEST); }
 
-    uint32_t get_arc_csm_bar0_mailbox_offset() const override { TT_THROW("Not implemented for Blackhole arch"); }
+    uint32_t get_arc_csm_bar0_mailbox_offset() const override { UMD_THROW("Not implemented for Blackhole arch"); }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 
@@ -373,11 +373,11 @@ public:
 
     uint32_t get_dynamic_tlb_2m_size() const override { return blackhole::DYNAMIC_TLB_2M_SIZE; }
 
-    uint32_t get_dynamic_tlb_16m_base() const override { TT_THROW("No 16MB TLBs for Blackhole arch"); }
+    uint32_t get_dynamic_tlb_16m_base() const override { UMD_THROW("No 16MB TLBs for Blackhole arch"); }
 
-    uint32_t get_dynamic_tlb_16m_size() const override { TT_THROW("No 16MB TLBs for Blackhole arch"); }
+    uint32_t get_dynamic_tlb_16m_size() const override { UMD_THROW("No 16MB TLBs for Blackhole arch"); }
 
-    uint32_t get_dynamic_tlb_16m_cfg_addr() const override { TT_THROW("No 16MB TLBs for Blackhole arch"); }
+    uint32_t get_dynamic_tlb_16m_cfg_addr() const override { UMD_THROW("No 16MB TLBs for Blackhole arch"); }
 
     uint32_t get_mem_large_read_tlb() const override { return blackhole::MEM_LARGE_READ_TLB; }
 
@@ -393,7 +393,7 @@ public:
 
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
 
-    uint32_t get_tlb_base_index_16m() const override { TT_THROW("No 16MB TLBs for Blackhole arch"); }
+    uint32_t get_tlb_base_index_16m() const override { UMD_THROW("No 16MB TLBs for Blackhole arch"); }
 
     uint32_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }
 
@@ -412,7 +412,7 @@ public:
     uint64_t get_arc_apb_noc_base_address() const override { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
     uint64_t get_arc_csm_noc_base_address() const override {
-        TT_THROW("CSM fetch base address not implemented for Blackhole.");
+        UMD_THROW("CSM fetch base address not implemented for Blackhole.");
     }
 
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {

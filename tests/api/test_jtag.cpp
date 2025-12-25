@@ -7,7 +7,6 @@
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/jtag/jtag.hpp"
@@ -16,6 +15,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/assert.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -142,7 +142,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
     for (const auto& pci_device_id : pci_device_ids) {
         auto pci_tt_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
         if (!pci_tt_device) {
-            TT_THROW("Failed to create PCI TT device.");
+            UMD_THROW("Failed to create PCI TT device.");
         }
         pci_tt_device->init_tt_device();
 

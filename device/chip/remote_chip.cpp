@@ -6,12 +6,12 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -115,11 +115,11 @@ void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_s
 }
 
 void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    TT_THROW("RemoteChip::dma_write_to_device is not available for this chip.");
+    UMD_THROW("RemoteChip::dma_write_to_device is not available for this chip.");
 }
 
 void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    TT_THROW("RemoteChip::dma_read_from_device is not available for this chip.");
+    UMD_THROW("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
@@ -136,17 +136,17 @@ int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
 int RemoteChip::get_num_host_channels() { return 0; }
 
-int RemoteChip::get_host_channel_size(std::uint32_t channel) { TT_THROW("There are no host channels available."); }
+int RemoteChip::get_host_channel_size(std::uint32_t channel) { UMD_THROW("There are no host channels available."); }
 
 void RemoteChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    TT_THROW("RemoteChip::write_to_sysmem is not available for this chip.");
+    UMD_THROW("RemoteChip::write_to_sysmem is not available for this chip.");
 }
 
 void RemoteChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    TT_THROW("RemoteChip::read_from_sysmem is not available for this chip.");
+    UMD_THROW("RemoteChip::read_from_sysmem is not available for this chip.");
 }
 
-int RemoteChip::get_numa_node() { TT_THROW("RemoteChip::get_numa_node is not available for this chip."); }
+int RemoteChip::get_numa_node() { UMD_THROW("RemoteChip::get_numa_node is not available for this chip."); }
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     remote_communication_->set_remote_transfer_ethernet_cores(
@@ -161,10 +161,10 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& ch
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* RemoteChip::get_sysmem_manager() {
-    TT_THROW("RemoteChip::get_sysmem_manager is not available for this chip.");
+    UMD_THROW("RemoteChip::get_sysmem_manager is not available for this chip.");
 }
 
-TLBManager* RemoteChip::get_tlb_manager() { TT_THROW("RemoteChip::get_tlb_manager is not available for this chip."); }
+TLBManager* RemoteChip::get_tlb_manager() { UMD_THROW("RemoteChip::get_tlb_manager is not available for this chip."); }
 
 RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }
 }  // namespace tt::umd

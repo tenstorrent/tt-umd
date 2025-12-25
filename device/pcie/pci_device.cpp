@@ -18,10 +18,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
@@ -83,7 +83,7 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
             device_info.pci_device,
             device_info.pci_function,
             attribute_name);
-        TT_THROW("Failed reading or parsing sysfs attribute: {}", sysfs_path);
+        UMD_THROW("Failed reading or parsing sysfs attribute: {}", sysfs_path);
     }
     return *result;
 }
@@ -174,7 +174,7 @@ static PciDeviceInfo read_device_info(int fd) {
     info.in.output_size_bytes = sizeof(info.out);
 
     if (ioctl(fd, TENSTORRENT_IOCTL_GET_DEVICE_INFO, &info) < 0) {
-        TT_THROW("TENSTORRENT_IOCTL_GET_DEVICE_INFO failed");
+        UMD_THROW("TENSTORRENT_IOCTL_GET_DEVICE_INFO failed");
     }
 
     uint16_t bus = info.out.bus_dev_fn >> 8;
@@ -210,7 +210,7 @@ static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint3
             reset_info.out.output_size_bytes = 0;
             reset_info.out.result = 0;
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
-                TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
+                UMD_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
         } catch (...) {
         }
@@ -284,10 +284,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
     if (iommu_enabled && kmd_version < KMD_IOMMU) {
-        TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
+        UMD_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
     if (kmd_version < KMD_TLBS) {
-        TT_THROW("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string());
+        UMD_THROW("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string());
     }
 
     if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
@@ -303,14 +303,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (tt_device_handle != nullptr) {
             tt_device_close(tt_device_handle);
         }
-        TT_THROW(
+        UMD_THROW(
             "tt_device_open failed with error code {} for PCI device with device ID {}.", ret_code, pci_device_number);
     }
 
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
-        TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+        UMD_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
     }
 
     log_debug(
@@ -321,7 +321,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
-    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    UMD_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;
@@ -332,7 +332,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     mappings.query_mappings.in.output_mapping_count = 8;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        TT_THROW("Query mappings failed on device {}.", pci_device_num);
+        UMD_THROW("Query mappings failed on device {}.", pci_device_num);
     }
 
     // Mapping resource to BAR
@@ -380,7 +380,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
-        TT_THROW("Device {} has no BAR0 UC mapping.", pci_device_num);
+        UMD_THROW("Device {} has no BAR0 UC mapping.", pci_device_num);
     }
 
     bar0 = mmap(
@@ -392,12 +392,12 @@ PCIDevice::PCIDevice(int pci_device_number) :
         bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
 
     if (bar0 == MAP_FAILED) {
-        TT_THROW("BAR0 mapping failed for device {}.", pci_device_num);
+        UMD_THROW("BAR0 mapping failed for device {}.", pci_device_num);
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            TT_THROW("Device {} has no BAR4 UC mapping.", pci_device_num);
+            UMD_THROW("Device {} has no BAR4 UC mapping.", pci_device_num);
         }
 
         bar2_uc_size = bar2_uc_mapping.mapping_size;
@@ -410,11 +410,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar2_uc_mapping.mapping_base);
 
         if (bar2_uc == MAP_FAILED) {
-            TT_THROW("BAR2 UC mapping failed for device {}.", pci_device_num);
+            UMD_THROW("BAR2 UC mapping failed for device {}.", pci_device_num);
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
-            TT_THROW("Device {} has no BAR2 UC mapping.", pci_device_num);
+            UMD_THROW("Device {} has no BAR2 UC mapping.", pci_device_num);
         }
 
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
@@ -428,7 +428,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar2_uc_mapping.mapping_base);
 
         if (bar2_uc == MAP_FAILED) {
-            TT_THROW("BAR2 UC mapping failed for device {}.", pci_device_num);
+            UMD_THROW("BAR2 UC mapping failed for device {}.", pci_device_num);
         }
     }
 
@@ -494,18 +494,18 @@ bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_km
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
     if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
-        TT_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
+        UMD_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
     }
 
     if (size > page_size && !is_iommu_enabled()) {
-        TT_THROW("Cannot map buffer of size {} to NOC with IOMMU disabled", size);
+        UMD_THROW("Cannot map buffer of size {} to NOC with IOMMU disabled", size);
     }
 
     struct {
@@ -519,7 +519,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW(
+        UMD_THROW(
             "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
             fmt::format("{:#x}", pin.in.virtual_address),
             fmt::format("{:#x}", pin.in.size),
@@ -541,18 +541,18 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
     if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
-        TT_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
+        UMD_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t vaddr = reinterpret_cast<uint64_t>(hugepage);
 
     if (size > (1 << 30)) {
-        TT_THROW("Not a hugepage");
+        UMD_THROW("Not a hugepage");
     }
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
     }
 
     if (is_iommu_enabled()) {
@@ -571,7 +571,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     pin.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
-        TT_THROW(
+        UMD_THROW(
             "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
             fmt::format("{:#x}", pin.in.virtual_address),
             fmt::format("{:#x}", pin.in.size),
@@ -598,7 +598,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     const uint32_t flags = is_iommu_enabled() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
     }
 
     tenstorrent_pin_pages pin_pages{};
@@ -608,7 +608,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-        TT_THROW(
+        UMD_THROW(
             "Failed to pin pages for DMA buffer at virtual address {} with size {} and flags {}: {}",
             fmt::format("{:#x}", pin_pages.in.virtual_address),
             fmt::format("{:#x}", pin_pages.in.size),
@@ -633,7 +633,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
-        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+        UMD_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
     }
 
     tenstorrent_unpin_pages unpin_pages{};
@@ -641,7 +641,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     unpin_pages.in.size = size;
 
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
-        TT_THROW(
+        UMD_THROW(
             "Failed to unpin pages for DMA buffer at virtual address {} and size {}: {}",
             fmt::format("{:#x}", vaddr),
             fmt::format("{:#x}", size),
@@ -681,7 +681,7 @@ void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, T
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
     int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
     if (fd == -1) {
-        TT_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
+        UMD_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
     }
     auto device_info = read_device_info(fd);
 
@@ -693,7 +693,7 @@ uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
             device_info.pci_bus,
             device_info.pci_device,
             device_info.pci_function);
-        TT_THROW("Failed reading or parsing sysfs config: {}", sysfs_path);
+        UMD_THROW("Failed reading or parsing sysfs config: {}", sysfs_path);
     }
     return *command_byte;
 }

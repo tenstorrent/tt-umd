@@ -6,7 +6,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -90,7 +90,7 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
 
 std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
-        TT_THROW("Mutex not initialized: " + mutex_name);
+        UMD_THROW("Mutex not initialized: " + mutex_name);
     }
     return std::unique_lock(mutexes.at(mutex_name));
 }

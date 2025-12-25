@@ -18,13 +18,13 @@
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 // NOLINTBEGIN.
 #define DLSYM_FUNCTION(func_name)                                                    \
     pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
     if (!pfn_##func_name) {                                                          \
-        TT_THROW("Failed to find symbol: ", #func_name, dlerror());                  \
+        UMD_THROW("Failed to find symbol: ", #func_name, dlerror());                 \
     }
 
 // NOLINTEND.
@@ -63,7 +63,7 @@ void TTSimChip::start_device() {
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = pci_id >> 16;
     log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
-    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 }
 
 void TTSimChip::close_device() {
@@ -104,7 +104,7 @@ void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixS
         pfn_libttsim_tile_wr_bytes(
             translated_core.x, translated_core.y, soft_reset_addr, &reset_value, sizeof(reset_value));
     } else {
-        TT_THROW("Missing implementation of reset for this chip.");
+        UMD_THROW("Missing implementation of reset for this chip.");
     }
 }
 
@@ -166,7 +166,7 @@ void TTSimChip::create_simulator_binary() {
     const std::string memfd_name = (filename + "_chip" + std::to_string(chip_id_) + extension);
     copied_simulator_fd_ = memfd_create(memfd_name.c_str(), MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (copied_simulator_fd_ < 0) {
-        TT_THROW("Failed to create memfd: {}", strerror(errno));
+        UMD_THROW("Failed to create memfd: {}", strerror(errno));
     }
 }
 
@@ -175,13 +175,13 @@ off_t TTSimChip::resize_simulator_binary(int src_fd) {
     if (fstat(src_fd, &st) < 0) {
         close(src_fd);
         close_simulator_binary();
-        TT_THROW("Failed to get file size: {}", strerror(errno));
+        UMD_THROW("Failed to get file size: {}", strerror(errno));
     }
     off_t file_size = st.st_size;
     if (ftruncate(copied_simulator_fd_, file_size) < 0) {
         close(src_fd);
         close_simulator_binary();
-        TT_THROW("Failed to allocate space in memfd: {}", strerror(errno));
+        UMD_THROW("Failed to allocate space in memfd: {}", strerror(errno));
     }
     return file_size;
 }
@@ -190,7 +190,7 @@ void TTSimChip::copy_simulator_binary() {
     int src_fd = open(simulator_directory_.c_str(), O_RDONLY | O_CLOEXEC);
     if (src_fd < 0) {
         close_simulator_binary();
-        TT_THROW("Failed to open simulator file for reading: {} - {}", simulator_directory_.string(), strerror(errno));
+        UMD_THROW("Failed to open simulator file for reading: {} - {}", simulator_directory_.string(), strerror(errno));
     }
     off_t file_size = resize_simulator_binary(src_fd);
     off_t offset = 0;
@@ -198,18 +198,18 @@ void TTSimChip::copy_simulator_binary() {
     close(src_fd);
     if (bytes_copied < 0) {
         close_simulator_binary();
-        TT_THROW("Failed to copy file with sendfile: {}", strerror(errno));
+        UMD_THROW("Failed to copy file with sendfile: {}", strerror(errno));
     }
     if (bytes_copied != file_size) {
         close_simulator_binary();
-        TT_THROW("Incomplete copy with sendfile: copied {} of {} bytes", bytes_copied, file_size);
+        UMD_THROW("Incomplete copy with sendfile: copied {} of {} bytes", bytes_copied, file_size);
     }
 }
 
 void TTSimChip::secure_simulator_binary() {
     if (fcntl(copied_simulator_fd_, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL) < 0) {
         close_simulator_binary();
-        TT_THROW("Failed to seal memfd: {}", strerror(errno));
+        UMD_THROW("Failed to seal memfd: {}", strerror(errno));
     }
 }
 
@@ -217,7 +217,7 @@ void TTSimChip::load_simulator_library(const std::filesystem::path& path) {
     libttsim_handle = dlopen(path.c_str(), RTLD_LAZY);
     if (!libttsim_handle) {
         close_simulator_binary();
-        TT_THROW("Failed to dlopen simulator library: {}", dlerror());
+        UMD_THROW("Failed to dlopen simulator library: {}", dlerror());
     }
     DLSYM_FUNCTION(libttsim_init)
     DLSYM_FUNCTION(libttsim_exit)

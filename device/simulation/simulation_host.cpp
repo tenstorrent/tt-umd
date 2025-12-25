@@ -20,7 +20,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <typeinfo>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -90,7 +90,7 @@ void SimulationHost::init() {
     log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
     int rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
-    TT_ASSERT(rv == 0, "Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr);
+    UMD_ASSERT(rv == 0, "Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr);
 }
 
 SimulationHost::~SimulationHost() {

@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 /*static*/ DlHandle Jtag::handle;
 
@@ -26,7 +26,7 @@ void DlCloser::operator()(void* handle) const {
 
 void Jtag::openLibrary(const std::string& filePath, int flags) {
     if (!std::filesystem::exists(filePath)) {
-        TT_THROW(
+        UMD_THROW(
             "You do not have a JTAG library at {}.\n"
             "File path could be wrong.",
             filePath);
@@ -38,7 +38,7 @@ void Jtag::openLibrary(const std::string& filePath, int flags) {
     handle = DlHandle(dlopen(filePath.c_str(), flags));
 
     if (!handle) {
-        TT_THROW("Failed to open JTAG library: {}", dlerror());
+        UMD_THROW("Failed to open JTAG library: {}", dlerror());
     }
 
     log_info(tt::LogUMD, "JTAG library {} opened successfully.", filePath);
@@ -52,7 +52,7 @@ void* Jtag::load_function(const char* name) {
         const char* dlsym_error = dlerror();
         if (dlsym_error) {
             log_error(tt::LogUMD, "Cannot load symbol: {}", dlsym_error);
-            TT_THROW("Failed to load function.");
+            UMD_THROW("Failed to load function.");
         }
         func_map[name] = funcPtr;
     }

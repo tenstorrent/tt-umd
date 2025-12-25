@@ -6,10 +6,10 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
@@ -191,7 +191,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         }
 
         // Send the read request.
-        TT_ASSERT(
+        UMD_ASSERT(
             (req_flags == eth_interface_params.cmd_rd_req) || (((core_src + offset) & 0x1F) == 0),
             "Block mode offset must be 32-byte aligned.");  // Block mode offset must be 32-byte aligned.
         new_cmd->sys_addr =
@@ -298,7 +298,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                         data_block.data(), remote_transfer_ethernet_core, buf_address, block_size);
                 }
                 // assert(dest.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
-                TT_ASSERT(
+                UMD_ASSERT(
                     (data_block.size() * DATA_WORD_SIZE) >= block_size,
                     "Incorrect data size read back from sysmem/device");
                 // Account for misalignment by skipping any padding bytes in the copied data_block.
@@ -318,7 +318,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.cmd_counters_size_bytes,
             erisc_resp_q_rptr.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
-        TT_ASSERT(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
+        UMD_ASSERT(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
 
         offset += block_size;
     }
@@ -364,7 +364,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     // Broadcast requires block writes to host dram
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
-    TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
+    UMD_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
@@ -471,7 +471,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         }
 
         // Send the read request.
-        TT_ASSERT(
+        UMD_ASSERT(
             broadcast || (req_flags == eth_interface_params.cmd_wr_req) || (((core_dest + offset) % 32) == 0),
             "Block mode address must be 32-byte aligned.");  // Block mode address must be 32-byte aligned.
 
@@ -546,7 +546,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
 void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {
     if (flush_non_mmio_) {
-        TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+        UMD_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
         if (local_tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
             auto eth_interface_params = local_tt_device_->get_architecture_implementation()->get_eth_interface_params();

@@ -6,8 +6,8 @@
 
 #include <stdexcept>
 
-#include "assert.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
@@ -120,13 +120,13 @@ uint64_t wormhole_implementation::get_noc_reg_base(
         }
     }
 
-    TT_THROW("Invalid core type or NOC for getting NOC register addr base.");
+    UMD_THROW("Invalid core type or NOC for getting NOC register addr base.");
 }
 
 uint32_t wormhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        TT_THROW("NEO risc cores should not be used on Wormhole architecture.");
+        UMD_THROW("NEO risc cores should not be used on Wormhole architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

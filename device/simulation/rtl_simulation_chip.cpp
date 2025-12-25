@@ -12,8 +12,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -80,7 +80,7 @@ RtlSimulationChip::RtlSimulationChip(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 
     if (!std::filesystem::exists(simulator_directory)) {
-        TT_THROW("Simulator binary not found at: ", simulator_directory.string());
+        UMD_THROW("Simulator binary not found at: ", simulator_directory.string());
     }
 
     host.init();
@@ -89,7 +89,7 @@ RtlSimulationChip::RtlSimulationChip(
     uv_loop_t* loop = uv_default_loop();
     std::string simulator_path_string = simulator_directory / "run.sh";
     if (!std::filesystem::exists(simulator_path_string)) {
-        TT_THROW("Simulator binary not found at: ", simulator_path_string);
+        UMD_THROW("Simulator binary not found at: ", simulator_path_string);
     }
 
     uv_stdio_container_t child_stdio[3];
@@ -108,7 +108,7 @@ RtlSimulationChip::RtlSimulationChip(
     uv_process_t child_p;
     int rv = uv_spawn(loop, &child_p, &child_options);
     if (rv) {
-        TT_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
+        UMD_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
     } else {
         log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
     }
@@ -128,7 +128,7 @@ void RtlSimulationChip::start_device() {
     size_t buf_size = host.recv_from_device(&buf_ptr);
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
-    TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
+    UMD_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
 }
 
@@ -178,7 +178,7 @@ void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const
         send_command_to_simulation_host(
             host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
     } else {
-        TT_THROW("Invalid soft reset option.");
+        UMD_THROW("Invalid soft reset option.");
     }
 }
 

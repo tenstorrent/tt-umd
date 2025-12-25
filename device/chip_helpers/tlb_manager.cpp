@@ -6,10 +6,10 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/assert.hpp"
 
 extern bool umd_use_noc1;
 
@@ -18,7 +18,7 @@ namespace tt::umd {
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
 void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    TT_ASSERT(
+    UMD_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
@@ -45,7 +45,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
 }
 
 void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    TT_ASSERT(
+    UMD_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
@@ -75,7 +75,7 @@ TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
         return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
     } else {
-        TT_THROW("TLB window for core ({}, {}) not found.", core.x, core.y);
+        UMD_THROW("TLB window for core ({}, {}) not found.", core.x, core.y);
     }
 }
 
@@ -94,7 +94,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
 
 Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     if (!is_tlb_mapped(core)) {
-        TT_THROW("TLBs not initialized for core: {}", core.str());
+        UMD_THROW("TLBs not initialized for core: {}", core.str());
     }
 
     auto tlb_index = map_core_to_tlb_.at(core);
@@ -105,7 +105,7 @@ Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
-    TT_ASSERT(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
+    UMD_ASSERT(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
 
     int tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
@@ -120,7 +120,7 @@ const std::vector<size_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return {2 * one_mb, 4ULL * one_gb};
         default:
-            TT_THROW("Unsupported architecture: {}", static_cast<int>(arch));
+            UMD_THROW("Unsupported architecture: {}", static_cast<int>(arch));
     }
 }
 
@@ -142,7 +142,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
         }
     }
 
-    TT_THROW("Failed to allocate TLB window.");
+    UMD_THROW("Failed to allocate TLB window.");
 }
 
 };  // namespace tt::umd

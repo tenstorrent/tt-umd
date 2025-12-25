@@ -7,9 +7,9 @@
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -32,7 +32,7 @@ SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator binary not found at: {}", simulator_directory_);
+        UMD_THROW("Simulator binary not found at: {}", simulator_directory_);
     }
 }
 
@@ -61,7 +61,7 @@ void SimulationChip::noc_multicast_write(
     void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW("noc_multicast_write is only supported for Tensix cores.");
     }
     // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
     // Until then, do individual writes to each core in the range.
@@ -107,26 +107,28 @@ int SimulationChip::arc_msg(
 
 int SimulationChip::get_num_host_channels() { return 0; }
 
-int SimulationChip::get_host_channel_size(std::uint32_t channel) { TT_THROW("There are no host channels available."); }
+int SimulationChip::get_host_channel_size(std::uint32_t channel) { UMD_THROW("There are no host channels available."); }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    TT_THROW("SimulationChip::write_to_sysmem is not available for this chip.");
+    UMD_THROW("SimulationChip::write_to_sysmem is not available for this chip.");
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    TT_THROW("SimulationChip::read_from_sysmem is not available for this chip.");
+    UMD_THROW("SimulationChip::read_from_sysmem is not available for this chip.");
 }
 
-int SimulationChip::get_numa_node() { TT_THROW("SimulationChip::get_numa_node is not available for this chip."); }
+int SimulationChip::get_numa_node() { UMD_THROW("SimulationChip::get_numa_node is not available for this chip."); }
 
-TTDevice* SimulationChip::get_tt_device() { TT_THROW("SimulationChip::get_tt_device is not available for this chip."); }
+TTDevice* SimulationChip::get_tt_device() {
+    UMD_THROW("SimulationChip::get_tt_device is not available for this chip.");
+}
 
 SysmemManager* SimulationChip::get_sysmem_manager() {
-    TT_THROW("SimulationChip::get_sysmem_manager is not available for this chip.");
+    UMD_THROW("SimulationChip::get_sysmem_manager is not available for this chip.");
 }
 
 TLBManager* SimulationChip::get_tlb_manager() {
-    TT_THROW("SimulationChip::get_tlb_manager is not available for this chip.");
+    UMD_THROW("SimulationChip::get_tlb_manager is not available for this chip.");
 }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}

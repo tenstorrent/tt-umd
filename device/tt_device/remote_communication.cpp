@@ -6,11 +6,11 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -29,7 +29,7 @@ std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communic
         case tt::ARCH::BLACKHOLE:
             return nullptr;
         default:
-            TT_THROW("Remote communication is not supported for this architecture.");
+            UMD_THROW("Remote communication is not supported for this architecture.");
     }
 }
 
@@ -52,14 +52,14 @@ tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
             LogUMD, "Number of active ethernet cores {} exceeds the maximum of 8.", remote_transfer_eth_cores_.size());
     }
     if (remote_transfer_eth_cores_.empty()) {
-        TT_THROW("No remote transfer ethernet cores set.");
+        UMD_THROW("No remote transfer ethernet cores set.");
     }
     return remote_transfer_eth_cores_.at(active_eth_core_idx);
 }
 
 void RemoteCommunication::update_active_eth_core_idx() {
     if (remote_transfer_eth_cores_.empty()) {
-        TT_THROW("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
+        UMD_THROW("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
     }
     active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
 }

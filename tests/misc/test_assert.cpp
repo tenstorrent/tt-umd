@@ -7,7 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 struct CustomType {
     int value;
@@ -40,72 +40,80 @@ TEST(Assert, AssertMessage) {
 
     std::vector<TestCase> test_cases = {
         {"Single argument",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Single message"); },
+         [](std::stringstream& output) { tt::umd::assert::umd_assert_message(output, "Single message"); },
          "Single message\n"},
         {"With formatting",
          [](std::stringstream& output) {
              int value = 42;
-             tt::assert::tt_assert_message(output, "Value is {}", value);
+             tt::umd::assert::umd_assert_message(output, "Value is {}", value);
          },
          "Value is 42\n"},
         {"Multiple args with formatting",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Device: {}, Cores: {}", "TT123", 25); },
+         [](std::stringstream& output) {
+             tt::umd::assert::umd_assert_message(output, "Device: {}, Cores: {}", "TT123", 25);
+         },
          "Device: TT123, Cores: 25\n"},
         {"No formatting fallback",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "First", "Second", "Third"); },
+         [](std::stringstream& output) { tt::umd::assert::umd_assert_message(output, "First", "Second", "Third"); },
          "First\nSecond\nThird\n"},
         {"OStreamJoin",
          [](std::stringstream& output) {
              int a = 42;
              std::string b = "test";
              tt::OStreamJoin<int, std::string> join(a, b);
-             tt::assert::tt_assert_message(output, "Join: {}", join);
+             tt::umd::assert::umd_assert_message(output, "Join: {}", join);
          },
          "Join: 42 test\n"},
-        {"Empty string", [](std::stringstream& output) { tt::assert::tt_assert_message(output, ""); }, "\n"},
+        {"Empty string", [](std::stringstream& output) { tt::umd::assert::umd_assert_message(output, ""); }, "\n"},
         {"Only placeholders",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "{}", "replaced"); },
+         [](std::stringstream& output) { tt::umd::assert::umd_assert_message(output, "{}", "replaced"); },
          "replaced\n"},
         {"Many arguments",
          [](std::stringstream& output) {
-             tt::assert::tt_assert_message(output, "Args: {} {} {} {} {}", 1, 2, 3, 4, 5);
+             tt::umd::assert::umd_assert_message(output, "Args: {} {} {} {} {}", 1, 2, 3, 4, 5);
          },
          "Args: 1 2 3 4 5\n"},
         {"Boolean values",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "True: {}, False: {}", true, false); },
+         [](std::stringstream& output) {
+             tt::umd::assert::umd_assert_message(output, "True: {}, False: {}", true, false);
+         },
          "True: true, False: false\n"},
         {"Character values",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Char: {}, Letter: {}", 'X', 'Y'); },
+         [](std::stringstream& output) {
+             tt::umd::assert::umd_assert_message(output, "Char: {}, Letter: {}", 'X', 'Y');
+         },
          "Char: X, Letter: Y\n"},
         {"Float and double",
          [](std::stringstream& output) {
-             tt::assert::tt_assert_message(output, "Float: {}, Double: {}", 3.14f, 2.718);
+             tt::umd::assert::umd_assert_message(output, "Float: {}, Double: {}", 3.14f, 2.718);
          },
          "Float: 3.14, Double: 2.718\n"},
         {"String literals and objects",
          [](std::stringstream& output) {
              std::string str_obj = "object";
-             tt::assert::tt_assert_message(output, "Literal: {}, Object: {}", "literal", str_obj);
+             tt::umd::assert::umd_assert_message(output, "Literal: {}, Object: {}", "literal", str_obj);
          },
          "Literal: literal, Object: object\n"},
         {"Invalid format fallback",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Invalid format {", "value"); },
+         [](std::stringstream& output) { tt::umd::assert::umd_assert_message(output, "Invalid format {", "value"); },
          "Invalid format {\nvalue\n"},
         {"Mismatched braces fallback",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Mismatched }", "value"); },
+         [](std::stringstream& output) { tt::umd::assert::umd_assert_message(output, "Mismatched }", "value"); },
          "Mismatched }\nvalue\n"},
         {"Zero values",
          [](std::stringstream& output) {
-             tt::assert::tt_assert_message(output, "Zero int: {}, Zero float: {}", 0, 0.0f);
+             tt::umd::assert::umd_assert_message(output, "Zero int: {}, Zero float: {}", 0, 0.0f);
          },
          "Zero int: 0, Zero float: 0\n"},
         {"Negative numbers",
-         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Negative: {} and {}", -42, -3.14); },
+         [](std::stringstream& output) {
+             tt::umd::assert::umd_assert_message(output, "Negative: {} and {}", -42, -3.14);
+         },
          "Negative: -42 and -3.14\n"},
         {"Long string",
          [](std::stringstream& output) {
              std::string long_str(100, 'A');
-             tt::assert::tt_assert_message(output, "Long: {}", long_str);
+             tt::umd::assert::umd_assert_message(output, "Long: {}", long_str);
          },
          "Long: " + std::string(100, 'A') + "\n"},
         {"Complex OStreamJoin",
@@ -113,7 +121,7 @@ TEST(Assert, AssertMessage) {
              CustomType obj(789);
              int test_val = 100;
              tt::OStreamJoin<CustomType, int> join(obj, test_val, " -> ");
-             tt::assert::tt_assert_message(output, "Complex join: {}", join);
+             tt::umd::assert::umd_assert_message(output, "Complex join: {}", join);
          },
          "Complex join: CustomType(789) -> 100\n"}};
 
@@ -131,7 +139,7 @@ TEST(Assert, UnformattableTypes) {
         EXPECT_THROW(
             {
                 UnformattableType obj(456);
-                tt::assert::tt_assert_message(output, "Unformattable: {}", obj);
+                tt::umd::assert::umd_assert_message(output, "Unformattable: {}", obj);
             },
             std::runtime_error);
     }
@@ -142,19 +150,20 @@ TEST(Assert, MismatchedPlaceholders) {
 
     {
         std::stringstream output;
-        EXPECT_THROW({ tt::assert::tt_assert_message(output, "Value {} and {} more", 42); }, std::runtime_error);
+        EXPECT_THROW({ tt::umd::assert::umd_assert_message(output, "Value {} and {} more", 42); }, std::runtime_error);
     }
 
     {
         std::stringstream output;
         EXPECT_THROW(
-            { tt::assert::tt_assert_message(output, "Only {}", "first", "second", "third"); }, std::runtime_error);
+            { tt::umd::assert::umd_assert_message(output, "Only {}", "first", "second", "third"); },
+            std::runtime_error);
     }
 }
 
 TEST(Assert, MacroIntegration) {
     try {
-        TT_THROW("Error with value {}", 42);
+        UMD_THROW("Error with value {}", 42);
         FAIL() << "Expected exception";
     } catch (const std::runtime_error& e) {
         std::string error_msg = e.what();
@@ -162,7 +171,7 @@ TEST(Assert, MacroIntegration) {
     }
 
     try {
-        TT_ASSERT(false, "Assertion failed with value {}", 123);
+        UMD_ASSERT(false, "Assertion failed with value {}", 123);
         FAIL() << "Expected exception";
     } catch (const std::runtime_error& e) {
         std::string error_msg = e.what();

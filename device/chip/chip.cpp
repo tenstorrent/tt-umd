@@ -8,13 +8,13 @@
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 extern bool umd_use_noc1;
@@ -88,14 +88,14 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
 }
 
 void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
-    TT_ASSERT(
+    UMD_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
     auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
         if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            TT_THROW("Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count());
+            UMD_THROW("Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count());
         }
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
@@ -105,7 +105,7 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
 
 // TODO: Remove this API once we switch to the new one.
 void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    TT_ASSERT(
+    UMD_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
@@ -188,7 +188,7 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
             break;
         }
         default:
-            TT_THROW("Unrecognized power state.");
+            UMD_THROW("Unrecognized power state.");
     }
     return msg;
 }
@@ -237,7 +237,7 @@ void Chip::set_power_state(DevicePowerState state) {
                 (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
         }
     }
-    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    UMD_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
     wait_for_aiclk_value(get_tt_device(), state);
 }
 
@@ -285,7 +285,7 @@ void Chip::wait_for_aiclk_value(
 void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW("noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
         dst, size, translate_chip_coord_to_translated(core_start), translate_chip_coord_to_translated(core_end), addr);

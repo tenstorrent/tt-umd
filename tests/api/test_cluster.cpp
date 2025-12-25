@@ -18,7 +18,6 @@
 #include <optional>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <unordered_set>
 #include <vector>
 
@@ -1380,106 +1379,4 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
         WarmReset::warm_reset();
     }
     std::cout << "Completed warm reset." << std::endl;
-}
-
-TEST(TestCluster, DISABLED_SafeApiClusterMultiThreaded) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    Cluster::set_sigbus_safe_handler(true);
-
-    uint64_t address = 0x0;
-    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    std::vector<uint32_t> data_read(data_write.size(), 0);
-    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
-
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-
-    std::atomic<int> caught_sigbus{0};
-
-    auto worker = [&](int id) {
-        try {
-            // This thread hammers the device and waits for the reset to kill it.
-            while (true) {
-                cluster->safe_read_from_device(
-                    data_read.data(), 0, tensix_core, address, data_read.size() * sizeof(uint32_t));
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
-            }
-        } catch (const std::exception& e) {
-            if (std::string(e.what()) == "SIGBUS") {
-                caught_sigbus++;
-            }
-        }
-    };
-
-    std::thread t1(worker, 1);
-    std::thread t2(worker, 2);
-
-    // Trigger the reset after a small delay.
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmReset::warm_reset();
-
-    t1.join();
-    t2.join();
-
-    EXPECT_EQ(caught_sigbus, 2);
-}
-
-TEST(TestCluster, DISABLED_SafeApiClusterMultiProcess) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    constexpr int NUM_CHILDREN = 3;
-
-    utils::MultiProcessPipe pipes(NUM_CHILDREN);
-    std::vector<pid_t> pids;
-
-    for (int i = 0; i < NUM_CHILDREN; ++i) {
-        pid_t pid = fork();
-        if (pid == 0) {  // Child Process
-
-            Cluster::set_sigbus_safe_handler(true);
-
-            std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-            pipes.signal_ready_from_child(i);
-
-            uint64_t address = 0x0;
-            std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-            std::vector<uint32_t> data_read(data_write.size(), 0);
-
-            const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-
-            try {
-                while (true) {
-                    cluster->safe_read_from_device(
-                        data_read.data(), 0, tensix_core, address, data_read.size() * sizeof(uint32_t));
-                    std::this_thread::sleep_for(std::chrono::microseconds(100));
-                }
-            } catch (const std::exception& e) {
-                if (std::string(e.what()) == "SIGBUS") {
-                    std::exit(0);
-                }
-                std::exit(1);
-            }
-            // Error: Timed out/Loop exited without signal.
-            std::exit(2);
-        }
-        pids.push_back(pid);  // Parent Process
-    }
-
-    pipes.wait_for_all_children(20);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmReset::warm_reset();
-
-    for (pid_t p : pids) {
-        int status;
-        waitpid(p, &status, 0);
-        EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << p << " failed.";
-    }
 }

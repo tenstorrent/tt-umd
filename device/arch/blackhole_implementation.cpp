@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -30,7 +30,7 @@ std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_p
 }
 
 tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
+    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
         return tlb_configuration{
             .size = blackhole::DYNAMIC_TLB_4G_SIZE,

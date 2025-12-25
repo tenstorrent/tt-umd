@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
 #include <thread>
@@ -196,7 +197,7 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
 
     tt_device.reset();
 
@@ -447,7 +448,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
 
     auto worker = [&](int id) {
         try {
-            // This thread hammers the device and waits for the reset to kill it
+            // This thread hammers the device and waits for the reset to kill it.
             while (true) {
                 tt_devices[pci_device_ids[0]]->safe_read_from_device(
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -463,7 +464,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
     std::thread t1(worker, 1);
     std::thread t2(worker, 2);
 
-    // Trigger the reset after a small delay
+    // Trigger the reset after a small delay.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     WarmReset::warm_reset();
 
@@ -509,7 +510,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
             }
 
             try {
-                // The "Hammer" loop
+                // The "Hammer" loop.
                 while (true) {
                     tt_devices[pci_device_ids[0]]->safe_read_from_device(
                         data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -526,7 +527,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
         pids.push_back(pid);
     }
 
-    // Parent triggers the reset that affects ALL windows on that PCIe link
+    // Parent triggers the reset that affects ALL windows on that PCIe link.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     WarmReset::warm_reset();
 

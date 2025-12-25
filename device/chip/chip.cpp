@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip/chip.hpp"
 
@@ -36,7 +34,7 @@ SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 void Chip::set_default_params(ARCH arch) {
     auto architecture_implementation = architecture_implementation::create(arch);
 
-    // Default initialize l1_address_params based on detected arch
+    // Default initialize l1_address_params based on detected arch.
     l1_address_params = architecture_implementation->get_l1_address_params();
 
     // Default initialize dram_address_params.

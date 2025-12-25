@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -70,7 +68,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
 
     void deassert_risc_resets() override;
     int get_clock() override;
@@ -124,8 +122,8 @@ private:
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
-    TlbWindow* get_cached_wc_tlb_window(tlb_data config);
-    TlbWindow* get_cached_uc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_wc_tlb_window();
+    TlbWindow* get_cached_uc_tlb_window();
     TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;

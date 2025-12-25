@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
 #include <stdexcept>
@@ -113,9 +112,9 @@ TEST(SocDescriptor, SocDescriptorDRAMChannels) {
 
     int num_dram_channels = soc_desc.get_num_dram_channels();
 
-    // Core type with no separate channels
+    // Core type with no separate channels.
     EXPECT_THROW(soc_desc.get_cores(tt::CoreType::ARC, tt::CoordSystem::LOGICAL, 0), std::runtime_error);
-    // Invalid channel
+    // Invalid channel.
     EXPECT_THROW(
         soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, num_dram_channels + 1), std::runtime_error);
 

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip/local_chip.hpp"
 
@@ -23,7 +21,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-// TLB size for DRAM on blackhole - 4GB
+// TLB size for DRAM on blackhole - 4GB.
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
 std::unique_ptr<LocalChip> LocalChip::create(
@@ -141,7 +139,7 @@ void LocalChip::initialize_default_chip_mutexes() {
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
-    // Initialize interprocess mutexes to make host -> device memory barriers atomic
+    // Initialize interprocess mutexes to make host -> device memory barriers atomic.
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 
     // Initialize mutex guarding initialized chips.
@@ -293,37 +291,15 @@ void LocalChip::write_to_device_impl(CoreCoord core, const void* src, uint64_t l
         } else {
             tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
         }
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    if constexpr (safe) {
+        get_cached_wc_tlb_window()->safe_write_block_reconfigure(
+            src, translated_core, l1_dest, size, tlb_data::Relaxed);
     } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-        uint8_t* buffer_addr = static_cast<uint8_t*>(const_cast<void*>(src));
-        tlb_data config{};
-        config.local_offset = l1_dest;
-        config.x_end = translated_core.x;
-        config.y_end = translated_core.y;
-        config.noc_sel = umd_use_noc1 ? 1 : 0;
-        config.ordering = tlb_data::Strict;
-        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-        TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
-
-        while (size > 0) {
-            uint32_t tlb_size = tlb_window->get_size();
-
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            if constexpr (safe) {
-                tlb_window->safe_write_block(0, buffer_addr, transfer_size);
-            } else {
-                tlb_window->write_block(0, buffer_addr, transfer_size);
-            }
-
-            size -= transfer_size;
-            l1_dest += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = l1_dest;
-            tlb_window->configure(config);
-        }
+        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
     }
 }
 
@@ -346,6 +322,7 @@ void LocalChip::read_from_device_impl(CoreCoord core, void* dest, uint64_t l1_sr
         tt_device_->safe_read_from_device(dest, translated_core, l1_src, size);
         return;
     }
+
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         if constexpr (safe) {
@@ -353,36 +330,14 @@ void LocalChip::read_from_device_impl(CoreCoord core, void* dest, uint64_t l1_sr
         } else {
             tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
         }
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    if constexpr (safe) {
+        get_cached_wc_tlb_window()->safe_read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
     } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-        uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
-        tlb_data config{};
-        config.local_offset = l1_src;
-        config.x_end = translated_core.x;
-        config.y_end = translated_core.y;
-        config.noc_sel = umd_use_noc1 ? 1 : 0;
-        config.ordering = tlb_data::Relaxed;
-        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-        TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
-
-        while (size > 0) {
-            uint32_t tlb_size = tlb_window->get_size();
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            if constexpr (safe) {
-                tlb_window->safe_read_block(0, buffer_addr, transfer_size);
-            } else {
-                tlb_window->read_block(0, buffer_addr, transfer_size);
-            }
-
-            size -= transfer_size;
-            l1_src += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = l1_src;
-            tlb_window->configure(config);
-        }
+        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
     }
 }
 
@@ -540,7 +495,8 @@ void LocalChip::write_to_device_reg_impl(CoreCoord core, const void* src, uint64
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
+    TlbWindow* tlb_window = get_cached_uc_tlb_window();
+    tlb_window->configure(config);
 
     if constexpr (safe) {
         tlb_window->safe_write_register(reg_dest - tlb_window->get_base_address(), src, size);
@@ -574,7 +530,8 @@ void LocalChip::read_from_device_reg_impl(CoreCoord core, void* dest, uint64_t r
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
+    TlbWindow* tlb_window = get_cached_uc_tlb_window();
+    tlb_window->configure(config);
 
     if constexpr (safe) {
         tlb_window->safe_read_register(reg_src - tlb_window->get_base_address(), dest, size);
@@ -653,7 +610,7 @@ int LocalChip::test_setup_interface() {
         ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        // TODO #768 figure out BH implementation
+        // TODO #768 figure out BH implementation.
         return 0;
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
@@ -708,12 +665,12 @@ void LocalChip::set_membar_flag(
         }
     }
     // Ensure that reads or writes after this do not get reordered.
-    // Reordering can cause races where data gets transferred before the barrier has returned
+    // Reordering can cause races where data gets transferred before the barrier has returned.
     tt_driver_atomics::mfence();
 }
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
-    // Ensure that this memory barrier is atomic across processes/threads
+    // Ensure that this memory barrier is atomic across processes/threads.
     auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
@@ -721,7 +678,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
-        // Insert barrier on specific cores with L1
+        // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
 
@@ -738,7 +695,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
     } else {
-        // Insert barrier on all cores with L1
+        // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
@@ -757,7 +714,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     } else {
-        // Insert Barrier on all DRAM Cores
+        // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(
@@ -789,25 +746,23 @@ int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
 
-TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
+TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+        cached_wc_tlb_window = std::make_unique<TlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
         return cached_wc_tlb_window.get();
     }
 
-    cached_wc_tlb_window->configure(config);
     return cached_wc_tlb_window.get();
 }
 
-TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
+TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        cached_uc_tlb_window = std::make_unique<TlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
         return cached_uc_tlb_window.get();
     }
 
-    cached_uc_tlb_window->configure(config);
     return cached_uc_tlb_window.get();
 }
 

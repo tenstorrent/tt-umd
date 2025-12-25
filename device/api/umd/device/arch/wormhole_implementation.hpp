@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -104,7 +102,7 @@ enum class arc_message_type {
     DEASSERT_RISCV_RESET = 0xba
 };
 
-// DEVICE_DATA
+// DEVICE_DATA.
 inline constexpr tt_xy_pair GRID_SIZE = {10, 12};
 // Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
 // NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
@@ -176,7 +174,7 @@ static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {{0, 2}, {0, 4}, {0, 8}
 static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {};
 static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {};
 
-// Return to std::array instead of std::vector once we get std::span support in C++20
+// Return to std::array instead of std::vector once we get std::span support in C++20.
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
@@ -318,7 +316,7 @@ inline constexpr size_t tensix_translated_coordinate_start_y = 18;
 inline constexpr size_t eth_translated_coordinate_start_x = 18;
 inline constexpr size_t eth_translated_coordinate_start_y = 16;
 
-// Constants related to bits in the soft reset register
+// Constants related to bits in the soft reset register.
 inline constexpr uint32_t SOFT_RESET_BRISC = 1 << 11;
 inline constexpr uint32_t SOFT_RESET_TRISC0 = 1 << 12;
 inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;

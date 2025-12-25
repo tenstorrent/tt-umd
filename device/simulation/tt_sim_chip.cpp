@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/simulation/tt_sim_chip.hpp"
 
@@ -22,14 +20,14 @@
 
 #include "assert.hpp"
 
-// NOLINTBEGIN
+// NOLINTBEGIN.
 #define DLSYM_FUNCTION(func_name)                                                    \
     pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
     if (!pfn_##func_name) {                                                          \
         TT_THROW("Failed to find symbol: ", #func_name, dlerror());                  \
     }
 
-// NOLINTEND
+// NOLINTEND.
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");
@@ -60,7 +58,7 @@ void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
     pfn_libttsim_init();
 
-    // Read the PCI ID (first 32 bits of PCI config space)
+    // Read the PCI ID (first 32 bits of PCI config space).
     uint32_t pci_id = pfn_libttsim_pci_config_rd32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = pci_id >> 16;

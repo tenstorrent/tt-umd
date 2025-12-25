@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -154,7 +155,7 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 

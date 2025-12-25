@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef TTKMD_H_
 #define TTKMD_H_
@@ -13,11 +11,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define TENSTORRENT_DRIVER_VERSION_MAJOR 2
-#define TENSTORRENT_DRIVER_VERSION_MINOR 3
-#define TENSTORRENT_DRIVER_VERSION_PATCH 0
-#define TENSTORRENT_DRIVER_VERSION_SUFFIX ""  // e.g. "-rc1"
 
 /**
  * @brief Opaque handle to a Tenstorrent PCIe device.

@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 
 #include <fmt/format.h>
@@ -267,7 +268,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
 
     // Port status should be last state to settle during the eth training sequence
-    // PORT_UNKNOWN means that eth is still training
+    // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
         read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));

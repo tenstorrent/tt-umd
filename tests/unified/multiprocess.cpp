@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -71,7 +71,7 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, 0, false);
 }
 
-// Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes
+// Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
 void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }

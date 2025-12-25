@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -21,22 +19,6 @@
 #include "fmt/ranges.h"
 
 namespace tt::umd::utils {
-
-static std::string get_abs_path(std::string path) {
-    // Note that __FILE__ might be resolved at compile time to an absolute or relative address, depending on the
-    // compiler.
-    std::filesystem::path current_file_path = std::filesystem::path(__FILE__);
-    std::filesystem::path umd_root;
-    if (current_file_path.is_absolute()) {
-        umd_root = current_file_path.parent_path().parent_path().parent_path();
-    } else {
-        std::filesystem::path umd_root_relative =
-            std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
-        umd_root = std::filesystem::canonical(umd_root_relative);
-    }
-    std::filesystem::path abs_path = umd_root / path;
-    return abs_path.string();
-}
 
 static std::optional<std::string> get_env_var_value(const char* env_var_name) {
     const char* env_var = std::getenv(env_var_name);
@@ -108,7 +90,7 @@ private:
     static constexpr int PIPE_READ = 0;
     static constexpr int PIPE_WRITE = 1;
 
-    // Stores [read_fd, write_fd] for each child
+    // Stores [read_fd, write_fd] for each child.
     std::vector<std::array<int, 2>> child_pipes;
     int num_children;
 
@@ -133,9 +115,9 @@ public:
         }
     }
 
-    // Called by the Child process after it is fully initialized
+    // Called by the Child process after it is fully initialized.
     void signal_ready_from_child(int child_index) {
-        // Close the read end we don't need in the child
+        // Close the read end we don't need in the child.
         close(child_pipes[child_index][PIPE_READ]);
         child_pipes[child_index][PIPE_READ] = -1;
 
@@ -144,15 +126,15 @@ public:
             perror("Barrier: Failed to write sync token");
         }
 
-        // Close the write end after signaling
+        // Close the write end after signaling.
         close(child_pipes[child_index][PIPE_WRITE]);
         child_pipes[child_index][PIPE_WRITE] = -1;
     }
 
-    // Called by the Parent process to block until all children signal
+    // Called by the Parent process to block until all children signal.
     bool wait_for_all_children(int timeout_seconds_per_process = 5) {
         for (int i = 0; i < num_children; ++i) {
-            // Close the write end we don't need in the parent
+            // Close the write end we don't need in the parent.
             if (child_pipes[i][PIPE_WRITE] != -1) {
                 close(child_pipes[i][PIPE_WRITE]);
                 child_pipes[i][PIPE_WRITE] = -1;
@@ -166,7 +148,7 @@ public:
             timeout.tv_sec = timeout_seconds_per_process;
             timeout.tv_usec = 0;
 
-            // Wait here for up to timeout_seconds
+            // Wait here for up to timeout_seconds.
             int ready = select(child_pipes[i][PIPE_READ] + 1, &read_set, nullptr, nullptr, &timeout);
 
             if (ready <= 0) {

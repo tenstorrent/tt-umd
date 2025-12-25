@@ -1,13 +1,11 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
 #include <string>
-// TODO: To be removed once this is fixed in tt_metal
+// TODO: To be removed once this is fixed in tt_metal.
 #include <deque>
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.

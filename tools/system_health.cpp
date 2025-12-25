@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <cxxopts.hpp>
 #include <tt-logger/tt-logger.hpp>
 
@@ -58,17 +59,17 @@ bool check_if_external_cable_is_used(
     if (board_type == BoardType::UBB) {
         auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
         if (ubb_asic_id == 1) {
-            // UBB 1 has external cables on channels 0-7
+            // UBB 1 has external cables on channels 0-7.
             return (chan >= 0 and chan <= 7);
         } else if (ubb_asic_id >= 2 and ubb_asic_id <= 4) {
-            // UBB 2 to 4 has external cables on channels 0-3
+            // UBB 2 to 4 has external cables on channels 0-3.
             return (chan >= 0 and chan <= 3);
         } else if (ubb_asic_id == 5) {
-            // UBB 5 has external cables on channels 4-7
+            // UBB 5 has external cables on channels 4-7.
             return (chan >= 4 and chan <= 7);
         }
     } else if (board_type == BoardType::N300) {
-        // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips
+        // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips.
         auto mmio_device_id = cluster_descriptor->get_closest_mmio_capable_chip(chip_id);
         if (mmio_device_id == chip_id) {
             return (chan != 8 and chan != 9);
@@ -159,7 +160,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::uint32_t> read_vec;
 
     if (unique_chip_ids.empty()) {
-        // Temporary patch to workaround unique chip ids not being set for non-6U systems
+        // Temporary patch to workaround unique chip ids not being set for non-6U systems.
         for (const auto& chip_id : cluster->get_target_device_ids()) {
             unique_chip_ids[chip_id] = chip_id;
         }

@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 #include <gtest/gtest.h>
 
@@ -261,7 +260,7 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 class TestGenerator {
-    // ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;
+    // ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;.
     using transfer_type_generator_t = DefaultTransferTypeGenerator;
     using write_command_generator_t =
         WriteCommandGenerator<WRITE_DEST_DISTR_T, WRITE_ADDR_DISTR_T, WRITE_SIZE_DISTR_OUT_T, WRITE_SIZE_DISTR_T>;
@@ -279,9 +278,9 @@ public:
         write_command_generator(write_command_generator),
         read_command_generator(read_command_generator) {}
 
-    // Generate a sample (transfer type, size, chip, destination, address) based on custom distributions
+    // Generate a sample (transfer type, size, chip, destination, address) based on custom distributions.
     remote_transfer_sample_t generate_sample() {
-        // Randomly select a transfer type
+        // Randomly select a transfer type.
         RemoteTransferType transfer_type = transfer_type_distribution.generate();
         assert(transfer_type < 4 && transfer_type >= 0);
         switch (transfer_type) {

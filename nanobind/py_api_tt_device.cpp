@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/shared_ptr.h>
@@ -26,7 +25,7 @@ namespace nb = nanobind;
 using namespace tt;
 using namespace tt::umd;
 
-// Helper function for easy creation of RemoteWormholeTTDevice
+// Helper function for easy creation of RemoteWormholeTTDevice.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
@@ -80,6 +79,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::rv_policy::take_ownership)
         .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+        .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)
@@ -88,7 +88,8 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
-        // Compatibility with luwen's API - these methods just return self
+        .def_static("use_noc1", &TTDevice::use_noc1, nb::arg("use_noc1"))
+        // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",
             [](TTDevice &self) -> TTDevice & { return self; },
@@ -173,12 +174,12 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
                uint32_t timeout_ms = 1000) -> nb::tuple {
-                // Warn if wait_for_done is False
+                // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
                         tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
                 }
-                // For Wormhole, prepend 0xaa00 to the msg_code
+                // For Wormhole, prepend 0xaa00 to the msg_code.
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
@@ -202,12 +203,12 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t arg0,
                uint32_t arg1,
                uint32_t timeout_ms = 1000) -> nb::tuple {
-                // Warn if wait_for_done is False
+                // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
                         tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
                 }
-                // For Wormhole, prepend 0xaa00 to the msg_code
+                // For Wormhole, prepend 0xaa00 to the msg_code.
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
@@ -232,12 +233,12 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t arg0,
                uint32_t arg1,
                uint32_t timeout = 1) -> nb::tuple {
-                // Warn if wait_for_done is False
+                // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
                         tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
                 }
-                // For Wormhole, prepend 0xaa00 to the msg_code
+                // For Wormhole, prepend 0xaa00 to the msg_code.
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }

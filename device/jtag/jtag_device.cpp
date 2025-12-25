@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/jtag/jtag_device.hpp"
 
 #include <cstdint>
@@ -75,7 +76,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
     std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), jtag_target_devices);
 
-    // Check that all chips are of the same type
+    // Check that all chips are of the same type.
     auto arch = jtag_device->get_jtag_arch(0);
     for (size_t i = 1; i < jtag_device->get_device_cnt(); i++) {
         auto new_arch = jtag_device->get_jtag_arch(i);

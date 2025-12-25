@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -14,7 +14,7 @@
 
 #include "tests/test_utils/fetch_local_files.hpp"
 
-// TODO: change to tt_cluster
+// TODO: change to tt_cluster.
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -30,7 +30,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // Expect to throw for remote chip for any worker core
+    // Expect to throw for remote chip for any worker core.
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
     if (!remote_chips.empty()) {
         ChipId any_remote_chip = *remote_chips.begin();
@@ -69,7 +69,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     }
 }
 
-// TODO: Move to test_chip
+// TODO: Move to test_chip.
 TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 

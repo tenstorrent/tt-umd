@@ -1,15 +1,18 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/firmware/firmware_utils.hpp"
 
+#include <picosha2.h>
+
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <optional>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 #include <utility>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -88,6 +91,31 @@ semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
     }
 
     return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version) {
+    const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
+            break;
+        case ARCH::BLACKHOLE:
+            eth_fw_hashes = &erisc_firmware::BH_ERISC_FW_HASHES;
+            break;
+        default:
+            return std::nullopt;
+    }
+
+    if (eth_fw_hashes->find(eth_fw_version) == eth_fw_hashes->end()) {
+        return std::nullopt;
+    }
+
+    erisc_firmware::HashedAddressRange hashed_range = eth_fw_hashes->at(eth_fw_version);
+    std::vector<uint8_t> eth_fw_text(hashed_range.size);
+    tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
+    std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
+
+    return eth_fw_text_sha256_hash.compare(hashed_range.sha256_hash) == 0;
 }
 
 semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {

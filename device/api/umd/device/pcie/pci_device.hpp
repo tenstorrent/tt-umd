@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -292,9 +290,6 @@ public:
 
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
-
-    void *bar4_wc = nullptr;
-    uint64_t bar4_wc_size;
 
     uint32_t read_checking_offset;
 

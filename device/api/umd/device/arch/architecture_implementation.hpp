@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -70,7 +68,7 @@ public:
     virtual uint32_t get_grid_size_y() const = 0;
     virtual uint64_t get_arc_apb_noc_base_address() const = 0;
     virtual uint64_t get_arc_csm_noc_base_address() const = 0;
-    // Replace with std::span once we enable C++20
+    // Replace with std::span once we enable C++20.
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;

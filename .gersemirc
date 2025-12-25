@@ -4,3 +4,4 @@ definitions: [cmake, cmake/stubs]
 indent: 4
 line_length: 120
 list_expansion: favour-expansion
+warn_about_unknown_commands: false

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/pcie/pci_device.hpp"
 
@@ -38,7 +36,7 @@ static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 // TLB windows and there is no longer a pre-defined WC/UC split.
 static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
 
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
+// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
@@ -60,7 +58,7 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
 
     std::istringstream iss(value_str);
 
-    // Handle hexadecimal input for integer types
+    // Handle hexadecimal input for integer types.
     if constexpr (std::is_integral_v<T>) {
         if (value_str.substr(0, 2) == "0x") {
             iss >> std::hex;
@@ -340,7 +338,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // Mapping resource to BAR
     // Resource 0 -> BAR0
     // Resource 1 -> BAR2
-    // Resource 2 -> BAR4
+    // Resource 2 -> BAR4.
     tenstorrent_mapping bar0_uc_mapping{};
     tenstorrent_mapping bar0_wc_mapping{};
     tenstorrent_mapping bar2_uc_mapping{};
@@ -432,25 +430,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar2_uc == MAP_FAILED) {
             throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
-
-        if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR4 WC mapping.", pci_device_num));
-        }
-
-        // Using Write-Combine memory mode. This is used for accessing DRAM on Blackhole.
-        // WC doesn't guarantee write ordering but has better performance.
-        bar4_wc_size = bar4_wc_mapping.mapping_size;
-        bar4_wc = mmap(
-            NULL,
-            bar4_wc_mapping.mapping_size,
-            PROT_READ | PROT_WRITE,
-            MAP_SHARED,
-            pci_device_file_desc,
-            bar4_wc_mapping.mapping_base);
-
-        if (bar4_wc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
-        }
     }
 
     allocate_pcie_dma_buffer();
@@ -475,10 +454,6 @@ PCIDevice::~PCIDevice() {
 
     if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
         munmap(bar2_uc, bar2_uc_size);
-    }
-
-    if (bar4_wc != nullptr && bar4_wc != MAP_FAILED) {
-        munmap(bar4_wc, bar4_wc_size);
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -27,13 +25,13 @@
 namespace tt::umd {
 
 // TODO: Should be moved to blackhole_architecture_implementation.h
-// See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
+// See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h.
 static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 
 // TODO: should be removed from tt_device.h, and put into blackhole_tt_device.h
 // TODO: this is a bit of a hack... something to revisit when we formalize an
 // abstraction for IO.
-// BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
+// BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4.
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 struct dynamic_tlb {
@@ -355,7 +353,7 @@ private:
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
-    TlbWindow *get_cached_tlb_window(tlb_data config);
+    TlbWindow *get_cached_tlb_window();
 
     std::mutex tt_device_io_lock;
 };

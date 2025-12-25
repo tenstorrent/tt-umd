@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "api/umd/device/warm_reset.hpp"
 
@@ -35,7 +33,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return;
     }
-    // If pci_device_ids is empty, enumerate all devices
+    // If pci_device_ids is empty, enumerate all devices.
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
@@ -311,12 +309,12 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
         int exit_code = WEXITSTATUS(status);
 
         if (exit_code == 0) {
-            // Success: Exit code is 0
+            // Success: Exit code is 0.
             log_info(tt::LogUMD, "Reset successfully completed. Exit code: {}", exit_code);
             return;
         }
 
-        // Failure: Program exited normally but with a non-zero code
+        // Failure: Program exited normally but with a non-zero code.
         log_error(tt::LogUMD, "Reset error! Program exited with code: {}", exit_code);
         return;
     }

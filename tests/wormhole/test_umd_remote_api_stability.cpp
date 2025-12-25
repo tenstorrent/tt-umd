@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -70,13 +70,13 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history);
     } catch (...) {
@@ -104,13 +104,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
@@ -124,13 +124,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history1);
     });
@@ -144,13 +144,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history2);
     });
@@ -164,13 +164,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history3);
     });
@@ -198,12 +198,12 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
             std::uniform_int_distribution<address_t>(0x10000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 300000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             std::uniform_int_distribution<transfer_size_t>(0x4, 300000),
             false,
             &command_history);
@@ -236,7 +236,7 @@ TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinS
             transfer_type_weights_t{.write = 1., .read = 0.},
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
             build_dummy_read_command_generator(*cluster),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history);
     } catch (...) {
@@ -264,13 +264,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(4, 300000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
@@ -284,13 +284,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history1);
     });
@@ -304,13 +304,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history2);
     });
@@ -324,13 +324,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history3);
     });
@@ -374,7 +374,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             transfer_type_weights_t{.write = 1., .read = 0.},
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
             build_dummy_read_command_generator(*cluster),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
@@ -386,7 +386,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             transfer_type_weights_t{.write = 1., .read = 0.},
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
             build_dummy_read_command_generator(*cluster),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
@@ -398,7 +398,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             transfer_type_weights_t{.write = 0, .read = 1.},
             build_dummy_write_command_generator(*cluster),
             ReadCommandGenerator(dest_generator, address_generator, read_size_generator),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
@@ -410,7 +410,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             transfer_type_weights_t{.write = 0, .read = 1.},
             build_dummy_write_command_generator(*cluster),
             ReadCommandGenerator(dest_generator, address_generator, read_size_generator),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });

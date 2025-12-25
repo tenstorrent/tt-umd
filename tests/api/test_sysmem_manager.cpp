@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
@@ -37,7 +38,7 @@ TEST(ApiSysmemManager, BasicIO) {
         EXPECT_THROW(
             sysmem->write_to_sysmem(1, data_write.data(), 0, data_write.size() * sizeof(uint32_t)), std::runtime_error);
 
-        // When we write over the limit, the address is wrapped around the hugepage size
+        // When we write over the limit, the address is wrapped around the hugepage size.
         sysmem->write_to_sysmem(
             0, data_write.data(), HUGEPAGE_REGION_SIZE + 0x100, data_write.size() * sizeof(uint32_t));
         data_read = std::vector<uint32_t>(data_write.size(), 0);

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip/remote_chip.hpp"
 
@@ -11,7 +9,6 @@
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
-#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -75,13 +72,12 @@ RemoteChip::RemoteChip(
     //   1. Adding get_remote_communication() to the TTDevice base interface (probably not)
     //   2. Restructuring the inheritance hierarchy to eliminate this dependency
     //   3. Using composition instead of inheritance for remote communication
-    // ToDo: Figure out a proper way to make an abstraction to redesign this
+    // ToDo: Figure out a proper way to make an abstraction to redesign this.
     if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
         remote_communication_ =
             dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
     } else {
-        remote_communication_ =
-            dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+        remote_communication_ = nullptr;
     }
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();

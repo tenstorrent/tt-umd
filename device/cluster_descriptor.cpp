@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -279,7 +279,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
     return x_distance + y_distance;
 }
 
-// Returns the closest mmio chip to the given chip
+// Returns the closest mmio chip to the given chip.
 ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
     log_debug(LogUMD, "get_closest_mmio_chip to chip{}", chip);
 
@@ -807,6 +807,21 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             }
             chip_board_type.insert({chip, board_type});
         }
+    } else if (yaml["boardtype"]) {
+        // Legacy format support: parse old "boardtype" field for backward compatibility.
+        for (const auto &yaml_chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
+            auto &chip = yaml_chip_board_type.first;
+            const std::string &board_type_str = yaml_chip_board_type.second;
+            BoardType board_type = board_type_from_string(board_type_str);
+            if (board_type == BoardType::UNKNOWN) {
+                log_warning(
+                    LogUMD,
+                    "Unknown board type for chip {} from legacy boardtype field. "
+                    "Defaulting to UNKNOWN",
+                    chip);
+            }
+            chip_board_type.insert({chip, board_type});
+        }
     } else {
         for (const auto &chip : all_chips) {
             chip_board_type.insert({chip, BoardType::UNKNOWN});
@@ -837,6 +852,13 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             auto &chip = chip_unique_id.first;
             auto &unique_id = chip_unique_id.second;
             chip_unique_ids.insert({chip, unique_id});
+        }
+    } else {
+        // Legacy format or mock descriptors may not have chip_unique_ids
+        // Generate synthetic IDs for backward compatibility.
+        for (const auto &chip : all_chips) {
+            // Use chip ID shifted left to create unique synthetic IDs.
+            chip_unique_ids.insert({chip, static_cast<uint64_t>(chip) << 32});
         }
     }
 
@@ -1001,7 +1023,7 @@ tt::ARCH ClusterDescriptor::get_arch() const {
         TT_THROW("Unable to determine architecture because no chips were detected.");
     }
 
-    // We already validated that all chips have the same arch
+    // We already validated that all chips have the same arch.
     tt::ARCH arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
         TT_THROW("Chip {} has invalid architecture.", *chips.begin());

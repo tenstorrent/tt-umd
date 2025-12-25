@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/vector.h>
 
@@ -13,7 +12,7 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 void bind_warm_reset(nb::module_ &m) {
-    // WarmReset class binding
+    // WarmReset class binding.
     nb::class_<WarmReset>(m, "WarmReset")
         .def_static(
             "warm_reset",

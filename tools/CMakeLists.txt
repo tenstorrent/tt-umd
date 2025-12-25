@@ -14,7 +14,6 @@ target_link_libraries(
     tools_common
     INTERFACE
         umd::device
-        umd::Common
         tt-logger::tt-logger
         cxxopts::cxxopts
 )

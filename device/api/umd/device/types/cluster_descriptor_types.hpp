@@ -16,7 +16,6 @@
 
 #include "assert.hpp"
 #include "umd/device/utils/common.hpp"
-#include "umd/device/utils/semver.hpp"
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {

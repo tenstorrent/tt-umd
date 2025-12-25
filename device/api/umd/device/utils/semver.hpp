@@ -147,15 +147,3 @@ private:
 };
 
 }  // namespace tt::umd
-
-namespace std {
-template <>
-struct hash<tt::umd::semver_t> {
-    std::size_t operator()(const tt::umd::semver_t& v) const noexcept {
-        // Assumption: size_t is 64-bit.
-        // Layout: [ Major (16) | Minor (16) | Patch (32) ].
-        return (static_cast<size_t>(v.major) << 48) | (static_cast<size_t>(v.minor) << 32) |
-               static_cast<size_t>(v.patch);
-    }
-};
-}  // namespace std

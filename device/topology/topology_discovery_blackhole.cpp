@@ -276,7 +276,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
             log_debug(
                 LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
         }
-        if (erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
+        if (erisc_firmware::BH_ERISC_FW_SUPPORTED_VERSION_MIN > eth_fw_version) {
             log_warning(LogUMD, "ETH FW version is older than UMD supported version");
             eth_fw_problem = true;
         }
@@ -291,23 +291,6 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
-
-    // Perform this check only on local chips, as remote chips cannot do I/O without Lite Fabric,
-    // which doesn't seem to work at this point.
-    if (chip->is_mmio_capable()) {
-        tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
-            eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-        auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), translated_eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
-            log_warning(
-                LogUMD,
-                "ETH FW version hash check failed for chip {} ETH core {}",
-                get_local_asic_id(chip, eth_core),
-                eth_core.str());
-            eth_fw_problem = true;
-        }
-    }
-
     return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 

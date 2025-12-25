@@ -158,25 +158,6 @@ CPMAddPackage(
 CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
 
 ####################################################################################################################
-# picosha2
-####################################################################################################################
-CPMAddPackage(
-    NAME picosha2
-    GITHUB_REPOSITORY okdshin/PicoSHA2
-    GIT_TAG v1.0.1
-    OPTIONS
-        "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-    DOWNLOAD_ONLY YES
-)
-
-if(picosha2_ADDED)
-    # picosha2 is header-only, create an interface library
-    add_library(picosha2 INTERFACE)
-    target_include_directories(picosha2 INTERFACE ${picosha2_SOURCE_DIR})
-    add_library(picosha2::picosha2 ALIAS picosha2)
-endif()
-
-####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
 CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 DOWNLOAD_ONLY YES)

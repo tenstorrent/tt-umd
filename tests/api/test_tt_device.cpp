@@ -340,7 +340,7 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
     int delay_us = GetParam();
     std::atomic<bool> sigbus_caught{false};
 
-    TTDevice::set_sigbus_safe_handler();
+    TTDevice::set_sigbus_safe_handler(true);
 
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -422,7 +422,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    TTDevice::set_sigbus_safe_handler();
+    TTDevice::set_sigbus_safe_handler(true);
 
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -487,7 +487,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process
             // 1. Re-register handler in the new process context
-            TTDevice::set_sigbus_safe_handler();
+            TTDevice::set_sigbus_safe_handler(true);
 
             uint64_t address = 0x0;
             std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

@@ -664,6 +664,8 @@ public:
      */
     tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core);
 
+    static void set_sigbus_safe_handler(bool set_safe_handler);
+
 private:
     // Helper functions
     // Broadcast

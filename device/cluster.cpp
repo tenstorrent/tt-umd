@@ -1062,4 +1062,8 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     return TopologyDiscovery::discover(std::move(options)).first;
 }
 
+/* static */ void Cluster::set_sigbus_safe_handler(bool set_safe_handler) {
+    TTDevice::set_sigbus_safe_handler(set_safe_handler);
+}
+
 }  // namespace tt::umd

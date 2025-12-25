@@ -1325,7 +1325,7 @@ TEST(TestCluster, DISABLED_SafeApiClusterMultiThreaded) {
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    TTDevice::set_sigbus_safe_handler();
+    Cluster::set_sigbus_safe_handler(true);
 
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -1380,7 +1380,7 @@ TEST(TestCluster, DISABLED_SafeApiClusterMultiProcess) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process
 
-            TTDevice::set_sigbus_safe_handler();
+            Cluster::set_sigbus_safe_handler(true);
 
             std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

@@ -47,7 +47,7 @@ public:
 
     uint64_t get_base_address() const;
 
-    static void set_sigbus_safe_handler(bool set_safe_handler = true);
+    static void set_sigbus_safe_handler(bool set_safe_handler);
 
 private:
     void validate(uint64_t offset, size_t size) const;

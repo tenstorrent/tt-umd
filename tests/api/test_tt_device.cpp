@@ -482,12 +482,13 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
     }
 
     constexpr int NUM_CHILDREN = 3;
+    utils::MultiProcessPipe pipes(NUM_CHILDREN);
     std::vector<pid_t> pids;
 
     for (int i = 0; i < NUM_CHILDREN; ++i) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process
-            // 1. Re-register handler in the new process context
+            // Re-register handler in the new process context.
             TTDevice::set_sigbus_safe_handler(true);
 
             uint64_t address = 0x0;
@@ -509,6 +510,8 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
                 tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             }
 
+            pipes.signal_ready_from_child(i);
+
             try {
                 // The "Hammer" loop.
                 while (true) {
@@ -526,6 +529,8 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
         }
         pids.push_back(pid);
     }
+
+    pipes.wait_for_all_children(20);
 
     // Parent triggers the reset that affects ALL windows on that PCIe link.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));

@@ -341,8 +341,6 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
     int delay_us = GetParam();
     std::atomic<bool> sigbus_caught{false};
 
-    TTDevice::set_sigbus_safe_handler(true);
-
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
@@ -351,7 +349,7 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
     tt_xy_pair tensix_core;
 
     for (int pci_device_id : pci_device_ids) {
-        tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
+        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -378,10 +376,10 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
 
             for (int i = 0; i < 100; ++i) {
                 for (int pci_device_id : pci_device_ids) {
-                    tt_devices[pci_device_id]->safe_write_to_device(
+                    tt_devices[pci_device_id]->write_to_device(
                         data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
-                    tt_devices[pci_device_id]->safe_read_from_device(
+                    tt_devices[pci_device_id]->read_from_device(
                         data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
 
                     verify_data(data_write, data_read, pci_device_id);
@@ -423,8 +421,6 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    TTDevice::set_sigbus_safe_handler(true);
-
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
@@ -433,7 +429,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
     tt_xy_pair tensix_core;
 
     for (int pci_device_id : pci_device_ids) {
-        tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
+        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -450,7 +446,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
         try {
             // This thread hammers the device and waits for the reset to kill it.
             while (true) {
-                tt_devices[pci_device_ids[0]]->safe_read_from_device(
+                tt_devices[pci_device_ids[0]]->read_from_device(
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
@@ -488,8 +484,6 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
     for (int i = 0; i < NUM_CHILDREN; ++i) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process
-            // Re-register handler in the new process context.
-            TTDevice::set_sigbus_safe_handler(true);
 
             uint64_t address = 0x0;
             std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -499,7 +493,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
             tt_xy_pair tensix_core;
 
             for (int pci_device_id : pci_device_ids) {
-                tt_devices[pci_device_id] = TTDevice::create(pci_device_id);
+                tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
 
                 tt_devices[pci_device_id]->init_tt_device();
 
@@ -515,7 +509,7 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
             try {
                 // The "Hammer" loop.
                 while (true) {
-                    tt_devices[pci_device_ids[0]]->safe_read_from_device(
+                    tt_devices[pci_device_ids[0]]->read_from_device(
                         data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
                     std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }

@@ -123,9 +123,6 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
-    virtual void safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
@@ -356,6 +353,8 @@ private:
     TlbWindow *get_cached_tlb_window();
 
     std::mutex tt_device_io_lock;
+
+    bool use_safe_api_ = false;
 };
 
 }  // namespace tt::umd

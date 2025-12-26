@@ -45,7 +45,12 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()),
+    use_safe_api_(use_safe_api) {
+    if (use_safe_api_) {
+        set_sigbus_safe_handler(true);
+    }
+}
 
 TTDevice::TTDevice(
     std::shared_ptr<JtagDevice> jtag_device,
@@ -192,18 +197,18 @@ void TTDevice::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (use_safe_api_) {
+        read_from_device_impl<true>(mem_ptr, core, addr, size);
+        return;
+    }
     read_from_device_impl<false>(mem_ptr, core, addr, size);
 }
 
-void TTDevice::safe_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    read_from_device_impl<true>(mem_ptr, core, addr, size);
-}
-
-void TTDevice::safe_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    write_to_device_impl<true>(mem_ptr, core, addr, size);
-}
-
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (use_safe_api_) {
+        write_to_device_impl<true>(mem_ptr, core, addr, size);
+        return;
+    }
     write_to_device_impl<false>(mem_ptr, core, addr, size);
 }
 

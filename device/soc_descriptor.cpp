@@ -191,11 +191,11 @@ CoreCoord SocDescriptor::translate_coord_to(
 }
 
 tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
     // Tensix cores are always used in translated space. Other cores are used either in
     // NOC1 or translated space depending on the umd_use_noc1 flag.
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (noc_translation_enabled && arch == tt::ARCH::BLACKHOLE) {
+    if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
         return translate_coord_to(core, CoordSystem::TRANSLATED);
     }
 

@@ -165,6 +165,8 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         }
     }
 
+    test_utils::safe_test_cluster_start(&cluster);
+
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (auto chip_id : cluster.get_target_device_ids()) {
         for (const auto& size : unaligned_sizes) {

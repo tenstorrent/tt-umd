@@ -62,7 +62,6 @@ TEST(SiliconDriverWH, CreateDestroy) {
             .perform_harvesting = false,
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
-        set_barrier_params(cluster);
     }
 }
 

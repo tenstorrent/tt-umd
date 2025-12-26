@@ -18,7 +18,7 @@ class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:
     SmBusArcTelemetryReader(TTDevice* tt_device);
 
-    uint32_t read_entry(const uint8_t telemetry_tag, bool use_safe_api = false) override;
+    uint32_t read_entry(const uint8_t telemetry_tag) override;
 
     bool is_entry_available(const uint8_t telemetry_tag) override;
 

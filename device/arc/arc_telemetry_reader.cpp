@@ -69,7 +69,7 @@ void ArcTelemetryReader::initialize_telemetry() {
     }
 }
 
-uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, bool use_safe_api) {
+uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     if (!is_entry_available(telemetry_tag)) {
         throw std::runtime_error(fmt::format(
             "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
@@ -82,13 +82,8 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, bool use_sa
 
     const uint32_t offset = telemetry_offset.at(telemetry_tag);
     uint32_t telemetry_val;
-    if (use_safe_api) {
-        tt_device->safe_read_from_device(
-            &telemetry_val, arc_core, telemetry_values_addr + offset * sizeof(uint32_t), sizeof(uint32_t));
-    } else {
-        tt_device->read_from_device(
-            &telemetry_val, arc_core, telemetry_values_addr + offset * sizeof(uint32_t), sizeof(uint32_t));
-    }
+    tt_device->read_from_device(
+        &telemetry_val, arc_core, telemetry_values_addr + offset * sizeof(uint32_t), sizeof(uint32_t));
 
     telemetry_values[telemetry_tag] = telemetry_val;
     return telemetry_values[telemetry_tag];

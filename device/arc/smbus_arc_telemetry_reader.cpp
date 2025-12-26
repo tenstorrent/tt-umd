@@ -30,7 +30,7 @@ void SmBusArcTelemetryReader::get_telemetry_address() {
     telemetry_base_noc_addr = arc_msg_return_values[0] + noc_telemetry_offset;
 }
 
-uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, bool use_safe_api) {
+uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     if (!is_entry_available(telemetry_tag)) {
         throw std::runtime_error(fmt::format(
             "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
@@ -38,13 +38,8 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, bool u
     }
 
     uint32_t telemetry_value;
-    if (use_safe_api) {
-        tt_device->safe_read_from_device(
-            &telemetry_value, arc_core, telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t), sizeof(uint32_t));
-    } else {
-        tt_device->read_from_device(
-            &telemetry_value, arc_core, telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t), sizeof(uint32_t));
-    }
+    tt_device->read_from_device(
+        &telemetry_value, arc_core, telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t), sizeof(uint32_t));
 
     return telemetry_value;
 }

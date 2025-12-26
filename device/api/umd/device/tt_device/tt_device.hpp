@@ -312,8 +312,6 @@ public:
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
-    void set_reset_in_progress(bool in_progress);
-
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

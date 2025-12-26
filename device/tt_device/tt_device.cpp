@@ -38,7 +38,9 @@ namespace tt::umd {
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
-    std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
+    std::shared_ptr<PCIDevice> pci_device,
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    bool use_safe_api) :
     pci_device_(pci_device),
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
@@ -72,7 +74,8 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     post_init_hook();
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+    int device_number, IODeviceType device_type, bool use_safe_api) {
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
@@ -91,15 +94,16 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device, use_safe_api));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device));
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device, use_safe_api));
         default:
             return nullptr;
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
@@ -108,7 +112,8 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
                 return std::unique_ptr<RemoteWormholeTTDevice>(
                     new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<RemoteWormholeTTDevice>(
+                new RemoteWormholeTTDevice(std::move(remote_communication), use_safe_api));
         }
         case tt::ARCH::BLACKHOLE: {
             return nullptr;

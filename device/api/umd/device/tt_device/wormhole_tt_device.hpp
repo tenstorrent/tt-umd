@@ -46,7 +46,7 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
 protected:
@@ -64,7 +64,7 @@ protected:
     uint64_t get_arc_csm_noc_base_address() const;
 
 private:
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
 
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);

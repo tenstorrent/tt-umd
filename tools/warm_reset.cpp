@@ -19,7 +19,10 @@
 using namespace tt::umd;
 
 int main(int argc, char* argv[]) {
-    cxxopts::Options options("warm_reset", "Perform warm reset on Tenstorrent devices.");
+    cxxopts::Options options(
+        "warm_reset", "Perform warm reset on Tenstorrent devices. For reseting 6U, apply the --6u flag.");
+
+    options.add_options()("6u", "Perform 6U warm reset.", cxxopts::value<bool>()->default_value("false"));
 
     auto result = options.parse(argc, argv);
 
@@ -29,8 +32,13 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        log_info(tt::LogUMD, "Performing warm reset on all available devices...");
-        WarmReset::warm_reset();
+        if (result.count("6u")) {
+            log_info(tt::LogUMD, "Performing 6U warm reset...");
+            WarmReset::ubb_warm_reset();
+        } else {
+            log_info(tt::LogUMD, "Performing warm reset on all available devices...");
+            WarmReset::warm_reset();
+        }
         log_info(tt::LogUMD, "Warm reset completed successfully. Running Topology discovery...");
 
         TopologyDiscovery::discover({});

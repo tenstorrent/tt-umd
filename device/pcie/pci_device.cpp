@@ -676,7 +676,7 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
         return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
         if (read_kmd_version() < semver_t(2, 6, 0)) {
-            TT_THROW("Failed to allocate TLB window.");
+            TT_THROW("Failed to allocate TLB window. Note that the resource might be exhausted by some other hung process.");
         }
         TT_THROW(
             "Failed to allocate TLB window. Look at /sys/kernel/debug/tenstorrent/{}/mappings and "

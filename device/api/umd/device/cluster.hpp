@@ -676,7 +676,6 @@ private:
     // Test functions.
     void log_device_summary();
     void log_pci_device_summary();
-    void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(

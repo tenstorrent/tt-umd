@@ -145,7 +145,8 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr;
+    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr &&
+                         sysmem_manager_->get_num_host_mem_channels() > 0;
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
@@ -363,7 +364,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     // Broadcast requires block writes to host dram
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
-    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
+    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr &&
+                         sysmem_manager_->get_num_host_mem_channels() > 0;
     TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;

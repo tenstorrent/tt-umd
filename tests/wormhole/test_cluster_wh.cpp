@@ -55,7 +55,6 @@ TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
 }
 
 TEST(SiliconDriverWH, CreateDestroy) {
-    DeviceParams default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
@@ -63,6 +62,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
         set_barrier_params(cluster);
+        test_utils::safe_test_cluster_start(&cluster);
     }
 }
 
@@ -437,8 +437,7 @@ TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
+    test_utils::safe_test_cluster_start(&cluster);
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
@@ -513,8 +512,7 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
+    test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
     bool virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
                                    cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;

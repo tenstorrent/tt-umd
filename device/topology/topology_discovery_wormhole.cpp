@@ -218,7 +218,7 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
     return eth_coord;
 }
 
-std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_chip(
+std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     if (is_running_on_6u) {
         return nullptr;

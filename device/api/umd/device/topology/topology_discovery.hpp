@@ -19,13 +19,13 @@ namespace tt::umd {
 class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
-    // Path to custom SoC descriptor when creating chips. See ClusterOptions.
+    // Path to custom SoC descriptor when creating devices. See ClusterOptions.
     std::string soc_descriptor_path = "";
 
     // I/O device type to use when discovering. See ClusterOptions.
     IODeviceType io_device_type = IODeviceType::PCIe;
 
-    // Skip discovery of chips connected via Ethernet.
+    // Skip discovery of devices connected via Ethernet.
     bool no_remote_discovery = false;
 
     // Skip waiting for ETH training. TODO: Currently unimplemented.
@@ -54,9 +54,9 @@ protected:
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
-    void get_connected_chips();
+    void get_connected_devices();
 
-    void discover_remote_chips();
+    void discover_remote_devices();
 
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
@@ -103,19 +103,19 @@ protected:
 
     // API exposed as a temporary workaround for issue: https://tenstorrent.atlassian.net/browse/SYS-2064.
     // This is used for querying the logical remote eth channel on Multi-Host Blackhole P150 systems, where
-    // we don't have access to the ethernet harvesting mask for the remote chip.
+    // we don't have access to the ethernet harvesting mask for the remote device.
     // Logic in this API can be placed in get_remote_eth_channel, and patch_eth_connections can be removed,
     // once the issue outlined in the ticket is resolved (at which point, UMD can directly query the logical
-    // ethernet channel for the remote chip on all board types).
+    // ethernet channel for the remote device on all board types).
     virtual uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
 
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.
-    virtual std::unique_ptr<TTDevice> create_remote_chip(
+    virtual std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) = 0;
 
-    TTDevice* get_chip(const uint64_t asic_id);
+    TTDevice* get_tt_device(const uint64_t asic_id);
 
     virtual void init_topology_discovery();
 
@@ -127,8 +127,8 @@ protected:
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
 
-    std::map<uint64_t, std::unique_ptr<TTDevice>> chips_to_discover;
-    std::map<uint64_t, std::unique_ptr<TTDevice>> chips;
+    std::map<uint64_t, std::unique_ptr<TTDevice>> devices_to_discover;
+    std::map<uint64_t, std::unique_ptr<TTDevice>> devices;
     SocDescriptor get_soc_descriptor(TTDevice* tt_device);
 
     std::unordered_map<uint64_t, EthCoord> eth_coords;
@@ -141,7 +141,7 @@ protected:
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;
 
-    std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_chip;
+    std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_device;
 
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
@@ -155,11 +155,11 @@ protected:
     virtual bool verify_fw_bundle_version(TTDevice* tt_device);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
-    // If there is no available expected version, we use the version from the first discovered local chip.
+    // If there is no available expected version, we use the version from the first discovered local device.
     std::optional<semver_t> expected_eth_fw_version;
 
-    // The FW bundle version found on the first discovered local chip, that needs
-    // to match with all of the other discovered FW bundle versions on all chips.
+    // The FW bundle version found on the first discovered local device, that needs
+    // to match with all of the other discovered FW bundle versions on all devices.
     std::optional<semver_t> first_fw_bundle_version;
 };
 

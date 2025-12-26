@@ -60,7 +60,7 @@ protected:
 
     uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    std::unique_ptr<TTDevice> create_remote_chip(
+    std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     bool is_using_eth_coords() override;

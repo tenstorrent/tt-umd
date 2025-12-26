@@ -51,7 +51,7 @@ protected:
 
     bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
-    std::unique_ptr<TTDevice> create_remote_chip(
+    std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     void patch_eth_connections() override;

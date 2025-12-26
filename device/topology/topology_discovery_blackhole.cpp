@@ -25,7 +25,7 @@ namespace tt::umd {
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options) :
     TopologyDiscovery(options) {}
 
-std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_chip(
+std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     std::unique_ptr<RemoteCommunication> remote_communication =
@@ -197,7 +197,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto& [local_chip, local_channel] = eth_connections_original.first;
         auto& [remote_chip, remote_channel] = eth_connections_original.second;
 
-        TTDevice* remote_chip_ptr = get_chip(remote_chip);
+        TTDevice* remote_chip_ptr = get_tt_device(remote_chip);
 
         auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);

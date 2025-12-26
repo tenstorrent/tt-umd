@@ -51,7 +51,7 @@ protected:
             GTEST_SKIP() << "Test is skipped due to incorrect number of chips";
         }
 
-        cluster = get_default_cluster();
+        cluster = std::make_unique<Cluster>();
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

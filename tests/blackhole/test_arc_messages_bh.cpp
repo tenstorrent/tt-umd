@@ -65,7 +65,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 }
 
 TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
-    std::unique_ptr<Cluster> cluster = get_default_cluster();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     const uint32_t num_loops = 1000;
 

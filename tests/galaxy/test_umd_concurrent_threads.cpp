@@ -25,7 +25,7 @@ using namespace tt::umd;
 
 // Have 2 threads read and write to all cores on the Galaxy.
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
-    auto cluster = get_default_cluster();
+    auto cluster = std::make_unique<Cluster>();
     if (is_4u_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test on 4U Galaxy due to intermittent failures.";
     }
@@ -127,7 +127,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 }
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
-    auto cluster = get_default_cluster();
+    auto cluster = std::make_unique<Cluster>();
     if (is_4u_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test on 4U Galaxy due to intermittent failures.";
     }

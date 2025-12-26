@@ -58,7 +58,7 @@ struct ClusterOptions {
     /**
      * Number of host memory channels (hugepages) per MMIO device.
      */
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    uint32_t num_host_mem_ch_per_mmio_device = 0;
     /**
      * If set to false, harvesting will be skipped for constructed soc descriptors.
      */

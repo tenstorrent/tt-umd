@@ -6,10 +6,12 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_set>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -161,6 +163,10 @@ protected:
     // The FW bundle version found on the first discovered local device, that needs
     // to match with all of the other discovered FW bundle versions on all devices.
     std::optional<semver_t> first_fw_bundle_version;
+
+private:
+    // Hack used to cache SocDescriptors.
+    std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
 };
 
 }  // namespace tt::umd

@@ -394,6 +394,15 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 }
 
 SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
+    // HACK: This methods shows that SocDescriptor is needed with almost every use of
+    // TTDevice in TopologyDiscovery, so the SocDescriptor itself should be owned by
+    // TTDevice. This method caches SocDescriptors to reduce the overhead of creating one
+    // on the spot every time.
+    auto it = soc_descriptor_cache.find(tt_device);
+    if (it != soc_descriptor_cache.end()) {
+        return it->second;
+    }
+
     SocDescriptor soc_descriptor;
     if (options.soc_descriptor_path.empty()) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
@@ -401,6 +410,8 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
     } else {
         soc_descriptor = SocDescriptor(options.soc_descriptor_path, tt_device->get_chip_info());
     }
+
+    soc_descriptor_cache[tt_device] = soc_descriptor;
     return soc_descriptor;
 }
 

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -54,6 +52,7 @@ public:
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
@@ -107,8 +106,8 @@ private:
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
-    TlbWindow* get_cached_wc_tlb_window(tlb_data config);
-    TlbWindow* get_cached_uc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_wc_tlb_window();
+    TlbWindow* get_cached_uc_tlb_window();
     TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;

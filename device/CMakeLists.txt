@@ -56,6 +56,8 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
+        chip_helpers/simulation_sysmem_manager.cpp
+        chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
@@ -75,7 +77,6 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
-        tt_device/remote_blackhole_tt_device.cpp
         tt_device/rtl_simulation_tt_device.cpp
         tt_device/tt_sim_tt_device.cpp
         firmware/firmware_info_provider.cpp
@@ -146,6 +147,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/mock_chip.hpp
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp
+                api/umd/device/chip_helpers/simulation_sysmem_manager.hpp
+                api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/cluster.hpp
@@ -166,7 +169,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/tt_device.hpp
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
-                api/umd/device/tt_device/remote_blackhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/remote_communication.hpp
@@ -218,12 +220,12 @@ target_include_directories(
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/common
 )
 
 target_link_libraries(
     device
     PRIVATE
-        umd::Common
         umd::Firmware
         hwloc
         rt
@@ -298,16 +300,4 @@ add_custom_command(
     COMMAND
         ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
     COMMENT "Copying device library to build/lib"
-)
-
-install(
-    DIRECTORY
-        ${PROJECT_SOURCE_DIR}/common
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
-    COMPONENT umd-dev
-    FILES_MATCHING
-    PATTERN
-    "*.h"
-    PATTERN
-    "*.hpp"
 )

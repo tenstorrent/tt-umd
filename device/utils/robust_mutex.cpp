@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/utils/robust_mutex.hpp"
 
 #include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
@@ -124,7 +123,7 @@ void* get_tsan_mutex_id(std::string mutex_name) {
 }
 #endif
 
-static void tsan_annotate_mutex_init(const std::string& name) {
+static void tsan_annotate_mutex_init(const std::string& mutex_name) {
 #ifdef __SANITIZE_THREAD__
     // Register this mutex name in the TSAN tracking storage.
     // This ensures all threads using the same mutex name will use the same
@@ -136,21 +135,21 @@ static void tsan_annotate_mutex_init(const std::string& name) {
 #endif
 }
 
-static void tsan_annotate_mutex_acquire(const std::string& name) {
+static void tsan_annotate_mutex_acquire(const std::string& mutex_name) {
 #ifdef __SANITIZE_THREAD__
     // Inform TSAN that we've acquired the mutex, establishing a happens-before relationship.
     // This must be called AFTER the actual lock acquisition so TSAN sees that we now have
     // the synchronization point established by the previous owner's __tsan_release.
-    __tsan_acquire(get_tsan_mutex_id(name));
+    __tsan_acquire(get_tsan_mutex_id(mutex_name));
 #endif
 }
 
-static void tsan_annotate_mutex_release(const std::string& name) {
+static void tsan_annotate_mutex_release(const std::string& mutex_name) {
 #ifdef __SANITIZE_THREAD__
     // Inform TSAN that we're releasing the mutex, establishing a happens-before relationship.
     // This must be called BEFORE the actual unlock so TSAN sees the release before other
     // threads/processes can acquire the lock.
-    __tsan_release(get_tsan_mutex_id(name));
+    __tsan_release(get_tsan_mutex_id(mutex_name));
 #endif
 }
 

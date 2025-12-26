@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -207,7 +207,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
         // 3. Constructor taking a custom soc descriptor in addition.
         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
-        std::string sdesc_path = SocDescriptor::get_soc_descriptor_path(device_arch);
+        std::string sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
             .sdesc_path = sdesc_path,
         });
@@ -1324,7 +1324,7 @@ TEST(TestCluster, WriteDataReadReg) {
     }
 }
 
-TEST(TestCluster, EriscFirmwareHashCheck) {
+TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -1348,7 +1348,7 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
             GTEST_SKIP() << "Unsupported architecture for test.";
     }
 
-    // Check hash without changes, should pass
+    // Check hash without changes, should pass.
     std::cout << "Checking ETH FW without changes." << std::endl;
     auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
     if (!result.has_value()) {

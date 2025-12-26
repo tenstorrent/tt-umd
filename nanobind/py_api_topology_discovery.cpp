@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/pair.h>
@@ -24,7 +23,7 @@ namespace nb = nanobind;
 using namespace tt;
 using namespace tt::umd;
 
-// Forward declaration of helper function from py_api_tt_device.cpp
+// Forward declaration of helper function from py_api_tt_device.cpp.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice* local_chip, ClusterDescriptor* cluster_descriptor, ChipId remote_chip_id);
 
@@ -38,6 +37,14 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_chip_locations", &ClusterDescriptor::get_chip_locations)
         .def("get_chips_with_mmio", &ClusterDescriptor::get_chips_with_mmio)
         .def("get_active_eth_channels", &ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
+        .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids)
+        .def(
+            "serialize_to_file",
+            [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {
+                std::filesystem::path file_path = self.serialize_to_file(dest_file);
+                return file_path.string();
+            },
+            nb::arg("dest_file") = "")
         .def(
             "get_arch",
             static_cast<tt::ARCH (ClusterDescriptor::*)(ChipId) const>(&ClusterDescriptor::get_arch),
@@ -82,7 +89,7 @@ void bind_topology_discovery(nb::module_& m) {
                         tt_devices[chip_id] = TTDevice::create(pci_device_num);
                         tt_devices[chip_id]->init_tt_device();
                     } else {
-                        // Skip creating remote devices if no_remote_discovery is true
+                        // Skip creating remote devices if no_remote_discovery is true.
                         if (!options.no_remote_discovery) {
                             ChipId closest_mmio = cluster_desc->get_closest_mmio_capable_chip(chip_id);
                             tt_devices[chip_id] = create_remote_wormhole_tt_device(

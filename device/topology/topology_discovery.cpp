@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/topology/topology_discovery.hpp"
 
 #include <memory>
@@ -170,6 +169,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
+            if (!verify_routing_firmware_state(tt_device, eth_core)) {
+                channel++;
+                continue;
+            }
+
             if (is_using_eth_coords()) {
                 auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
@@ -184,15 +188,9 @@ void TopologyDiscovery::discover_remote_chips() {
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_chips.find(get_remote_asic_id(tt_device, eth_core)) == discovered_chips.end())) {
                 uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
-                if (tt_device->get_board_type() == BoardType::P150) {
-                    ethernet_connections_to_remote_devices.push_back(
-                        {{current_chip_asic_id, channel},
-                         {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
-                } else {
-                    ethernet_connections_to_remote_devices.push_back(
-                        {{current_chip_asic_id, channel},
-                         {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});
-                }
+                ethernet_connections_to_remote_devices.push_back(
+                    {{current_chip_asic_id, channel},
+                     {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
                 log_debug(LogUMD, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
@@ -223,7 +221,6 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     patch_eth_connections();
-    validate_routing_firmware_state(chips);
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -377,7 +374,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         latest_supported_fw_bundle_version.to_string());
 
     TT_ASSERT(
-        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) > 0,
+        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) >= 0,
         "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
         "architecture.",
         fw_bundle_version.to_string(),

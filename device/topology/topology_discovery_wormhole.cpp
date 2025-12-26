@@ -1,9 +1,10 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
+
+#include <fmt/format.h>
 
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
@@ -342,14 +343,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         eth_fw_problem = true;
     }
 
-    auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
-    if (hash_check.has_value() && hash_check.value() == false) {
-        log_warning(
-            LogUMD,
-            "ETH FW version hash check failed for chip {} ETH core {}",
-            get_local_asic_id(tt_device, eth_core),
-            eth_core.str());
-        eth_fw_problem = true;
+    if (options.verify_eth_fw_hash) {
+        auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
+        if (hash_check.has_value() && hash_check.value() == false) {
+            log_warning(
+                LogUMD,
+                "ETH FW version hash check failed for chip {} ETH core {}",
+                get_local_asic_id(tt_device, eth_core),
+                eth_core.str());
+            eth_fw_problem = true;
+        }
     }
 
     return options.no_eth_firmware_strictness || !eth_fw_problem;
@@ -357,25 +360,32 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
 
-void TopologyDiscoveryWormhole::validate_routing_firmware_state(
-    const std::map<uint64_t, std::unique_ptr<TTDevice>>& chips) {
-    for (const auto& [asic_id, tt_device] : chips) {
-        std::vector<CoreCoord> eth_cores =
-            get_soc_descriptor(tt_device.get())
-                .get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-        if (eth_cores.empty()) {
-            continue;
+bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
+    uint32_t routing_firmware_disabled;
+    tt_device->read_from_device(
+        &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
+    if (is_running_on_6u && routing_firmware_disabled == 0) {
+        auto message = fmt::format(
+            "Routing FW on 6U unexpectedly enabled on chip {} core {}.",
+            get_local_asic_id(tt_device, eth_core),
+            eth_core.str());
+        if (options.no_eth_firmware_strictness) {
+            log_warning(LogUMD, message);
+            return false;
         }
-
-        uint32_t routing_firmware_disabled;
-        tt_device->read_from_device(
-            &routing_firmware_disabled, eth_cores[0], eth_addresses.routing_firmware_state, sizeof(uint32_t));
-        if (is_running_on_6u && routing_firmware_disabled == 0) {
-            throw std::runtime_error("Routing Firmware should not be enabled on 6U-Galaxy Systems.");
-        } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
-            throw std::runtime_error("Routing Firmware should be enabled on Non 6U-Galaxy Systems.");
+        TT_THROW(message);
+    } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
+        auto message = fmt::format(
+            "Routing FW unexpectedly disabled on chip {} core {}.",
+            get_local_asic_id(tt_device, eth_core),
+            eth_core.str());
+        if (options.no_eth_firmware_strictness) {
+            log_warning(LogUMD, message);
+            return false;
         }
+        TT_THROW(message);
     }
+    return true;
 }
 
 }  // namespace tt::umd

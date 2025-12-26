@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include <memory>
@@ -35,6 +34,9 @@ struct TopologyDiscoveryOptions {
     // Allow unsupported ETH firmware versions and do not fail when
     // cores have different ETH firmware versions.
     bool no_eth_firmware_strictness = false;
+
+    // Enables verifying ERISC FW on cores to ensure reliability of discovery.
+    bool verify_eth_fw_hash = false;
 };
 
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
@@ -119,7 +121,7 @@ protected:
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
-    virtual void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<TTDevice>>& chips) = 0;
+    virtual bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.

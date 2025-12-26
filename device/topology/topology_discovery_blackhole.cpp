@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
 #include <optional>
@@ -158,25 +157,24 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device,
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    if (tt_device->get_board_type() != BoardType::P150) {
-        throw std::runtime_error(
-            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
-    }
     auto translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t remote_logical_eth_id;
     tt_device->read_from_device(&remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
 
-    auto fw_bundle_version = tt_device->get_firmware_version();
-
-    if (fw_bundle_version >= semver_t(18, 12, 0)) {
+    // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
+    // for P150 Board Types (with a  SW workaround).
+    if (first_fw_bundle_version >= semver_t(18, 12, 0)) {
         return remote_logical_eth_id;
-    } else {
-        // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
-        // the first 4 ethernet channels (these channels are using SerDes for PCIe)
-        // These channels are visible to UMD, and are thus accounted for in this API.
-        return remote_logical_eth_id + 4;
     }
+    if (tt_device->get_chip_info().board_type != BoardType::P150) {
+        throw std::runtime_error(
+            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
+    }
+    // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
+    // the first 4 ethernet channels (these channels are using SerDes for PCIe)
+    // These channels are visible to UMD, and are thus accounted for in this API.
+    return remote_logical_eth_id + 4;
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
@@ -290,9 +288,9 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         eth_fw_problem = true;
     }
 
-    // Perform this check only on local chips, as remote chips cannot do I/O without Lite Fabric,
-    // which doesn't seem to work at this point.
-    if (!tt_device->is_remote()) {
+    if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
+        tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+            eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
         if (hash_check.has_value() && hash_check.value() == false) {
             log_warning(
@@ -313,7 +311,8 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(TTDevice* tt_device
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
-void TopologyDiscoveryBlackhole::validate_routing_firmware_state(
-    const std::map<uint64_t, std::unique_ptr<TTDevice>>& chips) {}
+bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
+    return true;
+}
 
 }  // namespace tt::umd

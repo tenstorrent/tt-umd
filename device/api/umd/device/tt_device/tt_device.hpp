@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -320,9 +318,6 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    template <typename T>
-    T *get_register_address(uint32_t register_offset);
-
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -341,7 +336,7 @@ private:
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
-    TlbWindow *get_cached_tlb_window(tlb_data config);
+    TlbWindow *get_cached_tlb_window();
 
     std::mutex tt_device_io_lock;
 };

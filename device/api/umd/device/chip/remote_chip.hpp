@@ -39,6 +39,7 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+    const SocDescriptor& get_soc_descriptor() const override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;

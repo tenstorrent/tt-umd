@@ -4,11 +4,13 @@
 
 #include "umd/device/chip/mock_chip.hpp"
 
+#include "umd/device/soc_descriptor.hpp"
+
 namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
 
-MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
+MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(soc_descriptor.arch), soc_descriptor_(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 
@@ -21,6 +23,8 @@ TTDevice* MockChip::get_tt_device() { return nullptr; }
 SysmemManager* MockChip::get_sysmem_manager() { return nullptr; }
 
 TLBManager* MockChip::get_tlb_manager() { return nullptr; }
+
+const SocDescriptor& MockChip::get_soc_descriptor() const { return soc_descriptor_; }
 
 int MockChip::get_num_host_channels() { return 0; }
 

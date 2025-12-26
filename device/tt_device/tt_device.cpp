@@ -16,6 +16,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -63,6 +64,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info());
     post_init_hook();
 }
 
@@ -294,5 +296,7 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
     get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
+
+const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
 
 }  // namespace tt::umd

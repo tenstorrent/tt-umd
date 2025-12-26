@@ -13,6 +13,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/l1_address_map.h"
+
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
 namespace tt::umd::test::utils {

@@ -88,13 +88,13 @@ private:
 inline bool is_4u_galaxy_configuration(Cluster* cluster) {
     return cluster != nullptr && cluster->get_target_remote_device_ids().size() > 0 &&
            cluster->get_cluster_description()->get_board_type(*cluster->get_target_remote_device_ids().begin()) ==
-               tt::BoardType::GALAXY;
+               BoardType::GALAXY;
 }
 
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     bool is_6u_galaxy_configuration = cluster->get_target_device_ids().size() > 0 &&
-                                      cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
+                                      cluster->get_cluster_description()->get_board_type(0) == BoardType::UBB;
     return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
 }
 

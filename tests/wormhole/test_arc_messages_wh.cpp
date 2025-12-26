@@ -11,6 +11,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+
 using namespace tt::umd;
 
 TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {

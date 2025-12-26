@@ -8,7 +8,6 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/xy_pair.hpp"

@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "tests/test_utils/test_api_common.hpp"
+
 // TODO: change to tt_cluster.
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"

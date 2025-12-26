@@ -7,7 +7,6 @@
 #include <memory>
 #include <thread>
 
-#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"

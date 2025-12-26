@@ -7,7 +7,6 @@
 #include <memory>
 #include <thread>
 
-#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"

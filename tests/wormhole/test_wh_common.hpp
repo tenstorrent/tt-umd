@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -56,8 +57,7 @@ protected:
 
         set_barrier_params(*cluster);
 
-        DeviceParams default_params;
-        cluster->start_device(default_params);
+        test_utils::safe_test_cluster_start(cluster.get());
 
         cluster->deassert_risc_reset();
 

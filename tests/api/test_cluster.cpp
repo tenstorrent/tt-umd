@@ -378,9 +378,6 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    DeviceParams default_params;
-    cluster->start_device(default_params);
-
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = zeros;
@@ -1012,9 +1009,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    test_utils::setup_risc_cores_on_cluster(cluster.get());
-
-    cluster->start_device({});
+    test_utils::safe_test_cluster_start(cluster.get());
 
     // Initialize random data.
     size_t data_size = 1024;

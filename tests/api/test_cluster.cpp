@@ -378,9 +378,6 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    DeviceParams default_params;
-    cluster->start_device(default_params);
-
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = zeros;
@@ -1012,9 +1009,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    test_utils::setup_risc_cores_on_cluster(cluster.get());
-
-    cluster->start_device({});
+    test_utils::safe_test_cluster_start(cluster.get());
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -1159,9 +1154,7 @@ TEST(TestCluster, SysmemReadWrite) {
         return dis(gen);
     };
 
-    cluster.get_chip(mmio_chip_id)->start_device();
-    // sysmem_manager->pin_or_map_sysmem_to_device();
-    // cluster.start_device(device_params{});
+    test_utils::safe_test_cluster_start(&cluster);
 
     for (uint32_t channel = 0; channel < channels; channel++) {
         uint8_t* sysmem = static_cast<uint8_t*>(cluster.host_dma_address(mmio_chip_id, 0, channel));

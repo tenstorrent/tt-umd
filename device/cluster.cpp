@@ -982,6 +982,7 @@ void Cluster::deassert_resets_and_set_power_state() {
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
+    log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -992,6 +993,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
+    log_info(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -119,7 +120,7 @@ inline std::ostream& operator<<(std::ostream& os, const DevicePowerState power_s
             os << "LONG_IDLE";
             break;
         default:
-            throw("Unknown DevicePowerState");
+            UMD_THROW("Unknown DevicePowerState.");
     }
     return os;
 }

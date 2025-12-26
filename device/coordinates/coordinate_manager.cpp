@@ -64,11 +64,11 @@ void CoordinateManager::initialize() {
 
 void CoordinateManager::assert_coordinate_manager_constructor() {
     if (harvesting_masks.dram_harvesting_mask != 0) {
-        throw std::runtime_error("DRAM harvesting is supported only for Blackhole");
+        UMD_THROW("DRAM harvesting is supported only for Blackhole.");
     }
 
     if (harvesting_masks.eth_harvesting_mask != 0) {
-        throw std::runtime_error("ETH harvesting is supported only for Blackhole");
+        UMD_THROW("ETH harvesting is supported only for Blackhole.");
     }
 }
 
@@ -126,37 +126,26 @@ CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
     auto noc0_coord_it = to_noc0_map.find(core_coord);
     if (noc0_coord_it == to_noc0_map.end()) {
-        throw std::runtime_error(fmt::format(
-            "No core coordinate found at location: ({}, {}, {}, {})",
-            core_coord.x,
-            core_coord.y,
-            to_str(core_coord.core_type),
-            to_str(core_coord.coord_system)));
+        UMD_THROW("No core coordinate found at location: {}", core_coord.str());
     }
 
     tt_xy_pair noc0_coord = noc0_coord_it->second;
     auto coord_it = from_noc0_map.find({noc0_coord, target_coord_system});
     if (coord_it == from_noc0_map.end()) {
-        throw std::runtime_error(fmt::format(
-            "No core coordinate found for system {} at location: ({}, {}, {}, {})",
-            to_str(target_coord_system),
-            core_coord.x,
-            core_coord.y,
-            to_str(core_coord.core_type),
-            to_str(core_coord.coord_system)));
+        UMD_THROW(
+            "No core coordinate found for system {} at location: {}", to_str(target_coord_system), core_coord.str());
     }
     return coord_it->second;
 }
 
 CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LOGICAL) {
-        throw std::runtime_error("Coordinate is ambiguous for logical system.");
+        UMD_THROW("Coordinate is ambiguous for logical system.");
     }
 
     auto coord_it = to_core_type_map.find({core, coord_system});
     if (coord_it == to_core_type_map.end()) {
-        throw std::runtime_error(fmt::format(
-            "No core type found for system {} at location: ({}, {})", to_str(coord_system), core.x, core.y));
+        UMD_THROW("No core type found for system {} at location: ({}, {}).", to_str(coord_system), core.x, core.y);
     }
     return coord_it->second;
 }
@@ -402,7 +391,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
 
 uint32_t CoordinateManager::shuffle_l2cpu_harvesting_mask(tt::ARCH arch, uint32_t l2cpu_enabled_physical_layout) {
     if (arch != tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("L2CPU cores currently only present in Blackhole.");
+        UMD_THROW("L2CPU cores currently only present in Blackhole.");
     }
 
     uint32_t harvesting_mask = 0;
@@ -433,7 +422,7 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType 
         case CoreType::L2CPU:
             return l2cpu_cores;
         default:
-            throw std::runtime_error("Core type is not supported for getting noc0 pairs");
+            UMD_THROW("Core type is not supported for getting NOC0 pairs.");
     }
 }
 
@@ -512,7 +501,7 @@ std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) co
         case CoreType::SECURITY:
             return get_all_noc0_cores(core_type);
         default:
-            throw std::runtime_error("Core type is not supported for getting cores");
+            UMD_THROW("Core type is not supported for getting cores.");
     }
 }
 
@@ -529,7 +518,7 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
         case CoreType::PCIE:
             return pcie_grid_size;
         default:
-            throw std::runtime_error("Core type is not supported for getting grid size");
+            UMD_THROW("Core type is not supported for getting grid size.");
     }
 }
 
@@ -549,7 +538,7 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_cores(const CoreType cor
         case CoreType::L2CPU:
             return {};
         default:
-            throw std::runtime_error("Core type is not supported for getting harvested cores");
+            UMD_THROW("Core type is not supported for getting harvested cores.");
     }
 }
 
@@ -569,7 +558,7 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
         case CoreType::PCIE:
             return {0, 0};
         default:
-            throw std::runtime_error("Core type is not supported for getting harvested grid size");
+            UMD_THROW("Core type is not supported for getting harvested grid size.");
     }
 }
 
@@ -629,9 +618,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 blackhole::NOC0_Y_TO_NOC1_Y);
         }
         case tt::ARCH::Invalid:
-            throw std::runtime_error("Invalid architecture for creating coordinate manager");
+            UMD_THROW("Invalid architecture for creating CoordinateManager.");
         default:
-            throw std::runtime_error("Unexpected ARCH value " + std::to_string((int)arch));
+            UMD_THROW("Unexpected ARCH value: " + std::to_string((int)arch));
     }
 }
 
@@ -692,9 +681,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 noc0_x_to_noc1_x,
                 noc0_y_to_noc1_y);
         case tt::ARCH::Invalid:
-            throw std::runtime_error("Invalid architecture for creating coordinate manager");
+            UMD_THROW("Invalid architecture for creating coordinate manager.");
         default:
-            throw std::runtime_error("Unexpected ARCH value " + std::to_string((int)arch));
+            UMD_THROW("Unexpected ARCH value: " + std::to_string((int)arch));
     }
 }
 

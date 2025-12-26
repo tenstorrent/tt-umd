@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "assert.hpp"
+#include "umd/device/utils/assert.hpp"
 
 /*static*/ DlHandle Jtag::handle;
 
@@ -26,10 +26,7 @@ void DlCloser::operator()(void* handle) const {
 
 void Jtag::openLibrary(const std::string& filePath, int flags) {
     if (!std::filesystem::exists(filePath)) {
-        TT_THROW(
-            "You do not have a JTAG library at {}.\n"
-            "File path could be wrong.",
-            filePath);
+        UMD_THROW("JTAG library not found at path: {}", filePath);
     }
     if (handle != nullptr) {
         return;
@@ -38,7 +35,7 @@ void Jtag::openLibrary(const std::string& filePath, int flags) {
     handle = DlHandle(dlopen(filePath.c_str(), flags));
 
     if (!handle) {
-        TT_THROW("Failed to open JTAG library: {}", dlerror());
+        UMD_THROW("Failed to open JTAG library: {}", dlerror());
     }
 
     log_info(tt::LogUMD, "JTAG library {} opened successfully.", filePath);
@@ -51,8 +48,8 @@ void* Jtag::load_function(const char* name) {
         void* funcPtr = dlsym(handle.get(), name);
         const char* dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol: " << dlsym_error << '\n';
-            throw std::runtime_error("Failed to load function");
+            log_error(tt::LogUMD, "Cannot load symbol: {}", dlsym_error);
+            UMD_THROW("Failed to load function: {}", name);
         }
         func_map[name] = funcPtr;
     }

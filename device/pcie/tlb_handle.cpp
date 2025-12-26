@@ -10,8 +10,8 @@
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "ioctl.h"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -21,7 +21,7 @@ TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_m
         tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
     if (ret_code != 0) {
-        TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
+        UMD_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
     }
 
     tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
@@ -46,7 +46,7 @@ void TlbHandle::configure(const tlb_data& new_config) {
     int ret_code = tt_tlb_map(tt_device_, tlb_handle_, &config);
 
     if (ret_code != 0) {
-        TT_THROW("tt_tlb_map failed with error code {} for TLB size {}.", ret_code, tlb_size);
+        UMD_THROW("tt_tlb_map failed with error code {} for TLB size {}.", ret_code, tlb_size);
     }
 
     tlb_config = new_config;

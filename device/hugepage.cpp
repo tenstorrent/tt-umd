@@ -11,8 +11,8 @@
 #include <regex>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
+#include "umd/device/utils/assert.hpp"
 
 namespace tt::umd {
 
@@ -31,7 +31,7 @@ uint32_t get_num_hugepages() {
         num_hugepages = std::stoi(value);
         log_debug(LogUMD, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
-        TT_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
+        UMD_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
     }
 
     return num_hugepages;
@@ -90,7 +90,7 @@ uint32_t get_available_num_host_mem_channels(
             num_channels_per_device_target);
     }
 
-    TT_ASSERT(
+    UMD_ASSERT(
         num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
         "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
         num_channels_per_device_available,

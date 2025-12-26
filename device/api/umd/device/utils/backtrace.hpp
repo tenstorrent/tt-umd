@@ -13,7 +13,7 @@
 #include <sstream>
 #include <vector>
 
-namespace tt::assert {
+namespace tt::umd::assert {
 
 static std::string demangle(const char *str) {
     size_t size = 0;
@@ -88,4 +88,4 @@ inline void register_segfault_handler() {
         exit(EXIT_FAILURE);
     }
 }
-}  // namespace tt::assert
+}  // namespace tt::umd::assert

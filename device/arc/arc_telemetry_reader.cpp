@@ -37,7 +37,7 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
             log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
             return std::make_unique<BlackholeArcTelemetryReader>(tt_device);
         default:
-            throw std::runtime_error("Unsupported architecture for creating Arc telemetry reader.");
+            UMD_THROW("Unsupported architecture for creating ArcTelemetryReader.");
     }
 }
 
@@ -71,9 +71,9 @@ void ArcTelemetryReader::initialize_telemetry() {
 
 uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     if (!is_entry_available(telemetry_tag)) {
-        throw std::runtime_error(fmt::format(
+        UMD_THROW(
             "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
-            telemetry_tag));
+            telemetry_tag);
     }
 
     if (static_entries.find(telemetry_tag) != static_entries.end()) {

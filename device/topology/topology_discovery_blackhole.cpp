@@ -7,7 +7,6 @@
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
@@ -18,6 +17,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/assert.hpp"
 
 extern bool umd_use_noc1;
 
@@ -128,9 +128,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
-    throw std::runtime_error(
-        "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
-        "bug.");
+    UMD_THROW("get_remote_eth_core is not implemented for Blackhole.");
 }
 
 uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
@@ -174,8 +172,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(Chip* chip, 
         return remote_logical_eth_id;
     }
     if (chip->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
-            "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
+        UMD_THROW("Querying logical ETH channels on a remote host is only supported for p150 board types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
     // the first 4 ethernet channels (these channels are using SerDes for PCIe)
@@ -244,7 +241,7 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
             break;
         }
         default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
+            UMD_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);

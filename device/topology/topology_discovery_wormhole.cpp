@@ -9,11 +9,11 @@
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/assert.hpp"
 #include "umd/device/utils/semver.hpp"
 
 extern bool umd_use_noc1;
@@ -44,8 +44,7 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
         results_buf = 0x1ec0;
         routing_firmware_state = 0x104c;
     } else {
-        throw std::runtime_error(
-            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
+        UMD_THROW("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version);
     }
 
     if (masked_version >= 0x06C000) {
@@ -175,8 +174,7 @@ uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair 
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
-        throw std::runtime_error(
-            "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
+        UMD_THROW("get_remote_eth_id should not be called on non-6U configurations.");
     }
     uint32_t remote_eth_id;
     TTDevice* tt_device = chip->get_tt_device();
@@ -261,8 +259,8 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     switch (options.io_device_type) {
         case IODeviceType::JTAG: {
             auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                TT_THROW("Topology discovery initialisation failed, no JTAG devices were found..");
+            if (device_cnt == 0) {
+                return;
             }
             // JTAG devices (j-links) are referred to with their index within a vector
             // that's stored inside of a JtagDevice object.
@@ -279,7 +277,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
             break;
         }
         default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
+            UMD_THROW("Unsupported IODeviceType during topology discovery.");
     }
 
     for (auto& device_id : device_ids) {
@@ -381,7 +379,7 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const 
             log_warning(LogUMD, message);
             return false;
         }
-        TT_THROW(message);
+        UMD_THROW(message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
         auto message = fmt::format(
             "Routing FW unexpectedly disabled on chip {} core {}.", get_local_asic_id(chip, eth_core), eth_core.str());
@@ -389,7 +387,7 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const 
             log_warning(LogUMD, message);
             return false;
         }
-        TT_THROW(message);
+        UMD_THROW(message);
     }
     return true;
 }

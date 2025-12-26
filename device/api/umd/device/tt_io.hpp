@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "umd/device/utils/assert.hpp"
+
 namespace tt::umd {
 
 /**
@@ -33,11 +35,11 @@ public:
         auto dst = reinterpret_cast<uintptr_t>(base) + address;
 
         if (address >= tlb_size) {
-            throw std::runtime_error("Address out of bounds for TLB");
+            UMD_THROW("Address {} out of bounds for TLB size {}.", address, tlb_size);
         }
 
         if (alignof(T) > 1 && (dst & (alignof(T) - 1))) {
-            throw std::runtime_error("Unaligned write");
+            UMD_THROW("Unaligned write: {}", dst);
         }
 
         *reinterpret_cast<volatile T *>(dst) = value;

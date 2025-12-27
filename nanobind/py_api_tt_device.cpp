@@ -74,9 +74,10 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType)>(&TTDevice::create),
+            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
+            nb::arg("use_safe_api") = false,
             nb::rv_policy::take_ownership)
         .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
         .def("get_chip_info", &TTDevice::get_chip_info)

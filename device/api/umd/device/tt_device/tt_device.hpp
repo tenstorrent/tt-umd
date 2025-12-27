@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -51,10 +52,15 @@ public:
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
 
-    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
     TTDevice(
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
@@ -306,6 +312,8 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    static void set_sigbus_safe_handler(bool set_safe_handler);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -334,11 +342,19 @@ private:
 
     virtual void post_init_hook(){};
 
+    template <bool safe>
+    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    template <bool safe>
+    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     TlbWindow *get_cached_tlb_window();
 
     std::mutex tt_device_io_lock;
+
+    bool use_safe_api_ = false;
 };
 
 }  // namespace tt::umd

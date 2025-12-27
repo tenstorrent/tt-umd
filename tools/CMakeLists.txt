@@ -62,6 +62,17 @@ set_target_properties(
             system_health
 )
 
+add_executable(warm_reset warm_reset.cpp)
+target_link_libraries(warm_reset PRIVATE tools_common)
+set_target_properties(
+    warm_reset
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            warm_reset
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -69,4 +80,5 @@ add_custom_target(
         topology
         harvesting
         system_health
+        warm_reset
 )

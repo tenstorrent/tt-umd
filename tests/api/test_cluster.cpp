@@ -669,7 +669,9 @@ TEST(TestCluster, WarmReset) {
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestCluster, DeassertResetBrisc) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // The test has large transfers to remote chip, so system memory significantly speeds up the test.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -726,7 +728,9 @@ TEST(TestCluster, DeassertResetBrisc) {
 }
 
 TEST(TestCluster, DeassertResetWithCounterBrisc) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // The test has large transfers to remote chip, so system memory significantly speeds up the test.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -878,7 +882,9 @@ TEST(TestCluster, TestMulticastWrite) {
 }
 
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // The test has large transfers to remote chip, so system memory significantly speeds up the test.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

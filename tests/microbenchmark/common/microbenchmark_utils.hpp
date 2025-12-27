@@ -3,64 +3,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
+#include <nanobench.h>
 
-#include <cstdint>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
+#include <filesystem>
+#include <fstream>
 
-#include "umd/device/cluster.hpp"
+using namespace ankerl::nanobench;
 
 namespace tt::umd::test::utils {
 
-/**
- * Return performance of read and write operations to specific chip and core in MBs/s.
- *
- * @param buf_size Size of the buffer in bytes.
- * @param num_iterations Number of iterations to perform for read and write operations.
- * @param cluster The cluster to perform the operations on.
- * @param chip The logical chip ID to perform the operations on.
- * @param core The core coordinates to perform the operations on.
- * @return A pair containing the write bandwidth and read bandwidth in MB/s.
- */
-std::pair<double, double> perf_read_write(
-    const size_t buf_size,
-    const uint32_t num_iterations,
-    Cluster* cluster,
-    const ChipId chip,
-    const CoreCoord core,
-    const uint32_t address = 0);
+inline const char* OUTPUT_ENV_VAR = "UMD_MICROBENCHMARK_RESULTS_PATH";
 
-/**
- * Prints a table in Markdown format. Headers are printed as the first row, followed by a separator row,
- * and then the data rows. Headers length must match the length of each row. Example:
- * | Size (MB) | Host -> Device Tensix L1 (MB/s) | Device Tensix L1 -> Host (MB/s) |
- * |---|---|---|
- * | 1.00 | 13157.70 | 2493.65 |
- *
- * @param headers The headers of the table.
- * @param rows The rows of the table, where each row is a vector of strings.
- */
-void print_markdown_table_format(
-    const std::vector<std::string>& headers, const std::vector<std::vector<std::string>>& rows);
+inline constexpr size_t ONE_KB = 1 << 10;
+inline constexpr size_t ONE_MB = 1 << 20;
+inline constexpr size_t ONE_GB = 1 << 30;
 
-/**
- * Calculates the speed in MB/s given the number of bytes and the time in nanoseconds.
- *
- * @param bytes The number of bytes processed.
- * @param ns The time taken in nanoseconds.
- * @return The speed in MB/s.
- */
-double calc_speed(size_t bytes, uint64_t ns);
-
-/**
- * Converts a double value to a string with fixed-point notation and two decimal places.
- *
- * @param value The double value to convert.
- * @return A string representation of the double value.
- */
-std::string convert_double_to_string(double value);
+inline void export_results(const Bench& bench) {
+    if (const char* results_path = std::getenv(OUTPUT_ENV_VAR)) {
+        std::filesystem::path filepath = std::filesystem::path(results_path) / (bench.title() + ".json");
+        std::ofstream file(filepath);
+        ankerl::nanobench::render(ankerl::nanobench::templates::json(), bench, file);
+        std::filesystem::path html_filepath = std::filesystem::path(results_path) / (bench.title() + ".html");
+        std::ofstream html_file(html_filepath);
+        ankerl::nanobench::render(ankerl::nanobench::templates::htmlBoxplot(), bench, html_file);
+    }
+}
 
 }  // namespace tt::umd::test::utils

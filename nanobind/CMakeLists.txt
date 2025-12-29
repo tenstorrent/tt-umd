@@ -13,7 +13,14 @@ endif()
 # https://github.com/wjakob/nanobind/blob/master/docs/building.rst
 # Use Development.Module to support manylinux
 # Python module library should not dynamically link libpython.so or use Development.Embed
-find_package(Python REQUIRED COMPONENTS Development.Module)
+# Interpreter is needed for stub generation
+find_package(
+    Python
+    REQUIRED
+    COMPONENTS
+        Interpreter
+        Development.Module
+)
 
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp)
@@ -23,7 +30,7 @@ nanobind_add_stub(
     nanobind_tt_umd_stub
     MODULE tt_umd
     OUTPUT tt_umd.pyi
-    PYTHON_PATH $<TARGET_FILE_DIR:nanobind_tt_umd>
+    PYTHON_PATH ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS nanobind_tt_umd
 )
 

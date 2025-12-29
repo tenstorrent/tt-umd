@@ -329,6 +329,23 @@ bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32
     return true;
 }
 
+TEST(ApiTTDeviceTest, CheckEthCoord) {
+    std::cout << "Hi\n";
+    auto [cluster_desc, chips] = TopologyDiscovery::discover({});
+
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::cout << pci_device_ids.size() << "\n";
+    for (auto& pci_device_id : pci_device_ids) {
+        std::cout << "pci_device_id :" << pci_device_id << "\n";
+    }
+
+    for (auto& [id, eth_coords] : cluster_desc->get_chip_locations()) {
+        std::cout << "ID: " << id << "\n";
+        std::cout << "EthCoord [Cluster: " << eth_coords.cluster_id << ", Rack: " << eth_coords.rack
+                  << ", Shelf: " << eth_coords.shelf << ", (x,y): (" << eth_coords.x << ", " << eth_coords.y << ")]\n";
+    }
+}
+
 class ApiTTDeviceParamTest : public ::testing::TestWithParam<int> {};
 
 TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
@@ -346,6 +363,7 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
     std::vector<uint32_t> data_read(data_write.size(), 0);
     std::map<int, std::unique_ptr<TTDevice>> tt_devices;
 
+    auto [cluster_desc, chips] = TopologyDiscovery::discover({});
     tt_xy_pair tensix_core;
 
     for (int pci_device_id : pci_device_ids) {
@@ -358,6 +376,22 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
         SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
 
         tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        if (tt_devices[pci_device_id]->get_board_type() == BoardType::N300) {
+            auto target_chip = EthCoord{0, 0, 0, 0};
+
+            auto remote_comm =
+                RemoteCommunication::create_remote_communication(tt_devices[pci_device_id].get(), target_chip);
+
+            // (const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system)
+            auto eth_coord = CoreCoord{9, 6, CoreType::ETH, CoordSystem::NOC0};
+
+            remote_comm->set_remote_transfer_ethernet_cores({eth_coord});
+
+            auto remote_device = TTDevice::create(std::move(remote_comm), true);
+
+            tt_devices.insert({pci_device_id + 16, std::move(remote_device)});
+        }
     }
 
     std::thread background_reset_thread([&]() {
@@ -375,17 +409,27 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
             }
 
             for (int i = 0; i < 100; ++i) {
-                for (int pci_device_id : pci_device_ids) {
-                    tt_devices[pci_device_id]->write_to_device(
-                        data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+                tt_devices.at(16)->write_to_device(
+                    data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
-                    tt_devices[pci_device_id]->read_from_device(
-                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                tt_devices.at(16)->read_from_device(
+                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
 
-                    verify_data(data_write, data_read, pci_device_id);
+                verify_data(data_write, data_read, 16);
 
-                    data_read = std::vector<uint32_t>(data_write.size(), 0);
-                }
+                data_read = std::vector<uint32_t>(data_write.size(), 0);
+
+                // for (auto& tt_device : tt_devices) {
+                //     tt_device.second->write_to_device(
+                //         data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+                //     tt_device.second->read_from_device(
+                //         data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+                //     verify_data(data_write, data_read, tt_device.first);
+
+                //     data_read = std::vector<uint32_t>(data_write.size(), 0);
+                // }
             }
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }

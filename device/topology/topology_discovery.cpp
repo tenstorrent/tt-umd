@@ -178,6 +178,14 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (is_using_eth_coords()) {
                 auto local_eth_coord = get_local_eth_coord(chip, eth_core);
+                std::cout << "ETH Core: " << eth_core.str() << "\n";
+                std::cout << "TopologyDiscovery\n";
+                std::cout << "EthCoord [Cluster: " << local_eth_coord.value().cluster_id
+                          << ", Rack: " << local_eth_coord.value().rack << ", Shelf: " << local_eth_coord.value().shelf
+                          << ", (x,y): (" << local_eth_coord.value().x << ", " << local_eth_coord.value().y << ")]\n";
+
+                std::cout << "ASIC ID: " << std::hex << get_local_asic_id(chip, eth_core) << "\n";
+
                 if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
                     eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
                     log_debug(LogUMD, "Chip {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());

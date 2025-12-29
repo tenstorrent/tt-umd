@@ -272,7 +272,7 @@ TEST(MicrobenchmarkTLB, TLBStaticEth) {
 // of BW as unicast writes. The benefit of multicast is in saving time by writing to multiple endpoints in one go.
 // However, it is interesting to see the time taken for unicast vs multicast writes to multiple endpoints.
 // That is why this test is disabled by default. It's meant for someone to run it manually if needed.
-TEST(MicrobenchmarkTLB, DISABLED_CompareMulticastandUnicast) {
+TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
     const std::vector<size_t> sizes = {
         1,
         2,

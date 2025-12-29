@@ -18,6 +18,15 @@ find_package(Python REQUIRED COMPONENTS Development.Module)
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp)
 
+# Generate stub file for type checking
+nanobind_add_stub(
+    nanobind_tt_umd_stub
+    MODULE tt_umd
+    OUTPUT tt_umd.pyi
+    PYTHON_PATH $<TARGET_FILE_DIR:nanobind_tt_umd>
+    DEPENDS nanobind_tt_umd
+)
+
 # Set properties for the Python module
 set_target_properties(
     nanobind_tt_umd
@@ -84,9 +93,16 @@ if(TT_UMD_BUILD_PIP)
         TARGETS
             nanobind_tt_umd
         LIBRARY
-            DESTINATION .
+            DESTINATION tt_umd
             COMPONENT pip_wheel
     )
+
+    # Install the stub file for type checking in package directory
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tt_umd.pyi DESTINATION tt_umd RENAME __init__.pyi COMPONENT pip_wheel)
+
+    # Create and install py.typed marker for PEP 561 compliance
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed DESTINATION tt_umd COMPONENT pip_wheel)
 
     # Make co-locating libdevice optional to mirror previous behavior
     if(NOT DEFINED TT_UMD_BUILD_PYTHON)
@@ -153,9 +169,22 @@ else()
         TARGETS
             nanobind_tt_umd
         LIBRARY
-            DESTINATION ${TT_UMD_PY_DEST}
+            DESTINATION ${TT_UMD_PY_DEST}/tt_umd
             COMPONENT umd-python
     )
+
+    # Install the stub file for type checking in package directory
+    install(
+        FILES
+            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd.pyi
+        DESTINATION ${TT_UMD_PY_DEST}/tt_umd
+        RENAME __init__.pyi
+        COMPONENT umd-python
+    )
+
+    # Create and install py.typed marker for PEP 561 compliance
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed DESTINATION ${TT_UMD_PY_DEST}/tt_umd COMPONENT umd-python)
 
     # We DO NOT install 'device' here.
     # device/CMakeLists.txt already installs it for 'umd-runtime'.

@@ -13,16 +13,16 @@ def test_logging_level_enum():
     from tt_umd.logging import Level
 
     # Check all enum values exist
-    assert hasattr(Level, "TRACE")
-    assert hasattr(Level, "DEBUG")
-    assert hasattr(Level, "INFO")
-    assert hasattr(Level, "WARN")
-    assert hasattr(Level, "ERROR")
-    assert hasattr(Level, "CRITICAL")
-    assert hasattr(Level, "OFF")
+    assert hasattr(Level, "Trace")
+    assert hasattr(Level, "Debug")
+    assert hasattr(Level, "Info")
+    assert hasattr(Level, "Warn")
+    assert hasattr(Level, "Error")
+    assert hasattr(Level, "Critical")
+    assert hasattr(Level, "Off")
 
     # Check that we can create instances
-    level = Level.INFO
+    level = Level.Info
     assert level is not None
 
 
@@ -31,13 +31,13 @@ def test_set_level_function():
     from tt_umd.logging import Level, set_level
 
     # Should not raise any exceptions
-    set_level(Level.INFO)
-    set_level(Level.DEBUG)
-    set_level(Level.WARN)
-    set_level(Level.ERROR)
-    set_level(Level.CRITICAL)
-    set_level(Level.TRACE)
-    set_level(Level.OFF)
+    set_level(Level.Info)
+    set_level(Level.Debug)
+    set_level(Level.Warn)
+    set_level(Level.Error)
+    set_level(Level.Critical)
+    set_level(Level.Trace)
+    set_level(Level.Off)
 
 
 def test_set_level_with_all_levels():
@@ -45,13 +45,13 @@ def test_set_level_with_all_levels():
     from tt_umd.logging import Level, set_level
 
     levels = [
-        Level.TRACE,
-        Level.DEBUG,
-        Level.INFO,
-        Level.WARN,
-        Level.ERROR,
-        Level.CRITICAL,
-        Level.OFF,
+        Level.Trace,
+        Level.Debug,
+        Level.Info,
+        Level.Warn,
+        Level.Error,
+        Level.Critical,
+        Level.Off,
     ]
 
     for level in levels:

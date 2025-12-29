@@ -10,11 +10,12 @@
 #include <glob.h>
 
 #include <asio.hpp>
+#include <charconv>  // for std::from_chars
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
-#include <regex>
+#include <string_view>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
@@ -363,19 +364,30 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
 }
 
 // Free helper function for extracting pid.
-static int extract_pid_from_socket_name(const std::string& filename) {
+static int extract_pid_from_socket_name(std::string_view filename) {
     // Format: "client_<PID>.sock".
-    static const std::regex pid_pattern(R"(client_(\d+)\.sock)");
-    std::smatch match;
+    constexpr std::string_view prefix = "client_";
+    constexpr std::string_view suffix = ".sock";
 
-    if (std::regex_match(filename, match, pid_pattern)) {
-        try {
-            return std::stoi(match[1].str());
-        } catch (...) {
-            // Integer overflow check.
-            return -1;
-        }
+    if (filename.size() <= prefix.size() + suffix.size()) {
+        return -1;
     }
+
+    if (filename.substr(0, prefix.size()) != prefix || filename.substr(filename.size() - suffix.size()) != suffix) {
+        return -1;
+    }
+
+    filename.remove_prefix(prefix.size());
+    filename.remove_suffix(suffix.size());
+
+    int pid = -1;
+    auto [ptr, ec] = std::from_chars(filename.data(), filename.data() + filename.size(), pid);
+
+    // Ensure parsing succeeded and consumed the entire string (e.g., "123a" fails).
+    if (ec == std::errc() && (ptr == filename.data() + filename.size())) {
+        return pid;
+    }
+
     return -1;
 }
 

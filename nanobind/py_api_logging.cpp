@@ -17,7 +17,7 @@ void bind_logging(nb::module_ &m) {
         .value("Trace", level::trace, "Most detailed logging level, for tracing program execution")
         .value("Debug", level::debug, "Debugging information, useful during development")
         .value("Info", level::info, "General informational messages about program operation")
-        .value("Warn", level::warn, "Warning messages for potentially harmful situations")
+        .value("Warning", level::warn, "Warning messages for potentially harmful situations")
         .value("Error", level::error, "Error messages for serious problems")
         .value("Critical", level::critical, "Critical errors that may lead to program termination")
         .value("Off", level::off, "Disables all logging");

@@ -16,7 +16,7 @@ def test_logging_level_enum():
     assert hasattr(Level, "Trace")
     assert hasattr(Level, "Debug")
     assert hasattr(Level, "Info")
-    assert hasattr(Level, "Warn")
+    assert hasattr(Level, "Warning")
     assert hasattr(Level, "Error")
     assert hasattr(Level, "Critical")
     assert hasattr(Level, "Off")
@@ -33,7 +33,7 @@ def test_set_level_function():
     # Should not raise any exceptions
     set_level(Level.Info)
     set_level(Level.Debug)
-    set_level(Level.Warn)
+    set_level(Level.Warning)
     set_level(Level.Error)
     set_level(Level.Critical)
     set_level(Level.Trace)

@@ -86,11 +86,13 @@ if(TT_UMD_BUILD_PIP)
     # which is in the same folder and will be correctly found. However, the .so file itself requires libdevice.so (the umd library) file. The system tries to
     # find this in the default system lib directory, but it is not there. The RunPATH variable will say to this lib loading system that it should look for the
     # libdevice.so file in the same folder as the tt_umd module, which is where it is located.
+    # 
+    # During build, we need a different RPATH so stub generation can find libdevice.so
     set_target_properties(
         nanobind_tt_umd
         PROPERTIES
-            BUILD_WITH_INSTALL_RPATH
-                true
+            BUILD_RPATH
+                "$ORIGIN/../device;$ORIGIN/../lib"
             INSTALL_RPATH
                 "$ORIGIN"
     )

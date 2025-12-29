@@ -104,6 +104,9 @@ if(TT_UMD_BUILD_PIP)
             COMPONENT pip_wheel
     )
 
+    # Install the __init__.py file
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py DESTINATION tt_umd COMPONENT pip_wheel)
+
     # Install the stub file for type checking in package directory
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tt_umd.pyi DESTINATION tt_umd RENAME __init__.pyi COMPONENT pip_wheel)
 
@@ -179,6 +182,9 @@ else()
             DESTINATION ${TT_UMD_PY_DEST}/tt_umd
             COMPONENT umd-python
     )
+
+    # Install the __init__.py file
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py DESTINATION ${TT_UMD_PY_DEST}/tt_umd COMPONENT umd-python)
 
     # Install the stub file for type checking in package directory
     install(

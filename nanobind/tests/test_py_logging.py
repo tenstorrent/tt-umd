@@ -48,7 +48,7 @@ def test_set_level_with_all_levels():
         Level.Trace,
         Level.Debug,
         Level.Info,
-        Level.Warn,
+        Level.Warning,
         Level.Error,
         Level.Critical,
         Level.Off,

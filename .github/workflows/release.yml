@@ -445,7 +445,7 @@ jobs:
             - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
 
             ### Python Wheels
-            - **manylinux_2_34 wheels** for Python 3.9-3.14 (x86_64)
+            - **manylinux_2_34 wheels** for Python 3.9-3.13 (x86_64)
             - Compatible with Ubuntu 20.04+, RHEL 8+, and other modern Linux distributions
             - Includes Python bindings for tt-umd
             - TestPyPI: https://test.pypi.org/project/tt-umd/

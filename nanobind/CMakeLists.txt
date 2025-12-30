@@ -6,6 +6,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
     message(STATUS "Building nanobind as standalone project from UMD install artifacts")
 
+    find_package(
+        Python
+        REQUIRED
+        COMPONENTS
+            Interpreter
+            Development.Module
+    )
+    message(STATUS "Found Python ${Python_VERSION}: ${Python_EXECUTABLE}")
     include(${PROJECT_SOURCE_DIR}/../cmake/example_client.cmake)
 endif()
 

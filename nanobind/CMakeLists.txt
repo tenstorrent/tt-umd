@@ -6,16 +6,20 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
     message(STATUS "Building nanobind as standalone project from UMD install artifacts")
 
-    find_package(
-        Python
-        REQUIRED
-        COMPONENTS
-            Interpreter
-            Development.Module
-    )
-    message(STATUS "Found Python ${Python_VERSION}: ${Python_EXECUTABLE}")
     include(${PROJECT_SOURCE_DIR}/../cmake/example_client.cmake)
 endif()
+
+# https://cmake.org/cmake/help/latest/module/FindPython.html
+# https://github.com/wjakob/nanobind/blob/master/docs/building.rst
+# Use Development.Module to support manylinux
+# Python module library should not dynamically link libpython.so or use Development.Embed
+find_package(
+    Python
+    REQUIRED
+    COMPONENTS
+        Interpreter
+        Development.Module
+)
 
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp py_api_logging.cpp)

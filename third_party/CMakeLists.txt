@@ -155,12 +155,6 @@ CPMAddPackage(
 ####################################################################################################################
 # nanobind
 ####################################################################################################################
-# Ensure nanobind uses the same Python found by the main project
-# This prevents nanobind from finding a different Python version in manylinux environments
-set(Python_EXECUTABLE ${Python_EXECUTABLE} CACHE FILEPATH "Python executable" FORCE)
-set(Python_INCLUDE_DIR ${Python_INCLUDE_DIRS} CACHE PATH "Python include directory" FORCE)
-set(Python_LIBRARY ${Python_LIBRARIES} CACHE FILEPATH "Python library" FORCE)
-
 CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.10.2 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
 
 ####################################################################################################################

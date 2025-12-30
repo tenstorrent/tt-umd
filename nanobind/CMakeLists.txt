@@ -98,20 +98,49 @@ target_link_libraries(
         tt-logger::tt-logger
 )
 
+# Function to install common Python package files (__init__.py, stubs, py.typed)
+function(install_python_package_files DESTINATION COMPONENT)
+    # Generate __init__.py at install time if not already built
+    install(
+        CODE
+            "
+        set(INIT_FILE \"${CMAKE_CURRENT_BINARY_DIR}/__init__.py\")
+        if(NOT EXISTS \"\${INIT_FILE}\")
+            message(STATUS \"Generating __init__.py at install time\")
+            execute_process(
+                COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py\"
+                        \"${CMAKE_CURRENT_BINARY_DIR}/tt_umd\" \"\${INIT_FILE}\"
+                RESULT_VARIABLE RESULT
+            )
+            if(NOT RESULT EQUAL 0)
+                message(FATAL_ERROR \"Failed to generate __init__.py\")
+            endif()
+        endif()
+    "
+        COMPONENT ${COMPONENT}
+    )
+
+    # Install __init__.py, stub files, and py.typed marker
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/__init__.py DESTINATION ${DESTINATION} COMPONENT ${COMPONENT})
+    install(
+        DIRECTORY
+            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd/
+        DESTINATION ${DESTINATION}
+        COMPONENT ${COMPONENT}
+        FILES_MATCHING
+        PATTERN
+        "*.pyi"
+    )
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed DESTINATION ${DESTINATION} COMPONENT ${COMPONENT})
+endfunction()
+
 option(TT_UMD_BUILD_PIP "By default build pip package" ON)
 if(TT_UMD_BUILD_PIP)
     # --- PIP WHEEL LOGIC ---
-
     message(STATUS "Configuring Python bindings for pip wheel")
 
-    # The problem that RPATH is solving is the following:
-    # Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.
-    # When the third party package tries to include tt_umd module, it will correctly find it. The module will then include the python bindings .so file
-    # which is in the same folder and will be correctly found. However, the .so file itself requires libdevice.so (the umd library) file. The system tries to
-    # find this in the default system lib directory, but it is not there. The RunPATH variable will say to this lib loading system that it should look for the
-    # libdevice.so file in the same folder as the tt_umd module, which is where it is located.
-    # 
-    # During build, we need a different RPATH so stub generation can find libdevice.so
+    # Set RPATH: BUILD_RPATH for stub generation, INSTALL_RPATH for runtime
     set_target_properties(
         nanobind_tt_umd
         PROPERTIES
@@ -130,45 +159,8 @@ if(TT_UMD_BUILD_PIP)
             COMPONENT pip_wheel
     )
 
-    # Generate __init__.py at install time if it doesn't exist yet
-    # This ensures it's available even if the custom target wasn't built
-    install(
-        CODE
-            "
-        set(INIT_FILE \"${CMAKE_CURRENT_BINARY_DIR}/__init__.py\")
-        if(NOT EXISTS \"\${INIT_FILE}\")
-            message(STATUS \"Generating __init__.py at install time\")
-            execute_process(
-                COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py\"
-                        \"${CMAKE_CURRENT_BINARY_DIR}/tt_umd\"
-                        \"\${INIT_FILE}\"
-                RESULT_VARIABLE RESULT
-            )
-            if(NOT RESULT EQUAL 0)
-                message(FATAL_ERROR \"Failed to generate __init__.py\")
-            endif()
-        endif()
-    "
-        COMPONENT pip_wheel
-    )
-
-    # Install the generated __init__.py file
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/__init__.py DESTINATION tt_umd COMPONENT pip_wheel)
-
-    # Install all stub files from tt_umd directory (includes __init__.pyi and submodule stubs)
-    install(
-        DIRECTORY
-            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd/
-        DESTINATION tt_umd
-        COMPONENT pip_wheel
-        FILES_MATCHING
-        PATTERN
-        "*.pyi"
-    )
-
-    # Create and install py.typed marker for PEP 561 compliance
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed DESTINATION tt_umd COMPONENT pip_wheel)
+    # Install Python package files
+    install_python_package_files(tt_umd pip_wheel)
 
     # Make co-locating libdevice optional to mirror previous behavior
     if(NOT DEFINED TT_UMD_BUILD_PYTHON)
@@ -185,13 +177,9 @@ if(TT_UMD_BUILD_PIP)
     endif()
 else()
     # --- FHS/CPACK LOGIC ---
-    # Configures the build for a .deb/.rpm package.
-    # RPATH is set to the system lib dir to find the 'umd-runtime' package.
-
     message(STATUS "Configuring Python bindings for FHS package")
 
-    # Fedora/RHEL (lib64) rpmbuild forbids relative RUNPATH like 'lib64'.
-    # Keep Ubuntu's previous behavior; clear RUNPATH only on lib64 platforms.
+    # Set RPATH for system lib directory (clear for lib64 per rpmbuild requirements)
     if(CMAKE_INSTALL_LIBDIR MATCHES "lib64")
         set_target_properties(
             nanobind_tt_umd
@@ -208,17 +196,12 @@ else()
         )
     endif()
 
-    # Decide Python install destination (robust across distros/CMake versions):
-    # 1) Python-provided site-arch variables
-    # 2) Fallback based on libdir heuristic (site-packages for lib64, dist-packages otherwise)
+    # Determine Python installation path
     if(DEFINED Python_SITEARCH AND NOT Python_SITEARCH STREQUAL "")
         set(TT_UMD_PY_DEST "${Python_SITEARCH}")
     elseif(DEFINED Python3_SITEARCH AND NOT Python3_SITEARCH STREQUAL "")
         set(TT_UMD_PY_DEST "${Python3_SITEARCH}")
     else()
-        # Heuristic fallback:
-        # - RPM/RHEL/Fedora typically use 'site-packages' and lib64 on x86_64
-        # - Debian/Ubuntu typically use 'dist-packages' and lib
         if(CMAKE_INSTALL_LIBDIR MATCHES "lib64")
             set(TT_UMD_PY_DEST
                 "${CMAKE_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages"
@@ -230,7 +213,7 @@ else()
         endif()
     endif()
 
-    # Install the Python module to the computed destination
+    # Install the Python module
     install(
         TARGETS
             nanobind_tt_umd
@@ -239,46 +222,6 @@ else()
             COMPONENT umd-python
     )
 
-    # Generate __init__.py at install time if it doesn't exist yet
-    # This ensures it's available even if the custom target wasn't built
-    install(
-        CODE
-            "
-        set(INIT_FILE \"${CMAKE_CURRENT_BINARY_DIR}/__init__.py\")
-        if(NOT EXISTS \"\${INIT_FILE}\")
-            message(STATUS \"Generating __init__.py at install time\")
-            execute_process(
-                COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py\"
-                        \"${CMAKE_CURRENT_BINARY_DIR}/tt_umd\"
-                        \"\${INIT_FILE}\"
-                RESULT_VARIABLE RESULT
-            )
-            if(NOT RESULT EQUAL 0)
-                message(FATAL_ERROR \"Failed to generate __init__.py\")
-            endif()
-        endif()
-    "
-        COMPONENT umd-python
-    )
-
-    # Install the generated __init__.py file (same as pip wheel)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/__init__.py DESTINATION ${TT_UMD_PY_DEST}/tt_umd COMPONENT umd-python)
-
-    # Install all stub files from tt_umd directory (includes __init__.pyi and submodule stubs)
-    install(
-        DIRECTORY
-            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd/
-        DESTINATION ${TT_UMD_PY_DEST}/tt_umd
-        COMPONENT umd-python
-        FILES_MATCHING
-        PATTERN
-        "*.pyi"
-    )
-
-    # Create and install py.typed marker for PEP 561 compliance
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed DESTINATION ${TT_UMD_PY_DEST}/tt_umd COMPONENT umd-python)
-
-    # We DO NOT install 'device' here.
-    # device/CMakeLists.txt already installs it for 'umd-runtime'.
+    # Install Python package files
+    install_python_package_files(${TT_UMD_PY_DEST}/tt_umd umd-python)
 endif()

@@ -43,6 +43,10 @@ private:
 
 class WarmResetCommunication {
 public:
+    enum class MessageType : uint8_t { PreReset = 0x01, PostReset = 0x02 };
+
+    static constexpr MessageType PRE_RESET = MessageType::PreReset;
+    static constexpr MessageType POST_RESET = MessageType::PostReset;
     static constexpr auto LISTENER_DIR = "/tmp/tt_umd_listeners";
 
     struct Monitor {

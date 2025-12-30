@@ -30,8 +30,32 @@ nanobind_add_stub(
     nanobind_tt_umd_stub
     MODULE tt_umd
     OUTPUT tt_umd.pyi
+    RECURSIVE
     PYTHON_PATH ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS nanobind_tt_umd
+)
+
+# Generate __init__.py after stubs are created
+add_custom_command(
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
+    COMMAND
+        ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py ${CMAKE_CURRENT_BINARY_DIR}/tt_umd
+        ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
+    DEPENDS
+        nanobind_tt_umd_stub
+        ${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py
+    COMMENT "Generating __init__.py based on detected submodules"
+)
+
+# Add a custom target to ensure __init__.py is generated
+# Make it part of the default build with ALL
+add_custom_target(
+    nanobind_tt_umd_init
+    ALL
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
+        nanobind_tt_umd_stub
 )
 
 # Set properties for the Python module
@@ -106,11 +130,41 @@ if(TT_UMD_BUILD_PIP)
             COMPONENT pip_wheel
     )
 
-    # Install the __init__.py file
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py DESTINATION tt_umd COMPONENT pip_wheel)
+    # Generate __init__.py at install time if it doesn't exist yet
+    # This ensures it's available even if the custom target wasn't built
+    install(
+        CODE
+            "
+        set(INIT_FILE \"${CMAKE_CURRENT_BINARY_DIR}/__init__.py\")
+        if(NOT EXISTS \"\${INIT_FILE}\")
+            message(STATUS \"Generating __init__.py at install time\")
+            execute_process(
+                COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py\"
+                        \"${CMAKE_CURRENT_BINARY_DIR}/tt_umd\"
+                        \"\${INIT_FILE}\"
+                RESULT_VARIABLE RESULT
+            )
+            if(NOT RESULT EQUAL 0)
+                message(FATAL_ERROR \"Failed to generate __init__.py\")
+            endif()
+        endif()
+    "
+        COMPONENT pip_wheel
+    )
 
-    # Install the stub file for type checking in package directory
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tt_umd.pyi DESTINATION tt_umd RENAME __init__.pyi COMPONENT pip_wheel)
+    # Install the generated __init__.py file
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/__init__.py DESTINATION tt_umd COMPONENT pip_wheel)
+
+    # Install all stub files from tt_umd directory (includes __init__.pyi and submodule stubs)
+    install(
+        DIRECTORY
+            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd/
+        DESTINATION tt_umd
+        COMPONENT pip_wheel
+        FILES_MATCHING
+        PATTERN
+        "*.pyi"
+    )
 
     # Create and install py.typed marker for PEP 561 compliance
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
@@ -185,16 +239,40 @@ else()
             COMPONENT umd-python
     )
 
-    # Install the __init__.py file
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py DESTINATION ${TT_UMD_PY_DEST}/tt_umd COMPONENT umd-python)
-
-    # Install the stub file for type checking in package directory
+    # Generate __init__.py at install time if it doesn't exist yet
+    # This ensures it's available even if the custom target wasn't built
     install(
-        FILES
-            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd.pyi
-        DESTINATION ${TT_UMD_PY_DEST}/tt_umd
-        RENAME __init__.pyi
+        CODE
+            "
+        set(INIT_FILE \"${CMAKE_CURRENT_BINARY_DIR}/__init__.py\")
+        if(NOT EXISTS \"\${INIT_FILE}\")
+            message(STATUS \"Generating __init__.py at install time\")
+            execute_process(
+                COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py\"
+                        \"${CMAKE_CURRENT_BINARY_DIR}/tt_umd\"
+                        \"\${INIT_FILE}\"
+                RESULT_VARIABLE RESULT
+            )
+            if(NOT RESULT EQUAL 0)
+                message(FATAL_ERROR \"Failed to generate __init__.py\")
+            endif()
+        endif()
+    "
         COMPONENT umd-python
+    )
+
+    # Install the generated __init__.py file (same as pip wheel)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/__init__.py DESTINATION ${TT_UMD_PY_DEST}/tt_umd COMPONENT umd-python)
+
+    # Install all stub files from tt_umd directory (includes __init__.pyi and submodule stubs)
+    install(
+        DIRECTORY
+            ${CMAKE_CURRENT_BINARY_DIR}/tt_umd/
+        DESTINATION ${TT_UMD_PY_DEST}/tt_umd
+        COMPONENT umd-python
+        FILES_MATCHING
+        PATTERN
+        "*.pyi"
     )
 
     # Create and install py.typed marker for PEP 561 compliance

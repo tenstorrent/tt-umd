@@ -37,7 +37,7 @@ classifiers = [
 cmake.build-type = "Release"
 build-dir = "build/"
 # Only build the Python-related targets (new key in scikit-build-core >= 0.10)
-build.targets = ["nanobind_tt_umd", "nanobind_tt_umd_stub", "device"]
+build.targets = ["nanobind_tt_umd", "nanobind_tt_umd_stub", "nanobind_tt_umd_init", "device"]
 # Exclude development files from the wheel
 wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
 # Install only the 'pip_wheel' component defined in CMake (new key path)

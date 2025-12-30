@@ -107,23 +107,6 @@ const SocDescriptor& Cluster::get_soc_descriptor(ChipId chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
-void Cluster::verify_sysmem_initialized() {
-    for (const ChipId& chip_id : local_chip_ids_) {
-        bool hugepages_initialized =
-            (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
-        // Large writes to remote chips require hugepages to be initialized.
-        // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-        // if using remote only for small transactions)
-        if (remote_chip_ids_.size()) {
-            TT_ASSERT(
-                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
-        }
-        if (!hugepages_initialized) {
-            log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);
-        }
-    }
-}
-
 void Cluster::log_device_summary() {
     switch (cluster_desc->get_io_device_type()) {
         case IODeviceType::PCIe:
@@ -216,10 +199,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
                      eth_fw_version == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
-        }
-
-        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
-            verify_sysmem_initialized();
         }
     }
 
@@ -982,6 +961,7 @@ void Cluster::deassert_resets_and_set_power_state() {
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
+    log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -992,6 +972,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
+    log_info(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();

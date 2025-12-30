@@ -378,7 +378,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
         latest_supported_fw_bundle_version.to_string());
 
     TT_ASSERT(
-        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) > 0,
+        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) >= 0,
         "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
         "architecture.",
         fw_bundle_version.to_string(),

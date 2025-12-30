@@ -98,4 +98,18 @@ inline bool is_galaxy_configuration(Cluster* cluster) {
     return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
 }
 
+inline bool has_remote_chips() {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        return false;
+    }
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    tt_device->init_tt_device();
+
+    auto board_type = tt_device->get_board_type();
+    return board_type == tt::BoardType::N300 || board_type == tt::BoardType::GALAXY;
+}
+
+inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
+
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};

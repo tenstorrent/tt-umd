@@ -8,6 +8,7 @@
 
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -46,7 +47,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     remote_communication = RemoteCommunication::create_remote_communication(
@@ -79,7 +80,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     remote_communication = RemoteCommunication::create_remote_communication(
@@ -711,5 +712,27 @@ TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
 
     cached_pcie_dma_tlb_window->configure(config);
     return cached_pcie_dma_tlb_window.get();
+}
+
+void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    // TODO: Support other core types once needed.
+    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
+        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+    }
+
+    // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        TT_THROW("noc_multicast_write is only supported on PCIe devices.");
+    }
+
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+
+    get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
+        dst,
+        size,
+        translate_chip_coord_to_translated(core_start),
+        translate_chip_coord_to_translated(core_end),
+        addr,
+        tlb_data::Relaxed);
 }
 }  // namespace tt::umd

@@ -560,7 +560,8 @@ void WarmResetCommunication::Monitor::stop_monitoring() {
     }
 }
 
-void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms) {
+void WarmResetCommunication::Notifier::notify_all_listeners(
+    MessageType msg_type, std::optional<std::chrono::milliseconds> timeout_ms) {
     if (!std::filesystem::exists(LISTENER_DIR)) {
         return;
     }
@@ -572,49 +573,39 @@ void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chron
         return;
     }
 
+    log_debug(tt::LogUMD, "Sending message {} on {} socket(s)...", static_cast<int>(msg_type), active_sockets.size());
+
+    const MessageType* msg_ptr =
+        (msg_type == MessageType::PreReset) ? &WarmResetCommunication::PRE_RESET : &WarmResetCommunication::POST_RESET;
+
     for (auto& sock : active_sockets) {
         asio::async_write(
             *sock,
-            asio::buffer(&WarmResetCommunication::PRE_RESET, sizeof(WarmResetCommunication::PRE_RESET)),
+            asio::buffer(msg_ptr, sizeof(MessageType)),
             [](std::error_code, size_t) { /* Ignore write errors */ });
     }
 
-    asio::steady_timer timer(io, timeout_ms);
+    std::optional<asio::steady_timer> timer;
 
-    timer.async_wait([&](std::error_code ec) {
-        if (!ec) {
-            log_info(tt::LogUMD, "Timeout elapsed, invoking reset.");
-            io.stop();
-        }
-    });
+    if (timeout_ms.has_value()) {
+        timer.emplace(io, *timeout_ms);
+        timer->async_wait([&](std::error_code ec) {
+            if (!ec) {
+                log_info(tt::LogUMD, "Timeout elapsed, invoking reset.");
+                io.stop();
+            }
+        });
+    }
 
-    // Blocks until timeout elapses.
     io.run();
 }
 
+void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms) {
+    Notifier::notify_all_listeners(MessageType::PreReset, timeout_ms);
+}
+
 void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
-    if (!std::filesystem::exists(LISTENER_DIR)) {
-        return;
-    }
-
-    asio::io_context io;
-    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = get_connected_listeners(io);
-
-    if (active_sockets.empty()) {
-        return;
-    }
-
-    log_info(tt::LogUMD, "Sending POST_RESET on {} socket(s)...", active_sockets.size());
-
-    for (auto& sock : active_sockets) {
-        asio::async_write(
-            *sock,
-            asio::buffer(&WarmResetCommunication::POST_RESET, sizeof(WarmResetCommunication::POST_RESET)),
-            [](std::error_code, size_t) { /* Ignore write errors */ });
-    }
-
-    // Blocks until all writes are done.
-    io.run();
+    Notifier::notify_all_listeners(MessageType::PostReset, std::nullopt);
 }
 
 }  // namespace tt::umd

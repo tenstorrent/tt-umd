@@ -103,6 +103,21 @@ if(TT_UMD_ENABLE_LOGGING)
     add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 endif()
 
+# https://cmake.org/cmake/help/latest/module/FindPython.html
+# https://github.com/wjakob/nanobind/blob/master/docs/building.rst
+# Find Python early if building Python bindings
+# This ensures third-party dependencies (nanobind) use the correct Python version
+if(TT_UMD_BUILD_PYTHON OR TT_UMD_BUILD_ALL)
+    find_package(
+        Python
+        REQUIRED
+        COMPONENTS
+            Interpreter
+            Development.Module
+    )
+    message(STATUS "Found Python ${Python_VERSION}: ${Python_EXECUTABLE}")
+endif()
+
 add_subdirectory(third_party)
 
 # Configure clang-tidy AFTER third_party so dependencies are not linted

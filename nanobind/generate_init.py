@@ -30,6 +30,9 @@ def generate_submodule_py(submodule_name: str, output_dir: Path):
 def generate_init_py(stub_dir: Path, output_file: Path):
     """Generate __init__.py based on .pyi files in stub_dir."""
     
+    # Ensure stub directory exists
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    
     # Find all submodule stub files (exclude __init__.pyi)
     submodules = []
     if stub_dir.exists():

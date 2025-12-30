@@ -500,38 +500,40 @@ bool WarmResetCommunication::Monitor::start_monitoring(
             auto sock = std::make_shared<asio::local::stream_protocol::socket>(*io);
             acceptor.async_accept(
                 *sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](std::error_code ec) {
-                    if (!ec && keep_monitoring) {
-                        auto buf = std::make_shared<WarmResetCommunication::MessageType>();
-                        sock->async_read_some(
-                            asio::buffer(buf.get(), sizeof(WarmResetCommunication::MessageType)),
-                            [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t len) {
-                                if (ec) {
+                    if (ec || !keep_monitoring) {
+                        return;
+                    }
+
+                    auto buf = std::make_shared<WarmResetCommunication::MessageType>();
+                    sock->async_read_some(
+                        asio::buffer(buf.get(), sizeof(WarmResetCommunication::MessageType)),
+                        [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t len) {
+                            if (ec) {
+                                return;
+                            }
+                            switch (*buf) {
+                                case WarmResetCommunication::PRE_RESET:
+                                    log_info(tt::LogUMD, "Received Pre-Reset Notification!");
+
+                                    if (on_cleanup_request) {
+                                        on_cleanup_request();
+                                    }
                                     return;
-                                }
-                                switch (*buf) {
-                                    case WarmResetCommunication::PRE_RESET:
-                                        log_info(tt::LogUMD, "Received Pre-Reset Notification!");
+                                case WarmResetCommunication::POST_RESET:
+                                    log_info(tt::LogUMD, "Received Post-Reset Notification!");
 
-                                        if (on_cleanup_request) {
-                                            on_cleanup_request();
-                                        }
-                                        return;
-                                    case WarmResetCommunication::POST_RESET:
-                                        log_info(tt::LogUMD, "Received Post-Reset Notification!");
-
-                                        if (post_cleanup_request) {
-                                            post_cleanup_request();
-                                        }
-                                        return;
-                                    default:
-                                        log_warning(
-                                            tt::LogUMD, "Unknown message byte received: {}", static_cast<int>(*buf));
-                                        break;
-                                }
-                            });
-                        if (keep_monitoring) {
-                            (do_accept)();
-                        }
+                                    if (post_cleanup_request) {
+                                        post_cleanup_request();
+                                    }
+                                    return;
+                                default:
+                                    log_warning(
+                                        tt::LogUMD, "Unknown message byte received: {}", static_cast<int>(*buf));
+                                    break;
+                            }
+                        });
+                    if (keep_monitoring) {
+                        (do_accept)();
                     }
                 });
         };

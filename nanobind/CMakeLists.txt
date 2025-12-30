@@ -16,7 +16,7 @@ endif()
 find_package(Python REQUIRED COMPONENTS Development.Module)
 
 # Define the Python interface target
-nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp)
+nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp py_api_logging.cpp)
 
 # Set properties for the Python module
 set_target_properties(

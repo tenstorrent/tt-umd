@@ -41,7 +41,7 @@ struct TopologyDiscoveryOptions {
     bool verify_eth_fw_hash = false;
 };
 
-// TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
+// TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
 public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
@@ -89,7 +89,7 @@ protected:
 
     uint64_t get_asic_id(TTDevice* tt_device);
 
-    virtual uint64_t get_unconnected_chip_id(TTDevice* tt_device) = 0;
+    virtual uint64_t get_unconnected_device_id(TTDevice* tt_device) = 0;
 
     virtual std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
@@ -146,7 +146,7 @@ protected:
     std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_device;
 
     // It's required to know which chip should be used for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
+    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id = {};
 
     TopologyDiscoveryOptions options;
 

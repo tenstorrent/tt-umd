@@ -25,7 +25,7 @@ protected:
 
     uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    uint64_t get_unconnected_chip_id(TTDevice* tt_device) override;
+    uint64_t get_unconnected_device_id(TTDevice* tt_device) override;
 
     std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 

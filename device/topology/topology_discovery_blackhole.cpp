@@ -26,12 +26,13 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOp
     TopologyDiscovery(options) {}
 
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
-    std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_chip, {0, 0, 0, 0});
+        RemoteCommunication::create_remote_communication(gateway_device, {0, 0, 0, 0});
     remote_communication->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor(gateway_chip).get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
+        get_soc_descriptor(gateway_device)
+            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
     return remote_tt_device;
@@ -194,24 +195,24 @@ bool TopologyDiscoveryBlackhole::is_eth_trained(TTDevice* tt_device, const tt_xy
 void TopologyDiscoveryBlackhole::patch_eth_connections() {
     std::set<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>> ethernet_connections_fixed;
     for (auto& eth_connections_original : ethernet_connections) {
-        auto& [local_chip, local_channel] = eth_connections_original.first;
-        auto& [remote_chip, remote_channel] = eth_connections_original.second;
+        auto& [local_device, local_channel] = eth_connections_original.first;
+        auto& [remote_device, remote_channel] = eth_connections_original.second;
 
-        TTDevice* remote_chip_ptr = get_tt_device(remote_chip);
+        TTDevice* remote_device_ptr = get_tt_device(remote_device);
 
         auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
         CoreCoord logical_coord =
-            get_soc_descriptor(remote_chip_ptr).translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
+            get_soc_descriptor(remote_device_ptr).translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
 
-        ethernet_connections_fixed.insert({{local_chip, local_channel}, {remote_chip, logical_coord.y}});
+        ethernet_connections_fixed.insert({{local_device, local_channel}, {remote_device, logical_coord.y}});
     }
 
     ethernet_connections.clear();
     for (auto& eth_connections_fixed : ethernet_connections_fixed) {
-        auto& [local_chip, local_channel] = eth_connections_fixed.first;
-        auto& [remote_chip, remote_channel] = eth_connections_fixed.second;
-        ethernet_connections.push_back({{local_chip, local_channel}, {remote_chip, remote_channel}});
+        auto& [local_device, local_channel] = eth_connections_fixed.first;
+        auto& [remote_device, remote_channel] = eth_connections_fixed.second;
+        ethernet_connections.push_back({{local_device, local_channel}, {remote_device, remote_channel}});
     }
 }
 
@@ -281,7 +282,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
+            "ETH FW version mismatch for device {} ETH core {}, found: {}.",
             get_local_asic_id(tt_device, translated_eth_core),
             translated_eth_core.str(),
             eth_fw_version.to_string());
@@ -295,7 +296,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         if (hash_check.has_value() && hash_check.value() == false) {
             log_warning(
                 LogUMD,
-                "ETH FW version hash check failed for chip {} ETH core {}",
+                "ETH FW version hash check failed for device {} ETH core {}",
                 get_local_asic_id(tt_device, translated_eth_core),
                 translated_eth_core.str());
             eth_fw_problem = true;
@@ -305,7 +306,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(TTDevice* tt_device) {
+uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
     uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;

@@ -40,6 +40,20 @@ private:
     static void ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms);
 };
 
+/**
+ * Handles the Inter-Process Communication (IPC) for Warm Reset synchronization.
+ *
+ * This system uses Unix Domain Sockets to coordinate a "Reset" event across multiple
+ * independent processes attached to the cluster.
+ *
+ * Architecture:
+ * - The scope is currently system-wide (Cluster level), not per-device.
+ * - Notifier (Writer): The process performing the reset notification.
+ * It scans the listener directory and sends a notification to all connected sockets.
+ * - Monitor (Listener): Any process that needs to prepare for a reset.
+ * It creates a named socket in the listener directory and waits for notifications.
+ */
+
 class WarmResetCommunication {
 public:
     enum class MessageType : uint8_t { PreReset = 0x01, PostReset = 0x02 };

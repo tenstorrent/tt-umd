@@ -4,6 +4,7 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <fmt/format.h>
 #include <optional>
 #include <tt-logger/tt-logger.hpp>
 
@@ -194,7 +195,48 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_core) {
-    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UP;
+    uint32_t port_status_val = read_port_status(chip, eth_core);
+    int local_chip_id = chip->get_tt_device()->get_communication_device_id();
+    
+    // Try to get remote ASIC ID (may fail if link is down)
+    uint64_t remote_asic_id = 0;
+    std::string remote_info = "N/A";
+    try {
+        remote_asic_id = get_remote_asic_id(chip, eth_core);
+        remote_info = fmt::format("0x{:016x}", remote_asic_id);
+    } catch (...) {
+        remote_info = "Unable to read (link may be down)";
+    }
+    
+    // Convert port status to string
+    std::string port_status_str;
+    switch (port_status_val) {
+        case blackhole::port_status_e::PORT_UNKNOWN:
+            port_status_str = "PORT_UNKNOWN (0)";
+            break;
+        case blackhole::port_status_e::PORT_UP:
+            port_status_str = "PORT_UP (1)";
+            break;
+        case blackhole::port_status_e::PORT_DOWN:
+            port_status_str = "PORT_DOWN (2)";
+            break;
+        case blackhole::port_status_e::PORT_UNUSED:
+            port_status_str = "PORT_UNUSED (3)";
+            break;
+        default:
+            port_status_str = fmt::format("UNKNOWN ({})", port_status_val);
+            break;
+    }
+    
+    log_info(
+        LogUMD,
+        "Port Status Check - Local Chip ID: {}, ETH Core: {}, Port Status: {}, Remote Chip ASIC ID: {}",
+        local_chip_id,
+        eth_core.str(),
+        port_status_str,
+        remote_info);
+    
+    return port_status_val == blackhole::port_status_e::PORT_UP;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {

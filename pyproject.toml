@@ -17,11 +17,12 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: C++",
     "Topic :: Software Development :: Libraries",
     "Topic :: System :: Hardware",
@@ -58,7 +59,7 @@ input = "VERSION"
 regex = "(?P<value>.*)"
 
 [tool.cibuildwheel]
-build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
 archs = "x86_64"
 skip = "*-musllinux_*"
 build-verbosity = 1

@@ -120,7 +120,7 @@ function(install_python_package_files DESTINATION COMPONENT)
         COMPONENT ${COMPONENT}
     )
 
-    # Install __init__.py, stub files, and py.typed marker
+    # Install __init__.py, stub files, submodule .py files, and py.typed marker
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/__init__.py DESTINATION ${DESTINATION} COMPONENT ${COMPONENT})
     install(
         DIRECTORY
@@ -130,6 +130,8 @@ function(install_python_package_files DESTINATION COMPONENT)
         FILES_MATCHING
         PATTERN
         "*.pyi"
+        PATTERN
+        "*.py"
     )
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/py.typed "")
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed DESTINATION ${DESTINATION} COMPONENT ${COMPONENT})

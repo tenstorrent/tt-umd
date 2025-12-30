@@ -6,6 +6,10 @@
 #include <nanobench.h>
 #include <sys/mman.h>
 
+#include <chrono>
+#include <cstdlib>
+#include <vector>
+
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
 
@@ -14,6 +18,7 @@ using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
 constexpr ChipId CHIP_ID = 0;
+constexpr uint32_t NUM_EPOCHS = 100;
 
 /**
  * Measure the time it takes to map buffers of different sizes through IOMMU.
@@ -29,11 +34,15 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
 
-    auto bench = ankerl::nanobench::Bench()
-                     .title("IOMMU_MapDifferentSizes")
-
-                     .unit("byte");
+    auto bench =
+        ankerl::nanobench::Bench().title("IOMMU_MapDifferentSizes").unit("byte").epochs(NUM_EPOCHS).epochIterations(1);
+    std::vector<Result> results;
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
 
     static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t MAPPING_SIZE_LIMIT = ONE_GB;
@@ -42,16 +51,29 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     });
     PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device().get();
     for (uint64_t size = page_size; size <= MAPPING_SIZE_LIMIT; size *= 2) {
-        void* mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-        bench.batch(size).name(fmt::format("Map + Unmap, {} bytes", size)).run([&]() {
+        bench.name(fmt::format("Map {} bytes", size)).batch(size);
+        ankerl::nanobench::Result map_result(bench.config());
+        bench.name(fmt::format("Unmap {} bytes", size));
+        ankerl::nanobench::Result unmap_result(bench.config());
+        for (int i = 0; i < NUM_EPOCHS; i++) {
+            void* mapping =
+                mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+            auto now = std::chrono::high_resolution_clock::now();
             uint64_t iova = pci_device->map_for_dma(mapping, size);
-            ankerl::nanobench::doNotOptimizeAway(iova);
+            auto end = std::chrono::high_resolution_clock::now();
+            map_result.add(end - now, 1, pc);
+
+            now = std::chrono::high_resolution_clock::now();
             pci_device->unmap_for_dma(mapping, size);
-        });
-        munmap(mapping, size);
+            end = std::chrono::high_resolution_clock::now();
+            unmap_result.add(end - now, 1, pc);
+            munmap(mapping, size);
+        }
+        results.push_back(std::move(map_result));
+        results.push_back(std::move(unmap_result));
     }
 
-    test::utils::export_results(bench);
+    test::utils::export_results(bench.title(), results);
 }
 
 /**
@@ -67,8 +89,10 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
-
-    auto bench = ankerl::nanobench::Bench().title("IOMMU_HugePage2M").minEpochIterations(2000);
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
 
     static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t HUGEPAGE_SHIFT = 21;
@@ -78,26 +102,38 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     });
     PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device().get();
 
-    void* mapping = mmap(
-        0,
-        MAPPING_SIZE,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
-        -1,
-        0);
+    auto bench =
+        ankerl::nanobench::Bench().title("IOMMU_HugePage2M").epochIterations(1).epochs(NUM_EPOCHS).name("Map 2M");
+    ankerl::nanobench::Result map_result(bench.config());
+    bench.name("Unmap 2M");
+    ankerl::nanobench::Result unmap_result(bench.config());
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    for (int i = 0; i < NUM_EPOCHS; i++) {
+        void* mapping = mmap(
+            0,
+            MAPPING_SIZE,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
+            -1,
+            0);
 
-    if (mapping == MAP_FAILED) {
-        GTEST_SKIP() << "Mapping 2MB hugepage failed. Skipping test.";
+        if (mapping == MAP_FAILED) {
+            GTEST_SKIP() << "Mapping 2MB hugepage failed. Skipping test.";
+        }
+        auto now = std::chrono::high_resolution_clock::now();
+        uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        auto end = std::chrono::high_resolution_clock::now();
+        map_result.add(end - now, 1, pc);
+
+        now = std::chrono::high_resolution_clock::now();
+        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+        end = std::chrono::high_resolution_clock::now();
+        unmap_result.add(end - now, 1, pc);
+
+        munmap(mapping, MAPPING_SIZE);
     }
 
-    bench.name(fmt::format("Map + Unmap, {} bytes", MAPPING_SIZE)).run([&]() {
-        uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
-        ankerl::nanobench::doNotOptimizeAway(iova);
-        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
-    });
-    munmap(mapping, MAPPING_SIZE);
-
-    test::utils::export_results(bench);
+    test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
 }
 
 /**
@@ -113,8 +149,10 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
-
-    auto bench = ankerl::nanobench::Bench().title("IOMMU_HugePage1G");
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
 
     static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t HUGEPAGE_SHIFT = 30;
@@ -124,24 +162,36 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     });
     PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device().get();
 
-    void* mapping = mmap(
-        0,
-        MAPPING_SIZE,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
-        -1,
-        0);
+    auto bench =
+        ankerl::nanobench::Bench().title("IOMMU_HugePage1G").epochIterations(1).epochs(NUM_EPOCHS).name("Map 1G");
+    ankerl::nanobench::Result map_result(bench.config());
+    bench.name("Unmap 1G");
+    ankerl::nanobench::Result unmap_result(bench.config());
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    for (int i = 0; i < NUM_EPOCHS; i++) {
+        void* mapping = mmap(
+            0,
+            MAPPING_SIZE,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
+            -1,
+            0);
 
-    if (mapping == MAP_FAILED) {
-        GTEST_SKIP() << "Mapping 1GB hugepage failed. Skipping test.";
+        if (mapping == MAP_FAILED) {
+            GTEST_SKIP() << "Mapping 1GB hugepage failed. Skipping test.";
+        }
+        auto now = std::chrono::high_resolution_clock::now();
+        uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        auto end = std::chrono::high_resolution_clock::now();
+        map_result.add(end - now, 1, pc);
+
+        now = std::chrono::high_resolution_clock::now();
+        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+        end = std::chrono::high_resolution_clock::now();
+        unmap_result.add(end - now, 1, pc);
+
+        munmap(mapping, MAPPING_SIZE);
     }
 
-    bench.name(fmt::format("Map + Unmap, {} bytes", MAPPING_SIZE)).run([&]() {
-        uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
-        ankerl::nanobench::doNotOptimizeAway(iova);
-        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
-    });
-    munmap(mapping, MAPPING_SIZE);
-
-    test::utils::export_results(bench);
+    test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
 }

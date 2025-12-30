@@ -42,7 +42,6 @@ build.targets = ["nanobind_tt_umd", "nanobind_tt_umd_stub", "device"]
 wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
 # Install only the 'pip_wheel' component defined in CMake (new key path)
 install.components = ["pip_wheel"]
-wheel.py-api = "py3"
 
 [tool.scikit-build.cmake.define]
 TT_UMD_BUILD_TOOLS = "OFF"

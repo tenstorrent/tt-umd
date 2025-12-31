@@ -20,6 +20,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -290,6 +291,13 @@ void bind_tt_device(nb::module_ &m) {
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
+
+    nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
+        .def_static(
+            "create",
+            &RtlSimulationTTDevice::create,
+            nb::arg("simulator_directory"),
+            "Creates an RtlSimulationTTDevice for RTL simulation communication.");
 
     m.def(
         "create_remote_wormhole_tt_device",

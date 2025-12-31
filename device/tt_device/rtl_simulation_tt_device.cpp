@@ -11,8 +11,15 @@
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
+
+std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
+    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
+    return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor);
+}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
@@ -144,6 +151,61 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
 
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
+}
+
+void RtlSimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::write_to_arc_apb(
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::write_to_arc_csm(
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
+}
+
+bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+    throw std::runtime_error("Waiting for ARC core start is not supported in RTL simulation device.");
+}
+
+std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
+    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    throw std::runtime_error("Waiting for ETH core training is not supported in RTL simulation device.");
+}
+
+uint32_t RtlSimulationTTDevice::get_clock() {
+    throw std::runtime_error("Getting clock is not supported in RTL simulation device.");
+}
+
+uint32_t RtlSimulationTTDevice::get_min_clock_freq() {
+    throw std::runtime_error("Getting minimum clock frequency is not supported in RTL simulation device.");
+}
+
+bool RtlSimulationTTDevice::get_noc_translation_enabled() {
+    throw std::runtime_error("Getting NOC translation status is not supported in RTL simulation device.");
 }
 
 }  // namespace tt::umd

@@ -12,7 +12,7 @@ using namespace tt::umd;
 
 namespace test_utils {
 
-void setup_risc_cores_on_cluster(Cluster* cluster) {
+inline void safe_test_cluster_start(Cluster* cluster) {
     auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
     std::array<uint32_t, 12> brisc_program_default{};
     std::copy(
@@ -54,6 +54,8 @@ void setup_risc_cores_on_cluster(Cluster* cluster) {
             cluster->l1_membar(chip_id, {core});
         }
     }
+
+    cluster->start_device({});
 }
 
 }  // namespace test_utils

@@ -80,6 +80,9 @@ public:
     virtual std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const = 0;
     virtual std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const = 0;
 
+    // Get available TLB sizes for this architecture.
+    virtual const std::vector<size_t>& get_tlb_sizes() const = 0;
+
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
 

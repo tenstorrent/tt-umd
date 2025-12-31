@@ -4,6 +4,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/chrono.h>
+#include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
@@ -297,7 +298,18 @@ void bind_tt_device(nb::module_ &m) {
             "create",
             &RtlSimulationTTDevice::create,
             nb::arg("simulator_directory"),
-            "Creates an RtlSimulationTTDevice for RTL simulation communication.");
+            "Creates an RtlSimulationTTDevice for RTL simulation communication.")
+        .def(
+            "send_tensix_risc_reset",
+            &RtlSimulationTTDevice::send_tensix_risc_reset,
+            nb::arg("translated_core"),
+            nb::arg("deassert"),
+            "Send a Tensix RISC reset signal to the RTL simulation device.")
+        .def(
+            "get_soc_descriptor",
+            &RtlSimulationTTDevice::get_soc_descriptor,
+            nb::rv_policy::reference_internal,
+            "Get the SocDescriptor associated with this RTL simulation device.");
 
     m.def(
         "create_remote_wormhole_tt_device",

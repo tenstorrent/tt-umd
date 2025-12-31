@@ -30,6 +30,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         TT_THROW("Simulator binary not found at: ", simulator_directory);
     }
 
+    arch = soc_descriptor.arch;
     host.init();
 
     // Start simulator process.
@@ -151,6 +152,19 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
 
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
+}
+
+void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    if (!deassert) {
+        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
+    } else {
+        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
+    }
 }
 
 void RtlSimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {

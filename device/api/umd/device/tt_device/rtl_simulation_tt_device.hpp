@@ -21,6 +21,9 @@ public:
 
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert);
+
+    SocDescriptor* get_soc_descriptor() { return &soc_descriptor_; }
 
     bool is_hardware_hung() override { return false; }
 

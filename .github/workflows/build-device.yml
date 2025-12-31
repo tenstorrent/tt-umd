@@ -392,5 +392,6 @@ jobs:
             echo "Run Python import test for FHS-installed module"
             python3 -c "import tt_umd; print('Python import tt_umd: OK')"
           else
-            echo "Skipping Python import test: umd-umd-python not installed"
+            echo "ERROR: Python package not found! Test skipped improperly."
+            exit 1  # Force CI failure
           fi

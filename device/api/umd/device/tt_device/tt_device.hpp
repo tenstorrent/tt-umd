@@ -263,6 +263,8 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
+    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();

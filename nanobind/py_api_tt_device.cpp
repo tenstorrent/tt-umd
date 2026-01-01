@@ -293,6 +293,7 @@ void bind_tt_device(nb::module_ &m) {
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
+#ifdef TT_UMD_BUILD_SIMULATION
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
         .def_static(
             "create",
@@ -310,6 +311,7 @@ void bind_tt_device(nb::module_ &m) {
             &RtlSimulationTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
             "Get the SocDescriptor associated with this RTL simulation device.");
+#endif
 
     m.def(
         "create_remote_wormhole_tt_device",

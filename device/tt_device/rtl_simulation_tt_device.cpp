@@ -68,7 +68,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     start_host_communication();
 }
 
-static inline flatbuffers::FlatBufferBuilder create_flatbuffer(
+static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
@@ -79,11 +79,11 @@ static inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     return builder;
 }
 
-static inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
-    return create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
+static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
+    return _create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
 }
 
-static inline void print_flatbuffer(const DeviceRequestResponse* buf) {
+static inline void _print_flatbuffer(const DeviceRequestResponse* buf) {
 #ifdef DEBUG
     std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
     uint64_t addr = buf->address();
@@ -105,10 +105,10 @@ static inline void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-static inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+static inline void _send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
-    print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
+    _print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
@@ -131,7 +131,7 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     log_debug(LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     std::vector<std::uint32_t> data(
         static_cast<const uint32_t*>(mem_ptr), static_cast<const uint32_t*>(mem_ptr) + size / sizeof(uint32_t));
-    send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
+    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
 }
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -139,7 +139,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     void* rd_resp;
 
     // Send read request.
-    send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
+    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
 
     // Get read response.
     size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
@@ -148,7 +148,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
 
     // Debug level polling as Metal will constantly poll the device, spamming the logs.
     log_debug(LogUMD, "Device reading vec");
-    print_flatbuffer(rd_resp_buf);
+    _print_flatbuffer(rd_resp_buf);
 
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
@@ -158,12 +158,12 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, b
     std::lock_guard<std::mutex> lock(device_lock);
     if (!deassert) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
+        _send_command_to_simulation_host(
+            host, _create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
     } else {
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        send_command_to_simulation_host(
-            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
+        _send_command_to_simulation_host(
+            host, _create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
     }
 }
 

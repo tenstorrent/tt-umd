@@ -30,7 +30,7 @@ static const std::vector<RiscType> RISC_TYPES_DMS = {
     RiscType::DM6,
     RiscType::DM7};
 
-inline flatbuffers::FlatBufferBuilder create_flatbuffer(
+static inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
@@ -41,7 +41,7 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     return builder;
 }
 
-inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
+static inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
     return create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
 }
 
@@ -67,7 +67,7 @@ inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+static inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
     print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));

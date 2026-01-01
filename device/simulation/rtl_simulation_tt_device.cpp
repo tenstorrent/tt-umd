@@ -83,7 +83,7 @@ static inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw
     return create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
 }
 
-inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
+static inline void print_flatbuffer(const DeviceRequestResponse* buf) {
 #ifdef DEBUG
     std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
     uint64_t addr = buf->address();
@@ -105,7 +105,7 @@ inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+static inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
     print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));

@@ -77,7 +77,6 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
-        tt_device/rtl_simulation_tt_device.cpp
         tt_device/tt_sim_tt_device.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
@@ -119,6 +118,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/tt_sim_chip.cpp
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
+            tt_device/rtl_simulation_tt_device.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)

@@ -23,6 +23,9 @@ find_package(
 
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp py_api_logging.cpp)
+if(TT_UMD_BUILD_SIMULATION)
+    target_compile_definitions(nanobind_tt_umd PRIVATE TT_UMD_BUILD_SIMULATION)
+endif()
 
 # Generate stub file for type checking
 nanobind_add_stub(

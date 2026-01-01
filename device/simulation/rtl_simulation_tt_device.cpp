@@ -69,7 +69,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 }
 
 static inline flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_) {
+    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);

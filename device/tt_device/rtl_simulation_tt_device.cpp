@@ -68,6 +68,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     start_host_communication();
 }
 
+RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
+
 static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
@@ -124,6 +126,11 @@ void RtlSimulationTTDevice::start_host_communication() {
     auto cmd = buf->command();
     TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
+}
+
+void RtlSimulationTTDevice::close_device() {
+    log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
+    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {

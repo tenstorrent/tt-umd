@@ -322,16 +322,22 @@ ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
     const std::string &cluster_descriptor_file_path) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
-
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
         throw std::runtime_error(fmt::format(
             "Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path));
     }
+    std::stringstream buffer;
+    buffer << fdesc.rdbuf();
     fdesc.close();
+    return create_from_yaml_content(buffer.str());
+}
 
-    YAML::Node yaml = YAML::LoadFile(cluster_descriptor_file_path);
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
+    const std::string &cluster_descriptor_file_content) {
+    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+
+    YAML::Node yaml = YAML::Load(cluster_descriptor_file_content);
     desc->load_chips_from_connectivity_descriptor(yaml);
     desc->load_harvesting_information(yaml);
     desc->load_ethernet_connections_from_connectivity_descriptor(yaml);

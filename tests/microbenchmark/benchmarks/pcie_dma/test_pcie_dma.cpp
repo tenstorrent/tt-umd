@@ -60,7 +60,7 @@ static inline std::pair<double, double> perf_sysmem_read_write(
     {
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < num_iterations; i++) {
-            sysmem_buffer->dma_write_to_device(0, one_mb, core, address);
+            sysmem_buffer->dma_write_to_device(0, one_mb, core, address, false);
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
@@ -71,7 +71,7 @@ static inline std::pair<double, double> perf_sysmem_read_write(
     {
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < num_iterations; i++) {
-            sysmem_buffer->dma_read_from_device(0, one_mb, core, address);
+            sysmem_buffer->dma_read_from_device(0, one_mb, core, address, false);
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
@@ -303,7 +303,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < NUM_ITERATIONS; i++) {
             std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, one_mb);
-            sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+            sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0, false);
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
@@ -317,7 +317,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < NUM_ITERATIONS; i++) {
             std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, one_mb);
-            sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
+            sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0, false);
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();

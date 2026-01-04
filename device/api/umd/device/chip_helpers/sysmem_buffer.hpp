@@ -82,7 +82,7 @@ public:
      * @param core Core to which the data will be transferred.
      * @param addr Address on the core to which the data will be transferred.
      */
-    void dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr, bool use_noc1);
 
     /**
      * Does zero copy DMA transfer from the device. Since the buffer is already mapped through KMD, this function
@@ -93,7 +93,7 @@ public:
      * @param core Core from which the data will be transferred.
      * @param addr Address on the core from which the data will be transferred.
      */
-    void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr, bool use_noc1);
 
 private:
     /**

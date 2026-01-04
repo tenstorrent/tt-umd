@@ -54,8 +54,8 @@ public:
     virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) = 0;
     virtual void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
-    virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
-    virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;

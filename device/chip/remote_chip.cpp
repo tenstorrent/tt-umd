@@ -114,11 +114,11 @@ void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_s
     read_from_device(core, dest, reg_src, size);
 }
 
-void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) {
     throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
 }
 
-void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) {
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 

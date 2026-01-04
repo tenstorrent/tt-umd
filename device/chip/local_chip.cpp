@@ -320,7 +320,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     }
 }
 
-void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void LocalChip::dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) {
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.",
@@ -348,7 +348,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.local_offset = addr;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
@@ -376,7 +376,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     }
 }
 
-void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void LocalChip::dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) {
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.",
@@ -404,7 +404,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.local_offset = addr;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);

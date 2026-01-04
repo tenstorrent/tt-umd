@@ -22,8 +22,8 @@ public:
     TLBManager(TTDevice* tt_device);
 
     // All tt_xy_pairs should be in TRANSLATED coords.
-    void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
-    void configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
+    void configure_tlb(bool use_noc1, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
+    void configure_tlb_kmd(bool use_noc1, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 

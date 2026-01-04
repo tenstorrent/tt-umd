@@ -30,7 +30,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         std::int32_t c_zero_address = 0;
 
         for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-            tlb_manager->configure_tlb(translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
+            tlb_manager->configure_tlb(false, translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
         }
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.

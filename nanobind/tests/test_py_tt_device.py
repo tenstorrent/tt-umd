@@ -134,14 +134,10 @@ class TestTTDevice(unittest.TestCase):
             print("No PCI devices found. Skipping test.")
             return
 
-        # Test setting use_noc1 to True
-        tt_umd.TTDevice.use_noc1(True)
-        print("Set use_noc1 to True")
-
         # Perform basic read/write operations to verify use_noc1 works
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.init_tt_device()
+            dev.init_tt_device(use_noc1=True)
             print(f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}")
             pci_dev = dev.get_pci_device()
             pci_info = pci_dev.get_device_info().pci_bdf
@@ -151,16 +147,13 @@ class TestTTDevice(unittest.TestCase):
             tensix_core = soc_descriptor.get_cores(tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED)[0]
 
             # Test noc_read and noc_write
-            original_data = dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16)
+            original_data = dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16, use_noc1=True)
             # Modify original data by XORing with a pattern to ensure it's different
             test_data = bytes([(b ^ 0x55) for b in original_data])
-            dev.noc_write(tensix_core.x, tensix_core.y, 0x200, test_data)
-            read_data = dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16)
+            dev.noc_write(tensix_core.x, tensix_core.y, 0x200, test_data, use_noc1=True)
+            read_data = dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16, use_noc1=True)
             print(f"noc_write/read: wrote {test_data.hex()}, read {read_data.hex()}")
             self.assertEqual(read_data, test_data, "Read data should match written data")
-            dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
-
-        tt_umd.TTDevice.use_noc1(False)
-        print("Set use_noc1 back to False")
+            dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data, use_noc1=True)  # Restore
 
         

@@ -105,14 +105,14 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,
-            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("use_noc1") = false)
-        .def("get_chip_info", &TTDevice::get_chip_info)
+            nb::arg("use_noc1") = false,
+            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+        .def("get_chip_info", &TTDevice::get_chip_info, nb::arg("use_noc1") = false)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
-        .def("get_board_id", &TTDevice::get_board_id)
-        .def("board_id", &TTDevice::get_board_id)
-        .def("get_board_type", &TTDevice::get_board_type)
+        .def("get_board_id", &TTDevice::get_board_id, nb::arg("use_noc1") = false)
+        .def("board_id", &TTDevice::get_board_id, nb::arg("use_noc1") = false)
+        .def("get_board_type", &TTDevice::get_board_type, nb::arg("use_noc1") = false)
         .def("get_communication_device_type", &TTDevice::get_communication_device_type)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)

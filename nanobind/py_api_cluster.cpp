@@ -17,5 +17,5 @@ void bind_cluster(nb::module_ &m) {
     nb::class_<Cluster>(m, "Cluster")
         .def(nb::init<>())
         .def("get_target_device_ids", &Cluster::get_target_device_ids)
-        .def("get_clocks", &Cluster::get_clocks);
+        .def("get_clocks", &Cluster::get_clocks, nb::arg("use_noc1") = false);
 }

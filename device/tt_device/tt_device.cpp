@@ -24,12 +24,7 @@
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
-// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
-bool umd_use_noc1 = false;
-
 namespace tt::umd {
-
-void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
     std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
@@ -277,17 +272,16 @@ ChipInfo TTDevice::get_chip_info() {
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
-uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
+uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core, bool use_noc1) {
     uint32_t tensix_risc_state;
     read_from_device(
-        &tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t), umd_use_noc1);
+        &tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t), use_noc1);
 
     return tensix_risc_state;
 }
 
-void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
-    write_to_device(
-        &risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t), umd_use_noc1);
+void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags, bool use_noc1) {
+    write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t), use_noc1);
     tt_driver_atomics::sfence();
 }
 

@@ -72,7 +72,7 @@ TEST(TestNoc, TestNoc0NodeId) {
 }
 
 TEST(TestNoc, TestNoc1NodeId) {
-    TTDevice::use_noc1(true);
+    Cluster::use_noc1(true);
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -140,5 +140,5 @@ TEST(TestNoc, TestNoc1NodeId) {
             check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
         }
     }
-    TTDevice::use_noc1(false);
+    Cluster::use_noc1(false);
 }

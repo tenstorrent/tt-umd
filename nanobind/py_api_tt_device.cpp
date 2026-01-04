@@ -117,7 +117,6 @@ void bind_tt_device(nb::module_ &m) {
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)
-        .def_static("use_noc1", &TTDevice::use_noc1, nb::arg("use_noc1"))
         // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",

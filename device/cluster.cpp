@@ -68,7 +68,8 @@
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
+// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
+bool umd_use_noc1 = false;
 
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
@@ -102,6 +103,8 @@ struct remote_update_ptr_t {
     uint32_t ptr;
     uint32_t pad[3];
 };
+
+void Cluster::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 const SocDescriptor& Cluster::get_soc_descriptor(ChipId chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();

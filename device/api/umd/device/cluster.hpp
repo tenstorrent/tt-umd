@@ -106,6 +106,9 @@ struct ClusterOptions {
  */
 class Cluster {
 public:
+    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
+    static void use_noc1(bool use_noc1);
+
     /**
      * The constructor discovers the topology of the system, creates a cluster descriptor object, and initializes
      * Chips based on passed options and the discovered topology. This can include, but is not limited to:

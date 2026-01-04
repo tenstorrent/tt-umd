@@ -44,9 +44,6 @@ class RemoteCommunication;
 
 class TTDevice {
 public:
-    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
-    static void use_noc1(bool use_noc1);
-
     /**
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
@@ -309,16 +306,18 @@ public:
      * Get the soft reset signal for the given riscs.
      *
      * @param core Core to get soft reset for, in translated coordinates
+     * @param use_noc1 whether to use NOC1 for addressing the core
      */
-    uint32_t get_risc_reset_state(tt_xy_pair core);
+    uint32_t get_risc_reset_state(tt_xy_pair core, bool use_noc1);
 
     /**
      * Set the soft reset signal for the given riscs.
      *
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
+     * @param use_noc1 whether to use NOC1 for addressing the core
      */
-    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags, bool use_noc1);
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

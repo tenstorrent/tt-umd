@@ -14,7 +14,7 @@ namespace tt::umd {
 
 class WarmReset {
 public:
-    static void warm_reset(std::vector<int> pci_device_ids = {}, bool reset_m3 = false);
+    static void warm_reset(std::vector<int> pci_device_ids = {}, bool reset_m3 = false, bool use_noc1 = false);
 
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
@@ -24,7 +24,7 @@ private:
 
     static void warm_reset_blackhole_legacy(std::vector<int> pci_device_ids);
 
-    static void warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3);
+    static void warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3, bool use_noc1);
 
     static void warm_reset_arch_agnostic(
         std::vector<int> pci_device_ids,

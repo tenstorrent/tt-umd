@@ -20,6 +20,7 @@ void bind_warm_reset(nb::module_ &m) {
             &WarmReset::warm_reset,
             nb::arg("pci_device_ids") = std::vector<int>{},
             nb::arg("reset_m3") = false,
+            nb::arg("use_noc1") = false,
             "Perform a warm reset of the device. reset_m3 flag sends specific ARC message to do a M3 board level "
             "reset.")
         .def_static(

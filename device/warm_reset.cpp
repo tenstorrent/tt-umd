@@ -24,13 +24,11 @@
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
+void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool use_noc1) {
     if constexpr (is_arm_platform()) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return;
@@ -50,7 +48,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+            warm_reset_wormhole_legacy(pci_device_ids, reset_m3, use_noc1);
             return;
         case ARCH::BLACKHOLE:
             if (reset_m3) {
@@ -208,7 +206,7 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 }
 
-void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3) {
+void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3, bool use_noc1) {
     bool reset_ok = true;
     static constexpr uint16_t default_arg_value = 0xFFFF;
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
@@ -230,14 +228,14 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     }
 
     for (auto& tt_device : tt_devices) {
-        tt_device->init_tt_device(umd_use_noc1);
+        tt_device->init_tt_device(use_noc1);
     }
 
     std::vector<uint64_t> refclk_values_old;
     refclk_values_old.reserve(pci_device_ids.size());
 
     for (const auto& tt_device : tt_devices) {
-        refclk_values_old.emplace_back(tt_device->get_refclk_counter(umd_use_noc1));
+        refclk_values_old.emplace_back(tt_device->get_refclk_counter(use_noc1));
     }
 
     std::vector<uint32_t> arc_msg_return_values(1);
@@ -262,7 +260,7 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
-        refclk_current.emplace_back(tt_device->get_refclk_counter(umd_use_noc1));
+        refclk_current.emplace_back(tt_device->get_refclk_counter(use_noc1));
     }
 
     for (int i = 0; i < refclk_values_old.size(); i++) {

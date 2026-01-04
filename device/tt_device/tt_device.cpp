@@ -158,7 +158,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+    get_cached_tlb_window()->read_block_reconfigure(umd_use_noc1, mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -168,7 +168,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
+    get_cached_tlb_window()->write_block_reconfigure(umd_use_noc1, mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -291,7 +291,8 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
+    get_cached_tlb_window()->noc_multicast_write_reconfigure(
+        umd_use_noc1, dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
 }  // namespace tt::umd

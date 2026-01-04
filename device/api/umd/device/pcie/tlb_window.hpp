@@ -28,12 +28,23 @@ public:
     void read_block(uint64_t offset, void* data, size_t size);
 
     void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+        bool use_noc1,
+        void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        uint32_t size,
+        uint64_t ordering = tlb_data::Strict);
 
     void write_block_reconfigure(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+        bool use_noc1,
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        uint32_t size,
+        uint64_t ordering = tlb_data::Strict);
 
     void noc_multicast_write_reconfigure(
+        bool use_noc1,
         void* dst,
         size_t size,
         tt_xy_pair core_start,

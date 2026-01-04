@@ -22,7 +22,7 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     TTDevice* tt_device, bool use_noc1) {
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            semver_t fw_bundle_version = get_firmware_version_util(tt_device, use_noc1);
 
             int compare_fw_bundles_result =
                 semver_t::compare_firmware_bundle(fw_bundle_version, new_telemetry_fw_bundle);

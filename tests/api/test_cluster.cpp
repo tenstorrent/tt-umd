@@ -1349,7 +1349,7 @@ TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
 
     // Check hash without changes, should pass.
     std::cout << "Checking ETH FW without changes." << std::endl;
-    auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
+    auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value(), false);
     if (!result.has_value()) {
         GTEST_SKIP() << "No known hash for found ETH firmware version.";
     }
@@ -1367,7 +1367,7 @@ TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
     first_chip->l1_membar(std::unordered_set<CoreCoord>{first_eth_core});
     first_chip->deassert_risc_reset(RiscType::ALL, false);
 
-    result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
+    result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value(), false);
     EXPECT_EQ(result.value(), false);
     std::cout << "Passed hash check." << std::endl;
 

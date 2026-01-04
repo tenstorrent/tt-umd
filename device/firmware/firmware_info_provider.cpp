@@ -21,7 +21,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
-    tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
+    tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device, umd_use_noc1)) {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (telemetry == nullptr) {
         throw std::runtime_error("No telemetry reader present in tt_device.");
@@ -43,7 +43,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
 
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            semver_t fw_bundle_version = get_firmware_version_util(tt_device, umd_use_noc1);
 
             int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
@@ -58,7 +58,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
             return std::make_unique<Wormhole_18_3_FirmwareInfoProvider>(tt_device);
         }
         case ARCH::BLACKHOLE: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            semver_t fw_bundle_version = get_firmware_version_util(tt_device, umd_use_noc1);
 
             int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {

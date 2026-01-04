@@ -17,49 +17,49 @@ namespace tt::umd {
  */
 class Wormhole_18_3_FirmwareInfoProvider : public Wormhole_18_7_FirmwareInfoProvider {
 public:
-    Wormhole_18_3_FirmwareInfoProvider(TTDevice* tt_device);
+    Wormhole_18_3_FirmwareInfoProvider(TTDevice* tt_device, bool use_noc1);
 
-    uint64_t get_board_id() const override;
+    uint64_t get_board_id(bool use_noc1) const override;
 
-    uint32_t get_eth_fw_version() const override;
+    uint32_t get_eth_fw_version(bool use_noc1) const override;
 
-    std::optional<semver_t> get_eth_fw_version_semver() const override;
+    std::optional<semver_t> get_eth_fw_version_semver(bool use_noc1) const override;
 
-    std::optional<semver_t> get_gddr_fw_version() const override;
+    std::optional<semver_t> get_gddr_fw_version(bool use_noc1) const override;
 
-    std::optional<semver_t> get_cm_fw_version() const override;
+    std::optional<semver_t> get_cm_fw_version(bool use_noc1) const override;
 
-    std::optional<semver_t> get_dm_app_fw_version() const override;
+    std::optional<semver_t> get_dm_app_fw_version(bool use_noc1) const override;
 
-    std::optional<semver_t> get_dm_bl_fw_version() const override;
+    std::optional<semver_t> get_dm_bl_fw_version(bool use_noc1) const override;
 
-    std::optional<semver_t> get_tt_flash_version() const override;
+    std::optional<semver_t> get_tt_flash_version(bool use_noc1) const override;
 
-    double get_asic_temperature() const override;
+    double get_asic_temperature(bool use_noc1) const override;
 
-    std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const override;
+    std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels, bool use_noc1) const override;
 
-    uint32_t get_max_clock_freq() const override;
+    uint32_t get_max_clock_freq(bool use_noc1) const override;
 
-    uint8_t get_asic_location() const override;
+    uint8_t get_asic_location(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_aiclk() const override;
+    std::optional<uint32_t> get_aiclk(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_axiclk() const override;
+    std::optional<uint32_t> get_axiclk(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_arcclk() const override;
+    std::optional<uint32_t> get_arcclk(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_fan_speed() const override;
+    std::optional<uint32_t> get_fan_speed(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_tdp() const override;
+    std::optional<uint32_t> get_tdp(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_tdc() const override;
+    std::optional<uint32_t> get_tdc(bool use_noc1) const override;
 
-    std::optional<uint32_t> get_vcore() const override;
+    std::optional<uint32_t> get_vcore(bool use_noc1) const override;
 
-    std::optional<double> get_board_temperature() const override;
+    std::optional<double> get_board_temperature(bool use_noc1) const override;
 
-    uint32_t get_heartbeat() const override;
+    uint32_t get_heartbeat(bool use_noc1) const override;
 };
 
 }  // namespace tt::umd

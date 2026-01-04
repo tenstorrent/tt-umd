@@ -9,17 +9,15 @@
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
-Wormhole_18_7_FirmwareInfoProvider::Wormhole_18_7_FirmwareInfoProvider(TTDevice* tt_device) :
-    FirmwareInfoProvider(tt_device) {}
+Wormhole_18_7_FirmwareInfoProvider::Wormhole_18_7_FirmwareInfoProvider(TTDevice* tt_device, bool use_noc1) :
+    FirmwareInfoProvider(tt_device, use_noc1) {}
 
-uint32_t Wormhole_18_7_FirmwareInfoProvider::get_max_clock_freq() const {
+uint32_t Wormhole_18_7_FirmwareInfoProvider::get_max_clock_freq(bool use_noc1) const {
     const std::unique_ptr<SmBusArcTelemetryReader> sm_bus_telemetry =
-        std::make_unique<SmBusArcTelemetryReader>(tt_device, umd_use_noc1);
-    uint32_t aiclk_telemetry = sm_bus_telemetry->read_entry(wormhole::AICLK, umd_use_noc1);
+        std::make_unique<SmBusArcTelemetryReader>(tt_device, use_noc1);
+    uint32_t aiclk_telemetry = sm_bus_telemetry->read_entry(wormhole::AICLK, use_noc1);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 

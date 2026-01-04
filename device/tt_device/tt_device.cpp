@@ -58,8 +58,8 @@ void TTDevice::init_tt_device(bool use_noc1, const std::chrono::milliseconds tim
     }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this, use_noc1);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, use_noc1);
-    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    post_init_hook();
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this, use_noc1);
+    post_init_hook(use_noc1);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_noc1) {
@@ -170,7 +170,8 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
-void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
+void TTDevice::wait_dram_channel_training(
+    const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         throw std::runtime_error(fmt::format(
             "Invalid DRAM channel index {}, maximum index for given architecture is {}",
@@ -179,8 +180,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
     }
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        std::vector<DramTrainingStatus> dram_training_status =
-            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
+        std::vector<DramTrainingStatus> dram_training_status = get_firmware_info_provider()->get_dram_training_status(
+            architecture_impl_->get_dram_banks_number(), use_noc1);
 
         if (dram_training_status.empty()) {
             log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
@@ -236,7 +237,7 @@ int TTDevice::get_communication_device_id() const { return communication_device_
 
 IODeviceType TTDevice::get_communication_device_type() const { return communication_device_type_; }
 
-BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
+BoardType TTDevice::get_board_type(bool use_noc1) { return get_board_type_from_board_id(get_board_id(use_noc1)); }
 
 uint64_t TTDevice::get_refclk_counter(bool use_noc1) {
     uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
@@ -253,24 +254,28 @@ uint64_t TTDevice::get_refclk_counter(bool use_noc1) {
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
 
-uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id(); }
+uint64_t TTDevice::get_board_id(bool use_noc1) { return get_firmware_info_provider()->get_board_id(use_noc1); }
 
-double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
+double TTDevice::get_asic_temperature(bool use_noc1) {
+    return get_firmware_info_provider()->get_asic_temperature(use_noc1);
+}
 
-uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
+uint8_t TTDevice::get_asic_location(bool use_noc1) { return get_firmware_info_provider()->get_asic_location(use_noc1); }
 
 ChipInfo TTDevice::get_chip_info(bool use_noc1) {
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
-    chip_info.board_id = get_board_id();
-    chip_info.board_type = get_board_type();
-    chip_info.asic_location = get_asic_location();
+    chip_info.board_id = get_board_id(use_noc1);
+    chip_info.board_type = get_board_type(use_noc1);
+    chip_info.asic_location = get_asic_location(use_noc1);
 
     return chip_info;
 }
 
-uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
+uint32_t TTDevice::get_max_clock_freq(bool use_noc1) {
+    return get_firmware_info_provider()->get_max_clock_freq(use_noc1);
+}
 
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core, bool use_noc1) {
     uint32_t tensix_risc_state;

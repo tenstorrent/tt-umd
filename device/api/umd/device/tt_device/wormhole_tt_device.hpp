@@ -74,7 +74,7 @@ private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
-    void post_init_hook() override;
+    void post_init_hook(bool use_noc1) override;
 
     bool is_hardware_hung() override;
 

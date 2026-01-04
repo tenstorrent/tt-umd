@@ -83,7 +83,7 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
         if (dram_harvesting_mask & (1 << dram_channel)) {
             continue;
         }
-        tt_device->wait_dram_channel_training(dram_channel);
+        tt_device->wait_dram_channel_training(dram_channel, timeout_ms, umd_use_noc1);
     }
 }
 
@@ -265,7 +265,7 @@ void Chip::wait_for_aiclk_value(
     auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
     if (power_state == DevicePowerState::BUSY) {
-        target_aiclk = tt_device->get_max_clock_freq();
+        target_aiclk = tt_device->get_max_clock_freq(umd_use_noc1);
     } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }
@@ -282,7 +282,7 @@ void Chip::wait_for_aiclk_value(
                 timeout_ms,
                 target_aiclk,
                 aiclk,
-                tt_device->get_asic_temperature());
+                tt_device->get_asic_temperature(umd_use_noc1));
             return;
         }
         aiclk = tt_device->get_clock(umd_use_noc1);

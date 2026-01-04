@@ -18,9 +18,9 @@ namespace tt::umd {
  */
 class Blackhole_18_7_FirmwareInfoProvider : public FirmwareInfoProvider {
 public:
-    Blackhole_18_7_FirmwareInfoProvider(TTDevice* tt_device);
+    Blackhole_18_7_FirmwareInfoProvider(TTDevice* tt_device, bool use_noc1);
 
-    uint32_t get_max_clock_freq() const override;
+    uint32_t get_max_clock_freq(bool use_noc1) const override;
 };
 
 }  // namespace tt::umd

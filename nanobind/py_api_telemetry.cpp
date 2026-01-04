@@ -151,7 +151,11 @@ void bind_telemetry(nb::module_ &m) {
         .def("get_tdc", &FirmwareInfoProvider::get_tdc)
         .def("get_vcore", &FirmwareInfoProvider::get_vcore)
         .def("get_board_temperature", &FirmwareInfoProvider::get_board_temperature)
-        .def("get_dram_training_status", &FirmwareInfoProvider::get_dram_training_status, nb::arg("num_dram_channels"))
+        .def(
+            "get_dram_training_status",
+            &FirmwareInfoProvider::get_dram_training_status,
+            nb::arg("num_dram_channels"),
+            nb::arg("use_noc1") = false)
         .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq)
         .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
         .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat)
@@ -166,5 +170,6 @@ void bind_telemetry(nb::module_ &m) {
         .def_static(
             "create_firmware_info_provider",
             &FirmwareInfoProvider::create_firmware_info_provider,
-            nb::arg("tt_device"));
+            nb::arg("tt_device"),
+            nb::arg("use_noc1") = false);
 }

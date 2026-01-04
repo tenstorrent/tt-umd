@@ -9,9 +9,11 @@
 
 namespace tt::umd {
 
-Blackhole_18_7_FirmwareInfoProvider::Blackhole_18_7_FirmwareInfoProvider(TTDevice* tt_device) :
-    FirmwareInfoProvider(tt_device) {}
+Blackhole_18_7_FirmwareInfoProvider::Blackhole_18_7_FirmwareInfoProvider(TTDevice* tt_device, bool use_noc1) :
+    FirmwareInfoProvider(tt_device, use_noc1) {}
 
-uint32_t Blackhole_18_7_FirmwareInfoProvider::get_max_clock_freq() const { return blackhole::AICLK_BUSY_VAL; }
+uint32_t Blackhole_18_7_FirmwareInfoProvider::get_max_clock_freq(bool use_noc1) const {
+    return blackhole::AICLK_BUSY_VAL;
+}
 
 }  // namespace tt::umd

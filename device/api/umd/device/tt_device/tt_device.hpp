@@ -262,7 +262,9 @@ public:
         bool use_noc1 = false) = 0;
 
     void wait_dram_channel_training(
-        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
+        const uint32_t dram_channel,
+        const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT,
+        bool use_noc1 = false);
 
     void bar_write32(uint32_t addr, uint32_t data);
 
@@ -280,19 +282,19 @@ public:
 
     virtual uint32_t get_clock(bool use_noc1 = false) = 0;
 
-    uint32_t get_max_clock_freq();
+    uint32_t get_max_clock_freq(bool use_noc1 = false);
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    uint64_t get_board_id();
+    uint64_t get_board_id(bool use_noc1 = false);
 
-    uint8_t get_asic_location();
+    uint8_t get_asic_location(bool use_noc1 = false);
 
-    BoardType get_board_type();
+    BoardType get_board_type(bool use_noc1 = false);
 
     virtual bool get_noc_translation_enabled() = 0;
 
-    double get_asic_temperature();
+    double get_asic_temperature(bool use_noc1 = false);
 
     virtual void wait_for_non_mmio_flush(bool use_noc1 = false);
 
@@ -348,7 +350,7 @@ protected:
 private:
     virtual void pre_init_hook(){};
 
-    virtual void post_init_hook(){};
+    virtual void post_init_hook(bool use_noc1 = false){};
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 

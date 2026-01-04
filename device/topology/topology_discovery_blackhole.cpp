@@ -247,7 +247,7 @@ void TopologyDiscoveryBlackhole::init_topology_discovery() {
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
     tt_device->init_tt_device(options.use_noc1);
-    is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
+    is_running_on_6u = tt_device->get_board_type(options.use_noc1) == BoardType::UBB_BLACKHOLE;
 }
 
 bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {

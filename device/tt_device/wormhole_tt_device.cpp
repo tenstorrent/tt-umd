@@ -33,8 +33,8 @@ tt_xy_pair WormholeTTDevice::get_arc_core(bool use_noc1) {
                     : wormhole::ARC_CORES_NOC0[0];
 }
 
-void WormholeTTDevice::post_init_hook() {
-    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
+void WormholeTTDevice::post_init_hook(bool use_noc1) {
+    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version(use_noc1));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id, bool use_noc1) :
@@ -438,7 +438,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
         if (time_taken_port > timeout_ms) {
-            if (get_board_type() != BoardType::UBB) {
+            if (get_board_type(use_noc1) != BoardType::UBB) {
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}",
                     timeout_ms.count(),

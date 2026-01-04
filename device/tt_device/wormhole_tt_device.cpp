@@ -18,8 +18,6 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
@@ -82,7 +80,7 @@ ChipInfo WormholeTTDevice::get_chip_info(bool use_noc1) {
     return chip_info;
 }
 
-uint32_t WormholeTTDevice::get_clock() {
+uint32_t WormholeTTDevice::get_clock(bool use_noc1) {
     // There is one return value from AICLK ARC message.
     std::vector<uint32_t> arc_msg_return_values = {0};
     auto exit_code = get_arc_messenger()->send_message(
@@ -90,7 +88,7 @@ uint32_t WormholeTTDevice::get_clock() {
         arc_msg_return_values,
         {0xFFFF, 0xFFFF},
         timeout::ARC_MESSAGE_TIMEOUT,
-        umd_use_noc1);
+        use_noc1);
     if (exit_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get AICLK value with exit code {}", exit_code));
     }

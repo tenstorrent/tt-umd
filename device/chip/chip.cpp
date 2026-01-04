@@ -269,7 +269,7 @@ void Chip::wait_for_aiclk_value(
     } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }
-    uint32_t aiclk = tt_device->get_clock();
+    uint32_t aiclk = tt_device->get_clock(umd_use_noc1);
     while (aiclk != target_aiclk) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -285,7 +285,7 @@ void Chip::wait_for_aiclk_value(
                 tt_device->get_asic_temperature());
             return;
         }
-        aiclk = tt_device->get_clock();
+        aiclk = tt_device->get_clock(umd_use_noc1);
     }
 }
 

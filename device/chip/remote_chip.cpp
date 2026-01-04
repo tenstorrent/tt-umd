@@ -134,7 +134,7 @@ void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wai
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 
-int RemoteChip::get_clock() { return tt_device_->get_clock(); }
+int RemoteChip::get_clock() { return tt_device_->get_clock(umd_use_noc1); }
 
 int RemoteChip::get_num_host_channels() { return 0; }
 

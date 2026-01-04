@@ -216,7 +216,7 @@ std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
     throw std::runtime_error("Waiting for ETH core training is not supported in RTL simulation device.");
 }
 
-uint32_t RtlSimulationTTDevice::get_clock() {
+uint32_t RtlSimulationTTDevice::get_clock(bool use_noc1) {
     throw std::runtime_error("Getting clock is not supported in RTL simulation device.");
 }
 

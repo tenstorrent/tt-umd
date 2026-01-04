@@ -278,7 +278,7 @@ public:
 
     virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
 
-    virtual uint32_t get_clock() = 0;
+    virtual uint32_t get_clock(bool use_noc1 = false) = 0;
 
     uint32_t get_max_clock_freq();
 

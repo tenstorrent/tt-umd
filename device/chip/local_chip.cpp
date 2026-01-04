@@ -681,7 +681,7 @@ void LocalChip::deassert_risc_resets() {
     }
 }
 
-int LocalChip::get_clock() { return tt_device_->get_clock(); }
+int LocalChip::get_clock() { return tt_device_->get_clock(umd_use_noc1); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
 

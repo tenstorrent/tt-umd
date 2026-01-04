@@ -45,7 +45,7 @@ public:
         const tt_xy_pair eth_core_noc0,
         const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
         bool use_noc1 = false) override;
-    uint32_t get_clock() override;
+    uint32_t get_clock(bool use_noc1) override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
 

@@ -22,7 +22,7 @@ public:
     bool wait_arc_core_start(
         const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool use_noc1 = false) override;
 
-    uint32_t get_clock() override;
+    uint32_t get_clock(bool use_noc1) override;
 
     uint32_t get_min_clock_freq() override;
 

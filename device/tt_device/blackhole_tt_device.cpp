@@ -21,8 +21,6 @@
 #include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
@@ -182,9 +180,9 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     }
 }
 
-uint32_t BlackholeTTDevice::get_clock() {
+uint32_t BlackholeTTDevice::get_clock(bool use_noc1) {
     if (telemetry->is_entry_available(TelemetryTag::AICLK)) {
-        return telemetry->read_entry(TelemetryTag::AICLK, umd_use_noc1);
+        return telemetry->read_entry(TelemetryTag::AICLK, use_noc1);
     }
 
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");

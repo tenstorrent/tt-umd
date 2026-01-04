@@ -418,11 +418,12 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
         actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
     }
 
-    read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+    read_from_device(umd_use_noc1, &heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
 
     uint32_t new_heartbeat_val = heartbeat_val;
     while (new_heartbeat_val != heartbeat_val) {
-        read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+        read_from_device(
+            umd_use_noc1, &new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
         utils::check_timeout(start, timeout_ms, fmt::format("ETH training timed out after {} ms", timeout_ms));
     }
 
@@ -448,6 +449,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
 uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
     uint32_t training_status;
     read_from_device(
+        umd_use_noc1,
         &training_status,
         umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
                      : eth_core,

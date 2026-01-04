@@ -27,11 +27,13 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     is_remote_tt_device = true;
 }
 
-void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RemoteWormholeTTDevice::read_from_device(
+    bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RemoteWormholeTTDevice::write_to_device(
+    bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
@@ -44,7 +46,11 @@ void RemoteWormholeTTDevice::read_from_arc_apb(bool use_noc1, void *mem_ptr, uin
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     read_from_device(
-        mem_ptr, get_arc_core(use_noc1), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        use_noc1,
+        mem_ptr,
+        get_arc_core(use_noc1),
+        architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::write_to_arc_apb(
@@ -53,7 +59,11 @@ void RemoteWormholeTTDevice::write_to_arc_apb(
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     write_to_device(
-        mem_ptr, get_arc_core(use_noc1), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        use_noc1,
+        mem_ptr,
+        get_arc_core(use_noc1),
+        architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::read_from_arc_csm(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -61,7 +71,11 @@ void RemoteWormholeTTDevice::read_from_arc_csm(bool use_noc1, void *mem_ptr, uin
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     read_from_device(
-        mem_ptr, get_arc_core(use_noc1), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        use_noc1,
+        mem_ptr,
+        get_arc_core(use_noc1),
+        architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::write_to_arc_csm(
@@ -70,7 +84,11 @@ void RemoteWormholeTTDevice::write_to_arc_csm(
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     write_to_device(
-        mem_ptr, get_arc_core(use_noc1), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        use_noc1,
+        mem_ptr,
+        get_arc_core(use_noc1),
+        architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
@@ -82,12 +100,12 @@ bool RemoteWormholeTTDevice::is_hardware_hung() {
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(
-    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    bool use_noc1, void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     // TODO: implement multicast over remote communication.
     // For now, we fallback to unicast for all cores.
     for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
         for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            write_to_device(dst, tt_xy_pair(x, y), addr, size);
+            write_to_device(use_noc1, dst, tt_xy_pair(x, y), addr, size);
         }
     }
 }

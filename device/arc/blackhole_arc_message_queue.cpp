@@ -16,7 +16,8 @@ BlackholeArcMessageQueue::BlackholeArcMessageQueue(
     base_address(base_address), size(size), tt_device(tt_device), arc_core(arc_core) {}
 
 void BlackholeArcMessageQueue::read_words(uint32_t* data, size_t num_words, size_t offset) {
-    tt_device->read_from_device(data, arc_core, base_address + offset * sizeof(uint32_t), num_words * sizeof(uint32_t));
+    tt_device->read_from_device(
+        umd_use_noc1, data, arc_core, base_address + offset * sizeof(uint32_t), num_words * sizeof(uint32_t));
 }
 
 uint32_t BlackholeArcMessageQueue::read_word(size_t offset) {
@@ -26,7 +27,8 @@ uint32_t BlackholeArcMessageQueue::read_word(size_t offset) {
 }
 
 void BlackholeArcMessageQueue::write_words(uint32_t* data, size_t num_words, size_t offset) {
-    tt_device->write_to_device(data, arc_core, base_address + offset * sizeof(uint32_t), num_words * sizeof(uint32_t));
+    tt_device->write_to_device(
+        umd_use_noc1, data, arc_core, base_address + offset * sizeof(uint32_t), num_words * sizeof(uint32_t));
 }
 
 void BlackholeArcMessageQueue::trigger_fw_int() {
@@ -131,7 +133,8 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
         queue_control_block |=
             ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
     } else {
-        tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
+        tt_device->read_from_device(
+            umd_use_noc1, &queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
     }
 
     uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;

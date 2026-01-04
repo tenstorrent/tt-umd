@@ -128,7 +128,8 @@ void RtlSimulationTTDevice::start_host_communication() {
     nng_free(buf_ptr, buf_size);
 }
 
-void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RtlSimulationTTDevice::write_to_device(
+    bool use_noc1, const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     std::vector<std::uint32_t> data(
@@ -136,7 +137,8 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RtlSimulationTTDevice::read_from_device(
+    bool use_noc1, void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     void* rd_resp;
 

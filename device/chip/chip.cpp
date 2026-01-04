@@ -289,7 +289,12 @@ void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, Cor
         TT_THROW("noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
-        dst, size, translate_chip_coord_to_translated(core_start), translate_chip_coord_to_translated(core_end), addr);
+        umd_use_noc1,
+        dst,
+        size,
+        translate_chip_coord_to_translated(core_start),
+        translate_chip_coord_to_translated(core_end),
+        addr);
 }
 
 }  // namespace tt::umd

@@ -45,6 +45,8 @@
 
 using namespace tt::umd;
 
+extern bool umd_use_noc1;
+
 // These tests are intended to be run with the same code on all kinds of systems:
 // N150. N300
 // Galaxy.
@@ -621,7 +623,7 @@ TEST(TestCluster, WarmReset) {
     // send data to core 15, 15 which will hang the NOC
     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
-    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
+    hanged_tt_device->write_to_device(umd_use_noc1, data.data(), {15, 15}, 0, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {

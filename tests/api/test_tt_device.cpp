@@ -18,6 +18,8 @@
 
 using namespace tt::umd;
 
+extern bool umd_use_noc1;
+
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -35,9 +37,11 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-        tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+        tt_device->write_to_device(
+            umd_use_noc1, data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
-        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->read_from_device(
+            umd_use_noc1, data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
 
         ASSERT_EQ(data_write, data_read);
 
@@ -63,13 +67,17 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-        tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
-        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->write_to_device(
+            umd_use_noc1, data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
+        tt_device->read_from_device(
+            umd_use_noc1, data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
         ASSERT_EQ(data_write0, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
 
-        tt_device->write_to_device(data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
-        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->write_to_device(
+            umd_use_noc1, data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
+        tt_device->read_from_device(
+            umd_use_noc1, data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
         ASSERT_EQ(data_write1, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
     }
@@ -112,10 +120,14 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
             std::vector<uint32_t> data_read(data_write.size(), 0);
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 tt_device->write_to_device(
-                    data_write.data(), tensix_core, address_thread0, data_write.size() * sizeof(uint32_t));
+                    umd_use_noc1,
+                    data_write.data(),
+                    tensix_core,
+                    address_thread0,
+                    data_write.size() * sizeof(uint32_t));
 
                 tt_device->read_from_device(
-                    data_read.data(), tensix_core, address_thread0, data_read.size() * sizeof(uint32_t));
+                    umd_use_noc1, data_read.data(), tensix_core, address_thread0, data_read.size() * sizeof(uint32_t));
 
                 ASSERT_EQ(data_write, data_read);
 
@@ -127,10 +139,14 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
             std::vector<uint32_t> data_read(data_write.size(), 0);
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 tt_device->write_to_device(
-                    data_write.data(), tensix_core, address_thread1, data_write.size() * sizeof(uint32_t));
+                    umd_use_noc1,
+                    data_write.data(),
+                    tensix_core,
+                    address_thread1,
+                    data_write.size() * sizeof(uint32_t));
 
                 tt_device->read_from_device(
-                    data_read.data(), tensix_core, address_thread1, data_read.size() * sizeof(uint32_t));
+                    umd_use_noc1, data_read.data(), tensix_core, address_thread1, data_read.size() * sizeof(uint32_t));
 
                 ASSERT_EQ(data_write, data_read);
 
@@ -180,7 +196,7 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // send to core 15, 15 which will hang the NOC
-    tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
+    tt_device->write_to_device(umd_use_noc1, data.data(), {15, 15}, address, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
@@ -202,14 +218,13 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device.reset();
 
     tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->init_tt_device();
+    tt_device->init_tt_device(umd_use_noc1);
 
-    tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
+    tt_device->write_to_device(umd_use_noc1, zero_data.data(), tensix_core, address, zero_data.size());
 
-    tt_device->write_to_device(data.data(), tensix_core, address, data.size());
+    tt_device->write_to_device(umd_use_noc1, data.data(), tensix_core, address, data.size());
 
-    tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
-
+    tt_device->read_from_device(umd_use_noc1, readback_data.data(), tensix_core, address, readback_data.size());
     ASSERT_EQ(data, readback_data);
 }
 
@@ -237,18 +252,17 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
             cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, 0, buf_size);
+            remote_tt_device->write_to_device(umd_use_noc1, zero_out_buffer.data(), tensix_core, 0, buf_size);
 
             // Setting initial value of vector explicitly to 1, to be sure it's not 0 in any case.
             std::vector<uint8_t> readback_buf(buf_size, 1);
 
-            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->read_from_device(umd_use_noc1, readback_buf.data(), tensix_core, 0, buf_size);
 
             EXPECT_EQ(zero_out_buffer, readback_buf);
 
-            remote_tt_device->write_to_device(pattern_buf.data(), tensix_core, 0, buf_size);
-
-            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->write_to_device(umd_use_noc1, pattern_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->read_from_device(umd_use_noc1, readback_buf.data(), tensix_core, 0, buf_size);
 
             EXPECT_EQ(pattern_buf, readback_buf);
         }
@@ -283,30 +297,31 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
+        tt_device->init_tt_device(umd_use_noc1);
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
             for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> zeros(data_write.size(), 0);
-                tt_device->write_to_device(zeros.data(), tensix_core, address, zeros.size());
+                tt_device->write_to_device(umd_use_noc1, zeros.data(), tensix_core, address, zeros.size());
 
                 std::vector<uint8_t> readback_zeros(zeros.size(), 1);
-                tt_device->read_from_device(readback_zeros.data(), tensix_core, address, readback_zeros.size());
+                tt_device->read_from_device(
+                    umd_use_noc1, readback_zeros.data(), tensix_core, address, readback_zeros.size());
 
                 EXPECT_EQ(zeros, readback_zeros);
             }
         }
 
-        tt_device->noc_multicast_write(data_write.data(), data_write.size(), xy_start, xy_end, address);
+        tt_device->noc_multicast_write(umd_use_noc1, data_write.data(), data_write.size(), xy_start, xy_end, address);
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
             for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> readback(data_write.size());
-                tt_device->read_from_device(readback.data(), tensix_core, address, readback.size());
+                tt_device->read_from_device(umd_use_noc1, readback.data(), tensix_core, address, readback.size());
 
                 EXPECT_EQ(data_write, readback);
             }

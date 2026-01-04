@@ -278,7 +278,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, translated_core, l1_dest, size);
+        tt_device_->write_to_device(umd_use_noc1, src, translated_core, l1_dest, size);
         return;
     }
 
@@ -309,7 +309,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        tt_device_->read_from_device(umd_use_noc1, dest, translated_core, l1_src, size);
         return;
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
@@ -445,7 +445,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, reg_dest, size);
+        tt_device_->write_to_device(umd_use_noc1, src, core, reg_dest, size);
         return;
     }
 
@@ -475,7 +475,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, reg_src, size);
+        tt_device_->read_from_device(umd_use_noc1, dest, core, reg_src, size);
         return;
     }
 

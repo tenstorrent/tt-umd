@@ -114,21 +114,23 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device(bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
      * will ensure that the write will land on the correct cores.
      *
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param dst pointer to memory from which the data is sent
      * @param size number of bytes
      * @param core_start starting core coordinates (x,y) of the multicast write
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(
+        bool use_noc1, void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.

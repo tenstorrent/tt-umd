@@ -11,9 +11,9 @@ namespace tt::umd {
 
 class RemoteWormholeTTDevice : public WormholeTTDevice {
 public:
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void read_from_device(bool use_noc1, void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void write_to_device(bool use_noc1, const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
     void read_from_arc_apb(bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
@@ -24,7 +24,7 @@ public:
     void write_to_arc_csm(bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void noc_multicast_write(
-        void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        bool use_noc1, void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 

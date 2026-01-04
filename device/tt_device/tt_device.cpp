@@ -57,7 +57,7 @@ TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_imp
 void TTDevice::init_tt_device(bool use_noc1, const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
     if (!wait_arc_core_start(timeout_ms)) {
-        auto arc_core = get_arc_core(umd_use_noc1);
+        auto arc_core = get_arc_core(use_noc1);
         throw std::runtime_error(fmt::format(
             "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
     }
@@ -151,24 +151,24 @@ TlbWindow *TTDevice::get_cached_tlb_window() {
     return cached_tlb_window.get();
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::read_from_device(bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, use_noc1 ? 1 : 0);
         return;
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->read_block_reconfigure(umd_use_noc1, mem_ptr, core, addr, size);
+    get_cached_tlb_window()->read_block_reconfigure(use_noc1, mem_ptr, core, addr, size);
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::write_to_device(bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, use_noc1 ? 1 : 0);
         return;
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->write_block_reconfigure(umd_use_noc1, mem_ptr, core, addr, size);
+    get_cached_tlb_window()->write_block_reconfigure(use_noc1, mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -279,24 +279,27 @@ uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->g
 
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;
-    read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    read_from_device(
+        umd_use_noc1, &tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
 
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
-    write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    write_to_device(
+        umd_use_noc1, &risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+void TTDevice::noc_multicast_write(
+    bool use_noc1, void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
     get_cached_tlb_window()->noc_multicast_write_reconfigure(
-        umd_use_noc1, dst, size, core_start, core_end, addr, tlb_data::Strict);
+        use_noc1, dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
 }  // namespace tt::umd

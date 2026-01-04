@@ -39,9 +39,12 @@ public:
         void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) override;
     void write_to_arc_csm(
         const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) override;
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    bool wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool use_noc1 = false) override;
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+        const tt_xy_pair eth_core_noc0,
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
+        bool use_noc1 = false) override;
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;

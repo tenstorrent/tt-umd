@@ -157,7 +157,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
@@ -267,18 +267,18 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    const tt_xy_pair eth_core_noc0, const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     auto time_taken = std::chrono::milliseconds(0);
 
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
-    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val), umd_use_noc1);
+    read_from_device(&port_status_val, eth_core_noc0, port_status_addr, sizeof(port_status_val), use_noc1);
 
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
-        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val), umd_use_noc1);
+        read_from_device(&port_status_val, eth_core_noc0, port_status_addr, sizeof(port_status_val), use_noc1);
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {

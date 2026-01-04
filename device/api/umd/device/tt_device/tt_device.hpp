@@ -48,7 +48,8 @@ public:
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_noc1 = false);
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
@@ -245,16 +246,19 @@ public:
      * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual bool wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool use_noc1 = false) = 0;
 
     /**
      * Waits for ETH core training to complete.
-     * @param eth_core Specific ETH core to wait on.
+     * @param eth_core_noc0 Specific ETH core to wait on in NOC0 coordinates.
      * @param timeout_ms Timeout in ms.
      * @return Time taken in ms.
      */
     virtual std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+        const tt_xy_pair eth_core_noc0,
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
+        bool use_noc1 = false) = 0;
 
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);

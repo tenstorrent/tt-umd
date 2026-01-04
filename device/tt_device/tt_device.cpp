@@ -51,7 +51,7 @@ TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_imp
 
 void TTDevice::init_tt_device(bool use_noc1, const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
-    if (!wait_arc_core_start(timeout_ms)) {
+    if (!wait_arc_core_start(timeout_ms, use_noc1)) {
         auto arc_core = get_arc_core(use_noc1);
         throw std::runtime_error(fmt::format(
             "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
@@ -62,14 +62,14 @@ void TTDevice::init_tt_device(bool use_noc1, const std::chrono::milliseconds tim
     post_init_hook();
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_noc1) {
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
 
         switch (jtag_device->get_jtag_arch(device_number)) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number, use_noc1));
             case ARCH::BLACKHOLE:
                 return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(jtag_device, device_number));
             default:

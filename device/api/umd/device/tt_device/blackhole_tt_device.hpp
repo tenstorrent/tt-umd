@@ -19,7 +19,8 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    bool wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool use_noc1 = false) override;
 
     uint32_t get_clock() override;
 
@@ -45,7 +46,9 @@ public:
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+        const tt_xy_pair eth_core_noc0,
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
+        bool use_noc1 = false) override;
 
     tt_xy_pair get_arc_core(bool use_noc1) override;
 
@@ -60,7 +63,7 @@ protected:
 private:
     int get_pcie_x_coordinate();
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_noc1);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

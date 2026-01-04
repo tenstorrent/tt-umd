@@ -17,7 +17,8 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    bool wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool use_noc1 = false) override;
 
     uint32_t get_clock() override;
 
@@ -44,10 +45,12 @@ public:
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+        const tt_xy_pair eth_core_noc0,
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
+        bool use_noc1 = false) override;
 
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id, bool use_noc1);
 
     tt_xy_pair get_arc_core(bool use_noc1) override;
 
@@ -66,7 +69,7 @@ protected:
     uint64_t get_arc_csm_noc_base_address() const;
 
 private:
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_noc1);
 
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
@@ -91,7 +94,7 @@ private:
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
     static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
-    uint32_t read_training_status(tt_xy_pair eth_core);
+    uint32_t read_training_status(tt_xy_pair eth_core_noc0, bool use_noc1);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

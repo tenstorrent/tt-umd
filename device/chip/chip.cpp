@@ -68,7 +68,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
             actual_eth_core = translate_chip_coord_to_translated(eth_core);
         }
 
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left, umd_use_noc1);
     }
 }
 

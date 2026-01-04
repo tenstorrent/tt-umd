@@ -207,12 +207,12 @@ void RtlSimulationTTDevice::write_to_arc_csm(
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 
-bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     throw std::runtime_error("Waiting for ARC core start is not supported in RTL simulation device.");
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    const tt_xy_pair eth_core_noc0, const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     throw std::runtime_error("Waiting for ETH core training is not supported in RTL simulation device.");
 }
 

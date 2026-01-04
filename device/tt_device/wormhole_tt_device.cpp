@@ -18,8 +18,6 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
@@ -39,9 +37,9 @@ void WormholeTTDevice::post_init_hook() {
     eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
 }
 
-WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id, bool use_noc1) :
     TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
-    init_tt_device(umd_use_noc1);
+    init_tt_device(use_noc1);
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -406,29 +404,29 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 }
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    const tt_xy_pair eth_core_noc0, const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
     auto time_taken_heartbeat = std::chrono::milliseconds(0);
     auto time_taken_port = std::chrono::milliseconds(0);
     auto start = std::chrono::steady_clock::now();
     uint32_t heartbeat_val;
 
-    tt_xy_pair actual_eth_core = eth_core;
-    if (umd_use_noc1) {
-        actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
+    tt_xy_pair actual_eth_core = eth_core_noc0;
+    if (use_noc1) {
+        actual_eth_core =
+            tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core_noc0.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core_noc0.y]);
     }
 
-    read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val), umd_use_noc1);
+    read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val), use_noc1);
 
     uint32_t new_heartbeat_val = heartbeat_val;
     while (new_heartbeat_val != heartbeat_val) {
-        read_from_device(
-            &new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val), umd_use_noc1);
+        read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val), use_noc1);
         utils::check_timeout(start, timeout_ms, fmt::format("ETH training timed out after {} ms", timeout_ms));
     }
 
     start = std::chrono::steady_clock::now();
-    while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
+    while (read_training_status(eth_core_noc0, use_noc1) == LINK_TRAIN_TRAINING) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
@@ -437,8 +435,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}",
                     timeout_ms.count(),
-                    eth_core.x,
-                    eth_core.y));
+                    eth_core_noc0.x,
+                    eth_core_noc0.y));
             }
             break;
         }
@@ -446,15 +444,15 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     return time_taken_heartbeat + time_taken_port;
 }
 
-uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core_noc0, bool use_noc1) {
     uint32_t training_status;
     read_from_device(
         &training_status,
-        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
-                     : eth_core,
+        use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core_noc0.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core_noc0.y])
+                 : eth_core_noc0,
         0x1104,
         sizeof(uint32_t),
-        umd_use_noc1);
+        use_noc1);
     return training_status;
 }
 
@@ -505,7 +503,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         erisc_remote_eth_id_offset};
 }
 
-bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms, bool use_noc1) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -544,14 +542,14 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             &bar_read_arc_reset_scratch_status,
             wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
             sizeof(bar_read_arc_reset_scratch_status),
-            umd_use_noc1);
+            use_noc1);
         uint32_t bar_read_arc_post_code;
 
         read_from_arc_apb(
             &bar_read_arc_post_code,
             architecture_impl_->get_arc_reset_scratch_offset(),
             sizeof(bar_read_arc_post_code),
-            umd_use_noc1);
+            use_noc1);
 
         uint32_t bar_read_arc_csm_pcie_dma_request;
 
@@ -559,7 +557,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             &bar_read_arc_csm_pcie_dma_request,
             wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
             sizeof(bar_read_arc_csm_pcie_dma_request),
-            umd_use_noc1);
+            use_noc1);
 
         // Handle known error/status codes.
         switch (bar_read_arc_reset_scratch_status) {

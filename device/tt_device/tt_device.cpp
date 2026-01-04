@@ -54,7 +54,7 @@ TTDevice::TTDevice() {}
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
-void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
+void TTDevice::init_tt_device(bool use_noc1, const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
     if (!wait_arc_core_start(timeout_ms)) {
         auto arc_core = get_arc_core(umd_use_noc1);

@@ -37,6 +37,9 @@ struct TopologyDiscoveryOptions {
 
     // Enables verifying ERISC FW on cores to ensure reliability of discovery.
     bool verify_eth_fw_hash = false;
+
+    // Use NOC1 coordinates for discovery where applicable.
+    bool use_noc1 = false;
 };
 
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.

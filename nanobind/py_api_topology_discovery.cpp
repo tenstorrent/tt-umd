@@ -87,14 +87,14 @@ void bind_topology_discovery(nb::module_& m) {
                         auto chip_to_mmio_map = cluster_desc->get_chips_with_mmio();
                         int pci_device_num = chip_to_mmio_map.at(chip_id);
                         tt_devices[chip_id] = TTDevice::create(pci_device_num);
-                        tt_devices[chip_id]->init_tt_device();
+                        tt_devices[chip_id]->init_tt_device(options.use_noc1);
                     } else {
                         // Skip creating remote devices if no_remote_discovery is true.
                         if (!options.no_remote_discovery) {
                             ChipId closest_mmio = cluster_desc->get_closest_mmio_capable_chip(chip_id);
                             tt_devices[chip_id] = create_remote_wormhole_tt_device(
                                 tt_devices[closest_mmio].get(), cluster_desc.get(), chip_id);
-                            tt_devices[chip_id]->init_tt_device();
+                            tt_devices[chip_id]->init_tt_device(options.use_noc1);
                         }
                     }
                 }

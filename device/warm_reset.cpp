@@ -24,6 +24,8 @@
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
@@ -228,7 +230,7 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     }
 
     for (auto& tt_device : tt_devices) {
-        tt_device->init_tt_device();
+        tt_device->init_tt_device(umd_use_noc1);
     }
 
     std::vector<uint64_t> refclk_values_old;

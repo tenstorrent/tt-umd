@@ -29,7 +29,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
+    tt_device->init_tt_device(umd_use_noc1);
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -70,7 +70,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
+    tt_device->init_tt_device(umd_use_noc1);
 
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;

@@ -41,7 +41,7 @@ void WormholeTTDevice::post_init_hook() {
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
-    init_tt_device();
+    init_tt_device(umd_use_noc1);
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {

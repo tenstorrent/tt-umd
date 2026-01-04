@@ -285,11 +285,11 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     for (auto& device_id : device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        tt_device->init_tt_device(umd_use_noc1, timeout::ARC_LONG_POST_RESET_TIMEOUT);
     }
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
-    tt_device->init_tt_device();
+    tt_device->init_tt_device(umd_use_noc1);
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =
         TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());

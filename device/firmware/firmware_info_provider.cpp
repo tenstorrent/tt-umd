@@ -16,6 +16,8 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
@@ -89,12 +91,12 @@ semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH 
 
 uint64_t FirmwareInfoProvider::get_board_id() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    return (static_cast<uint64_t>(telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH)) << 32) |
-           (telemetry->read_entry(TelemetryTag::BOARD_ID_LOW));
+    return (static_cast<uint64_t>(telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH, umd_use_noc1)) << 32) |
+           (telemetry->read_entry(TelemetryTag::BOARD_ID_LOW, umd_use_noc1));
 }
 
 uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
-    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ETH_FW_VERSION);
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ETH_FW_VERSION, umd_use_noc1);
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const {
@@ -103,7 +105,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const 
         return std::nullopt;
     }
     return get_eth_fw_version_from_telemetry(
-        telemetry->read_entry(TelemetryTag::ETH_FW_VERSION), tt_device->get_arch());
+        telemetry->read_entry(TelemetryTag::ETH_FW_VERSION, umd_use_noc1), tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
@@ -112,7 +114,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
         return std::nullopt;
     }
     return get_gddr_fw_version_from_telemetry(
-        telemetry->read_entry(TelemetryTag::GDDR_FW_VERSION), tt_device->get_arch());
+        telemetry->read_entry(TelemetryTag::GDDR_FW_VERSION, umd_use_noc1), tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
@@ -120,7 +122,8 @@ std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
     if (!telemetry->is_entry_available(TelemetryTag::CM_FW_VERSION)) {
         return std::nullopt;
     }
-    return get_cm_fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::CM_FW_VERSION), tt_device->get_arch());
+    return get_cm_fw_version_from_telemetry(
+        telemetry->read_entry(TelemetryTag::CM_FW_VERSION, umd_use_noc1), tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
@@ -129,7 +132,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
         return std::nullopt;
     }
     return get_dm_app_fw_version_from_telemetry(
-        telemetry->read_entry(TelemetryTag::DM_APP_FW_VERSION), tt_device->get_arch());
+        telemetry->read_entry(TelemetryTag::DM_APP_FW_VERSION, umd_use_noc1), tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
@@ -138,7 +141,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
         return std::nullopt;
     }
     return get_dm_bl_fw_version_from_telemetry(
-        telemetry->read_entry(TelemetryTag::DM_BL_FW_VERSION), tt_device->get_arch());
+        telemetry->read_entry(TelemetryTag::DM_BL_FW_VERSION, umd_use_noc1), tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
@@ -146,7 +149,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
     if (!telemetry->is_entry_available(TelemetryTag::TT_FLASH_VERSION)) {
         return std::nullopt;
     }
-    return get_tt_flash_version_from_telemetry(telemetry->read_entry(TelemetryTag::TT_FLASH_VERSION));
+    return get_tt_flash_version_from_telemetry(telemetry->read_entry(TelemetryTag::TT_FLASH_VERSION, umd_use_noc1));
 }
 
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
@@ -156,7 +159,7 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
     // Example: 0b 00 00 00 00 00 00 01 10
     // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained and don't
     // have errors. If some channel is harvested the bits are always going to be zero.
-    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
+    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS, umd_use_noc1);
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {
         if (telemetry_data & (1 << (2 * channel))) {
@@ -171,13 +174,13 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
 }
 
 uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
-    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::AICLK_LIMIT_MAX);
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::AICLK_LIMIT_MAX, umd_use_noc1);
 }
 
 uint8_t FirmwareInfoProvider::get_asic_location() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::ASIC_LOCATION)
-               ? static_cast<uint8_t>(telemetry->read_entry(TelemetryTag::ASIC_LOCATION))
+               ? static_cast<uint8_t>(telemetry->read_entry(TelemetryTag::ASIC_LOCATION, umd_use_noc1))
                : 0;
 }
 
@@ -185,7 +188,8 @@ double FirmwareInfoProvider::get_asic_temperature() const {
     // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
     // have integer part and lower 16 bits have fractional part.
     // It needs to be divided by 65536 to get temperature in Celsius.
-    return static_cast<double>(tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE)) /
+    return static_cast<double>(
+               tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE, umd_use_noc1)) /
            65536.0f;
 }
 
@@ -194,7 +198,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
     if (!aiclk_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::AICLK);
+    return telemetry->read_entry(TelemetryTag::AICLK, umd_use_noc1);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_axiclk() const {
@@ -202,7 +206,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_axiclk() const {
     if (!axiclk_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::AXICLK);
+    return telemetry->read_entry(TelemetryTag::AXICLK, umd_use_noc1);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
@@ -210,7 +214,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
     if (!arcclk_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::ARCCLK);
+    return telemetry->read_entry(TelemetryTag::ARCCLK, umd_use_noc1);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
@@ -218,7 +222,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
     if (!fan_speed_available) {
         return std::nullopt;
     }
-    const uint32_t fan_speed = telemetry->read_entry(TelemetryTag::FAN_SPEED);
+    const uint32_t fan_speed = telemetry->read_entry(TelemetryTag::FAN_SPEED, umd_use_noc1);
     // All ones mean fans not present on board, or not under control of firmware.
     if (fan_speed == 0xFFFFFFFF) {
         return std::nullopt;
@@ -231,7 +235,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const {
     if (!tdp_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::TDP);
+    return telemetry->read_entry(TelemetryTag::TDP, umd_use_noc1);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const {
@@ -239,7 +243,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const {
     if (!tdc_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::TDC);
+    return telemetry->read_entry(TelemetryTag::TDC, umd_use_noc1);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
@@ -247,7 +251,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
     if (!vcore_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::VCORE);
+    return telemetry->read_entry(TelemetryTag::VCORE, umd_use_noc1);
 }
 
 std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
@@ -256,11 +260,11 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
         return std::nullopt;
     }
     // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
-    return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE, umd_use_noc1)) / 65536.0f;
 }
 
 uint32_t FirmwareInfoProvider::get_heartbeat() const {
-    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::TIMER_HEARTBEAT);
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::TIMER_HEARTBEAT, umd_use_noc1);
 }
 
 }  // namespace tt::umd

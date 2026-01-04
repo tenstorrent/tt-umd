@@ -21,6 +21,8 @@
 #include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
@@ -118,19 +120,21 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         tt::ARCH::BLACKHOLE,
         telemetry->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
-            ? (~telemetry->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
+            ? (~telemetry->read_entry(TelemetryTag::ENABLED_TENSIX_COL, umd_use_noc1) & 0x3FFF)
             : 0);
-    chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(TelemetryTag::ENABLED_GDDR)
-                                                          ? (~telemetry->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
-                                                          : 0;
+    chip_info.harvesting_masks.dram_harvesting_mask =
+        telemetry->is_entry_available(TelemetryTag::ENABLED_GDDR)
+            ? (~telemetry->read_entry(TelemetryTag::ENABLED_GDDR, umd_use_noc1) & 0xFF)
+            : 0;
 
-    chip_info.harvesting_masks.eth_harvesting_mask = telemetry->is_entry_available(TelemetryTag::ENABLED_ETH)
-                                                         ? (~telemetry->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
-                                                         : 0;
+    chip_info.harvesting_masks.eth_harvesting_mask =
+        telemetry->is_entry_available(TelemetryTag::ENABLED_ETH)
+            ? (~telemetry->read_entry(TelemetryTag::ENABLED_ETH, umd_use_noc1) & 0x3FFF)
+            : 0;
 
     chip_info.harvesting_masks.pcie_harvesting_mask = 0;
     if (telemetry->is_entry_available(TelemetryTag::PCIE_USAGE)) {
-        uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
+        uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE, umd_use_noc1);
 
         uint32_t pcie0_usage = pcie_usage & 0x3;
         uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
@@ -149,7 +153,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
     if (telemetry->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
         chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
-            tt::ARCH::BLACKHOLE, telemetry->read_entry(TelemetryTag::ENABLED_L2CPU));
+            tt::ARCH::BLACKHOLE, telemetry->read_entry(TelemetryTag::ENABLED_L2CPU, umd_use_noc1));
     }
 
     return chip_info;
@@ -180,7 +184,7 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
 
 uint32_t BlackholeTTDevice::get_clock() {
     if (telemetry->is_entry_available(TelemetryTag::AICLK)) {
-        return telemetry->read_entry(TelemetryTag::AICLK);
+        return telemetry->read_entry(TelemetryTag::AICLK, umd_use_noc1);
     }
 
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");

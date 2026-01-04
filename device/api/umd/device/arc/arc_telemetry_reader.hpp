@@ -17,7 +17,7 @@ class ArcTelemetryReader {
 public:
     virtual ~ArcTelemetryReader() = default;
 
-    virtual uint32_t read_entry(const uint8_t telemetry_tag);
+    virtual uint32_t read_entry(const uint8_t telemetry_tag, bool use_noc1 = false);
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 
@@ -26,9 +26,9 @@ public:
 protected:
     ArcTelemetryReader(TTDevice* tt_device);
 
-    virtual void get_telemetry_address() = 0;
+    virtual void get_telemetry_address(bool use_noc1) = 0;
 
-    void initialize_telemetry();
+    void initialize_telemetry(bool use_noc1);
 
     // Address of the telemetry table struct on ARC core.
     uint64_t telemetry_table_addr;

@@ -123,13 +123,13 @@ void bind_telemetry(nb::module_ &m) {
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
-        .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
+        .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"), nb::arg("use_noc1") = false)
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
     // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
         .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
-        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
+        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"), nb::arg("use_noc1") = false)
         .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
     nb::enum_<tt::DramTrainingStatus>(m, "DramTrainingStatus")

@@ -18,14 +18,14 @@ class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:
     SmBusArcTelemetryReader(TTDevice* tt_device);
 
-    uint32_t read_entry(const uint8_t telemetry_tag) override;
+    uint32_t read_entry(const uint8_t telemetry_tag, bool use_noc1) override;
 
     bool is_entry_available(const uint8_t telemetry_tag) override;
 
     tt_xy_pair get_arc_core(bool use_noc1) override;
 
 protected:
-    void get_telemetry_address() override;
+    void get_telemetry_address(bool use_noc1) override;
 
 private:
     uint64_t telemetry_base_noc_addr;

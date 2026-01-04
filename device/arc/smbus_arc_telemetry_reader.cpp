@@ -12,10 +12,10 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    get_telemetry_address();
+    get_telemetry_address(umd_use_noc1);
 }
 
-void SmBusArcTelemetryReader::get_telemetry_address() {
+void SmBusArcTelemetryReader::get_telemetry_address(bool use_noc1) {
     std::vector<uint32_t> arc_msg_return_values = {0};
     uint32_t exit_code = tt_device->get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | (uint32_t)wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
@@ -27,27 +27,27 @@ void SmBusArcTelemetryReader::get_telemetry_address() {
 }
 
 tt_xy_pair SmBusArcTelemetryReader::get_arc_core(bool use_noc1) {
-    return !umd_use_noc1 ? wormhole::ARC_CORES_NOC0[0]
-                         : tt_xy_pair(
-                               wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                               wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+    return !use_noc1 ? wormhole::ARC_CORES_NOC0[0]
+                     : tt_xy_pair(
+                           wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                           wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 }
 
-uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
+uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, bool use_noc1) {
     if (!is_entry_available(telemetry_tag)) {
         throw std::runtime_error(fmt::format(
             "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
             telemetry_tag));
     }
 
-    auto arc_core = get_arc_core(umd_use_noc1);
+    auto arc_core = get_arc_core(use_noc1);
     uint32_t telemetry_value;
     tt_device->read_from_device(
         &telemetry_value,
         arc_core,
         telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t),
         sizeof(uint32_t),
-        umd_use_noc1);
+        use_noc1);
 
     return telemetry_value;
 }

@@ -311,8 +311,8 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
     TTDevice* tt_device = chip->get_tt_device();
-    uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
-    uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
+    uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW, umd_use_noc1);
+    uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH, umd_use_noc1);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 

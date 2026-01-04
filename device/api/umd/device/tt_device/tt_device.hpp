@@ -133,6 +133,7 @@ public:
     /**
      * Read function that will send read message to the ARC core APB peripherals.
      *
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory which will receive the data
      * @param arc_addr_offset address offset in ARC core APB peripherals
      * @param size number of bytes
@@ -145,11 +146,13 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc_apb(
+        bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     /**
      * Write function that will send write message to the ARC core APB peripherals.
      *
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory from which the data is sent
      * @param arc_addr_offset address offset in ARC core APB peripherals
      * @param size number of bytes
@@ -162,11 +165,13 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc_apb(
+        bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     /**
      * Read function that will send read message to the ARC core CSM.
      *
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory which will receive the data
      * @param arc_addr_offset address offset in ARC core CSM
      * @param size number of bytes
@@ -179,11 +184,13 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc_csm(
+        bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     /**
      * Write function that will send write message to the ARC core CSM.
      *
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory from which the data is sent
      * @param arc_addr_offset address offset in ARC core CSM
      * @param size number of bytes
@@ -196,7 +203,8 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc_csm(
+        bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
 

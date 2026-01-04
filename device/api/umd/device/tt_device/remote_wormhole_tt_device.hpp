@@ -15,13 +15,13 @@ public:
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_apb(bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_apb(bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_csm(bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_csm(bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void noc_multicast_write(
         void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;

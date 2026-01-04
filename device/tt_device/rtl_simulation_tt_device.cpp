@@ -185,21 +185,23 @@ void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, siz
     throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void RtlSimulationTTDevice::read_from_arc_apb(
+    bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_apb(
-    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void RtlSimulationTTDevice::read_from_arc_csm(
+    bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_csm(
-    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 

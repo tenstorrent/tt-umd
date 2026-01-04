@@ -21,6 +21,8 @@
 #include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
@@ -159,7 +161,7 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc_apb(umd_use_noc1, &arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -204,7 +206,7 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::read_from_arc_apb(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
@@ -219,7 +221,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         return;
     }
     if (!is_arc_available_over_axi()) {
-        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
         read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -227,7 +229,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 };
 
-void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::write_to_arc_apb(bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
@@ -242,7 +244,7 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     if (!is_arc_available_over_axi()) {
-        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
         write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -254,11 +256,11 @@ tt_xy_pair BlackholeTTDevice::get_arc_core(bool use_noc1) {
     return blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
 }
 
-void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::write_to_arc_csm(bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     throw std::runtime_error("CSM write not supported for Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::read_from_arc_csm(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     throw std::runtime_error("CSM read not supported for Blackhole.");
 }
 

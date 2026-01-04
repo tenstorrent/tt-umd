@@ -245,11 +245,15 @@ BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_b
 
 uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(
+        umd_use_noc1, &high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(
+        umd_use_noc1, &low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc_apb(
+        umd_use_noc1, &high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     if (high2_addr > high1_addr) {
-        read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+        read_from_arc_apb(
+            umd_use_noc1, &low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }

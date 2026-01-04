@@ -114,31 +114,32 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void write_to_device(bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1 = false);
+    virtual void write_to_device(
+        const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1 = false);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
      * will ensure that the write will land on the correct cores.
      *
-     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param dst pointer to memory from which the data is sent
      * @param size number of bytes
      * @param core_start starting core coordinates (x,y) of the multicast write
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      */
     virtual void noc_multicast_write(
-        bool use_noc1, void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+        void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, bool use_noc1 = false);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
      *
-     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory which will receive the data
      * @param arc_addr_offset address offset in ARC core APB peripherals
      * @param size number of bytes
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      *
      * NOTE: This function will read from APB peripherals. It will use the AXI interface to read the data if the chip is
      * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
@@ -149,15 +150,15 @@ public:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void read_from_arc_apb(
-        bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+        void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1 = false) = 0;
 
     /**
      * Write function that will send write message to the ARC core APB peripherals.
      *
-     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory from which the data is sent
      * @param arc_addr_offset address offset in ARC core APB peripherals
      * @param size number of bytes
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      *
      * NOTE: This function will write to APB peripherals. It will use the AXI interface to write the data if the chip is
      * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
@@ -168,15 +169,15 @@ public:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_apb(
-        bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+        const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1 = false) = 0;
 
     /**
      * Read function that will send read message to the ARC core CSM.
      *
-     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory which will receive the data
      * @param arc_addr_offset address offset in ARC core CSM
      * @param size number of bytes
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      *
      * NOTE: This function will read from CSM. It will use the AXI interface to read the data if the chip is local/PCIe,
      * while the remote chip will use the NOC interface to read the data. Blackhole has board
@@ -187,15 +188,15 @@ public:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void read_from_arc_csm(
-        bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+        void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1 = false) = 0;
 
     /**
      * Write function that will send write message to the ARC core CSM.
      *
-     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      * @param mem_ptr pointer to memory from which the data is sent
      * @param arc_addr_offset address offset in ARC core CSM
      * @param size number of bytes
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      *
      * NOTE: This function will write to CSM. It will use the AXI interface to write the data if the chip is local/PCIe,
      * while the remote chip will use the NOC interface to write the data. Blackhole has board
@@ -206,7 +207,7 @@ public:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_csm(
-        bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+        const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1 = false) = 0;
 
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
 

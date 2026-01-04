@@ -16,8 +16,6 @@
 
 using namespace tt::umd;
 
-extern bool umd_use_noc1;
-
 constexpr uint32_t DRAM_BARRIER_BASE = 0;
 
 TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
@@ -136,9 +134,9 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     std::vector<uint32_t> data_read(test_size / sizeof(uint32_t), 1);
 
     // Perform write and read operations.
-    remote_tt_device->write_to_device(umd_use_noc1, data_to_write.data(), tensix_core_xy, test_address, test_size);
+    remote_tt_device->write_to_device(data_to_write.data(), tensix_core_xy, test_address, test_size);
     remote_tt_device->wait_for_non_mmio_flush();
-    remote_tt_device->read_from_device(umd_use_noc1, data_read.data(), tensix_core_xy, test_address, test_size);
+    remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);
 
     // Verify data matches.
     ASSERT_EQ(data_to_write.size(), data_read.size()) << "Read and write data sizes do not match";
@@ -151,9 +149,9 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     for (size_t i = 0; i < data_to_write.size(); i++) {
         data_to_write[i] = i;
     }
-    remote_tt_device->write_to_device(umd_use_noc1, data_to_write.data(), tensix_core_xy, test_address, test_size);
+    remote_tt_device->write_to_device(data_to_write.data(), tensix_core_xy, test_address, test_size);
     remote_tt_device->wait_for_non_mmio_flush();
-    remote_tt_device->read_from_device(umd_use_noc1, data_read.data(), tensix_core_xy, test_address, test_size);
+    remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);
 
     // Verify data matches.
     ASSERT_EQ(data_to_write.size(), data_read.size()) << "Read and write data sizes do not match";

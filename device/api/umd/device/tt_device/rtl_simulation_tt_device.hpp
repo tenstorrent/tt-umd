@@ -19,8 +19,8 @@ public:
 
     static std::unique_ptr<RtlSimulationTTDevice> create(const std::filesystem::path &simulator_directory);
 
-    void read_from_device(bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void write_to_device(bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) override;
+    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) override;
     void send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert);
 
     SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
@@ -32,13 +32,13 @@ public:
     void dma_h2d(uint32_t dst, const void *src, size_t size) override;
     void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
     void read_from_arc_apb(
-        bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+        void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) override;
     void write_to_arc_apb(
-        bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+        const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) override;
     void read_from_arc_csm(
-        bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+        void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) override;
     void write_to_arc_csm(
-        bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+        const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) override;
     bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;

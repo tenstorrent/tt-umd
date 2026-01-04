@@ -129,7 +129,7 @@ void RtlSimulationTTDevice::start_host_communication() {
 }
 
 void RtlSimulationTTDevice::write_to_device(
-    bool use_noc1, const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     std::vector<std::uint32_t> data(
@@ -138,7 +138,7 @@ void RtlSimulationTTDevice::write_to_device(
 }
 
 void RtlSimulationTTDevice::read_from_device(
-    bool use_noc1, void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     void* rd_resp;
 
@@ -188,22 +188,22 @@ void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, siz
 }
 
 void RtlSimulationTTDevice::read_from_arc_apb(
-    bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_apb(
-    bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::read_from_arc_csm(
-    bool use_noc1, void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) {
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_csm(
-    bool use_noc1, const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, bool use_noc1) {
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 

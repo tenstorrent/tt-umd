@@ -43,11 +43,11 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     auto arc_core = get_arc_core(umd_use_noc1);
     uint32_t telemetry_value;
     tt_device->read_from_device(
-        umd_use_noc1,
         &telemetry_value,
         arc_core,
         telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        umd_use_noc1);
 
     return telemetry_value;
 }

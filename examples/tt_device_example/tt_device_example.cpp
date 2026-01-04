@@ -17,7 +17,6 @@ using namespace tt::umd;
 
 int main(int argc, char* argv[]) {
     std::vector<int> pci_devices = PCIDevice::enumerate_devices();
-    bool use_noc1 = false;
     if (pci_devices.empty()) {
         std::cerr << "No devices found" << std::endl;
         return 1;
@@ -51,8 +50,8 @@ int main(int argc, char* argv[]) {
         auto test_core = tt_xy_pair(1, 1);
         uint64_t mem_addr = 0x0;
 
-        device->write_to_device(use_noc1, &test_data, test_core, mem_addr, sizeof(test_data));
-        device->read_from_device(use_noc1, &read_data, test_core, mem_addr, sizeof(read_data));
+        device->write_to_device(&test_data, test_core, mem_addr, sizeof(test_data));
+        device->read_from_device(&read_data, test_core, mem_addr, sizeof(read_data));
 
         std::cout << "Device memory operation: wrote 0x" << std::hex << test_data << ", read 0x" << read_data
                   << std::dec << std::endl;
@@ -84,8 +83,8 @@ int main(int argc, char* argv[]) {
         uint32_t init_read_data = 0;
         uint64_t init_mem_addr = 0x0;
 
-        device->write_to_device(use_noc1, &init_test_data, tensix_core, init_mem_addr, sizeof(init_test_data));
-        device->read_from_device(use_noc1, &init_read_data, tensix_core, init_mem_addr, sizeof(init_read_data));
+        device->write_to_device(&init_test_data, tensix_core, init_mem_addr, sizeof(init_test_data));
+        device->read_from_device(&init_read_data, tensix_core, init_mem_addr, sizeof(init_read_data));
 
         std::cout << "Post-init memory operation: wrote 0x" << std::hex << init_test_data << ", read 0x"
                   << init_read_data << std::dec << std::endl;

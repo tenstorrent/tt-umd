@@ -60,6 +60,8 @@ public:
 
     uint64_t get_base_address() const;
 
+    bool uses_noc1() const;
+
 private:
     void validate(uint64_t offset, size_t size) const;
 

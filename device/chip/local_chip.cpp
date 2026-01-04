@@ -278,13 +278,13 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(umd_use_noc1, src, translated_core, l1_dest, size);
+        tt_device_->write_to_device(src, translated_core, l1_dest, size, umd_use_noc1);
         return;
     }
 
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
+    if (tlb_manager_->is_tlb_mapped(umd_use_noc1, translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
@@ -309,10 +309,10 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(umd_use_noc1, dest, translated_core, l1_src, size);
+        tt_device_->read_from_device(dest, translated_core, l1_src, size, umd_use_noc1);
         return;
     }
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
+    if (tlb_manager_->is_tlb_mapped(umd_use_noc1, translated_core, l1_src, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
@@ -322,7 +322,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     }
 }
 
-void LocalChip::dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.",
@@ -350,7 +350,7 @@ void LocalChip::dma_write_to_device(bool use_noc1, const void* src, size_t size,
     config.local_offset = addr;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = use_noc1 ? 1 : 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
@@ -378,7 +378,7 @@ void LocalChip::dma_write_to_device(bool use_noc1, const void* src, size_t size,
     }
 }
 
-void LocalChip::dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.",
@@ -406,7 +406,7 @@ void LocalChip::dma_read_from_device(bool use_noc1, void* dst, size_t size, Core
     config.local_offset = addr;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = use_noc1 ? 1 : 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
@@ -445,7 +445,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(umd_use_noc1, src, core, reg_dest, size);
+        tt_device_->write_to_device(src, core, reg_dest, size, umd_use_noc1);
         return;
     }
 
@@ -475,7 +475,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(umd_use_noc1, dest, core, reg_src, size);
+        tt_device_->read_from_device(dest, core, reg_src, size, umd_use_noc1);
         return;
     }
 

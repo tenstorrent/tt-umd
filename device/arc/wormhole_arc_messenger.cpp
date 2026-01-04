@@ -77,20 +77,20 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->write_to_arc_apb(umd_use_noc1, &fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
-    tt_device->write_to_arc_apb(umd_use_noc1, &msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
+    tt_device->write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), umd_use_noc1);
+    tt_device->write_to_arc_apb(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), umd_use_noc1);
 
     tt_device->wait_for_non_mmio_flush();
 
     uint32_t misc;
-    tt_device->read_from_arc_apb(umd_use_noc1, &misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+    tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), umd_use_noc1);
 
     if (misc & (1 << 16)) {
         log_error(LogUMD, "trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         uint32_t val_wr = misc | (1 << 16);
-        tt_device->write_to_arc_apb(umd_use_noc1, &val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+        tt_device->write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), umd_use_noc1);
     }
 
     uint32_t status = 0xbadbad;
@@ -103,17 +103,17 @@ uint32_t WormholeArcMessenger::send_message(
         }
 
         tt_device->read_from_arc_apb(
-            umd_use_noc1, &status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
+            &status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), umd_use_noc1);
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
                 tt_device->read_from_arc_apb(
-                    umd_use_noc1, &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
+                    &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), umd_use_noc1);
             }
 
             if (return_values.size() >= 2) {
                 tt_device->read_from_arc_apb(
-                    umd_use_noc1, &return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t));
+                    &return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t), umd_use_noc1);
             }
 
             exit_code = (status & 0xffff0000) >> 16;

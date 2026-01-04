@@ -51,11 +51,11 @@ void SimulationChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t r
     read_from_device(core, dest, reg_src, size);
 }
 
-void SimulationChip::dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
     write_to_device(core, src, addr, size);
 }
 
-void SimulationChip::dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
 }
 

@@ -269,6 +269,8 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
     }
 }
 
+bool TlbWindow::uses_noc1() const { return handle_ref().get_config().noc_sel == 1; }
+
 uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }

@@ -104,8 +104,8 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,
-            nb::arg("use_noc1") = false,
-            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
+            nb::arg("use_noc1") = false)
         .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
@@ -134,7 +134,7 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, bool use_noc1) -> uint32_t {
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(use_noc1, &value, core, addr, sizeof(uint32_t));
+                self.read_from_device(&value, core, addr, sizeof(uint32_t), use_noc1);
                 return value;
             },
             nb::arg("core_x"),
@@ -146,7 +146,7 @@ void bind_tt_device(nb::module_ &m) {
             "noc_write32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value, bool use_noc1) -> void {
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(use_noc1, &value, core, addr, sizeof(uint32_t));
+                self.write_to_device(&value, core, addr, sizeof(uint32_t), use_noc1);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -160,7 +160,7 @@ void bind_tt_device(nb::module_ &m) {
                 -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
-                self.read_from_device(use_noc1, buffer.data(), core, addr, size);
+                self.read_from_device(buffer.data(), core, addr, size, use_noc1);
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
             nb::arg("core_x"),
@@ -184,7 +184,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.read_from_device(use_noc1, data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.read_from_device(data_ptr, core, addr, static_cast<uint32_t>(data_size), use_noc1);
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -199,7 +199,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write_to_device(use_noc1, data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size), use_noc1);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),

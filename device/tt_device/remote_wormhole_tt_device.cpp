@@ -28,12 +28,12 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(
 }
 
 void RemoteWormholeTTDevice::read_from_device(
-    bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 
 void RemoteWormholeTTDevice::write_to_device(
-    bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
@@ -41,54 +41,54 @@ void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->
 
 RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() const { return remote_communication_.get(); }
 
-void RemoteWormholeTTDevice::read_from_arc_apb(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     read_from_device(
-        use_noc1,
         mem_ptr,
         get_arc_core(use_noc1),
         architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
-        size);
+        size,
+        use_noc1);
 }
 
 void RemoteWormholeTTDevice::write_to_arc_apb(
-    bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    const void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     write_to_device(
-        use_noc1,
         mem_ptr,
         get_arc_core(use_noc1),
         architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
-        size);
+        size,
+        use_noc1);
 }
 
-void RemoteWormholeTTDevice::read_from_arc_csm(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     read_from_device(
-        use_noc1,
         mem_ptr,
         get_arc_core(use_noc1),
         architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
-        size);
+        size,
+        use_noc1);
 }
 
 void RemoteWormholeTTDevice::write_to_arc_csm(
-    bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    const void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     write_to_device(
-        use_noc1,
         mem_ptr,
         get_arc_core(use_noc1),
         architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
-        size);
+        size,
+        use_noc1);
 }
 
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
@@ -100,12 +100,12 @@ bool RemoteWormholeTTDevice::is_hardware_hung() {
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(
-    bool use_noc1, void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, bool use_noc1) {
     // TODO: implement multicast over remote communication.
     // For now, we fallback to unicast for all cores.
     for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
         for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            write_to_device(use_noc1, dst, tt_xy_pair(x, y), addr, size);
+            write_to_device(dst, tt_xy_pair(x, y), addr, size, use_noc1);
         }
     }
 }

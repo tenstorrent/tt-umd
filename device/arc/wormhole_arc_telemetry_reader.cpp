@@ -28,22 +28,21 @@ void WormholeArcTelemetryReader::get_telemetry_address() {
     auto arc_core = get_arc_core(umd_use_noc1);
     uint32_t telemetry_table_addr_offset;
     tt_device->read_from_device(
-        umd_use_noc1,
         &telemetry_table_addr_offset,
         arc_core,
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_X_0,
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        umd_use_noc1);
 
     telemetry_table_addr = telemetry_table_addr_offset + noc_telemetry_offset;
 
     uint32_t telemetry_values_addr_offset;
     tt_device->read_from_device(
-        umd_use_noc1,
         &telemetry_values_addr_offset,
         arc_core,
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_Y_0,
-        sizeof(uint32_t));
-
+        sizeof(uint32_t),
+        umd_use_noc1);
     telemetry_values_addr = telemetry_values_addr_offset + noc_telemetry_offset;
 }
 

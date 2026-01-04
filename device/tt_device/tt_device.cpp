@@ -151,7 +151,7 @@ TlbWindow *TTDevice::get_cached_tlb_window() {
     return cached_tlb_window.get();
 }
 
-void TTDevice::read_from_device(bool use_noc1, void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, use_noc1 ? 1 : 0);
         return;
@@ -161,7 +161,7 @@ void TTDevice::read_from_device(bool use_noc1, void *mem_ptr, tt_xy_pair core, u
     get_cached_tlb_window()->read_block_reconfigure(use_noc1, mem_ptr, core, addr, size);
 }
 
-void TTDevice::write_to_device(bool use_noc1, const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, bool use_noc1) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, use_noc1 ? 1 : 0);
         return;
@@ -246,14 +246,14 @@ BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_b
 uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
     read_from_arc_apb(
-        umd_use_noc1, &high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+        &high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr), umd_use_noc1);
     read_from_arc_apb(
-        umd_use_noc1, &low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+        &low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr), umd_use_noc1);
     read_from_arc_apb(
-        umd_use_noc1, &high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+        &high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr), umd_use_noc1);
     if (high2_addr > high1_addr) {
         read_from_arc_apb(
-            umd_use_noc1, &low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+            &low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr), umd_use_noc1);
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
@@ -280,19 +280,19 @@ uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->g
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;
     read_from_device(
-        umd_use_noc1, &tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+        &tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t), umd_use_noc1);
 
     return tensix_risc_state;
 }
 
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
     write_to_device(
-        umd_use_noc1, &risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+        &risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t), umd_use_noc1);
     tt_driver_atomics::sfence();
 }
 
 void TTDevice::noc_multicast_write(
-    bool use_noc1, void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, bool use_noc1) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
     }

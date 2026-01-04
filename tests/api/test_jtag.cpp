@@ -20,8 +20,6 @@
 using namespace tt;
 using namespace tt::umd;
 
-extern bool umd_use_noc1;
-
 class ApiJtagDeviceTest : public ::testing::Test {
 protected:
     struct DeviceData {
@@ -74,9 +72,9 @@ protected:
         std::vector<T> data_read(data_write.size(), 0);
 
         device.tt_device_->write_to_device(
-            umd_use_noc1, data_write.data(), device.tensix_core_, address, data_write.size() * sizeof(T));
+            data_write.data(), device.tensix_core_, address, data_write.size() * sizeof(T));
         device.tt_device_->read_from_device(
-            umd_use_noc1, data_read.data(), device.tensix_core_, address, data_read.size() * sizeof(T));
+            data_read.data(), device.tensix_core_, address, data_read.size() * sizeof(T));
 
         ASSERT_EQ(data_write, data_read);
     }
@@ -154,11 +152,9 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
             SocDescriptor(pci_tt_device->get_arch(), chip_info).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         // clear the memory first with zeros.
-        pci_tt_device->write_to_device(
-            umd_use_noc1, data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        pci_tt_device->write_to_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
 
-        pci_tt_device->write_to_device(
-            umd_use_noc1, data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+        pci_tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
         for (const auto& device : device_data_) {
             ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
@@ -167,7 +163,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
             if (jtag_chip_info.board_id == chip_info.board_id &&
                 jtag_chip_info.asic_location == chip_info.asic_location) {
                 device.tt_device_->read_from_device(
-                    umd_use_noc1, data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
                 ASSERT_EQ(data_write, data_read);
                 read_occured = true;
                 break;
@@ -191,10 +187,10 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
         tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
 
         device.tt_device_->write_to_device(
-            umd_use_noc1, data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));
+            data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));
         TTDevice::use_noc1(true);
         device.tt_device_->read_from_device(
-            umd_use_noc1, data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t));
+            data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t));
         TTDevice::use_noc1(false);
         ASSERT_EQ(data_write, data_read);
         std::fill(data_read.begin(), data_read.end(), 0);

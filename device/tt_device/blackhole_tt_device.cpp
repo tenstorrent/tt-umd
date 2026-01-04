@@ -161,7 +161,7 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_arc_apb(umd_use_noc1, &arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status), umd_use_noc1);
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -206,7 +206,7 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc_apb(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
@@ -223,14 +223,14 @@ void BlackholeTTDevice::read_from_arc_apb(bool use_noc1, void *mem_ptr, uint64_t
     if (!is_arc_available_over_axi()) {
         auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
         read_from_device(
-            use_noc1, mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+            mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size, use_noc1);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 };
 
-void BlackholeTTDevice::write_to_arc_apb(bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
@@ -247,7 +247,7 @@ void BlackholeTTDevice::write_to_arc_apb(bool use_noc1, const void *mem_ptr, uin
     if (!is_arc_available_over_axi()) {
         auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
         write_to_device(
-            use_noc1, mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+            mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size, use_noc1);
         return;
     }
     bar_write32(
@@ -258,11 +258,11 @@ tt_xy_pair BlackholeTTDevice::get_arc_core(bool use_noc1) {
     return blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
 }
 
-void BlackholeTTDevice::write_to_arc_csm(bool use_noc1, const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     throw std::runtime_error("CSM write not supported for Blackhole.");
 }
 
-void BlackholeTTDevice::read_from_arc_csm(bool use_noc1, void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) {
     throw std::runtime_error("CSM read not supported for Blackhole.");
 }
 
@@ -272,13 +272,13 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
 
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
-    read_from_device(umd_use_noc1, &port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val), umd_use_noc1);
 
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
     while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
-        read_from_device(umd_use_noc1, &port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val), umd_use_noc1);
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {

@@ -78,10 +78,22 @@ TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     }
 }
 
-bool TLBManager::is_tlb_mapped(tt_xy_pair core) { return map_core_to_tlb_.find(core) != map_core_to_tlb_.end(); }
+bool TLBManager::is_tlb_mapped_any_noc(tt_xy_pair core) {
+    return map_core_to_tlb_.find(core) != map_core_to_tlb_.end();
+}
 
-bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes) {
-    if (!is_tlb_mapped(core)) {
+bool TLBManager::is_tlb_mapped(bool use_noc1, tt_xy_pair core) {
+    if (!is_tlb_mapped_any_noc(core)) {
+        return false;
+    }
+
+    TlbWindow* tlb_window = get_tlb_window(core);
+
+    return tlb_window->uses_noc1() == use_noc1;
+}
+
+bool TLBManager::is_tlb_mapped(bool use_noc1, tt_xy_pair core, uint64_t address, uint32_t size_in_bytes) {
+    if (!is_tlb_mapped(use_noc1, core)) {
         return false;
     }
 
@@ -92,7 +104,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
 }
 
 Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
-    if (!is_tlb_mapped(core)) {
+    if (!is_tlb_mapped_any_noc(core)) {
         throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
     }
 
@@ -104,7 +116,7 @@ Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
-    TT_ASSERT(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
+    TT_ASSERT(is_tlb_mapped_any_noc(core), "TLB not mapped for core: {}", core.str());
 
     int tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);

@@ -15,8 +15,6 @@
 
 using namespace tt::umd;
 
-extern bool umd_use_noc1;
-
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 static constexpr int NUM_OF_BYTES_RESERVED = 128;
@@ -203,7 +201,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
         for (int loop = 0; loop < NUM_LOOPS; loop++) {
             uint32_t example_read;
-            tt_device->read_from_device(umd_use_noc1, &example_read, arc_core, 0x8003042C, sizeof(uint32_t));
+            tt_device->read_from_device(&example_read, arc_core, 0x8003042C, sizeof(uint32_t));
         }
         std::cout << "Destroying low level monitor cluster" << std::endl;
     });
@@ -231,7 +229,7 @@ TEST(Multiprocess, LongLivedMonitor) {
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
         for (int loop = 0; loop < NUM_LOOPS; loop++) {
             uint32_t example_read;
-            tt_device->read_from_device(umd_use_noc1, &example_read, arc_core, 0x8003042C, sizeof(uint32_t));
+            tt_device->read_from_device(&example_read, arc_core, 0x8003042C, sizeof(uint32_t));
         }
         std::cout << "Destroying low level monitor cluster" << std::endl;
     });
@@ -264,14 +262,10 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
             std::vector<uint32_t> data_read(data_write_t0.size(), 0);
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 tt_device->write_to_device(
-                    umd_use_noc1,
-                    data_write_t0.data(),
-                    tensix_core,
-                    address_thread0,
-                    data_write_t0.size() * sizeof(uint32_t));
+                    data_write_t0.data(), tensix_core, address_thread0, data_write_t0.size() * sizeof(uint32_t));
 
                 tt_device->read_from_device(
-                    umd_use_noc1, data_read.data(), tensix_core, address_thread0, data_read.size() * sizeof(uint32_t));
+                    data_read.data(), tensix_core, address_thread0, data_read.size() * sizeof(uint32_t));
 
                 ASSERT_EQ(data_write_t0, data_read);
 

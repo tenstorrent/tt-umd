@@ -101,11 +101,11 @@ void RemoteChip::close_device() {
 }
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    tt_device_->write_to_device(umd_use_noc1, src, translate_chip_coord_to_translated(core), l1_dest, size);
+    tt_device_->write_to_device(src, translate_chip_coord_to_translated(core), l1_dest, size, umd_use_noc1);
 }
 
 void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    tt_device_->read_from_device(umd_use_noc1, dest, translate_chip_coord_to_translated(core), l1_src, size);
+    tt_device_->read_from_device(dest, translate_chip_coord_to_translated(core), l1_src, size, umd_use_noc1);
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -116,11 +116,11 @@ void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_s
     read_from_device(core, dest, reg_src, size);
 }
 
-void RemoteChip::dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
     throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
 }
 
-void RemoteChip::dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 

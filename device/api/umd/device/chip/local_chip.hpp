@@ -54,8 +54,8 @@ public:
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
-    void dma_write_to_device(bool use_noc1, const void* src, size_t size, CoreCoord core, uint64_t addr) override;
-    void dma_read_from_device(bool use_noc1, void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);

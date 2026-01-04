@@ -166,7 +166,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     get_cached_tlb_window()->write_block_reconfigure(use_noc1, mem_ptr, core, addr, size);
 }
 
-void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size, bool use_noc1) {
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
@@ -259,7 +259,7 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
 
-ChipInfo TTDevice::get_chip_info() {
+ChipInfo TTDevice::get_chip_info(bool use_noc1) {
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();

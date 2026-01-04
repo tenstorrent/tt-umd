@@ -25,7 +25,7 @@ using namespace tt::umd;
 
 // Forward declaration of helper function from py_api_tt_device.cpp.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
-    TTDevice* local_chip, ClusterDescriptor* cluster_descriptor, ChipId remote_chip_id);
+    TTDevice* local_chip, ClusterDescriptor* cluster_descriptor, ChipId remote_chip_id, bool use_noc1);
 
 void bind_topology_discovery(nb::module_& m) {
     nb::class_<ClusterDescriptor>(m, "ClusterDescriptor")
@@ -95,7 +95,7 @@ void bind_topology_discovery(nb::module_& m) {
                         if (!options.no_remote_discovery) {
                             ChipId closest_mmio = cluster_desc->get_closest_mmio_capable_chip(chip_id);
                             tt_devices[chip_id] = create_remote_wormhole_tt_device(
-                                tt_devices[closest_mmio].get(), cluster_desc.get(), chip_id);
+                                tt_devices[closest_mmio].get(), cluster_desc.get(), chip_id, options.use_noc1);
                             tt_devices[chip_id]->init_tt_device(options.use_noc1);
                         }
                     }

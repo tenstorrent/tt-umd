@@ -32,11 +32,11 @@ using namespace tt::umd;
 
 // Helper function for easy creation of RemoteWormholeTTDevice.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
-    TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
+    TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id, bool use_noc1) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
-    SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
+    SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info(use_noc1));
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
@@ -340,6 +340,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("local_chip"),
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
+        nb::arg("use_noc1") = false,
         nb::rv_policy::take_ownership,
         "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
 }

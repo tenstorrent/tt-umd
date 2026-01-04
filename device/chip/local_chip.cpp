@@ -34,9 +34,9 @@ std::unique_ptr<LocalChip> LocalChip::create(
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info(umd_use_noc1));
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info(umd_use_noc1));
     }
 
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
@@ -104,7 +104,7 @@ LocalChip::LocalChip(
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
     int num_host_mem_channels) :
-    Chip(tt_device->get_chip_info(), soc_descriptor),
+    Chip(tt_device->get_chip_info(umd_use_noc1), soc_descriptor),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
@@ -573,7 +573,7 @@ void LocalChip::init_pcie_iatus() {
                 region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
             }
         }
-        tt_device_->configure_iatu_region(channel, hugepage_map.physical_address, region_size);
+        tt_device_->configure_iatu_region(channel, hugepage_map.physical_address, region_size, umd_use_noc1);
     }
 }
 

@@ -61,8 +61,8 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
     return ((niu_cfg >> 14) & 0x1) != 0;
 }
 
-ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info = TTDevice::get_chip_info();
+ChipInfo WormholeTTDevice::get_chip_info(bool use_noc1) {
+    ChipInfo chip_info = TTDevice::get_chip_info(use_noc1);
 
     std::vector<uint32_t> arc_msg_return_values = {0};
     uint32_t ret_code = get_arc_messenger()->send_message(
@@ -70,7 +70,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
         arc_msg_return_values,
         {0, 0},
         timeout::ARC_MESSAGE_TIMEOUT,
-        umd_use_noc1);
+        use_noc1);
 
     if (ret_code != 0) {
         throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
@@ -99,7 +99,7 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
-void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size, bool use_noc1) {
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = region;
@@ -122,7 +122,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(),
         {0, 0},
         timeout::ARC_MESSAGE_TIMEOUT,
-        umd_use_noc1);
+        use_noc1);
 
     // Print what just happened.
     uint32_t peer_region_start = region_id_to_use * region_size;

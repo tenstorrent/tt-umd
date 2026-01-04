@@ -66,10 +66,11 @@ void bind_soc_descriptor(nb::module_ &m) {
     nb::class_<SocDescriptor>(m, "SocDescriptor")
         .def(
             "__init__",
-            [](SocDescriptor *soc_desc, TTDevice &tt_device) {
-                new (soc_desc) SocDescriptor(tt_device.get_arch(), tt_device.get_chip_info());
+            [](SocDescriptor *soc_desc, TTDevice &tt_device, bool use_noc1) {
+                new (soc_desc) SocDescriptor(tt_device.get_arch(), tt_device.get_chip_info(use_noc1));
             },
             nb::arg("tt_device"),
+            nb::arg("use_noc1") = false,
             "Create a SocDescriptor from a TTDevice")
         .def(
             "get_cores",

@@ -17,7 +17,7 @@ class BlackholeTTDevice : public TTDevice {
 public:
     ~BlackholeTTDevice();
 
-    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size, bool use_noc1) override;
 
     bool wait_arc_core_start(
         const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool use_noc1 = false) override;
@@ -43,7 +43,7 @@ public:
     void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) override;
     void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, bool use_noc1) override;
 
-    ChipInfo get_chip_info() override;
+    ChipInfo get_chip_info(bool use_noc1) override;
 
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core_noc0,

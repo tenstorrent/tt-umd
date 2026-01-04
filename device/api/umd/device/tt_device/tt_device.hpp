@@ -229,15 +229,16 @@ public:
      * @param region iATU region index (0-15)
      * @param target DMA address (PA or IOVA) to map to
      * @param region_size size of the mapping window; must be (1 << 30)
+     * @param use_noc1 whether to use NOC1 for addressing the ARC core
      *
      * NOTE: Programming the iATU from userspace is architecturally incorrect:
      * - iATU should be managed by KMD to ensure proper cleanup on process exit
      * - Multiple processes can corrupt each other's iATU configurations
      * We should fix this!
      */
-    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
+    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size, bool use_noc1);
 
-    virtual ChipInfo get_chip_info();
+    virtual ChipInfo get_chip_info(bool use_noc1 = false);
 
     semver_t get_firmware_version();
 

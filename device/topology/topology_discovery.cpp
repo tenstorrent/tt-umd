@@ -260,7 +260,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
-        cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
+        cluster_desc->asic_locations.insert(
+            {current_chip_id, chip->get_tt_device()->get_chip_info(options.use_noc1).asic_location});
 
         if (chip->get_tt_device()->get_pci_device()) {
             cluster_desc->chip_to_bus_id.insert(

@@ -335,7 +335,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
     const std::string &cluster_descriptor_file_content) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     YAML::Node yaml = YAML::Load(cluster_descriptor_file_content);
     desc->load_chips_from_connectivity_descriptor(yaml);

@@ -57,7 +57,7 @@ void TTDevice::init_tt_device(bool use_noc1, const std::chrono::milliseconds tim
             "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
     }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, use_noc1);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     post_init_hook();
 }

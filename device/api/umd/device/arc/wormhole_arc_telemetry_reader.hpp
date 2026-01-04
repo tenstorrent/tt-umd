@@ -12,7 +12,7 @@ namespace tt::umd {
 
 class WormholeArcTelemetryReader : public ArcTelemetryReader {
 public:
-    WormholeArcTelemetryReader(TTDevice* tt_device);
+    WormholeArcTelemetryReader(TTDevice* tt_device, bool use_noc1);
 
     tt_xy_pair get_arc_core(bool use_noc1) override;
 

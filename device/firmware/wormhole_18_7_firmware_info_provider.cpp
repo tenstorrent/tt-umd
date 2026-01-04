@@ -18,7 +18,7 @@ Wormhole_18_7_FirmwareInfoProvider::Wormhole_18_7_FirmwareInfoProvider(TTDevice*
 
 uint32_t Wormhole_18_7_FirmwareInfoProvider::get_max_clock_freq() const {
     const std::unique_ptr<SmBusArcTelemetryReader> sm_bus_telemetry =
-        std::make_unique<SmBusArcTelemetryReader>(tt_device);
+        std::make_unique<SmBusArcTelemetryReader>(tt_device, umd_use_noc1);
     uint32_t aiclk_telemetry = sm_bus_telemetry->read_entry(wormhole::AICLK, umd_use_noc1);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }

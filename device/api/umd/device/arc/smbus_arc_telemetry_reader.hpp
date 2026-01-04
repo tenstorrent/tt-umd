@@ -16,7 +16,7 @@ namespace tt::umd {
 
 class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:
-    SmBusArcTelemetryReader(TTDevice* tt_device);
+    SmBusArcTelemetryReader(TTDevice* tt_device, bool use_noc1);
 
     uint32_t read_entry(const uint8_t telemetry_tag, bool use_noc1) override;
 

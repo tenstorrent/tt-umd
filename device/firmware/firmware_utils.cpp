@@ -36,7 +36,7 @@ semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {
 semver_t get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
-            std::make_unique<SmBusArcTelemetryReader>(tt_device);
+            std::make_unique<SmBusArcTelemetryReader>(tt_device, umd_use_noc1);
 
         // Poll for a valid firmware version. If no valid version is found within 250ms,
         // log a warning and return the last read value.

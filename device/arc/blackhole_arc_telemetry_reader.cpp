@@ -9,13 +9,12 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/types/telemetry.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
-BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    get_telemetry_address(umd_use_noc1);
-    initialize_telemetry(umd_use_noc1);
+BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device, bool use_noc1) :
+    ArcTelemetryReader(tt_device) {
+    get_telemetry_address(use_noc1);
+    initialize_telemetry(use_noc1);
 }
 
 tt_xy_pair BlackholeArcTelemetryReader::get_arc_core(bool use_noc1) {

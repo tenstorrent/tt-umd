@@ -7,12 +7,10 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
-SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    get_telemetry_address(umd_use_noc1);
+SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device, bool use_noc1) : ArcTelemetryReader(tt_device) {
+    get_telemetry_address(use_noc1);
 }
 
 void SmBusArcTelemetryReader::get_telemetry_address(bool use_noc1) {

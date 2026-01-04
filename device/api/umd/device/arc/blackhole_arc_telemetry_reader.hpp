@@ -11,7 +11,7 @@ namespace tt::umd {
 
 class BlackholeArcTelemetryReader : public ArcTelemetryReader {
 public:
-    BlackholeArcTelemetryReader(TTDevice* tt_device);
+    BlackholeArcTelemetryReader(TTDevice* tt_device, bool use_noc1);
 
     tt_xy_pair get_arc_core(bool use_noc1) override;
 

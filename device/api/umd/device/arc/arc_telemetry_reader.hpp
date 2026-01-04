@@ -21,7 +21,7 @@ public:
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 
-    static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
+    static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device, bool use_noc1 = false);
 
 protected:
     ArcTelemetryReader(TTDevice* tt_device);

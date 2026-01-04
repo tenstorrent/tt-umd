@@ -299,7 +299,7 @@ public:
     void init_tt_device(
         bool use_noc1 = false, const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
-    uint64_t get_refclk_counter();
+    uint64_t get_refclk_counter(bool use_noc1);
 
     int get_communication_device_id() const;
 

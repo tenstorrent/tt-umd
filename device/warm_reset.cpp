@@ -237,7 +237,7 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     refclk_values_old.reserve(pci_device_ids.size());
 
     for (const auto& tt_device : tt_devices) {
-        refclk_values_old.emplace_back(tt_device->get_refclk_counter());
+        refclk_values_old.emplace_back(tt_device->get_refclk_counter(umd_use_noc1));
     }
 
     std::vector<uint32_t> arc_msg_return_values(1);
@@ -262,7 +262,7 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
-        refclk_current.emplace_back(tt_device->get_refclk_counter());
+        refclk_current.emplace_back(tt_device->get_refclk_counter(umd_use_noc1));
     }
 
     for (int i = 0; i < refclk_values_old.size(); i++) {

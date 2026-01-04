@@ -5,6 +5,7 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 
 #include "assert.hpp"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 
@@ -44,7 +45,10 @@ void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     read_from_device(
-        mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        mem_ptr,
+        get_arc_core(umd_use_noc1),
+        architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -52,7 +56,10 @@ void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_
         throw std::runtime_error("Address is out of ARC APB address range");
     }
     write_to_device(
-        mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        mem_ptr,
+        get_arc_core(umd_use_noc1),
+        architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -60,7 +67,10 @@ void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     read_from_device(
-        mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        mem_ptr,
+        get_arc_core(umd_use_noc1),
+        architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -68,7 +78,10 @@ void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_
         throw std::runtime_error("Address is out of ARC CSM address range");
     }
     write_to_device(
-        mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        mem_ptr,
+        get_arc_core(umd_use_noc1),
+        architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
+        size);
 }
 
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {

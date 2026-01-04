@@ -24,14 +24,10 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-}
+    TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {}
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-}
+    TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {}
 
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
@@ -169,6 +165,7 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         if ((arc_boot_status & 0x7) == 0x5) {
             return true;
         }
+        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
 
         utils::check_timeout(
             start,
@@ -222,6 +219,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         return;
     }
     if (!is_arc_available_over_axi()) {
+        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
         read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -244,11 +242,16 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     if (!is_arc_available_over_axi()) {
+        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
         write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
         blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+}
+
+tt_xy_pair BlackholeTTDevice::get_arc_core(bool use_noc1) {
+    return blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
 }
 
 void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {

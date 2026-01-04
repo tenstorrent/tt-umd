@@ -50,8 +50,7 @@ protected:
     std::map<uint32_t, uint32_t> telemetry_values;
     std::map<uint32_t, uint32_t> telemetry_offset;
 
-    // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
-    tt_xy_pair arc_core;
+    virtual tt_xy_pair get_arc_core(bool use_noc1) = 0;
 
     TTDevice* tt_device;
 

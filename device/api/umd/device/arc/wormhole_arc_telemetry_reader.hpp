@@ -16,6 +16,8 @@ class WormholeArcTelemetryReader : public ArcTelemetryReader {
 public:
     WormholeArcTelemetryReader(TTDevice* tt_device);
 
+    tt_xy_pair get_arc_core(bool use_noc1) override;
+
 protected:
     void get_telemetry_address() override;
 };

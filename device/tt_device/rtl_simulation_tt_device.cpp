@@ -68,6 +68,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     start_host_communication();
 }
 
+tt_xy_pair RtlSimulationTTDevice::get_arc_core(bool use_noc1) { TT_THROW("RTL simulation doesn't support ARC core"); }
+
 static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;

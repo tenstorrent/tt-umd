@@ -42,6 +42,8 @@ public:
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
 
+    tt_xy_pair get_arc_core(bool use_noc1) override;
+
 private:
     void start_host_communication();
 

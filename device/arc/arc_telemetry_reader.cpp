@@ -42,6 +42,7 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
 }
 
 void ArcTelemetryReader::initialize_telemetry() {
+    auto arc_core = get_arc_core(umd_use_noc1);
     tt_device->read_from_device(&entry_count, arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t));
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
@@ -80,6 +81,7 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
         return telemetry_values.at(telemetry_tag);
     }
 
+    auto arc_core = get_arc_core(umd_use_noc1);
     const uint32_t offset = telemetry_offset.at(telemetry_tag);
     uint32_t telemetry_val;
     tt_device->read_from_device(

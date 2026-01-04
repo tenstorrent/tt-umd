@@ -259,7 +259,7 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
-    tt_xy_pair get_arc_core() const;
+    virtual tt_xy_pair get_arc_core(bool use_noc1) = 0;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
@@ -328,8 +328,6 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
-
-    tt_xy_pair arc_core;
 
 private:
     virtual void pre_init_hook(){};

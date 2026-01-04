@@ -57,6 +57,7 @@ TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_imp
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
     if (!wait_arc_core_start(timeout_ms)) {
+        auto arc_core = get_arc_core(umd_use_noc1);
         throw std::runtime_error(fmt::format(
             "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
     }
@@ -283,8 +284,6 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
     write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
-
-tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     if (communication_device_type_ == IODeviceType::JTAG) {

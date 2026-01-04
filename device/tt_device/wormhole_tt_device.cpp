@@ -26,11 +26,13 @@ static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
-    arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                            : wormhole::ARC_CORES_NOC0[0];
+    TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {}
+
+tt_xy_pair WormholeTTDevice::get_arc_core(bool use_noc1) {
+    return use_noc1 ? tt_xy_pair(
+                          wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                          wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                    : wormhole::ARC_CORES_NOC0[0];
 }
 
 void WormholeTTDevice::post_init_hook() {
@@ -39,32 +41,24 @@ void WormholeTTDevice::post_init_hook() {
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
-    arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                            : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
-    arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                            : wormhole::ARC_CORES_NOC0[0];
     log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
-    // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
-    // We use DRAM core (0, 0) to read this information, but it can be read from any core.
-    // TODO: read this information from PCIE BAR.
-    const tt_xy_pair dram_core =
-        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0]) : tt_xy_pair(0, 0);
-    const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
-    read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
+    const uint64_t addr = wormhole::NIU_CFG_NOC0_BAR_ADDR;
 
-    return (niu_cfg & (1 << 14)) != 0;
+    if (get_communication_device_type() == IODeviceType::JTAG) {
+        // Target arc core.
+        niu_cfg = get_jtag_device()->read32_axi(0, wormhole::NIU_CFG_NOC0_ARC_ADDR).value();
+    } else {
+        niu_cfg = bar_read32(addr);
+    }
+    return ((niu_cfg >> 14) & 0x1) != 0;
 }
 
 ChipInfo WormholeTTDevice::get_chip_info() {

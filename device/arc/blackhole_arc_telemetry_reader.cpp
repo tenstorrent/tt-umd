@@ -14,9 +14,12 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
     get_telemetry_address();
     initialize_telemetry();
+}
+
+tt_xy_pair BlackholeArcTelemetryReader::get_arc_core(bool use_noc1) {
+    return blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
 }
 
 void BlackholeArcTelemetryReader::get_telemetry_address() {

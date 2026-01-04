@@ -281,6 +281,12 @@ inline constexpr uint64_t ARC_NOC_ADDRESS_START = 0x800000000;
 inline constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
 inline constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
 
+inline constexpr uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FF50100;
+inline constexpr uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FF58100;
+
+inline constexpr uint64_t NIU_CFG_NOC0_ARC_ADDR = 0x80050100;  // Over ARC AXI
+inline constexpr uint64_t NIU_CFG_NOC1_ARC_ADDR = 0x80058100;  // Over ARC AXI
+
 inline constexpr uint32_t AICLK_BUSY_VAL = 1000;
 inline constexpr uint32_t AICLK_IDLE_VAL = 500;
 

@@ -22,6 +22,8 @@ public:
 
     bool is_entry_available(const uint8_t telemetry_tag) override;
 
+    tt_xy_pair get_arc_core(bool use_noc1) override;
+
 protected:
     void get_telemetry_address() override;
 

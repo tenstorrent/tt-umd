@@ -49,6 +49,8 @@ public:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
+    tt_xy_pair get_arc_core(bool use_noc1) override;
+
 protected:
     /*
      * Create a device without an underlying communication device.

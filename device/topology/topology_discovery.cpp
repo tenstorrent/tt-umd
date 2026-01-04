@@ -104,7 +104,7 @@ void TopologyDiscovery::get_connected_chips() {
     }
     for (auto& device_id : device_ids) {
         std::unique_ptr<LocalChip> chip =
-            LocalChip::create(device_id, options.soc_descriptor_path, 0, options.io_device_type);
+            LocalChip::create(device_id, options.soc_descriptor_path, 0, options.io_device_type, options.use_noc1);
 
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
             CoreType::ETH, options.use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);

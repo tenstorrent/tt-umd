@@ -30,8 +30,8 @@ public:
 
     virtual ~Chip() = default;
 
-    virtual void start_device() = 0;
-    virtual void close_device() = 0;
+    virtual void start_device(bool use_noc1) = 0;
+    virtual void close_device(bool use_noc1) = 0;
 
     SocDescriptor& get_soc_descriptor();
 
@@ -50,20 +50,25 @@ public:
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) = 0;
 
-    virtual void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
-    virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) = 0;
-    virtual void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
-    virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
-    virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
-    virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void write_to_device(
+        CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1 = false) = 0;
+    virtual void read_from_device(
+        CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1 = false) = 0;
+    virtual void write_to_device_reg(
+        CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1 = false) = 0;
+    virtual void read_from_device_reg(
+        CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1 = false) = 0;
+    virtual void dma_write_to_device(
+        const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1 = false) = 0;
+    virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1 = false) = 0;
     virtual void noc_multicast_write(
-        void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1);
+        void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1 = false);
 
-    virtual void wait_for_non_mmio_flush() = 0;
+    virtual void wait_for_non_mmio_flush(bool use_noc1 = false) = 0;
 
-    virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
+    virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) = 0;
+    virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1 = false) = 0;
 
     // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(
@@ -102,7 +107,7 @@ public:
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start, bool use_noc1 = false);
 
     virtual void set_power_state(DevicePowerState state, bool use_noc1 = false);
-    virtual int get_clock() = 0;
+    virtual int get_clock(bool use_noc1 = false) = 0;
     virtual int get_numa_node() = 0;
 
     virtual int arc_msg(

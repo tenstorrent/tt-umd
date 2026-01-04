@@ -28,7 +28,11 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
     std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     return RemoteChip::create(
-        dynamic_cast<LocalChip*>(gateway_chip), {0, 0, 0, 0}, gateway_eth_channels, options.soc_descriptor_path);
+        dynamic_cast<LocalChip*>(gateway_chip),
+        {0, 0, 0, 0},
+        gateway_eth_channels,
+        options.soc_descriptor_path,
+        options.use_noc1);
 }
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) {
@@ -258,9 +262,9 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     uint8_t minor = 0;
     uint8_t patch = 0;
 
-    chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint8_t));
-    chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint8_t));
-    chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint8_t));
+    chip->read_from_device(eth_core, &major, eth_fw_major_addr, sizeof(uint8_t), options.use_noc1);
+    chip->read_from_device(eth_core, &minor, eth_fw_minor_addr, sizeof(uint8_t), options.use_noc1);
+    chip->read_from_device(eth_core, &patch, eth_fw_patch_addr, sizeof(uint8_t), options.use_noc1);
     semver_t eth_fw_version = semver_t(major, minor, patch);
 
     bool eth_fw_problem = false;

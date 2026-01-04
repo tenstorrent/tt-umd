@@ -68,9 +68,6 @@
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
-// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
-bool umd_use_noc1 = false;
-
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 // --------------------------------------------------------------------------------------------------------------
@@ -103,8 +100,6 @@ struct remote_update_ptr_t {
     uint32_t ptr;
     uint32_t pad[3];
 };
-
-void Cluster::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 const SocDescriptor& Cluster::get_soc_descriptor(ChipId chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
@@ -218,7 +213,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const std::filesystem::path& simulator_directory) {
+    const std::filesystem::path& simulator_directory,
+    bool use_noc1) {
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
@@ -238,7 +234,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             (cluster_desc->get_chips_with_mmio().at(chip_id)),
             soc_desc,
             num_host_mem_channels,
-            cluster_desc->io_device_type);
+            cluster_desc->io_device_type,
+            use_noc1);
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
@@ -253,7 +250,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             local_chip,
             cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
-            soc_desc);
+            soc_desc,
+            use_noc1);
     }
 }
 
@@ -458,44 +456,48 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
-void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
+void Cluster::assert_risc_reset(bool use_noc1) {
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET, use_noc1);
+}
 
-void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
+void Cluster::deassert_risc_reset(bool use_noc1) {
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET, use_noc1);
+}
 
 void Cluster::deassert_risc_reset_at_core(
-    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets, umd_use_noc1);
+    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {
+    get_chip(chip)->send_tensix_risc_reset(core, soft_resets, use_noc1);
 }
 
 void Cluster::assert_risc_reset_at_core(
-    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets, umd_use_noc1);
+    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {
+    get_chip(chip)->send_tensix_risc_reset(core, soft_resets, use_noc1);
 }
 
-RiscType Cluster::get_risc_reset_state(const ChipId chip, const CoreCoord core) {
-    return get_chip(chip)->get_risc_reset_state(core, umd_use_noc1);
+RiscType Cluster::get_risc_reset_state(const ChipId chip, const CoreCoord core, bool use_noc1) {
+    return get_chip(chip)->get_risc_reset_state(core, use_noc1);
 }
 
-void Cluster::assert_risc_reset(const ChipId chip, const CoreCoord core, const RiscType risc_type) {
-    get_chip(chip)->assert_risc_reset(core, risc_type, umd_use_noc1);
+void Cluster::assert_risc_reset(const ChipId chip, const CoreCoord core, const RiscType risc_type, bool use_noc1) {
+    get_chip(chip)->assert_risc_reset(core, risc_type, use_noc1);
 }
 
 void Cluster::deassert_risc_reset(
-    const ChipId chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
-    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start, umd_use_noc1);
+    const ChipId chip, const CoreCoord core, const RiscType risc_type, bool staggered_start, bool use_noc1) {
+    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start, use_noc1);
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core, umd_use_noc1);
+Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core, bool use_noc1) {
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core, use_noc1);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
-std::map<int, int> Cluster::get_clocks() {
+std::map<int, int> Cluster::get_clocks(bool use_noc1) {
     std::map<int, int> clock_freq_map;
     for (auto& chip_id : local_chip_ids_) {
-        clock_freq_map.insert({chip_id, chips_.at(chip_id)->get_clock()});
+        clock_freq_map.insert({chip_id, chips_.at(chip_id)->get_clock(use_noc1)});
     }
     return clock_freq_map;
 }
@@ -506,26 +508,27 @@ Cluster::~Cluster() {
     cluster_desc.reset();
 }
 
-tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core, umd_use_noc1);
+tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core, bool use_noc1) {
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core, use_noc1);
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering, bool use_noc1) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
         tlb_size,
         address,
-        ordering);
+        ordering,
+        use_noc1);
 }
 
 void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core, umd_use_noc1);
-    get_tlb_manager(logical_device_id)->configure_tlb(umd_use_noc1, translated_core, tlb_size, address, ordering);
+    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering, bool use_noc1) {
+    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core, use_noc1);
+    get_tlb_manager(logical_device_id)->configure_tlb(use_noc1, translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
@@ -562,11 +565,13 @@ RemoteChip* Cluster::get_remote_chip(ChipId device_id) const {
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
 }
 
-void Cluster::wait_for_non_mmio_flush(const ChipId chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
+void Cluster::wait_for_non_mmio_flush(const ChipId chip_id, bool use_noc1) {
+    get_chip(chip_id)->wait_for_non_mmio_flush(use_noc1);
+}
 
-void Cluster::wait_for_non_mmio_flush() {
+void Cluster::wait_for_non_mmio_flush(bool use_noc1) {
     for (auto& [chip_id, chip] : chips_) {
-        chip->wait_for_non_mmio_flush();
+        chip->wait_for_non_mmio_flush(use_noc1);
     }
 }
 
@@ -697,7 +702,8 @@ void Cluster::ethernet_broadcast_write(
     const std::set<ChipId>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
-    bool use_translated_coords) {
+    bool use_translated_coords,
+    bool use_noc1) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported.
         std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
@@ -719,7 +725,8 @@ void Cluster::ethernet_broadcast_write(
                 header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
-                get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
+                get_local_chip(mmio_group.first)
+                    ->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header, use_noc1);
             }
         }
     } else {
@@ -744,7 +751,8 @@ void Cluster::broadcast_write_to_cluster(
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude) {
+    std::set<uint32_t>& cols_to_exclude,
+    bool use_noc1) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
@@ -765,7 +773,8 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude_for_col_0_bcast,
                     cols_to_exclude_for_col_0_bcast,
-                    false);
+                    false,
+                    use_noc1);
             }
             if (cols_to_exclude.find(9) == cols_to_exclude.end()) {
                 std::set<uint32_t> cols_to_exclude_for_col_9_bcast = cols_to_exclude;
@@ -777,7 +786,8 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude,
                     cols_to_exclude_for_col_9_bcast,
-                    false);
+                    false,
+                    use_noc1);
             }
         } else {
             TT_ASSERT(
@@ -791,7 +801,8 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                use_translated_coords_for_eth_broadcast);
+                use_translated_coords_for_eth_broadcast,
+                use_noc1);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
@@ -814,7 +825,8 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude_for_col_0_bcast,
                     cols_to_exclude_for_col_0_bcast,
-                    false);
+                    false,
+                    use_noc1);
             }
             if (cols_to_exclude.find(5) == cols_to_exclude.end()) {
                 std::set<uint32_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude;
@@ -826,7 +838,8 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude,
                     cols_to_exclude_for_col_5_bcast,
-                    false);
+                    false,
+                    use_noc1);
             }
         } else {
             TT_ASSERT(
@@ -840,7 +853,8 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                use_translated_coords_for_eth_broadcast);
+                use_translated_coords_for_eth_broadcast,
+                use_noc1);
         }
     }
 }
@@ -854,46 +868,50 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
-    get_chip(chip)->l1_membar(cores);
+void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores, bool use_noc1) {
+    get_chip(chip)->l1_membar(cores, use_noc1);
 }
 
-void Cluster::dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
-    get_chip(chip)->dram_membar(cores);
+void Cluster::dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores, bool use_noc1) {
+    get_chip(chip)->dram_membar(cores, use_noc1);
 }
 
-void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels) {
-    get_chip(chip)->dram_membar(channels);
+void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, bool use_noc1) {
+    get_chip(chip)->dram_membar(channels, use_noc1);
 }
 
-void Cluster::write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
-    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
+void Cluster::write_to_device(
+    const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1) {
+    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes, use_noc1);
 }
 
 void Cluster::write_to_device_reg(
-    const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
-    get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
+    const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1) {
+    get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes, use_noc1);
 }
 
-void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
-    get_chip(chip)->dma_write_to_device(src, size, core, addr);
+void Cluster::dma_write_to_device(
+    const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1) {
+    get_chip(chip)->dma_write_to_device(src, size, core, addr, use_noc1);
 }
 
-void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
-    get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1) {
+    get_chip(chip)->dma_read_from_device(dst, size, core, addr, use_noc1);
 }
 
-void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
+void Cluster::read_from_device(
+    void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size, bool use_noc1) {
+    get_chip(chip)->read_from_device(core, mem_ptr, addr, size, use_noc1);
 }
 
-void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    get_chip(chip)->read_from_device_reg(core, mem_ptr, addr, size);
+void Cluster::read_from_device_reg(
+    void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size, bool use_noc1) {
+    get_chip(chip)->read_from_device_reg(core, mem_ptr, addr, size, use_noc1);
 }
 
 void Cluster::noc_multicast_write(
-    void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr, umd_use_noc1);
+    void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) {
+    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr, use_noc1);
 }
 
 int Cluster::arc_msg(
@@ -909,7 +927,7 @@ int Cluster::arc_msg(
         ->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4, use_noc1);
 }
 
-void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
+void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets, bool use_noc1) {
     if (chips_.empty()) {
         // Nowhere to broadcast to.
         return;
@@ -917,7 +935,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     // If ethernet broadcast is not supported, do it one by one.
     if (!use_ethernet_broadcast) {
         for (auto& chip_id : all_chip_ids_) {
-            get_chip(chip_id)->send_tensix_risc_reset(soft_resets, umd_use_noc1);
+            get_chip(chip_id)->send_tensix_risc_reset(soft_resets, use_noc1);
         }
         return;
     }
@@ -937,7 +955,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     broadcast_write_to_cluster(
         &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
     // Ensure that reset signal is globally visible.
-    wait_for_non_mmio_flush();
+    wait_for_non_mmio_flush(use_noc1);
 }
 
 void Cluster::set_power_state(DevicePowerState device_state, bool use_noc1) {
@@ -946,45 +964,45 @@ void Cluster::set_power_state(DevicePowerState device_state, bool use_noc1) {
     }
 }
 
-void Cluster::deassert_resets_and_set_power_state() {
+void Cluster::deassert_resets_and_set_power_state(bool use_noc1) {
     // Assert tensix resets on all chips in cluster.
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET, use_noc1);
 
     for (auto& [_, chip] : chips_) {
-        chip->deassert_risc_resets(umd_use_noc1);
+        chip->deassert_risc_resets(use_noc1);
     }
 
     // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
-            get_chip(chip)->enable_ethernet_queue(timeout::ETH_QUEUE_ENABLE_TIMEOUT, umd_use_noc1);
+            get_chip(chip)->enable_ethernet_queue(timeout::ETH_QUEUE_ENABLE_TIMEOUT, use_noc1);
         }
     }
 
     // Set power state to busy.
-    set_power_state(DevicePowerState::BUSY, umd_use_noc1);
+    set_power_state(DevicePowerState::BUSY, use_noc1);
 }
 
-void Cluster::start_device(const DeviceParams& device_params) {
+void Cluster::start_device(const DeviceParams& device_params, bool use_noc1) {
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
-            get_chip(chip_id)->start_device();
+            get_chip(chip_id)->start_device(use_noc1);
         }
 
-        deassert_resets_and_set_power_state();
+        deassert_resets_and_set_power_state(use_noc1);
     }
 }
 
-void Cluster::close_device() {
+void Cluster::close_device(bool use_noc1) {
     log_info(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
-        get_chip(remote_chip_id)->close_device();
+        get_chip(remote_chip_id)->close_device(use_noc1);
     }
 
     for (auto chip_id : local_chip_ids_) {
-        get_chip(chip_id)->close_device();
+        get_chip(chip_id)->close_device(use_noc1);
     }
 }
 

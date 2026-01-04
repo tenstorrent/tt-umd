@@ -12,9 +12,9 @@ MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 
-void MockChip::start_device() {}
+void MockChip::start_device(bool use_noc1) {}
 
-void MockChip::close_device() {}
+void MockChip::close_device(bool use_noc1) {}
 
 TTDevice* MockChip::get_tt_device() { return nullptr; }
 
@@ -30,17 +30,17 @@ void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysme
 
 void MockChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {}
 
-void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {}
+void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1) {}
 
-void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {}
+void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1) {}
 
-void MockChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {}
+void MockChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1) {}
 
-void MockChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {}
+void MockChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1) {}
 
-void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {}
+void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) {}
 
-void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
+void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) {}
 
 void MockChip::noc_multicast_write(
     void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) {}
@@ -58,13 +58,13 @@ int MockChip::arc_msg(
     return 0;
 }
 
-void MockChip::wait_for_non_mmio_flush() {}
+void MockChip::wait_for_non_mmio_flush(bool use_noc1) {}
 
-void MockChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
+void MockChip::l1_membar(const std::unordered_set<CoreCoord>& cores, bool use_noc1) {}
 
-void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
+void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores, bool use_noc1) {}
 
-void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1) {}
 
 void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {}
 
@@ -74,7 +74,7 @@ void MockChip::deassert_risc_resets(bool use_noc1) {}
 
 void MockChip::set_power_state(DevicePowerState state, bool use_noc1) {}
 
-int MockChip::get_clock() { return 0; }
+int MockChip::get_clock(bool use_noc1) { return 0; }
 
 int MockChip::get_numa_node() { return 0; }
 

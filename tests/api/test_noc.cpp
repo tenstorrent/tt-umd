@@ -72,7 +72,7 @@ TEST(TestNoc, TestNoc0NodeId) {
 }
 
 TEST(TestNoc, TestNoc1NodeId) {
-    Cluster::use_noc1(true);
+    bool use_noc1 = true;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -81,7 +81,8 @@ TEST(TestNoc, TestNoc1NodeId) {
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 1) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
-        cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        cluster->read_from_device_reg(
+            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), use_noc1);
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         return tt_xy_pair(x, y);
@@ -140,5 +141,4 @@ TEST(TestNoc, TestNoc1NodeId) {
             check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
         }
     }
-    Cluster::use_noc1(false);
 }

@@ -44,24 +44,29 @@ public:
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
 
-    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
-    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
-    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void write_to_device_reg(
+        CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1 = false) override;
+    void read_from_device_reg(
+        CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1 = false) override;
+    void dma_write_to_device(
+        const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1 = false) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1 = false) override;
     void noc_multicast_write(
-        void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) override;
+        void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1 = false)
+        override;
 
-    void wait_for_non_mmio_flush() override;
+    void wait_for_non_mmio_flush(bool use_noc1) override;
 
-    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) override;
+    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1 = false) override;
 
-    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) override;
-    void deassert_risc_resets(bool use_noc1) override;
+    void send_tensix_risc_reset(
+        CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1 = false) override;
+    void deassert_risc_resets(bool use_noc1 = false) override;
 
-    void set_power_state(DevicePowerState state, bool use_noc1) override;
-    int get_clock() override;
+    void set_power_state(DevicePowerState state, bool use_noc1 = false) override;
+    int get_clock(bool use_noc1) override;
     int get_numa_node() override;
 
     int arc_msg(
@@ -74,12 +79,14 @@ public:
         bool use_noc1 = false) override;
 
     // Pure virtual methods that derived classes must implement.
-    virtual void start_device() override = 0;
-    virtual void close_device() override = 0;
+    virtual void start_device(bool use_noc1 = false) override = 0;
+    virtual void close_device(bool use_noc1 = false) override = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    virtual void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
-    virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
+    virtual void write_to_device(
+        CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1 = false) override = 0;
+    virtual void read_from_device(
+        CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1 = false) override = 0;
 
     virtual void send_tensix_risc_reset(
         tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets, bool use_noc1 = false) = 0;

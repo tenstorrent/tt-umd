@@ -24,17 +24,19 @@ public:
         LocalChip* local_chip,
         EthCoord target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
-        std::string sdesc_path = "");
+        std::string sdesc_path = "",
+        bool use_noc1 = false);
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         EthCoord target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
-        SocDescriptor soc_descriptor);
+        SocDescriptor soc_descriptor,
+        bool use_noc1 = false);
 
     bool is_mmio_capable() const override;
 
-    void start_device() override;
-    void close_device() override;
+    void start_device(bool use_noc1) override;
+    void close_device(bool use_noc1) override;
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
@@ -47,27 +49,28 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
-    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
-    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
-    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1) override;
+    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1) override;
+    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1) override;
+    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) override;
 
-    void wait_for_non_mmio_flush() override;
+    void wait_for_non_mmio_flush(bool use_noc1) override;
 
-    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) override;
+    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1 = false) override;
 
     void deassert_risc_resets(bool use_noc1) override;
-    int get_clock() override;
+    int get_clock(bool use_noc1) override;
     int get_numa_node() override;
 
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(
+        SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, bool use_noc1);
 
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;

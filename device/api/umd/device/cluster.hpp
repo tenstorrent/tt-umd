@@ -106,9 +106,6 @@ struct ClusterOptions {
  */
 class Cluster {
 public:
-    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
-    static void use_noc1(bool use_noc1);
-
     /**
      * The constructor discovers the topology of the system, creates a cluster descriptor object, and initializes
      * Chips based on passed options and the discovered topology. This can include, but is not limited to:
@@ -191,13 +188,15 @@ public:
      * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
     void configure_tlb(
         ChipId logical_device_id,
         tt_xy_pair core,
         size_t tlb_size,
         uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
+        uint64_t ordering = tlb_data::Relaxed,
+        bool use_noc1 = false);
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
@@ -208,13 +207,15 @@ public:
      * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
     void configure_tlb(
         ChipId logical_device_id,
         CoreCoord core,
         size_t tlb_size,
         uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
+        uint64_t ordering = tlb_data::Relaxed,
+        bool use_noc1 = false);
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
@@ -241,16 +242,19 @@ public:
      * - Initialize ethernet queues for remote chips.
      *
      * @param device_params Object specifying initialization configuration.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void start_device(const DeviceParams& DeviceParams);
+    void start_device(const DeviceParams& DeviceParams, bool use_noc1 = false);
 
     /**
      * To be called at the end of a run.
      * Can include, but not limited to:
      * - Setting power state to idle
      * - Assert tensix reset at all cores.
+     *
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void close_device();
+    void close_device(bool use_noc1 = false);
 
     /**
      * Explicitly set the power state of the device.
@@ -263,8 +267,10 @@ public:
      * This function needs to be called after start_device.
      * It writes to TENSIX register SOFT_RESET, the address of
      * which is architecture dependant. Please consult the desired architecture specs to find the exact address
+     *
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void deassert_risc_reset();
+    void deassert_risc_reset(bool use_noc1 = false);
 
     /**
      * Send a BRISC soft deassert reset signal to a single tensix core.
@@ -273,18 +279,22 @@ public:
      * @param chip Chip to target.
      * @param core Core to target.
      * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
     void deassert_risc_reset_at_core(
         const ChipId chip,
         const CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
+        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET,
+        bool use_noc1 = false);
 
     /**
      * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
      * It writes to TENSIX register SOFT_RESET, the address of
      * which is architecture dependant. Please consult the desired architecture specs to find the exact address
+     *
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void assert_risc_reset();
+    void assert_risc_reset(bool use_noc1 = false);
 
     /**
      * Send a BRISC soft assert reset signal to a single tensix core.
@@ -294,9 +304,13 @@ public:
      * @param core Chip to target.
      * @param core Core to target.
      * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
     void assert_risc_reset_at_core(
-        const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
+        const ChipId chip,
+        const CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET,
+        bool use_noc1 = false);
 
     //---------- New API for starting/stopping the device, with variants for Tensix and Neo.
 
@@ -305,8 +319,9 @@ public:
      *
      * @param chip Chip to target.
      * @param core Core to target.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    RiscType get_risc_reset_state(const ChipId chip, const CoreCoord core);
+    RiscType get_risc_reset_state(const ChipId chip, const CoreCoord core, bool use_noc1 = false);
 
     /**
      * Assert the soft reset signal at designated RISC cores on a single tensix core.
@@ -317,8 +332,9 @@ public:
      * @param chip Chip to target.
      * @param core Core to target.
      * @param risc_type Specifies which RISCV cores on Tensix to assert.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void assert_risc_reset(const ChipId chip, const CoreCoord core, const RiscType risc_type);
+    void assert_risc_reset(const ChipId chip, const CoreCoord core, const RiscType risc_type, bool use_noc1 = false);
 
     /**
      * Deassert the soft reset signal at designated RISC cores on a single tensix core.
@@ -330,9 +346,14 @@ public:
      * @param core Core to target.
      * @param risc_type Specifies which RISCV cores on Tensix to deassert.
      * @param staggered_start Specifies whether the stagger signal should be active.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
     void deassert_risc_reset(
-        const ChipId chip, const CoreCoord core, const RiscType risc_type, bool staggered_start = true);
+        const ChipId chip,
+        const CoreCoord core,
+        const RiscType risc_type,
+        bool staggered_start = true,
+        bool use_noc1 = false);
 
     //---------- IO functions for Tensix cores, including DRAM.
 
@@ -346,8 +367,10 @@ public:
      * @param chip Chip to target.
      * @param core Core to target.
      * @param addr Address to write to.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device(
+        const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1 = false);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -359,8 +382,10 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      * @param size Number of bytes to read.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(
+        void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size, bool use_noc1 = false);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -374,8 +399,10 @@ public:
      * @param chip Chip to target.
      * @param core Core to target.
      * @param addr Address to write to.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void write_to_device_reg(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device_reg(
+        const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1 = false);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -389,8 +416,10 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      * @param size Number of bytes to read.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device_reg(
+        void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size, bool use_noc1 = false);
 
     /**
      * Use PCIe DMA to write device memory (L1 or DRAM).
@@ -400,8 +429,10 @@ public:
      * @param chip Chip to target; must be local, i.e. attached via PCIe.
      * @param core Core to target.
      * @param addr Address to write to.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
+    void dma_write_to_device(
+        const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1 = false);
 
     /**
      * Use PCIe DMA to read device memory (L1 or DRAM).
@@ -411,11 +442,19 @@ public:
      * @param chip Chip to target; must be local, i.e. attached via PCIe.
      * @param core Core to target.
      * @param addr Address to read from.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
+    void dma_read_from_device(
+        void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr, bool use_noc1 = false);
 
     void noc_multicast_write(
-        void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        void* dst,
+        size_t size,
+        ChipId chip,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        bool use_noc1 = false);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -430,6 +469,7 @@ public:
      * @param chips_to_exclude Chips to exclude from the broadcast.
      * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
      * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -437,7 +477,8 @@ public:
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude);
+        std::set<uint32_t>& columns_to_exclude,
+        bool use_noc1 = false);
 
     /**
      * Provide fast write access to a statically-mapped TLB.
@@ -448,8 +489,9 @@ public:
      * - use of the returned object is congruent with the target's TLB setup.
      *
      * @param target The target chip and core to write to.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target, bool use_noc1 = false);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -460,8 +502,9 @@ public:
      *
      * @param chip Chip to target.
      * @param cores Cores being targeted.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {});
+    void l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false);
 
     /**
      * DRAM memory barrier.
@@ -470,8 +513,9 @@ public:
      *
      * @param chip Chip to target.
      * @param channels Channels being targeted.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, bool use_noc1 = false);
 
     /**
      * DRAM memory barrier.
@@ -480,8 +524,9 @@ public:
      *
      * @param chip Chip being targeted.
      * @param cores Cores being targeted.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {});
+    void dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false);
 
     // Runtime functions.
     /**
@@ -490,8 +535,10 @@ public:
      * with the next one. This will be applied to all chips in the cluster.
      *
      * This function is only used in context of remote (ethernet connected) chips in the cluster.
+     *
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void wait_for_non_mmio_flush();
+    void wait_for_non_mmio_flush(bool use_noc1 = false);
 
     /**
      * Non-MMIO (ethernet) barrier.
@@ -499,8 +546,9 @@ public:
      * This function is only used in context of remote (ethernet connected) chips in the cluster.
      *
      * @param chip_id Chip to target.
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    void wait_for_non_mmio_flush(const ChipId chip_id);
+    void wait_for_non_mmio_flush(const ChipId chip_id, bool use_noc1 = false);
 
     //---------- IO functions for host memory. Write and read functions, and getting host memory info.
 
@@ -589,8 +637,10 @@ public:
 
     /**
      * Get clock frequencies for all MMIO devices targeted by UMD.
+     *
+     * @param use_noc1 Whether to use NoC1 for the operation.
      */
-    std::map<int, int> get_clocks();
+    std::map<int, int> get_clocks(bool use_noc1 = false);
 
     /**
      * Get which NUMA node this device is associated with, or -1 if non-NUMA
@@ -656,13 +706,13 @@ public:
     /**
      * Exposes how TLBs are configured for a specific device.
      */
-    tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core);
+    tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core, bool use_noc1 = false);
 
 private:
     // Helper functions
     // Broadcast.
-    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
-    void deassert_resets_and_set_power_state();
+    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets, bool use_noc1);
+    void deassert_resets_and_set_power_state(bool use_noc1);
 
     // Communication Functions.
     void ethernet_broadcast_write(
@@ -672,7 +722,8 @@ private:
         const std::set<ChipId>& chips_to_exclude,
         const std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& cols_to_exclude,
-        bool use_translated_coords);
+        bool use_translated_coords,
+        bool use_noc1);
 
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
@@ -688,7 +739,8 @@ private:
         ClusterDescriptor* cluster_desc,
         SocDescriptor& soc_desc,
         int num_host_mem_channels,
-        const std::filesystem::path& simulator_directory);
+        const std::filesystem::path& simulator_directory,
+        bool use_noc1 = false);
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path,
         ChipId chip_id,

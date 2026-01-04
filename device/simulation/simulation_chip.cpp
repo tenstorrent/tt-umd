@@ -44,20 +44,21 @@ void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftRese
         tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets, use_noc1);
 }
 
-void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+void SimulationChip::write_to_device_reg(
+    CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1) {
+    write_to_device(core, src, reg_dest, size, use_noc1);
 }
 
-void SimulationChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+void SimulationChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1) {
+    read_from_device(core, dest, reg_src, size, use_noc1);
 }
 
-void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    write_to_device(core, src, addr, size);
+void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) {
+    write_to_device(core, src, addr, size, use_noc1);
 }
 
-void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    read_from_device(core, dst, addr, size);
+void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) {
+    read_from_device(core, dst, addr, size, use_noc1);
 }
 
 void SimulationChip::noc_multicast_write(
@@ -78,24 +79,24 @@ void SimulationChip::noc_multicast_write(
             if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
                 continue;
             }
-            write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size);
+            write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size, use_noc1);
         }
     }
 }
 
-void SimulationChip::wait_for_non_mmio_flush() {}
+void SimulationChip::wait_for_non_mmio_flush(bool use_noc1) {}
 
-void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores, bool use_noc1) {}
 
-void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1) {}
 
-void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores, bool use_noc1) {}
 
 void SimulationChip::deassert_risc_resets(bool use_noc1) {}
 
 void SimulationChip::set_power_state(DevicePowerState state, bool use_noc1) {}
 
-int SimulationChip::get_clock() { return 0; }
+int SimulationChip::get_clock(bool use_noc1) { return 0; }
 
 int SimulationChip::arc_msg(
     uint32_t msg_code,

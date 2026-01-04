@@ -250,7 +250,8 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
         dynamic_cast<LocalChip*>(gateway_chip),
         remote_chip_eth_coord,
         gateway_eth_channels,
-        options.soc_descriptor_path);
+        options.soc_descriptor_path,
+        options.use_noc1);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
@@ -330,7 +331,8 @@ bool TopologyDiscoveryWormhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
     uint32_t eth_fw_version_read;
-    chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+    chip->read_from_device(
+        eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t), options.use_noc1);
 
     semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
 

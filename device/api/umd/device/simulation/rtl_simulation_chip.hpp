@@ -18,11 +18,11 @@ public:
     RtlSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
     ~RtlSimulationChip() override = default;
 
-    void start_device() override;
-    void close_device() override;
+    void start_device(bool use_noc1) override;
+    void close_device(bool use_noc1) override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1) override;
 
     void send_tensix_risc_reset(
         tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets, bool use_noc1) override;

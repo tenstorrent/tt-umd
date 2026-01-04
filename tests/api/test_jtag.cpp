@@ -188,10 +188,9 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
 
         device.tt_device_->write_to_device(
             data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));
-        Cluster::use_noc1(true);
+        bool use_noc1 = true;
         device.tt_device_->read_from_device(
-            data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t));
-        Cluster::use_noc1(false);
+            data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t), use_noc1);
         ASSERT_EQ(data_write, data_read);
         std::fill(data_read.begin(), data_read.end(), 0);
     }

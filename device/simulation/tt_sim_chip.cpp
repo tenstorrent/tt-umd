@@ -54,7 +54,7 @@ TTSimChip::~TTSimChip() {
     close_simulator_binary();
 }
 
-void TTSimChip::start_device() {
+void TTSimChip::start_device(bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     pfn_libttsim_init();
 
@@ -66,20 +66,20 @@ void TTSimChip::start_device() {
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 }
 
-void TTSimChip::close_device() {
+void TTSimChip::close_device(bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     pfn_libttsim_exit();
 }
 
-void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     pfn_libttsim_tile_wr_bytes(translate_core.x, translate_core.y, l1_dest, src, size);
 }
 
-void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     pfn_libttsim_tile_rd_bytes(translate_core.x, translate_core.y, l1_src, dest, size);

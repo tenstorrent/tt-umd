@@ -13,8 +13,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
@@ -23,7 +21,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
-    std::string sdesc_path) {
+    std::string sdesc_path,
+    bool use_noc1) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -33,22 +32,24 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device(umd_use_noc1);
+    remote_tt_device->init_tt_device(use_noc1);
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
-        soc_descriptor = SocDescriptor(remote_tt_device->get_arch(), remote_tt_device->get_chip_info(umd_use_noc1));
+        soc_descriptor = SocDescriptor(remote_tt_device->get_arch(), remote_tt_device->get_chip_info(use_noc1));
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info(umd_use_noc1));
+        soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info(use_noc1));
     }
-    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device), use_noc1));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
-    SocDescriptor soc_descriptor) {
+    SocDescriptor soc_descriptor,
+    bool use_noc1) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -58,14 +59,15 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device(umd_use_noc1);
+    remote_tt_device->init_tt_device(use_noc1);
 
-    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device), use_noc1));
 }
 
 RemoteChip::RemoteChip(
-    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(umd_use_noc1), soc_descriptor), local_chip_(local_chip) {
+    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, bool use_noc1) :
+    Chip(remote_tt_device->get_chip_info(use_noc1), soc_descriptor), local_chip_(local_chip) {
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
     // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
@@ -82,61 +84,65 @@ RemoteChip::RemoteChip(
         remote_communication_ = nullptr;
     }
     tt_device_ = std::move(remote_tt_device);
-    wait_chip_to_be_ready(umd_use_noc1);
+    wait_chip_to_be_ready(use_noc1);
 }
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
-void RemoteChip::start_device() {}
+void RemoteChip::start_device(bool use_noc1) {}
 
-void RemoteChip::close_device() {
+void RemoteChip::close_device(bool use_noc1) {
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
-    if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
-        if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-            set_power_state(DevicePowerState::LONG_IDLE, umd_use_noc1);
-            assert_risc_reset(RiscType::ALL, umd_use_noc1);
+    if ((uint32_t)local_chip_->get_clock(use_noc1) != local_chip_->get_tt_device()->get_min_clock_freq()) {
+        if ((uint32_t)get_clock(use_noc1) != get_tt_device()->get_min_clock_freq()) {
+            set_power_state(DevicePowerState::LONG_IDLE, use_noc1);
+            assert_risc_reset(RiscType::ALL, use_noc1);
         }
     }
 }
 
-void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    tt_device_->write_to_device(
-        src, translate_chip_coord_to_translated(core, umd_use_noc1), l1_dest, size, umd_use_noc1);
+void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1) {
+    tt_device_->write_to_device(src, translate_chip_coord_to_translated(core, use_noc1), l1_dest, size, use_noc1);
 }
 
-void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    tt_device_->read_from_device(
-        dest, translate_chip_coord_to_translated(core, umd_use_noc1), l1_src, size, umd_use_noc1);
+void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1) {
+    tt_device_->read_from_device(dest, translate_chip_coord_to_translated(core, use_noc1), l1_src, size, use_noc1);
 }
 
-void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1) {
+    write_to_device(core, src, reg_dest, size, use_noc1);
 }
 
-void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1) {
+    read_from_device(core, dest, reg_src, size, use_noc1);
 }
 
-void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) {
     throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
 }
 
-void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) {
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
-void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(umd_use_noc1); }
+void RemoteChip::wait_for_non_mmio_flush(bool use_noc1) { remote_communication_->wait_for_non_mmio_flush(use_noc1); }
 
-void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores, bool use_noc1) {
+    wait_for_non_mmio_flush(use_noc1);
+}
 
-void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores, bool use_noc1) {
+    wait_for_non_mmio_flush(use_noc1);
+}
 
-void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1) {
+    wait_for_non_mmio_flush(use_noc1);
+}
 
 void RemoteChip::deassert_risc_resets(bool use_noc1) { local_chip_->deassert_risc_resets(use_noc1); }
 
-int RemoteChip::get_clock() { return tt_device_->get_clock(umd_use_noc1); }
+int RemoteChip::get_clock(bool use_noc1) { return tt_device_->get_clock(use_noc1); }
 
 int RemoteChip::get_num_host_channels() { return 0; }
 

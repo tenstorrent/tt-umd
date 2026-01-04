@@ -22,19 +22,21 @@ public:
         int physical_device_id,
         std::string sdesc_path = "",
         int num_host_mem_channels = 0,
-        IODeviceType device_type = IODeviceType::PCIe);
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_noc1 = false);
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
         SocDescriptor soc_descriptor,
         int num_host_mem_channels = 0,
-        IODeviceType device_type = IODeviceType::PCIe);
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_noc1 = false);
 
     ~LocalChip();
 
     bool is_mmio_capable() const override;
 
-    void start_device() override;
-    void close_device() override;
+    void start_device(bool use_noc1) override;
+    void close_device(bool use_noc1) override;
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
@@ -48,27 +50,27 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
-    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size, bool use_noc1) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size, bool use_noc1) override;
+    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size, bool use_noc1) override;
+    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size, bool use_noc1) override;
     void noc_multicast_write(
         void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) override;
 
-    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
-    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr, bool use_noc1) override;
 
     void ethernet_broadcast_write(
-        const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
+        const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header, bool use_noc1);
 
-    void wait_for_non_mmio_flush() override;
+    void wait_for_non_mmio_flush(bool use_noc1) override;
 
-    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) override;
+    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}, bool use_noc1 = false) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, bool use_noc1 = false) override;
 
     void deassert_risc_resets(bool use_noc1) override;
-    int get_clock() override;
+    int get_clock(bool use_noc1) override;
     int get_numa_node() override;
 
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
@@ -81,7 +83,8 @@ private:
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
         std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+        int num_host_mem_channels,
+        bool use_noc1);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
@@ -95,15 +98,15 @@ private:
 
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
-    void initialize_membars();
+    void initialize_membars(bool use_noc1);
 
-    void check_pcie_device_initialized();
-    int test_setup_interface();
-    void init_pcie_iatus();
+    void check_pcie_device_initialized(bool use_noc1);
+    int test_setup_interface(bool use_noc1);
+    void init_pcie_iatus(bool use_noc1);
 
     void set_membar_flag(
-        const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
-    void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
+        const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, bool use_noc1);
+    void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr, bool use_noc1);
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 

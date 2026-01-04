@@ -14,8 +14,6 @@
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
@@ -94,6 +92,7 @@ RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
  */
 
 void RemoteCommunicationLegacyFirmware::read_non_mmio(
+    bool use_noc1,
     tt_xy_pair target_core,
     void* dest,
     uint64_t core_src,
@@ -129,20 +128,20 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         remote_transfer_ethernet_core,
         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
         eth_interface_params.remote_update_ptr_size_bytes * 2,
-        umd_use_noc1);
+        use_noc1);
     local_tt_device_->read_from_device(
         erisc_resp_q_wptr.data(),
         remote_transfer_ethernet_core,
         eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
         DATA_WORD_SIZE,
-        umd_use_noc1);
+        use_noc1);
     local_tt_device_->read_from_device(
         erisc_resp_q_rptr.data(),
         remote_transfer_ethernet_core,
         eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
             eth_interface_params.remote_update_ptr_size_bytes,
         DATA_WORD_SIZE,
-        umd_use_noc1);
+        use_noc1);
     bool full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
@@ -171,7 +170,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
                     eth_interface_params.remote_update_ptr_size_bytes,
                 DATA_WORD_SIZE,
-                umd_use_noc1);
+                use_noc1);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
         }
 
@@ -208,7 +207,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
+        new_cmd->flags |= (use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
@@ -217,7 +216,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             remote_transfer_ethernet_core,
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
             erisc_command.size() * DATA_WORD_SIZE,
-            umd_use_noc1);
+            use_noc1);
         ;
         tt_driver_atomics::sfence();
 
@@ -230,7 +229,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             remote_transfer_ethernet_core,
             eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
             erisc_q_wptr.size() * DATA_WORD_SIZE,
-            umd_use_noc1);
+            use_noc1);
         tt_driver_atomics::sfence();
         // If there is more data to read and this command will make the q full, set full to 1.
         // otherwise full stays false so that we do not poll the rd pointer in next iteration.
@@ -243,7 +242,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 remote_transfer_ethernet_core,
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 eth_interface_params.remote_update_ptr_size_bytes * 2,
-                umd_use_noc1);
+                use_noc1);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
@@ -263,7 +262,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 remote_transfer_ethernet_core,
                 eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 DATA_WORD_SIZE,
-                umd_use_noc1);
+                use_noc1);
 
             utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
@@ -276,7 +275,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 remote_transfer_ethernet_core,
                 eth_interface_params.response_routing_cmd_queue_base + flags_offset,
                 DATA_WORD_SIZE,
-                umd_use_noc1);
+                use_noc1);
 
             utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_flags[0] == 0);
@@ -291,7 +290,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                     remote_transfer_ethernet_core,
                     eth_interface_params.response_routing_cmd_queue_base + data_offset,
                     DATA_WORD_SIZE,
-                    umd_use_noc1);
+                    use_noc1);
                 if (size_in_bytes - offset < 4) {
                     // Handle misaligned (4 bytes) data at the end of the block.
                     // Only read remaining bytes into the host buffer, instead of reading the full uint32_t.
@@ -310,7 +309,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                         eth_interface_params.eth_routing_data_buffer_addr + resp_rd_ptr * max_block_size;
                     size_buffer_to_capacity(data_block, block_size);
                     local_tt_device_->read_from_device(
-                        data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, umd_use_noc1);
+                        data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, use_noc1);
                 }
                 // assert(dest.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
                 TT_ASSERT(
@@ -332,7 +331,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             eth_interface_params.response_cmd_queue_base + sizeof(remote_update_ptr_t) +
                 eth_interface_params.cmd_counters_size_bytes,
             erisc_resp_q_rptr.size() * DATA_WORD_SIZE,
-            umd_use_noc1);
+            use_noc1);
         tt_driver_atomics::sfence();
         TT_ASSERT(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
 
@@ -347,6 +346,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
  */
 
 void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
+    bool use_noc1,
     tt_xy_pair target_core,
     const void* src,
     uint64_t core_dest,
@@ -399,7 +399,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         remote_transfer_ethernet_core,
         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
         eth_interface_params.remote_update_ptr_size_bytes * 2,
-        umd_use_noc1);
+        use_noc1);
     uint32_t offset = 0;
     uint32_t block_size;
 
@@ -417,7 +417,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
                     eth_interface_params.remote_update_ptr_size_bytes,
                 DATA_WORD_SIZE,
-                umd_use_noc1);
+                use_noc1);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
 
             utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
@@ -493,7 +493,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                     remote_transfer_ethernet_core,
                     buf_address,
                     data_block.size() * DATA_WORD_SIZE,
-                    umd_use_noc1);
+                    use_noc1);
             }
             tt_driver_atomics::sfence();
         }
@@ -526,7 +526,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         }
 
         new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
+        new_cmd->flags |= (use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
@@ -535,7 +535,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             remote_transfer_ethernet_core,
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
             erisc_command.size() * DATA_WORD_SIZE,
-            umd_use_noc1);
+            use_noc1);
         tt_driver_atomics::sfence();
 
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
@@ -547,7 +547,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             remote_transfer_ethernet_core,
             eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
             erisc_q_wptr.size() * DATA_WORD_SIZE,
-            umd_use_noc1);
+            use_noc1);
         tt_driver_atomics::sfence();
 
         offset += transfer_size;
@@ -566,7 +566,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 remote_transfer_ethernet_core,
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 eth_interface_params.remote_update_ptr_size_bytes * 2,
-                umd_use_noc1);
+                use_noc1);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
@@ -575,7 +575,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     }
 }
 
-void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {
+void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(
+    bool use_noc1, const std::chrono::milliseconds timeout_ms) {
     if (flush_non_mmio_) {
         TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
@@ -596,7 +597,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                         core,
                         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                         eth_interface_params.remote_update_ptr_size_bytes * 2,
-                        umd_use_noc1);
+                        use_noc1);
 
                     utils::check_timeout(
                         start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
@@ -606,7 +607,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
             for (tt_xy_pair& core : remote_transfer_eth_cores_) {
                 do {
                     local_tt_device_->read_from_device(
-                        erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8, umd_use_noc1);
+                        erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8, use_noc1);
 
                     utils::check_timeout(
                         start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");

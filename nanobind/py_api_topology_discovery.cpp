@@ -62,7 +62,8 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("io_device_type", &TopologyDiscoveryOptions::io_device_type)
         .def_rw("no_remote_discovery", &TopologyDiscoveryOptions::no_remote_discovery)
         .def_rw("no_wait_for_eth_training", &TopologyDiscoveryOptions::no_wait_for_eth_training)
-        .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness);
+        .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness)
+        .def_rw("use_noc1", &TopologyDiscoveryOptions::use_noc1);
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
@@ -86,7 +87,8 @@ void bind_topology_discovery(nb::module_& m) {
                     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
                         auto chip_to_mmio_map = cluster_desc->get_chips_with_mmio();
                         int pci_device_num = chip_to_mmio_map.at(chip_id);
-                        tt_devices[chip_id] = TTDevice::create(pci_device_num);
+                        tt_devices[chip_id] =
+                            TTDevice::create(pci_device_num, options.io_device_type, options.use_noc1);
                         tt_devices[chip_id]->init_tt_device(options.use_noc1);
                     } else {
                         // Skip creating remote devices if no_remote_discovery is true.

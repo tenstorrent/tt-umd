@@ -11,15 +11,15 @@
 
 namespace tt::umd {
 
-std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_device) {
+std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_device, bool use_noc1) {
     tt::ARCH arch = tt_device->get_arch();
 
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeArcMessenger>(tt_device);
+            return std::make_unique<WormholeArcMessenger>(tt_device, use_noc1);
             break;
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<BlackholeArcMessenger>(tt_device);
+            return std::make_unique<BlackholeArcMessenger>(tt_device, use_noc1);
             break;
         default:
             throw std::runtime_error("Unsupported architecture for creating ArcMessenger.");
@@ -38,9 +38,12 @@ ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
 }
 
 uint32_t ArcMessenger::send_message(
-    const uint32_t msg_code, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
+    const uint32_t msg_code,
+    const std::vector<uint32_t>& args,
+    const std::chrono::milliseconds timeout_ms,
+    bool use_noc1) {
     std::vector<uint32_t> return_values;
-    return send_message(msg_code, return_values, args, timeout_ms);
+    return send_message(msg_code, return_values, args, timeout_ms, use_noc1);
 }
 
 ArcMessenger::~ArcMessenger() {

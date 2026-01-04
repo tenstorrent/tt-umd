@@ -293,7 +293,7 @@ public:
 
     double get_asic_temperature();
 
-    virtual void wait_for_non_mmio_flush();
+    virtual void wait_for_non_mmio_flush(bool use_noc1 = false);
 
     bool is_remote();
 

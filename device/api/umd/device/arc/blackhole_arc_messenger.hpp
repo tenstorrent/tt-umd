@@ -16,8 +16,9 @@ public:
      * Constructor for BlackholeArcMessenger.
      *
      * @param tt_device TTDevice object used to communicate with the ARC of the device.
+     * @param use_noc1 Whether to use NOC1 for communication during construction.
      */
-    BlackholeArcMessenger(TTDevice* tt_device);
+    BlackholeArcMessenger(TTDevice* tt_device, bool use_noc1);
 
     /**
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -31,7 +32,8 @@ public:
         const uint32_t msg_code,
         std::vector<uint32_t>& return_values,
         const std::vector<uint32_t>& args = {},
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT) override;
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
+        bool use_noc1 = false) override;
 
 private:
     std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue = nullptr;

@@ -213,8 +213,8 @@ int Chip::arc_msg(
         arc_msg_return_values.push_back(0);
     }
 
-    uint32_t exit_code =
-        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, args, timeout_ms);
+    uint32_t exit_code = get_tt_device()->get_arc_messenger()->send_message(
+        msg_code, arc_msg_return_values, args, timeout_ms, umd_use_noc1);
 
     if (return_3 != nullptr) {
         *return_3 = arc_msg_return_values[0];
@@ -234,11 +234,14 @@ void Chip::set_power_state(DevicePowerState state) {
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {0, 0});
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == DevicePowerState::BUSY) {
-            exit_code =
-                get_tt_device()->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            exit_code = get_tt_device()->get_arc_messenger()->send_message(
+                (uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY, {}, timeout::ARC_MESSAGE_TIMEOUT, umd_use_noc1);
         } else {
             exit_code = get_tt_device()->get_arc_messenger()->send_message(
-                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE,
+                {},
+                timeout::ARC_MESSAGE_TIMEOUT,
+                umd_use_noc1);
         }
     }
     TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);

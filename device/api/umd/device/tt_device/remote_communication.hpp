@@ -26,6 +26,7 @@ public:
     // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should
     // probably be redesigned in some way.
     virtual void read_non_mmio(
+        bool use_noc1,
         tt_xy_pair target_core,
         void* dest,
         uint64_t core_src,
@@ -33,6 +34,7 @@ public:
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
     virtual void write_to_non_mmio(
+        bool use_noc1,
         tt_xy_pair target_core,
         const void* src,
         uint64_t core_dest,
@@ -41,7 +43,8 @@ public:
         std::vector<int> broadcast_header = {},
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
-    virtual void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
+    virtual void wait_for_non_mmio_flush(
+        bool use_noc1, const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
     // Set the ethernet cores which can be used for remote communication on the assigned local chip.
     // The cores should be in translated coordinates.

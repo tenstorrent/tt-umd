@@ -224,7 +224,8 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t msg_code,
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000,
+               bool use_noc1 = false) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -236,13 +237,14 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms), use_noc1);
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
             nb::arg("args") = std::vector<uint32_t>{},
             nb::arg("timeout_ms") = 1000,
+            nb::arg("use_noc1") = false,
             "Send ARC message and return (exit_code, return_3, return_4). "
             "Args is a list of uint32_t arguments. For Wormhole, max 2 args (each <= 0xFFFF). For Blackhole, max 7 "
             "args. Timeout is in milliseconds.")
@@ -253,7 +255,8 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done,
                uint32_t arg0,
                uint32_t arg1,
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000,
+               bool use_noc1 = false) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -266,7 +269,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> args = {arg0, arg1};
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms), use_noc1);
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -274,6 +277,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("arg0"),
             nb::arg("arg1"),
             nb::arg("timeout_ms") = 1000,
+            nb::arg("use_noc1") = false,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
             "milliseconds.")
         .def(
@@ -283,7 +287,8 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done,
                uint32_t arg0,
                uint32_t arg1,
-               uint32_t timeout = 1) -> std::tuple<int, int, int> {
+               uint32_t timeout = 1,
+               bool use_noc1 = false) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -296,7 +301,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> args = {arg0, arg1};
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000), use_noc1);
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -304,6 +309,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("arg0"),
             nb::arg("arg1"),
             nb::arg("timeout") = 1,
+            nb::arg("use_noc1") = false,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");

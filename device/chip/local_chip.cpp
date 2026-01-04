@@ -506,7 +506,7 @@ void LocalChip::ethernet_broadcast_write(
     }
 
     // target_chip and target_core are ignored when broadcast is enabled.
-    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, broadcast_header);
+    remote_communication_->write_to_non_mmio(umd_use_noc1, {0, 0}, src, core_dest, size, true, broadcast_header);
 }
 
 void LocalChip::wait_for_non_mmio_flush() {

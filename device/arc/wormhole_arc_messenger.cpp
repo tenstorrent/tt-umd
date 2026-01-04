@@ -12,17 +12,16 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
-WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
+WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device, bool use_noc1) : ArcMessenger(tt_device) {}
 
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code,
     std::vector<uint32_t>& return_values,
     const std::vector<uint32_t>& args,
-    const std::chrono::milliseconds timeout_ms) {
+    const std::chrono::milliseconds timeout_ms,
+    bool use_noc1) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error(LogUMD, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
@@ -53,10 +52,10 @@ uint32_t WormholeArcMessenger::send_message(
         arg1 = static_cast<uint16_t>(args[1]);
     }
 
-    const tt_xy_pair arc_core = umd_use_noc1 ? tt_xy_pair(
-                                                   wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                                   wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                                             : wormhole::ARC_CORES_NOC0[0];
+    const tt_xy_pair arc_core = use_noc1 ? tt_xy_pair(
+                                               wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                               wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                         : wormhole::ARC_CORES_NOC0[0];
 
     // TODO: Once local and remote ttdevice is properly separated, reenable this code.
     // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
@@ -77,20 +76,20 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), umd_use_noc1);
-    tt_device->write_to_arc_apb(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), umd_use_noc1);
+    tt_device->write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), use_noc1);
+    tt_device->write_to_arc_apb(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), use_noc1);
 
-    tt_device->wait_for_non_mmio_flush();
+    tt_device->wait_for_non_mmio_flush(use_noc1);
 
     uint32_t misc;
-    tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), umd_use_noc1);
+    tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), use_noc1);
 
     if (misc & (1 << 16)) {
         log_error(LogUMD, "trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         uint32_t val_wr = misc | (1 << 16);
-        tt_device->write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), umd_use_noc1);
+        tt_device->write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), use_noc1);
     }
 
     uint32_t status = 0xbadbad;
@@ -102,18 +101,17 @@ uint32_t WormholeArcMessenger::send_message(
             throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
-        tt_device->read_from_arc_apb(
-            &status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), umd_use_noc1);
+        tt_device->read_from_arc_apb(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), use_noc1);
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
                 tt_device->read_from_arc_apb(
-                    &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), umd_use_noc1);
+                    &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), use_noc1);
             }
 
             if (return_values.size() >= 2) {
                 tt_device->read_from_arc_apb(
-                    &return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t), umd_use_noc1);
+                    &return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t), use_noc1);
             }
 
             exit_code = (status & 0xffff0000) >> 16;

@@ -57,15 +57,15 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             CoreCoord translated_core =
                 cluster->get_soc_descriptor(remote_chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
             remote_comm->write_to_non_mmio(
-                translated_core, data_to_write.data(), address0, data_to_write.size() * sizeof(uint32_t));
+                false, translated_core, data_to_write.data(), address0, data_to_write.size() * sizeof(uint32_t));
 
             cluster->write_to_device(
                 data_to_write.data(), data_to_write.size() * sizeof(uint32_t), remote_chip_id, core, address1);
 
-            remote_comm->wait_for_non_mmio_flush();
+            remote_comm->wait_for_non_mmio_flush(false);
 
             remote_comm->read_non_mmio(
-                translated_core, data_read.data(), address1, data_read.size() * sizeof(uint32_t));
+                false, translated_core, data_read.data(), address1, data_read.size() * sizeof(uint32_t));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";

@@ -52,24 +52,27 @@ public:
     uint32_t send_message(
         const ArcMessageType message_type,
         const std::vector<uint32_t>& args = {},
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT);
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
+        bool use_noc1 = false);
 
     static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
-        TTDevice* tt_device, const size_t queue_index);
+        TTDevice* tt_device, const size_t queue_index, bool use_noc1);
 
 private:
     void push_request(
-        std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, const std::chrono::milliseconds timeout_ms);
+        std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request,
+        const std::chrono::milliseconds timeout_ms,
+        bool use_noc1);
 
-    std::array<uint32_t, entry_len> pop_response(const std::chrono::milliseconds timeout_ms);
+    std::array<uint32_t, entry_len> pop_response(const std::chrono::milliseconds timeout_ms, bool use_noc1);
 
-    void read_words(uint32_t* data, size_t num_words, size_t offset);
+    void read_words(uint32_t* data, size_t num_words, size_t offset, bool use_noc1);
 
-    uint32_t read_word(size_t offset);
+    uint32_t read_word(size_t offset, bool use_noc1);
 
-    void write_words(uint32_t* data, size_t num_words, size_t offset);
+    void write_words(uint32_t* data, size_t num_words, size_t offset, bool use_noc1);
 
-    void trigger_fw_int();
+    void trigger_fw_int(bool use_noc1);
 
     const uint64_t base_address;
     const uint64_t size;

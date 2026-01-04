@@ -21,8 +21,6 @@
 #include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
@@ -161,13 +159,13 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status), umd_use_noc1);
+        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status), use_noc1);
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
             return true;
         }
-        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+        auto arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), use_noc1);
 
         utils::check_timeout(
             start,

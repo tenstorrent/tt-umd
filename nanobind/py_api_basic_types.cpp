@@ -9,6 +9,7 @@
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -18,6 +19,15 @@ using namespace tt;
 using namespace tt::umd;
 
 void bind_basic_types(nb::module_ &m) {
+    nb::enum_<NocId>(m, "NocId")
+        .value("DEFAULT_NOC", NocId::DEFAULT_NOC)
+        .value("NOC0", NocId::NOC0)
+        .value("NOC1", NocId::NOC1)
+        .value("SYSTEM_NOC", NocId::SYSTEM_NOC)
+        .def("__int__", [](NocId noc_id) { return static_cast<int>(noc_id); });
+
+    m.def("set_thread_noc_id", &tt::umd::set_thread_noc_id, nb::arg("noc_id"));
+
     nb::class_<EthCoord>(m, "EthCoord")
         .def(nb::init<>())
         .def(

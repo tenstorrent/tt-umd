@@ -68,8 +68,6 @@
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 // --------------------------------------------------------------------------------------------------------------

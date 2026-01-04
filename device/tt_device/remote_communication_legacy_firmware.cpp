@@ -7,14 +7,13 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -205,7 +204,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
+        new_cmd->flags |= (is_selected_noc1() ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
@@ -510,7 +509,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         }
 
         new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
+        new_cmd->flags |= (is_selected_noc1() ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }

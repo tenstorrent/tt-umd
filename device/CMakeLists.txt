@@ -96,6 +96,7 @@ target_sources(
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
+        noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp

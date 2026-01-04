@@ -68,6 +68,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     start_host_communication();
 }
 
+RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
+
 tt_xy_pair RtlSimulationTTDevice::get_arc_core(bool use_noc1) { TT_THROW("RTL simulation doesn't support ARC core"); }
 
 static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
@@ -126,6 +128,11 @@ void RtlSimulationTTDevice::start_host_communication() {
     auto cmd = buf->command();
     TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
+}
+
+void RtlSimulationTTDevice::close_device() {
+    log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
+    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
 void RtlSimulationTTDevice::write_to_device(

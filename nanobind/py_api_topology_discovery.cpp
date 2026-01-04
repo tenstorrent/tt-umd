@@ -7,6 +7,7 @@
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/set.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/unordered_set.h>
@@ -29,6 +30,7 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
 
 void bind_topology_discovery(nb::module_& m) {
     nb::class_<ClusterDescriptor>(m, "ClusterDescriptor")
+        .def_static("create_from_yaml_content", &ClusterDescriptor::create_from_yaml_content, nb::arg("yaml_content"))
         .def("get_all_chips", &ClusterDescriptor::get_all_chips)
         .def("is_chip_mmio_capable", &ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
         .def("is_chip_remote", &ClusterDescriptor::is_chip_remote, nb::arg("chip_id"))
@@ -37,7 +39,9 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_chip_locations", &ClusterDescriptor::get_chip_locations)
         .def("get_chips_with_mmio", &ClusterDescriptor::get_chips_with_mmio)
         .def("get_active_eth_channels", &ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
+        .def("get_ethernet_connections", &ClusterDescriptor::get_ethernet_connections)
         .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids)
+        .def("get_io_device_type", &ClusterDescriptor::get_io_device_type)
         .def(
             "serialize_to_file",
             [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {

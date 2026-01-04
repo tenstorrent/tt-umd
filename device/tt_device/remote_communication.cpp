@@ -27,6 +27,7 @@ std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communic
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:
+            // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
         default:
             throw std::runtime_error("Remote communication is not supported for this architecture.");

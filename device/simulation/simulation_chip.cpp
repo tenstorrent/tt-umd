@@ -39,8 +39,9 @@ SimulationChip::SimulationChip(
 }
 
 // Base class implementations (common simple methods).
-void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
+void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {
+    send_tensix_risc_reset(
+        tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets, use_noc1);
 }
 
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -60,7 +61,7 @@ void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core
 }
 
 void SimulationChip::noc_multicast_write(
-    void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         TT_THROW("noc_multicast_write is only supported for Tensix cores.");
@@ -90,9 +91,9 @@ void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
 
 void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void SimulationChip::deassert_risc_resets() {}
+void SimulationChip::deassert_risc_resets(bool use_noc1) {}
 
-void SimulationChip::set_power_state(DevicePowerState state) {}
+void SimulationChip::set_power_state(DevicePowerState state, bool use_noc1) {}
 
 int SimulationChip::get_clock() { return 0; }
 
@@ -102,7 +103,8 @@ int SimulationChip::arc_msg(
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
-    uint32_t* return_4) {
+    uint32_t* return_4,
+    bool use_noc1) {
     *return_3 = 1;
     return 0;
 }

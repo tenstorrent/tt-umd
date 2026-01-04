@@ -167,7 +167,8 @@ void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1
     nng_free(rd_resp, rd_rsp_sz);
 }
 
-void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
+void RtlSimulationChip::send_tensix_risc_reset(
+    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
@@ -182,11 +183,11 @@ void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const
     }
 }
 
-void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset({0, 0}, soft_resets);
+void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets, bool use_noc1) {
+    send_tensix_risc_reset({0, 0}, soft_resets, use_noc1);
 }
 
-void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -218,7 +219,8 @@ void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selecte
     }
 }
 
-void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationChip::deassert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, bool staggered_start, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);

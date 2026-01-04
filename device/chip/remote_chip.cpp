@@ -82,7 +82,7 @@ RemoteChip::RemoteChip(
         remote_communication_ = nullptr;
     }
     tt_device_ = std::move(remote_tt_device);
-    wait_chip_to_be_ready();
+    wait_chip_to_be_ready(umd_use_noc1);
 }
 
 bool RemoteChip::is_mmio_capable() const { return false; }
@@ -94,18 +94,20 @@ void RemoteChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
         if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-            set_power_state(DevicePowerState::LONG_IDLE);
-            assert_risc_reset(RiscType::ALL);
+            set_power_state(DevicePowerState::LONG_IDLE, umd_use_noc1);
+            assert_risc_reset(RiscType::ALL, umd_use_noc1);
         }
     }
 }
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    tt_device_->write_to_device(src, translate_chip_coord_to_translated(core), l1_dest, size, umd_use_noc1);
+    tt_device_->write_to_device(
+        src, translate_chip_coord_to_translated(core, umd_use_noc1), l1_dest, size, umd_use_noc1);
 }
 
 void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    tt_device_->read_from_device(dest, translate_chip_coord_to_translated(core), l1_src, size, umd_use_noc1);
+    tt_device_->read_from_device(
+        dest, translate_chip_coord_to_translated(core, umd_use_noc1), l1_src, size, umd_use_noc1);
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -132,7 +134,7 @@ void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
-void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
+void RemoteChip::deassert_risc_resets(bool use_noc1) { local_chip_->deassert_risc_resets(use_noc1); }
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(umd_use_noc1); }
 

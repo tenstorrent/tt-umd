@@ -24,10 +24,12 @@ public:
     void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void send_tensix_risc_reset(
+        tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets, bool use_noc1) override;
+    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets, bool use_noc1) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool use_noc1) override;
+    void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start, bool use_noc1) override;
 
 private:
     SimulationHost host;

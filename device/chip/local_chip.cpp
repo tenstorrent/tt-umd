@@ -15,6 +15,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 extern bool umd_use_noc1;
 
@@ -109,7 +110,7 @@ LocalChip::LocalChip(
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
-    wait_chip_to_be_ready();
+    wait_chip_to_be_ready(umd_use_noc1);
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();
     }
@@ -194,8 +195,8 @@ void LocalChip::close_device() {
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-        set_power_state(DevicePowerState::LONG_IDLE);
-        assert_risc_reset(RiscType::ALL);
+        set_power_state(DevicePowerState::LONG_IDLE, umd_use_noc1);
+        assert_risc_reset(RiscType::ALL, umd_use_noc1);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
@@ -275,7 +276,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core, umd_use_noc1);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, translated_core, l1_dest, size, umd_use_noc1);
@@ -306,7 +307,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
 
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core, umd_use_noc1);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, l1_src, size, umd_use_noc1);
@@ -344,7 +345,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core, umd_use_noc1);
 
     tlb_data config{};
     config.local_offset = addr;
@@ -400,7 +401,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core, umd_use_noc1);
 
     tlb_data config{};
     config.local_offset = addr;
@@ -451,7 +452,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = translate_chip_coord_to_translated(core);
+    auto translated_core = translate_chip_coord_to_translated(core, umd_use_noc1);
     tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
@@ -481,7 +482,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = translate_chip_coord_to_translated(core);
+    auto translated_core = translate_chip_coord_to_translated(core, umd_use_noc1);
     tlb_data config{};
     config.local_offset = reg_src;
     config.x_end = translated_core.x;
@@ -671,13 +672,17 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     dram_membar(dram_cores_to_sync);
 }
 
-void LocalChip::deassert_risc_resets() {
+void LocalChip::deassert_risc_resets(bool use_noc1) {
     if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
             true,
-            {0, 0});
+            {0, 0},
+            timeout::ARC_MESSAGE_TIMEOUT,
+            nullptr,
+            nullptr,
+            use_noc1);
     }
 }
 
@@ -716,7 +721,8 @@ TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
     return cached_pcie_dma_tlb_window.get();
 }
 
-void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void LocalChip::noc_multicast_write(
+    void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         TT_THROW("noc_multicast_write is only supported for Tensix cores.");
@@ -730,11 +736,11 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
     std::lock_guard<std::mutex> lock(wc_tlb_lock);
 
     get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
-        umd_use_noc1,
+        use_noc1,
         dst,
         size,
-        translate_chip_coord_to_translated(core_start),
-        translate_chip_coord_to_translated(core_end),
+        translate_chip_coord_to_translated(core_start, use_noc1),
+        translate_chip_coord_to_translated(core_end, use_noc1),
         addr,
         tlb_data::Relaxed);
 }

@@ -464,31 +464,31 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 
 void Cluster::deassert_risc_reset_at_core(
     const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+    get_chip(chip)->send_tensix_risc_reset(core, soft_resets, umd_use_noc1);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+    get_chip(chip)->send_tensix_risc_reset(core, soft_resets, umd_use_noc1);
 }
 
 RiscType Cluster::get_risc_reset_state(const ChipId chip, const CoreCoord core) {
-    return get_chip(chip)->get_risc_reset_state(core);
+    return get_chip(chip)->get_risc_reset_state(core, umd_use_noc1);
 }
 
 void Cluster::assert_risc_reset(const ChipId chip, const CoreCoord core, const RiscType risc_type) {
-    get_chip(chip)->assert_risc_reset(core, risc_type);
+    get_chip(chip)->assert_risc_reset(core, risc_type, umd_use_noc1);
 }
 
 void Cluster::deassert_risc_reset(
     const ChipId chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
-    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
+    get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start, umd_use_noc1);
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core, umd_use_noc1);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
@@ -507,7 +507,7 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core, umd_use_noc1);
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
@@ -524,7 +524,7 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core, umd_use_noc1);
     get_tlb_manager(logical_device_id)->configure_tlb(umd_use_noc1, translated_core, tlb_size, address, ordering);
 }
 
@@ -893,7 +893,7 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 
 void Cluster::noc_multicast_write(
     void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
+    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr, umd_use_noc1);
 }
 
 int Cluster::arc_msg(
@@ -903,8 +903,10 @@ int Cluster::arc_msg(
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
-    uint32_t* return_4) {
-    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4);
+    uint32_t* return_4,
+    bool use_noc1) {
+    return get_chip(logical_device_id)
+        ->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4, use_noc1);
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
@@ -915,7 +917,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     // If ethernet broadcast is not supported, do it one by one.
     if (!use_ethernet_broadcast) {
         for (auto& chip_id : all_chip_ids_) {
-            get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
+            get_chip(chip_id)->send_tensix_risc_reset(soft_resets, umd_use_noc1);
         }
         return;
     }
@@ -938,9 +940,9 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     wait_for_non_mmio_flush();
 }
 
-void Cluster::set_power_state(DevicePowerState device_state) {
+void Cluster::set_power_state(DevicePowerState device_state, bool use_noc1) {
     for (auto& [_, chip] : chips_) {
-        chip->set_power_state(device_state);
+        chip->set_power_state(device_state, use_noc1);
     }
 }
 
@@ -949,18 +951,18 @@ void Cluster::deassert_resets_and_set_power_state() {
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
     for (auto& [_, chip] : chips_) {
-        chip->deassert_risc_resets();
+        chip->deassert_risc_resets(umd_use_noc1);
     }
 
     // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
-            get_chip(chip)->enable_ethernet_queue();
+            get_chip(chip)->enable_ethernet_queue(timeout::ETH_QUEUE_ENABLE_TIMEOUT, umd_use_noc1);
         }
     }
 
     // Set power state to busy.
-    set_power_state(DevicePowerState::BUSY);
+    set_power_state(DevicePowerState::BUSY, umd_use_noc1);
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {

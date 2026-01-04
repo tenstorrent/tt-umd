@@ -56,7 +56,8 @@ public:
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
-    virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void noc_multicast_write(
+        void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1);
 
     virtual void wait_for_non_mmio_flush() = 0;
 
@@ -65,40 +66,42 @@ public:
     virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
 
     // TODO: Remove this API once we switch to the new one.
-    virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
-    virtual void deassert_risc_resets() = 0;
+    virtual void send_tensix_risc_reset(
+        CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1 = false);
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets, bool use_noc1 = false);
+    virtual void deassert_risc_resets(bool use_noc1 = false) = 0;
 
     /**
     Returns a set of riscs which have soft reset signal raised (these riscs are in reset state).
     */
-    virtual RiscType get_risc_reset_state(CoreCoord core);
+    virtual RiscType get_risc_reset_state(CoreCoord core, bool use_noc1 = false);
 
     /**
     Assert the soft reset signal for specified riscs on the specified core.
     Raising this signal will put those riscs in the reset state and stop their execution.
     */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool use_noc1 = false);
 
     /**
     Deassert the soft reset signal for specified riscs on the specified core.
     Lowering this signal will put those riscs in the running state and start their execution.
     */
-    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    virtual void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start, bool use_noc1 = false);
 
     /**
     Assert the soft reset signal for specified riscs on all cores.
     Raising this signal will put those riscs in the reset state and stop their execution.
     */
-    virtual void assert_risc_reset(const RiscType selected_riscs);
+    virtual void assert_risc_reset(const RiscType selected_riscs, bool use_noc1 = false);
 
     /**
     Deassert the soft reset signal for specified riscs on all cores.
     Lowering this signal will put those riscs in the running state and start their execution.
     */
-    virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
+    virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start, bool use_noc1 = false);
 
-    virtual void set_power_state(DevicePowerState state);
+    virtual void set_power_state(DevicePowerState state, bool use_noc1 = false);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -108,13 +111,15 @@ public:
         const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr);
+        uint32_t* return_4 = nullptr,
+        bool use_noc1 = false);
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
     // TODO: To be moved to private implementation once methods are moved to chip.
-    void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
+    void enable_ethernet_queue(
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT, bool use_noc1 = false);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
@@ -122,14 +127,16 @@ public:
     DeviceL1AddressParams l1_address_params;
 
     // TODO: To be removed once we properly refactor usage of NOC1 coords.
-    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
+    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core, bool use_noc1) const;
 
 protected:
-    void wait_chip_to_be_ready();
+    void wait_chip_to_be_ready(bool use_noc1);
 
-    virtual void wait_eth_cores_training(const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+    virtual void wait_eth_cores_training(
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT, bool use_noc1 = false);
 
-    virtual void wait_dram_cores_training(const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
+    virtual void wait_dram_cores_training(
+        const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT, bool use_noc1 = false);
 
     void set_default_params(ARCH arch);
 
@@ -138,7 +145,8 @@ protected:
     void wait_for_aiclk_value(
         TTDevice* tt_device,
         DevicePowerState power_state,
-        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
+        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT,
+        bool use_noc1 = false);
 
     ChipInfo chip_info_;
 

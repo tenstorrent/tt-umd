@@ -256,7 +256,7 @@ public:
      * Explicitly set the power state of the device.
      * Note that start/close the device already do this implicitly.
      */
-    void set_power_state(DevicePowerState state);
+    void set_power_state(DevicePowerState state, bool use_noc1 = false);
 
     /**
      * Broadcast deassert BRISC soft Tensix Reset to the entire device.
@@ -584,7 +584,8 @@ public:
         const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr);
+        uint32_t* return_4 = nullptr,
+        bool use_noc1 = false);
 
     /**
      * Get clock frequencies for all MMIO devices targeted by UMD.

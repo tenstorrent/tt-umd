@@ -86,7 +86,8 @@ void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
     pfn_libttsim_clock(10);
 }
 
-void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
+void TTSimChip::send_tensix_risc_reset(
+    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     if ((libttsim_pci_device_id == 0x401E) || (libttsim_pci_device_id == 0xB140)) {  // WH/BH
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -108,11 +109,11 @@ void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixS
     }
 }
 
-void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    Chip::send_tensix_risc_reset(soft_resets);
+void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets, bool use_noc1) {
+    Chip::send_tensix_risc_reset(soft_resets, use_noc1);
 }
 
-void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -136,7 +137,8 @@ void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs)
     }
 }
 
-void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimChip::deassert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, bool staggered_start, bool use_noc1) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);

@@ -42,7 +42,8 @@ void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core,
 
 void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
 
-void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
+void MockChip::noc_multicast_write(
+    void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) {}
 
 int MockChip::arc_msg(
     uint32_t msg_code,
@@ -50,7 +51,8 @@ int MockChip::arc_msg(
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
-    uint32_t* return_4) {
+    uint32_t* return_4,
+    bool use_noc1) {
     // This designates success for the ARC enable eth queue message.
     *return_3 = 1;
     return 0;
@@ -64,13 +66,13 @@ void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
-void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {}
+void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) {}
 
-void MockChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {}
+void MockChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets, bool use_noc1) {}
 
-void MockChip::deassert_risc_resets() {}
+void MockChip::deassert_risc_resets(bool use_noc1) {}
 
-void MockChip::set_power_state(DevicePowerState state) {}
+void MockChip::set_power_state(DevicePowerState state, bool use_noc1) {}
 
 int MockChip::get_clock() { return 0; }
 

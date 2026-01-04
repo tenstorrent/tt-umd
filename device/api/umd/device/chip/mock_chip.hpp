@@ -30,7 +30,8 @@ public:
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
-    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void noc_multicast_write(
+        void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, bool use_noc1) override;
 
     int arc_msg(
         uint32_t msg_code,
@@ -38,18 +39,19 @@ public:
         const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
         uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr) override;
+        uint32_t* return_4 = nullptr,
+        bool use_noc1 = false) override;
 
     void wait_for_non_mmio_flush() override;
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels) override;
 
-    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
-    void deassert_risc_resets() override;
+    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets, bool use_noc1) override;
+    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets, bool use_noc1) override;
+    void deassert_risc_resets(bool use_noc1) override;
 
-    void set_power_state(DevicePowerState state) override;
+    void set_power_state(DevicePowerState state, bool use_noc1) override;
     int get_clock() override;
     int get_numa_node() override;
 

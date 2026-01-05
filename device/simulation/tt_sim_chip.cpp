@@ -38,8 +38,7 @@ TTSimChip::TTSimChip(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
+    SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels) {
     tt_device_ = std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary);
 }
 

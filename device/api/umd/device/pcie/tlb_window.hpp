@@ -61,8 +61,11 @@ private:
     // which glibc's memcpy may perform when unrolling. This affects from and to device.
     // 2. syseng#3487 WH GDDR5 controller has a bug when 1-byte writes are temporarily adjacent
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
-    static void memcpy_from_device(void* dest, const void* src, std::size_t num_bytes);
-    static void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
+    void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
+    void memcpy_from_device(void* dest, const void* src, std::size_t num_bytes);
+    void custom_memcpy(void* dst, const void* src, std::size_t size);
+    void custom_memcpy_aligned(void* dst, const void* src, std::size_t n);
+    void non_overlapping_memcpy(void* dst, const void* src, std::size_t n);
 
     void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
 

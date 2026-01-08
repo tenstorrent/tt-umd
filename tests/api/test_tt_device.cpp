@@ -14,6 +14,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/exceptions.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -389,16 +390,13 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
             }
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
+    } catch (const SigbusError& e) {
+        sigbus_caught = true;
     } catch (const std::exception& e) {
-        if (std::string(e.what()) == "SIGBUS") {
-            sigbus_caught = true;
-
-        } else {
-            if (background_reset_thread.joinable()) {
-                background_reset_thread.join();
-            }
-            FAIL() << "Caught unexpected exception: " << e.what();
+        if (background_reset_thread.joinable()) {
+            background_reset_thread.join();
         }
+        FAIL() << "Caught unexpected exception: " << e.what();
     }
 
     if (background_reset_thread.joinable()) {
@@ -450,10 +448,9 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
                     data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
+        } catch (const SigbusError& e) {
+            caught_sigbus++;
         } catch (const std::exception& e) {
-            if (std::string(e.what()) == "SIGBUS") {
-                caught_sigbus++;
-            }
         }
     };
 
@@ -513,10 +510,9 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
                         data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
                     std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }
+            } catch (const SigbusError& e) {
+                std::exit(0);  // Success: SIGBUS was isolated and caught
             } catch (const std::exception& e) {
-                if (std::string(e.what()) == "SIGBUS") {
-                    std::exit(0);  // Success: SIGBUS was isolated and caught
-                }
                 std::exit(1);  // Error: Wrong exception
             }
             std::exit(2);  // Error: Timed out/Loop exited without signal

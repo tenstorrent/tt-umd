@@ -16,6 +16,8 @@
 #include <thread>
 #include <vector>
 
+#include "umd/device/utils/exceptions.hpp"
+
 // ASan and TSan often fail with siglongjmp because the jump bypasses
 // stack unwinding/poisoning updates that the sanitizers rely on.
 #if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
@@ -75,7 +77,7 @@ public:
         } else {
             jump_set.store(false);
             std::atomic_signal_fence(std::memory_order_seq_cst);
-            throw std::runtime_error("SIGBUS");
+            throw tt::umd::SigbusError("SIGBUS signal detected: Device access failed.");
         }
     }
 };
@@ -140,10 +142,8 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
                 // Odd threads succeed.
                 device.safe_execute([]() { /* do nothing */ });
             }
-        } catch (const std::runtime_error& e) {
-            if (std::string(e.what()) == "SIGBUS") {
-                success_count++;
-            }
+        } catch (const tt::umd::SigbusError& e) {
+            success_count++;
         } catch (...) {
             // Should not happen for odd threads.
         }
@@ -201,12 +201,10 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
                     }
                 });
                 success_count++;
+            } catch (const tt::umd::SigbusError& e) {
+                caught_count++;
             } catch (const std::runtime_error& e) {
-                if (std::string(e.what()) == "SIGBUS") {
-                    caught_count++;
-                } else {
-                    failure_count++;
-                }
+                failure_count++;
             }
         }
     };
@@ -255,9 +253,8 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
                         // Odd threads run normally.
                         device.safe_execute([]() { /* Happy path */ });
                     }
-                } catch (const std::runtime_error& e) {
-                    // Even threads should catch SIGBUS.
-                    if (id % 2 == 0 && std::string(e.what()) == "SIGBUS") {
+                } catch (const tt::umd::SigbusError& e) {
+                    if (id % 2 == 0) {
                         success_count++;
                     } else {
                         failure_count++;

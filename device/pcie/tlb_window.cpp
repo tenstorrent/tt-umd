@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/exceptions.hpp"
 
 extern bool umd_use_noc1;
 
@@ -212,7 +213,7 @@ decltype(auto) TlbWindow::execute_safe(Func &&func, Args &&...args) {
     } else {
         std::atomic_signal_fence(std::memory_order_seq_cst);
         jump_set = 0;
-        throw std::runtime_error("SIGBUS");
+        throw SigbusError("SIGBUS signal detected: Device access failed.");
     }
 }
 

@@ -37,14 +37,14 @@ void BlackholeArcMessageQueue::push_request(
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, const std::chrono::milliseconds timeout_ms) {
     uint32_t request_queue_wptr = read_word(request_wptr_offset);
 
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t request_queue_rptr = read_word(request_rptr_offset);
         if (abs((int)request_queue_rptr - (int)request_queue_wptr) % (2 * size) != size) {
             break;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     // Offset in words.
@@ -61,6 +61,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
     const std::chrono::milliseconds timeout_ms) {
     uint32_t response_queue_rptr = read_word(response_rptr_offset);
 
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t response_queue_wptr = read_word(response_wptr_offset);
 
@@ -68,8 +69,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
             break;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     uint32_t response_entry_offset =

@@ -272,7 +272,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, translated_core, l1_dest, size);
@@ -302,7 +302,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
 
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, l1_src, size);
@@ -339,7 +339,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     tlb_data config{};
     config.local_offset = addr;
@@ -395,7 +395,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     tlb_data config{};
     config.local_offset = addr;
@@ -446,7 +446,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
@@ -476,7 +476,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_src;
     config.x_end = translated_core.x;
@@ -727,8 +727,8 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
     get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
         dst,
         size,
-        translate_chip_coord_to_translated(core_start),
-        translate_chip_coord_to_translated(core_end),
+        get_soc_descriptor().translate_chip_coord_to_translated(core_start),
+        get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr,
         tlb_data::Relaxed);
 }

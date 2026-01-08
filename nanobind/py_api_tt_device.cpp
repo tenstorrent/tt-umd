@@ -20,6 +20,7 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/utils/exceptions.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -40,6 +41,13 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
 
 void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType").value("PCIe", IODeviceType::PCIe).value("JTAG", IODeviceType::JTAG);
+
+    nb::exception<SigbusError>(m, "SigbusError");
+
+    m.def(
+        "raise_sigbus_error_for_testing",
+        []() { throw tt::SigbusError("This is a test exception from C++"); },
+        "A helper function to verify SigbusError propagation");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
@@ -77,7 +85,7 @@ void bind_tt_device(nb::module_ &m) {
             static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
-            nb::arg("use_safe_api") = false,
+            nb::arg("use_safe_api") = true,
             nb::rv_policy::take_ownership)
         .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
         .def("get_chip_info", &TTDevice::get_chip_info)

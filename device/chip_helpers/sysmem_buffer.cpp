@@ -7,10 +7,9 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -50,7 +49,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
@@ -105,7 +104,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
 

@@ -16,8 +16,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :

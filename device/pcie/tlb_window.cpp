@@ -18,8 +18,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-static thread_local sigjmp_buf point;
-static thread_local std::atomic<bool> jump_set = false;
+static thread_local sigjmp_buf point __attribute__((tls_model("initial-exec")));
+static thread_local volatile sig_atomic_t jump_set __attribute__((tls_model("initial-exec"))) = 0;
 
 void sigbus_handler(int sig) {
     if (jump_set) {
@@ -31,13 +31,13 @@ void sigbus_handler(int sig) {
 
 struct ScopedJumpGuard {
     ScopedJumpGuard() {
-        jump_set.store(true);
+        jump_set = 1;
         std::atomic_signal_fence(std::memory_order_seq_cst);
     }
 
     ~ScopedJumpGuard() {
         std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set.store(false);
+        jump_set = 0;
     }
 };
 
@@ -211,7 +211,7 @@ decltype(auto) TlbWindow::execute_safe(Func &&func, Args &&...args) {
         return std::invoke(std::forward<Func>(func), this, std::forward<Args>(args)...);
     } else {
         std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = false;
+        jump_set = 0;
         throw std::runtime_error("SIGBUS");
     }
 }

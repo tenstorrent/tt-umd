@@ -16,6 +16,7 @@
 #include <unordered_set>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
@@ -25,7 +26,6 @@
 #include "utils.hpp"
 
 // #include "l1_address_map.h"
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -193,13 +193,13 @@ CoreCoord SocDescriptor::translate_coord_to(
 tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
     // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
     // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the umd_use_noc1 flag.
-    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    // NOC1 or translated space depending on the is_selected_noc1() flag.
+    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
     if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
         return translate_coord_to(core, CoordSystem::TRANSLATED);
     }
 
-    return translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {

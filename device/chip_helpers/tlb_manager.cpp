@@ -7,11 +7,10 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -34,7 +33,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.local_offset = address;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
@@ -61,7 +60,7 @@ void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t ad
     config.local_offset = address;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);

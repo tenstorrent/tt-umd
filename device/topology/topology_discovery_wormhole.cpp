@@ -19,8 +19,6 @@
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :

@@ -9,6 +9,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
@@ -16,8 +17,6 @@
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/timeouts.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 

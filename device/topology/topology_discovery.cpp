@@ -14,12 +14,11 @@
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -108,7 +107,7 @@ void TopologyDiscovery::get_connected_devices() {
 
         std::vector<CoreCoord> eth_cores =
             get_soc_descriptor(tt_device.get())
-                .get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+                .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
             if (board_id != 0) {
@@ -148,7 +147,7 @@ void TopologyDiscovery::discover_remote_devices() {
         }
 
         std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
-            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+            CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
         verify_fw_bundle_version(tt_device);
 
@@ -332,8 +331,8 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
     // If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
-    std::vector<CoreCoord> eth_cores =
-        get_soc_descriptor(tt_device).get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
+        CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
         if (!is_eth_trained(tt_device, eth_core)) {

@@ -6,15 +6,14 @@
 
 #include <fmt/core.h>
 
+#include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/types/telemetry.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
 BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), is_selected_noc1());
     get_telemetry_address();
     initialize_telemetry();
 }

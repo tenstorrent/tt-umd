@@ -23,13 +23,6 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {
-    // The telemetry data is a 32-bit value where the higher 16 bits are the major value,
-    // lower 16 bits are the minor value.
-    uint16_t major = (telemetry_data >> 24) & 0xFF;
-    uint16_t minor = (telemetry_data >> 16) & 0xFF;
-    return semver_t(major, minor, 0);
-}
 
 semver_t get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
@@ -43,22 +36,28 @@ semver_t get_firmware_version_util(TTDevice* tt_device) {
         while (std::chrono::steady_clock::now() - start < timeout_duration) {
             auto fw_bundle_version = smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION);
             if (fw_bundle_version != 0) {
-                return fw_version_from_telemetry(fw_bundle_version);
+                return semver_t::from_firmware_bundle_tag(fw_bundle_version);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         log_warning(
             tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
-        return fw_version_from_telemetry(smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+        return semver_t::from_firmware_bundle_tag(
+            smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
-               ? fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
+               ? semver_t::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
                : semver_t(0, 0, 0);
 }
 
 std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
     semver_t fw_bundle_version, tt::ARCH arch) {
+    // Skip checks for pre-release firmware bundles.
+    if (fw_bundle_version.pre_release != 0) {
+        return std::nullopt;
+    }
+
     const auto* version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
     switch (arch) {
         case ARCH::WORMHOLE_B0:

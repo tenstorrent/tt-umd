@@ -42,6 +42,9 @@ public:
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
 
+    // Clear all static TLB mappings.
+    void clear_mapped_tlbs();
+
 private:
     TTDevice* tt_device_;
 };

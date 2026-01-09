@@ -20,12 +20,10 @@ using namespace tt::umd::test::utils;
 constexpr ChipId CHIP_ID = 0;
 constexpr uint32_t NUM_EPOCHS = 100;
 
-/**
- * Measure the time it takes to map buffers of different sizes through IOMMU.
- * This test allocates buffers of different size, starting from single page (usually 4KB) up to 1GB,
- * and measures the time it takes to map them through IOMMU. It prints out the time taken for each mapping
- * and the average time per page.
- */
+// Measure the time it takes to map buffers of different sizes through IOMMU.
+// This test allocates buffers of different size, starting from single page (usually 4KiB) up to 1GiB,
+// and measures the time it takes to map them through IOMMU. It prints out the time taken for each mapping
+// and the average time per page.
 TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -45,7 +43,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
 
     static const long page_size = sysconf(_SC_PAGESIZE);
-    const uint64_t MAPPING_SIZE_LIMIT = ONE_GB;
+    const uint64_t MAPPING_SIZE_LIMIT = ONE_GIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
@@ -76,11 +74,9 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     test::utils::export_results(bench.title(), results);
 }
 
-/**
- * Measure the time it takes to map hugepages using IOMMU.
- * These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
- * Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
- */
+// Measure the time it takes to map hugepages using IOMMU.
+// These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
+// Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
 TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -118,7 +114,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
             0);
 
         if (mapping == MAP_FAILED) {
-            GTEST_SKIP() << "Mapping 2MB hugepage failed. Skipping test.";
+            GTEST_SKIP() << "Mapping 2MiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
         uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
@@ -136,11 +132,9 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
 }
 
-/**
- * Measure the time it takes to map hugepages using IOMMU.
- * These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
- * Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
- */
+// Measure the time it takes to map hugepages using IOMMU.
+// These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
+// Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
 TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -178,7 +172,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
             0);
 
         if (mapping == MAP_FAILED) {
-            GTEST_SKIP() << "Mapping 1GB hugepage failed. Skipping test.";
+            GTEST_SKIP() << "Mapping 1GiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
         uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);

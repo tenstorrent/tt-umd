@@ -23,19 +23,19 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
         8,
         16,
         32,
-        1 * ONE_KB,
-        2 * ONE_KB,
-        4 * ONE_KB,
-        8 * ONE_KB,
-        16 * ONE_KB,
-        32 * ONE_KB,
-        1 * ONE_MB,
-        2 * ONE_MB,
-        4 * ONE_MB,
-        8 * ONE_MB,
-        16 * ONE_MB,
-        32 * ONE_MB,
-        1 * ONE_GB,
+        1 * ONE_KIB,
+        2 * ONE_KIB,
+        4 * ONE_KIB,
+        8 * ONE_KIB,
+        16 * ONE_KIB,
+        32 * ONE_KIB,
+        1 * ONE_MIB,
+        2 * ONE_MIB,
+        4 * ONE_MIB,
+        8 * ONE_MIB,
+        16 * ONE_MIB,
+        32 * ONE_MIB,
+        1 * ONE_GIB,
     };
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
@@ -57,7 +57,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
 TEST(MicrobenchmarkPCIeDMA, Tensix) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix").unit("byte");
     const uint64_t ADDRESS = 0x0;
-    const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB};
+    const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
     for (size_t batch_size : BATCH_SIZES) {
@@ -78,7 +78,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
 TEST(MicrobenchmarkPCIeDMA, Ethernet) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Ethernet").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
-    const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
+    const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH)[0];
     for (size_t batch_size : BATCH_SIZES) {
@@ -101,7 +101,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
     const uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
-    const uint64_t LIMIT_BUF_SIZE = ONE_GB;
+    const uint64_t LIMIT_BUF_SIZE = ONE_GIB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
         std::vector<uint8_t> pattern(buf_size);
         bench.batch(buf_size).name(fmt::format("DMA, write, {} bytes", buf_size)).run([&]() {
@@ -120,7 +120,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     const uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
-    const uint64_t LIMIT_BUF_SIZE = ONE_MB;
+    const uint64_t LIMIT_BUF_SIZE = ONE_MIB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
         std::vector<uint8_t> pattern(buf_size);
         bench.batch(buf_size).name(fmt::format("DMA, write, {} bytes", buf_size)).run([&]() {
@@ -135,14 +135,11 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
 }
 
 TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
-    auto bench = ankerl::nanobench::Bench()
-                     .title("DMA_Ethernet_Sweep")
-
-                     .unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Ethernet_Sweep").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH)[0];
-    const uint64_t LIMIT_BUF_SIZE = 128 * ONE_KB;
+    const uint64_t LIMIT_BUF_SIZE = 128 * ONE_KIB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
         std::vector<uint8_t> pattern(buf_size);
         bench.batch(buf_size).name(fmt::format("DMA, write, {} bytes", buf_size)).run([&]() {
@@ -156,11 +153,9 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     test::utils::export_results(bench);
 }
 
-/**
- * This test measures BW of IO using PCIe DMA engine where user buffer is mapped through IOMMU
- * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
- * to and from the device.
- */
+// This test measures bandwidth of IO using PCIe DMA engine where user buffer is mapped through IOMMU
+// and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+// to and from the device.
 TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -172,14 +167,14 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
 
     auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;
-    const size_t BUFFER_SIZE = ONE_MB;
+    const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MB);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
@@ -191,11 +186,9 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     test::utils::export_results(bench);
 }
 
-/**
- * Test the PCIe DMA controller by using it to write random fixed-size pattern
- * to address 0 of Tensix core, then reading them back and verifying.
- * This test measures BW of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
- */
+// Test the PCIe DMA controller by using it to write random fixed-size pattern
+// to address 0 of Tensix core, then reading them back and verifying.
+// This test measures bandwidth of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
 TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -205,19 +198,16 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
 
-    auto bench = ankerl::nanobench::Bench()
-                     .title("DMA_Tensix_ZeroCopy")
-
-                     .unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;
-    const size_t BUFFER_SIZE = ONE_MB;
+    const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MB);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
@@ -229,11 +219,9 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     test::utils::export_results(bench);
 }
 
-/**
- * This test measures BW of IO using PCIe DMA engine where user buffer is mapped through IOMMU
- * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
- * to and from the device.
- */
+// This test measures bandwidth of IO using PCIe DMA engine where user buffer is mapped through IOMMU
+// and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+// to and from the device.
 TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -245,7 +233,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
 
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;
-    const size_t BUFFER_SIZE = ONE_MB;
+    const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });

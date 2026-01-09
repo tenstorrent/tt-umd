@@ -14,9 +14,7 @@
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
-/**
- * Measure the time it takes to open/construct a Cluster object with default ClusterOptions.
- */
+// Measure the time it takes to open/construct a Cluster object with default ClusterOptions.
 TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
     auto bench = ankerl::nanobench::Bench()
                      .maxEpochTime(std::chrono::seconds(30))

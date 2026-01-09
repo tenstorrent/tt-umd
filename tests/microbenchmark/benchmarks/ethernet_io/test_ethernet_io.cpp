@@ -12,11 +12,26 @@ using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
+// Measure BW of IO to DRAM core on the ETH connected device.
 TEST(MicrobenchmarkEthernetIO, DRAM) {
     auto bench = ankerl::nanobench::Bench().title("EthernetIO_DRAM").unit("byte");
     const uint64_t ADDRESS = 0x0;
+    // Sizes are chosen in a way to avoid TLB benchmark taking too long. 32 MB already
+    // tests chunking of data into smaller chunks to match TLB size.
+    // 64 MB and above showed the same perf locally.
     const std::vector<size_t> BATCH_SIZES = {
-        1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB, 2 * ONE_MB, 4 * ONE_MB, 8 * ONE_MB};
+        1,
+        2,
+        4,
+        8,
+        1 * ONE_KIB,
+        2 * ONE_KIB,
+        4 * ONE_KIB,
+        8 * ONE_KIB,
+        1 * ONE_MIB,
+        2 * ONE_MIB,
+        4 * ONE_MIB,
+        8 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_remote_device_ids().empty()) {
@@ -41,10 +56,12 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
     test::utils::export_results(bench);
 }
 
+// Measure BW of IO to Tensix core on ETH connected device.
 TEST(MicrobenchmarkEthernetIO, Tensix) {
     auto bench = ankerl::nanobench::Bench().title("EthernetIO_Tensix").unit("byte");
     const uint64_t ADDRESS = 0x0;
-    const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB};
+    const std::vector<size_t> BATCH_SIZES = {
+        1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_remote_device_ids().empty()) {
@@ -69,10 +86,12 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
     test::utils::export_results(bench);
 }
 
+// Measure BW of IO to Ethernet core on ETH connected device.
 TEST(MicrobenchmarkEthernetIO, Ethernet) {
     auto bench = ankerl::nanobench::Bench().title("EthernetIO_Ethernet").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
-    const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
+    const std::vector<size_t> BATCH_SIZES = {
+        1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_remote_device_ids().empty()) {

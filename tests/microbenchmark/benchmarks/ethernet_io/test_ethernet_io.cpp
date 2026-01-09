@@ -48,8 +48,7 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
 TEST(MicrobenchmarkEthernetIO, Tensix) {
     auto bench = ankerl::nanobench::Bench().title("EthernetIO_Tensix").unit("byte");
     const uint64_t ADDRESS = 0x0;
-    const std::vector<size_t> BATCH_SIZES = {
-        1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB, 2 * ONE_MB, 4 * ONE_MB};
+    const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 1 * ONE_MB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_remote_device_ids().empty()) {

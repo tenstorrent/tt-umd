@@ -304,7 +304,7 @@ inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
 
 }  // namespace blackhole
 

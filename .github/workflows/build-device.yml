@@ -384,13 +384,14 @@ jobs:
 
           # Sanity check Python import if the package is installed
           if [ "${PKG_FMT}" = "deb" ]; then
-            CHECK_CMD="dpkg -s umd-umd-python"
+            CHECK_CMD="dpkg -s tt_umd-umd-python"
           else
-            CHECK_CMD="rpm -q umd-umd-python"
+            CHECK_CMD="rpm -q tt_umd-umd-python"
           fi
           if ${CHECK_CMD} >/dev/null 2>&1; then
             echo "Run Python import test for FHS-installed module"
             python3 -c "import tt_umd; print('Python import tt_umd: OK')"
           else
-            echo "Skipping Python import test: umd-umd-python not installed"
+            echo "ERROR: Python package not found! Test skipped improperly."
+            exit 1  # Force CI failure
           fi

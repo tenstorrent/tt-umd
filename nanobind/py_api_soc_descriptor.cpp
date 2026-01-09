@@ -4,7 +4,9 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/set.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/soc_descriptor.hpp"
@@ -100,6 +102,12 @@ void bind_soc_descriptor(nb::module_ &m) {
             },
             nb::arg("dest_file") = "",
             "Serialize the soc descriptor to a YAML file")
+        .def(
+            "get_eth_cores_for_channels",
+            &SocDescriptor::get_eth_cores_for_channels,
+            nb::arg("eth_channels"),
+            nb::arg("coord_system") = CoordSystem::NOC0,
+            "Get ethernet cores for specified channels in the specified coordinate system")
         .def(
             "translate_coord_to",
             nb::overload_cast<const CoreCoord, const CoordSystem>(&SocDescriptor::translate_coord_to, nb::const_),

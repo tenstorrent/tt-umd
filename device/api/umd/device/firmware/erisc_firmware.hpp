@@ -41,7 +41,7 @@ static const std::vector<std::pair<semver_t, semver_t>> BH_ERISC_FW_VERSION_MAP 
     {{18, 6, 0}, {1, 4, 2}},
     {{18, 9, 0}, {1, 5, 0}},
     {{18, 10, 0}, {1, 6, 0}},
-    {{18, 12, 0}, {1, 7, 0}},
+    {{18, 12, 1}, {1, 7, 0}},
     {{19, 3, 0}, {1, 7, 1}}};
 
 struct HashedAddressRange {

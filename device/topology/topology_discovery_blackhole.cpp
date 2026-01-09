@@ -282,22 +282,20 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         log_warning(
             LogUMD,
             "ETH FW version mismatch for device {} ETH core {}, found: {}.",
-            get_local_asic_id(tt_device, translated_eth_core),
-            translated_eth_core.str(),
+            get_local_asic_id(tt_device, eth_core),
+            eth_core.str(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
 
     if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
-        tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
-            eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
         if (hash_check.has_value() && hash_check.value() == false) {
             log_warning(
                 LogUMD,
                 "ETH FW version hash check failed for device {} ETH core {}",
-                get_local_asic_id(tt_device, translated_eth_core),
-                translated_eth_core.str());
+                get_local_asic_id(tt_device, eth_core),
+                eth_core.str());
             eth_fw_problem = true;
         }
     }

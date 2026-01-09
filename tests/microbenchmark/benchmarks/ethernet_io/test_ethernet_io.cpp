@@ -28,10 +28,6 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
     cluster->start_device({});
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("ETH IO - DRAM, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, ADDRESS);
         });
@@ -60,10 +56,6 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
     cluster->start_device({});
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("ETH IO - Tensix, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), chip, tensix_core, ADDRESS);
         });
@@ -78,10 +70,7 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
 }
 
 TEST(MicrobenchmarkEthernetIO, Ethernet) {
-    auto bench = ankerl::nanobench::Bench()
-                     .title("EthernetIO_Ethernet")
-
-                     .unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("EthernetIO_Ethernet").unit("byte");
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {1, 2, 4, 8, 1 * ONE_KB, 2 * ONE_KB, 4 * ONE_KB, 8 * ONE_KB, 128 * ONE_KB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -95,10 +84,6 @@ TEST(MicrobenchmarkEthernetIO, Ethernet) {
     cluster->start_device({});
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("ETH IO - Ethernet, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), chip, eth_core, ADDRESS);
         });

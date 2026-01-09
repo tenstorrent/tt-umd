@@ -41,10 +41,6 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("DMA, write, {} bytes", batch_size)).run([&]() {
             cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
         });
@@ -66,10 +62,6 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("DMA, write, {} bytes", batch_size)).run([&]() {
             cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
         });
@@ -91,10 +83,6 @@ TEST(MicrobenchmarkPCIeDMA, Ethernet) {
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("DMA, write, {} bytes", batch_size)).run([&]() {
             cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
         });
@@ -116,10 +104,6 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
     const uint64_t LIMIT_BUF_SIZE = ONE_GB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
         std::vector<uint8_t> pattern(buf_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < buf_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(buf_size).name(fmt::format("DMA, write, {} bytes", buf_size)).run([&]() {
             cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
         });
@@ -139,10 +123,6 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     const uint64_t LIMIT_BUF_SIZE = ONE_MB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
         std::vector<uint8_t> pattern(buf_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < buf_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(buf_size).name(fmt::format("DMA, write, {} bytes", buf_size)).run([&]() {
             cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
         });
@@ -165,10 +145,6 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     const uint64_t LIMIT_BUF_SIZE = 128 * ONE_KB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
         std::vector<uint8_t> pattern(buf_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < buf_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(buf_size).name(fmt::format("DMA, write, {} bytes", buf_size)).run([&]() {
             cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
         });

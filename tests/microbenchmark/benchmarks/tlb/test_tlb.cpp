@@ -41,10 +41,6 @@ TEST(MicrobenchmarkTLB, DRAM) {
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("Dynamic TLB, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
         });
@@ -59,10 +55,6 @@ TEST(MicrobenchmarkTLB, DRAM) {
     cluster->configure_tlb(CHIP_ID, dram_core, 16 * (1 << 20), ADDRESS, tlb_data::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
         });
@@ -87,10 +79,6 @@ TEST(MicrobenchmarkTLB, Tensix) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("Dynamic TLB, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
         });
@@ -105,10 +93,6 @@ TEST(MicrobenchmarkTLB, Tensix) {
     cluster->configure_tlb(CHIP_ID, tensix_core, 1 << 21, ADDRESS, tlb_data::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
         });
@@ -136,10 +120,6 @@ TEST(MicrobenchmarkTLB, Ethernet) {
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH).at(0);
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("Dynamic TLB, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
         });
@@ -154,10 +134,6 @@ TEST(MicrobenchmarkTLB, Ethernet) {
     cluster->configure_tlb(CHIP_ID, eth_core, 1 << 21, ADDRESS, tlb_data::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
-        ankerl::nanobench::Rng rng;
-        for (size_t i = 0; i < batch_size; ++i) {
-            pattern[i] = static_cast<uint8_t>(rng());
-        }
         bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
             cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
         });

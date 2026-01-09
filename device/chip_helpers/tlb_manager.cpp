@@ -20,14 +20,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
-    log_debug(
-        LogUMD,
-        "Configuring TLB for chip: {} core: {} size: {} address: {} ordering: {}",
-        tt_device_->get_pci_device()->get_device_num(),
-        core.str(),
-        tlb_size,
-        address,
-        ordering);
+    log_debug(LogUMD, "Requesting TLB window of size {}", tlb_size);
 
     tlb_data config{};
     config.local_offset = address;
@@ -38,32 +31,15 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
-    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
-    map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
-    tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
-}
-
-void TLBManager::configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    TT_ASSERT(
-        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
-        "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
         LogUMD,
-        "Configuring TLB for chip: {} core: {} size: {} address: {} ordering: {}",
+        "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
         tt_device_->get_pci_device()->get_device_num(),
         core.str(),
         tlb_size,
         address,
-        ordering);
-
-    tlb_data config{};
-    config.local_offset = address;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = ordering;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
+        ordering,
+        tlb_window->handle_ref().get_tlb_id());
 
     tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});

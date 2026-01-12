@@ -304,7 +304,7 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
 
         {
             double total_ns = 0;
-            for (auto tensix_core : tensix_cores) {
+            for (auto &tensix_core : tensix_cores) {
                 auto start = std::chrono::steady_clock::now();
                 cluster->write_to_device(buffer.data(), buf_size, chip, tensix_core, 0);
                 auto end = std::chrono::steady_clock::now();

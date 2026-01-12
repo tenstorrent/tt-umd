@@ -4,12 +4,17 @@
 
 #pragma once
 
+#include <unistd.h>
+
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "fmt/ranges.h"
 

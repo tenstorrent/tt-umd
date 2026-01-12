@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include "umd/device/chip/local_chip.hpp"
@@ -29,7 +28,7 @@ public:
 
     void wait_for_non_mmio_flush() override;
 
-    RemoteCommunication* get_remote_communication();
+    RemoteCommunication* get_remote_communication() const override;
 
     /*
      * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,

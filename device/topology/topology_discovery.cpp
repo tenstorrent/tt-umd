@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/topology/topology_discovery.hpp"
 
 #include <memory>
@@ -15,14 +14,13 @@
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -109,8 +107,8 @@ void TopologyDiscovery::get_connected_chips() {
         std::unique_ptr<LocalChip> chip =
             LocalChip::create(device_id, options.soc_descriptor_path, 0, options.io_device_type);
 
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
@@ -128,9 +126,6 @@ void TopologyDiscovery::get_connected_chips() {
             DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);
-    }
-    for (auto& [asic_id, chip] : chips_to_discover) {
-        initialize_remote_communication(chip.get());
     }
 }
 
@@ -152,8 +147,8 @@ void TopologyDiscovery::discover_remote_chips() {
             continue;
         }
 
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
         verify_fw_bundle_version(chip);
@@ -189,7 +184,9 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core)) ||
+                (chip->get_tt_device()->get_arch() == ARCH::BLACKHOLE &&
+                 discovered_chips.find(get_remote_asic_id(chip, eth_core)) == discovered_chips.end())) {
                 uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_chip_asic_id, channel},
@@ -334,7 +331,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
     // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
     std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
         if (!is_eth_trained(chip, eth_core)) {
@@ -348,8 +345,6 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 }
 
 void TopologyDiscovery::patch_eth_connections() {}
-
-void TopologyDiscovery::initialize_remote_communication(Chip* chip) {}
 
 bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
     TTDevice* tt_device = chip->get_tt_device();
@@ -382,7 +377,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(Chip* chip) {
         latest_supported_fw_bundle_version.to_string());
 
     TT_ASSERT(
-        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) > 0,
+        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) >= 0,
         "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
         "architecture.",
         fw_bundle_version.to_string(),

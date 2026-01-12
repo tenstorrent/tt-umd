@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -29,6 +29,38 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
     for (std::string cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_yaml);
+
+        std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
+        std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
+
+        std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
+            cluster_desc->get_chips_grouped_by_closest_mmio();
+
+        // Check that cluster_id is always the same for the same cluster.
+        // Cluster id takes the value of the smallest chip_id in the cluster.
+        for (auto const& [chip, coord] : eth_chip_coords) {
+            if (cluster_desc_yaml != test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml")) {
+                EXPECT_EQ(coord.cluster_id, 0);
+            } else {
+                EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 1);
+            }
+        }
+    }
+}
+
+TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
+    for (std::string cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
+        std::cout << "Testing " << cluster_desc_yaml << std::endl;
+
+        // Load file content.
+        std::ifstream fdesc(cluster_desc_yaml);
+        EXPECT_FALSE(fdesc.fail());
+        std::stringstream buffer;
+        buffer << fdesc.rdbuf();
+        fdesc.close();
+        std::string file_content = buffer.str();
+
+        std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml_content(file_content);
 
         std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
         std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();

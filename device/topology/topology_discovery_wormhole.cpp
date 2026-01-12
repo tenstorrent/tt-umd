@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 
 #include <fmt/format.h>
@@ -16,8 +15,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -349,14 +346,16 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
         eth_fw_problem = true;
     }
 
-    auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
-    if (hash_check.has_value() && hash_check.value() == false) {
-        log_warning(
-            LogUMD,
-            "ETH FW version hash check failed for chip {} ETH core {}",
-            get_local_asic_id(chip, eth_core),
-            eth_core.str());
-        eth_fw_problem = true;
+    if (options.verify_eth_fw_hash) {
+        auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
+        if (hash_check.has_value() && hash_check.value() == false) {
+            log_warning(
+                LogUMD,
+                "ETH FW version hash check failed for chip {} ETH core {}",
+                get_local_asic_id(chip, eth_core),
+                eth_core.str());
+            eth_fw_problem = true;
+        }
     }
 
     return options.no_eth_firmware_strictness || !eth_fw_problem;

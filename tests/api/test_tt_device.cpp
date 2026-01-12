@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
 #include <thread>
@@ -213,7 +214,9 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 

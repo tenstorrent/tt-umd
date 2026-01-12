@@ -1,11 +1,12 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 using namespace tt::umd;
 
@@ -20,7 +21,7 @@ TEST(ApiSysmemManager, BasicIO) {
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
         // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), 1);
 
         sysmem->pin_or_map_sysmem_to_device();
 

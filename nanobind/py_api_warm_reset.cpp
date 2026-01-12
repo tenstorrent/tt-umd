@@ -1,9 +1,9 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/chrono.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/warm_reset.hpp"
@@ -18,7 +18,7 @@ void bind_warm_reset(nb::module_ &m) {
         .def_static(
             "warm_reset",
             &WarmReset::warm_reset,
-            nb::arg("pci_device_ids"),
+            nb::arg("pci_device_ids") = std::vector<int>{},
             nb::arg("reset_m3") = false,
             "Perform a warm reset of the device. reset_m3 flag sends specific ARC message to do a M3 board level "
             "reset.")

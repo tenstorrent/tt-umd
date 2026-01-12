@@ -1,10 +1,11 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/chrono.h>
+#include <nanobind/stl/filesystem.h>
+#include <nanobind/stl/map.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -18,9 +19,12 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -34,8 +38,8 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
-    remote_communication->set_remote_transfer_ethernet_cores(
-        local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
+    remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
+        cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
     return TTDevice::create(std::move(remote_communication));
 }
 
@@ -72,6 +76,24 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_device_num", &PCIDevice::get_device_num)
         .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.");
 
+    nb::class_<RemoteCommunication>(m, "RemoteCommunication")
+        .def(
+            "set_remote_transfer_ethernet_cores",
+            [](RemoteCommunication &self, const std::vector<std::tuple<int, int>> &cores) {
+                std::unordered_set<tt_xy_pair> xy_cores;
+                for (const auto &core : cores) {
+                    xy_cores.insert(
+                        tt_xy_pair{static_cast<uint32_t>(std::get<0>(core)), static_cast<uint32_t>(std::get<1>(core))});
+                }
+                self.set_remote_transfer_ethernet_cores(xy_cores);
+            },
+            nb::arg("cores"))
+        .def("get_local_device", &RemoteCommunication::get_local_device, nb::rv_policy::reference_internal)
+        .def("get_remote_transfer_ethernet_core", [](RemoteCommunication &self) -> std::tuple<int, int> {
+            tt_xy_pair core = self.get_remote_transfer_ethernet_core();
+            return std::make_tuple(core.x, core.y);
+        });
+
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(
             "create",
@@ -86,10 +108,12 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_board_id", &TTDevice::get_board_id)
         .def("board_id", &TTDevice::get_board_id)
         .def("get_board_type", &TTDevice::get_board_type)
+        .def("get_communication_device_type", &TTDevice::get_communication_device_type)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
-        .def_static("use_noc1", &TTDevice::use_noc1, nb::arg("use_noc1"))
+        .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
+        .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)
         // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",
@@ -169,12 +193,23 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
+            "bar_read32",
+            &TTDevice::bar_read32,
+            nb::arg("addr"),
+            "Read a 32-bit value from the specified address on bar0")
+        .def(
+            "bar_write32",
+            &TTDevice::bar_write32,
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write a 32-bit value to the specified address on bar0")
+        .def(
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
-               uint32_t timeout_ms = 1000) -> nb::tuple {
+               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -187,7 +222,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
                     msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
-                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -203,7 +238,7 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done,
                uint32_t arg0,
                uint32_t arg1,
-               uint32_t timeout_ms = 1000) -> nb::tuple {
+               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -217,7 +252,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
                     msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
-                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done"),
@@ -233,7 +268,7 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done,
                uint32_t arg0,
                uint32_t arg1,
-               uint32_t timeout = 1) -> nb::tuple {
+               uint32_t timeout = 1) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -247,7 +282,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint32_t> return_values = {0, 0};
                 uint32_t exit_code = self.get_arc_messenger()->send_message(
                     msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
-                return nb::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done"),
@@ -257,6 +292,26 @@ void bind_tt_device(nb::module_ &m) {
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
+
+#ifdef TT_UMD_BUILD_SIMULATION
+    nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
+        .def_static(
+            "create",
+            &RtlSimulationTTDevice::create,
+            nb::arg("simulator_directory"),
+            "Creates an RtlSimulationTTDevice for RTL simulation communication.")
+        .def(
+            "send_tensix_risc_reset",
+            &RtlSimulationTTDevice::send_tensix_risc_reset,
+            nb::arg("translated_core"),
+            nb::arg("deassert"),
+            "Send a Tensix RISC reset signal to the RTL simulation device.")
+        .def(
+            "get_soc_descriptor",
+            &RtlSimulationTTDevice::get_soc_descriptor,
+            nb::rv_policy::reference_internal,
+            "Get the SocDescriptor associated with this RTL simulation device.");
+#endif
 
     m.def(
         "create_remote_wormhole_tt_device",

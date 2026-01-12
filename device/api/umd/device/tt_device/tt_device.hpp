@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -46,9 +44,6 @@ class RemoteCommunication;
 
 class TTDevice {
 public:
-    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
-    static void use_noc1(bool use_noc1);
-
     /**
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
@@ -265,6 +260,8 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
+    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -320,9 +317,6 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    template <typename T>
-    T *get_register_address(uint32_t register_offset);
-
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -341,7 +335,7 @@ private:
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
-    TlbWindow *get_cached_tlb_window(tlb_data config);
+    TlbWindow *get_cached_tlb_window();
 
     std::mutex tt_device_io_lock;
 };

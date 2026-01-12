@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,6 +12,7 @@
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
@@ -64,8 +65,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -167,8 +167,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
@@ -226,8 +225,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     std::unordered_set<ChipId> target_devices = cluster_desc->get_all_chips();
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> small_vector = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};

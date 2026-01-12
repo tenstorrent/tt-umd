@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include "umd/device/topology/topology_discovery.hpp"
@@ -54,8 +53,6 @@ protected:
         std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     void patch_eth_connections() override;
-
-    void initialize_remote_communication(Chip* chip) override;
 
     void init_topology_discovery() override;
 

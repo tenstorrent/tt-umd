@@ -13,8 +13,8 @@
 #include <thread>
 #include <vector>
 
-#include "common/utils.hpp"
 #include "device/api/umd/device/warm_reset.hpp"
+#include "device/common/utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

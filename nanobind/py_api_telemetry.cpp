@@ -1,10 +1,12 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/vector.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -130,6 +132,12 @@ void bind_telemetry(nb::module_ &m) {
         .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
+    nb::enum_<tt::DramTrainingStatus>(m, "DramTrainingStatus")
+        .value("IN_PROGRESS", tt::DramTrainingStatus::IN_PROGRESS)
+        .value("FAIL", tt::DramTrainingStatus::FAIL)
+        .value("SUCCESS", tt::DramTrainingStatus::SUCCESS)
+        .def("__int__", [](tt::DramTrainingStatus status) { return static_cast<int>(status); });
+
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
         .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)
         .def("get_board_id", &FirmwareInfoProvider::get_board_id)
@@ -154,5 +162,9 @@ void bind_telemetry(nb::module_ &m) {
         .def_static(
             "get_latest_supported_firmware_version",
             &FirmwareInfoProvider::get_latest_supported_firmware_version,
-            nb::arg("arch"));
+            nb::arg("arch"))
+        .def_static(
+            "create_firmware_info_provider",
+            &FirmwareInfoProvider::create_firmware_info_provider,
+            nb::arg("tt_device"));
 }

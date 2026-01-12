@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -306,7 +304,7 @@ inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
 
 }  // namespace blackhole
 
@@ -452,6 +450,13 @@ public:
 
     std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override {
         return {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G};
+    }
+
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static constexpr size_t one_gb = 1024ULL * one_mb;
+        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
+        return tlb_sizes;
     }
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;

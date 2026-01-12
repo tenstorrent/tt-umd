@@ -20,14 +20,6 @@
 
 #include "assert.hpp"
 
-// NOLINTBEGIN.
-#define DLSYM_FUNCTION(func_name)                                                    \
-    pfn_##func_name = (decltype(pfn_##func_name))dlsym(libttsim_handle, #func_name); \
-    if (!pfn_##func_name) {                                                          \
-        TT_THROW("Failed to find symbol: ", #func_name, dlerror());                  \
-    }
-
-// NOLINTEND.
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.");

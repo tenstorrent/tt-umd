@@ -3,6 +3,7 @@ set(BAREMETAL_TESTS_SRCS
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
     test_soc_descriptor.cpp
+    test_notification_mechanism.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

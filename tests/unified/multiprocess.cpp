@@ -139,21 +139,17 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
 }
 
 // Many threads start and stop many clusters.
-// This test will be modified to run in parallel once a lock is introduced for guarding the start/stop of the device.
-// For now, it runs sequentially just to test the functionality.
+// This test runs in parallel testing the lock guarding the start/stop of the device.
 TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
-    std::vector<std::unique_ptr<Cluster>> clusters;
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
-        clusters.emplace_back(std::make_unique<Cluster>());
-        std::cout << "Setup risc cores for cluster " << i << std::endl;
-        test_utils::setup_risc_cores_on_cluster(clusters[i].get());
-    }
-    for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
-            std::cout << "Starting cluster " << i << std::endl;
+            std::unique_ptr<Cluster> cluster =
+                std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+            std::cout << "Setting up risc cores and starting cluster " << i << std::endl;
+            test_utils::safe_test_cluster_start(cluster.get());
             std::cout << "Running IO for cluster " << i << std::endl;
-            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
             std::cout << "Stopping cluster " << i << std::endl;
         }));
     }

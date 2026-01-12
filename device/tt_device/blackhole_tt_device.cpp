@@ -12,6 +12,7 @@
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
+#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -25,12 +26,12 @@ namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>(), use_safe_api) {
-    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), is_selected_noc1());
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), is_selected_noc1());
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {

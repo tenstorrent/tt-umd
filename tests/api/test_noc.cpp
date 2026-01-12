@@ -8,6 +8,7 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -72,7 +73,7 @@ TEST(TestNoc, TestNoc0NodeId) {
 }
 
 TEST(TestNoc, TestNoc1NodeId) {
-    TTDevice::use_noc1(true);
+    NocIdSwitcher noc1_switcher(NocId::NOC1);
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -140,5 +141,4 @@ TEST(TestNoc, TestNoc1NodeId) {
             check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
         }
     }
-    TTDevice::use_noc1(false);
 }

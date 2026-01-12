@@ -7,15 +7,15 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -46,7 +46,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     remote_communication = RemoteCommunication::create_remote_communication(
@@ -79,7 +79,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     remote_communication = RemoteCommunication::create_remote_communication(
@@ -347,7 +347,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
     config.local_offset = addr;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
@@ -403,7 +403,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     config.local_offset = addr;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
@@ -453,7 +453,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
@@ -483,7 +483,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.local_offset = reg_src;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_uc_tlb_window();

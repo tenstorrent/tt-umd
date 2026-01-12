@@ -9,6 +9,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -55,20 +56,12 @@ TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
 }
 
 TEST(SiliconDriverWH, CreateDestroy) {
-    DeviceParams default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
             .perform_harvesting = false,
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
-        set_barrier_params(cluster);
-
-        // TODO: this test fails on new UBB galaxy if the two lines are uncommented.
-        // Generally we don't want to call start_device and close_device in tests.
-        // Implement loading ebreak code before each test.
-        // cluster.start_device(default_params);
-        // cluster.close_device();
     }
 }
 
@@ -102,9 +95,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
             cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
-
-    DeviceParams default_params;
-    cluster.start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> dynamic_readback_vec = {};
@@ -160,7 +150,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    Cluster cluster;
+    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -173,8 +163,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         }
     }
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
+    test_utils::safe_test_cluster_start(&cluster);
 
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (auto chip_id : cluster.get_target_device_ids()) {
@@ -219,9 +208,6 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         }
     }
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
-
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -261,9 +247,6 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
     set_barrier_params(cluster);
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
-
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = {};
@@ -296,9 +279,6 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     Cluster cluster;
     set_barrier_params(cluster);
-
-    DeviceParams default_params;
-    cluster.start_device(default_params);
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -361,9 +341,6 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
             cluster.configure_tlb(chip_id, core, 1 << 20, base_addr);
         }
     }
-
-    DeviceParams default_params;
-    cluster.start_device(default_params);
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
@@ -461,8 +438,7 @@ TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
+    test_utils::safe_test_cluster_start(&cluster);
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
@@ -537,8 +513,7 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    DeviceParams default_params;
-    cluster.start_device(default_params);
+    test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
     bool virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
                                    cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
@@ -626,7 +601,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     const CoreCoord ARC_CORE = cluster.get_soc_descriptor(0).get_cores(CoreType::ARC).at(0);
 
     set_barrier_params(cluster);
-    cluster.start_device({});
 
     // Address of the reset unit in ARC core:
     uint64_t arc_reset_noc = 0x880030000ULL;

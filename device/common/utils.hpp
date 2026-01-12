@@ -99,10 +99,19 @@ public:
         child_pipes.resize(num_children);
         for (int i = 0; i < num_children; ++i) {
             if (pipe(child_pipes[i].data()) == -1) {
+                int saved_errno = errno;
+                for (int j = 0; j < i; ++j) {
+                    close(child_pipes[j][PIPE_READ]);
+                    close(child_pipes[j][PIPE_WRITE]);
+                }
+                errno = saved_errno;
                 throw std::runtime_error("Failed to create synchronization pipe");
             }
         }
     }
+
+    MultiProcessPipe(const MultiProcessPipe&) = delete;
+    MultiProcessPipe& operator=(const MultiProcessPipe&) = delete;
 
     ~MultiProcessPipe() {
         for (auto& p : child_pipes) {

@@ -28,7 +28,7 @@ public:
 
     void wait_for_non_mmio_flush() override;
 
-    RemoteCommunication* get_remote_communication();
+    RemoteCommunication* get_remote_communication() const override;
 
     /*
      * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,

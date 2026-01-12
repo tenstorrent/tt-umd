@@ -196,3 +196,48 @@ TEST_F(WarmResetNotificationTest, MonitorCanRestart) {
 
     WarmResetCommunication::Monitor::stop_monitoring();
 }
+
+struct TimeoutParams {
+    std::chrono::milliseconds pre_wait;
+    std::chrono::milliseconds post_wait;
+    int expected_rc;
+    bool should_trigger_pre;  // Needed to reach the "Post" check
+};
+
+class WarmResetProcessWaitTest : public WarmResetNotificationTest, public testing::WithParamInterface<TimeoutParams> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    TimeoutScenarios,
+    WarmResetProcessWaitTest,
+    ::testing::Values(
+        // Case 1: Pre Timeout (101).
+        // Wait 1ms for Pre. Don't send signal. Fails immediately.
+        TimeoutParams{std::chrono::milliseconds(1), std::chrono::seconds(1), 101, false},
+
+        // Case 2: Post Timeout (102).
+        // Wait 2s for Pre (success), 1ms for Post (fail). Send Pre signal only.
+        TimeoutParams{std::chrono::seconds(2), std::chrono::milliseconds(1), 102, true}),
+    [](const testing::TestParamInfo<TimeoutParams>& info) {
+        return info.param.expected_rc == 101 ? "PreTimeout_101" : "PostTimeout_102";
+    });
+
+TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
+    auto params = GetParam();
+
+    // If testing the second stage (102), we must simulate a successful first stage.
+    if (params.should_trigger_pre) {
+        // TODO: Call your client helper here to send 'WarmResetCommunication::PRE_RESET'
+        // to the socket created by start_monitoring.
+        // send_pre_notification_to_socket();
+    }
+
+    // Execution
+    // We cast to seconds because your function signature requires it,
+    // but 0ms or 1ms casts to 0s, triggering immediate timeout.
+    int result = run_child_monitor_logic(
+        std::chrono::duration_cast<std::chrono::seconds>(params.pre_wait),
+        std::chrono::duration_cast<std::chrono::seconds>(params.post_wait));
+
+    // Assertion.
+    EXPECT_EQ(result, params.expected_rc);
+}

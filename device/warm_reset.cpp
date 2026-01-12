@@ -41,27 +41,32 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
 
+    WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
+
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
         warm_reset_arch_agnostic(pci_device_ids, reset_m3);
-        return;
+    } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
+        log_warning(tt::LogUMD, "No devices found to reset in legacy path.");
+    } else {
+        auto arch = enumerate_devices.begin()->second.get_arch();
+        log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
+        switch (arch) {
+            case ARCH::WORMHOLE_B0:
+                warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+                break;
+            case ARCH::BLACKHOLE:
+                if (reset_m3) {
+                    log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
+                }
+                warm_reset_blackhole_legacy(pci_device_ids);
+                break;
+            default:
+                log_warning(tt::LogUMD, "Unknown architecture '{}'. Skipping reset actions.", arch_to_str(arch));
+                break;
+        }
     }
 
-    auto enumerate_devices = PCIDevice::enumerate_devices_info();
-    auto arch = enumerate_devices.begin()->second.get_arch();
-    log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
-    switch (arch) {
-        case ARCH::WORMHOLE_B0:
-            warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
-            return;
-        case ARCH::BLACKHOLE:
-            if (reset_m3) {
-                log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
-            }
-            warm_reset_blackhole_legacy(pci_device_ids);
-            return;
-        default:
-            return;
-    }
+    WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 }
 
 int wait_for_pci_bdf_to_reappear(

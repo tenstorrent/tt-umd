@@ -284,10 +284,11 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
+            "ETH FW version mismatch for chip {} ETH core {}, found: {}, expected: {}.",
             get_local_asic_id(chip, eth_core),
             eth_core.str(),
-            eth_fw_version.to_string());
+            eth_fw_version.to_string(),
+            expected_eth_fw_version->to_string());
         eth_fw_problem = true;
     }
 

@@ -87,7 +87,7 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
             python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
-            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec.json
+            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
@@ -127,6 +127,12 @@ jobs:
           name: benchmark-html-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
           path: /tmp/umd_microbenchmark_results/*.html
           if-no-files-found: warn
+
+      - name: Run analysis of benchmark data
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/analyze_results.py \
+            $UMD_MICROBENCHMARK_RESULTS_PATH/
 
       - name: Cleanup benchmark results directory
         run: rm -rf /tmp/umd_microbenchmark_results

@@ -20,8 +20,9 @@ using namespace tt::umd;
 
 class WarmResetNotificationTest : public ::testing::Test {
 public:
-    static int run_child_monitor_logic() {
-        static constexpr auto process_wait_time = std::chrono::seconds(4);
+    static int run_child_monitor_logic(
+        std::chrono::seconds process_pre_notification_wait_time = std::chrono::seconds(4),
+        std::chrono::seconds process_post_notification_wait_time = std::chrono::seconds(4)) {
         std::promise<void> pre_reset_promise;
         std::promise<void> post_reset_promise;
         auto pre_future = pre_reset_promise.get_future();
@@ -35,12 +36,12 @@ public:
         }
 
         // Wait for PRE.
-        if (pre_future.wait_for(process_wait_time) != std::future_status::ready) {
+        if (pre_future.wait_for(process_pre_notification_wait_time) != std::future_status::ready) {
             return 101;  // Code 101: Pre Timeout
         }
 
         // Wait for POST.
-        if (post_future.wait_for(process_wait_time) != std::future_status::ready) {
+        if (post_future.wait_for(process_post_notification_wait_time) != std::future_status::ready) {
             return 102;  // Code 102: Post Timeout
         }
 

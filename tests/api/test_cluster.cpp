@@ -1323,10 +1323,13 @@ TEST(TestCluster, WriteDataReadReg) {
     }
 }
 
-TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
+TEST(TestCluster, EriscFirmwareHashCheck) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test on Galaxy configuration.";
     }
     auto eth_fw_version = cluster->get_ethernet_firmware_version();
     if (!eth_fw_version.has_value()) {
@@ -1372,10 +1375,6 @@ TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
     std::cout << "Passed hash check." << std::endl;
 
     // Revert ERISC FW state with warm reset.
-    if (is_galaxy_configuration(cluster.get())) {
-        WarmReset::ubb_warm_reset();
-    } else {
-        WarmReset::warm_reset();
-    }
+    WarmReset::warm_reset();
     std::cout << "Completed warm reset." << std::endl;
 }

@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "common/utils.hpp"
 #include "device/api/umd/device/warm_reset.hpp"
 
 using namespace tt;
@@ -22,7 +23,8 @@ class WarmResetNotificationTest : public ::testing::Test {
 public:
     static int run_child_monitor_logic(
         std::chrono::seconds process_pre_notification_wait_time = std::chrono::seconds(4),
-        std::chrono::seconds process_post_notification_wait_time = std::chrono::seconds(4)) {
+        std::chrono::seconds process_post_notification_wait_time = std::chrono::seconds(4),
+        std::function<void()> on_started = nullptr) {
         std::promise<void> pre_reset_promise;
         std::promise<void> post_reset_promise;
         auto pre_future = pre_reset_promise.get_future();
@@ -33,6 +35,11 @@ public:
 
         if (!success) {
             return 1;
+        }
+
+        // Used only in WarmResetProcessWaitTest for testing unfulfilled promises.
+        if (on_started) {
+            on_started();
         }
 
         // Wait for PRE.
@@ -204,7 +211,13 @@ struct TimeoutParams {
     bool should_trigger_pre;  // Needed to reach the "Post" check
 };
 
-class WarmResetProcessWaitTest : public WarmResetNotificationTest, public testing::WithParamInterface<TimeoutParams> {};
+class WarmResetProcessWaitTest : public WarmResetNotificationTest, public testing::WithParamInterface<TimeoutParams> {
+    void TearDown() override {
+        WarmResetCommunication::Monitor::stop_monitoring();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        WarmResetNotificationTest::TearDown();
+    }
+};
 
 INSTANTIATE_TEST_SUITE_P(
     TimeoutScenarios,
@@ -223,21 +236,38 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     auto params = GetParam();
+    tt::umd::utils::MultiProcessPipe pipe(1);
 
-    // If testing the second stage (102), we must simulate a successful first stage.
-    if (params.should_trigger_pre) {
-        // TODO: Call your client helper here to send 'WarmResetCommunication::PRE_RESET'
-        // to the socket created by start_monitoring.
-        // send_pre_notification_to_socket();
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        int result = run_child_monitor_logic(
+            std::chrono::duration_cast<std::chrono::seconds>(params.pre_wait),
+            std::chrono::duration_cast<std::chrono::seconds>(params.post_wait),
+            [&]() { pipe.signal_ready_from_child(0); });
+        _exit(result);
     }
 
-    // Execution
-    // We cast to seconds because your function signature requires it,
-    // but 0ms or 1ms casts to 0s, triggering immediate timeout.
-    int result = run_child_monitor_logic(
-        std::chrono::duration_cast<std::chrono::seconds>(params.pre_wait),
-        std::chrono::duration_cast<std::chrono::seconds>(params.post_wait));
+    ASSERT_TRUE(pipe.wait_for_all_children(5));
 
-    // Assertion.
-    EXPECT_EQ(result, params.expected_rc);
+    if (params.should_trigger_pre) {
+        // SAFETY CHECK: Ensure the background thread actually created the socket.
+        // This is much better than a hardcoded sleep.
+        std::string socket_path =
+            std::string(WarmResetCommunication::LISTENER_DIR) + "/client_" + std::to_string(pid) + ".sock";
+
+        // Quick spin-wait (usually exits instantly).
+        while (!std::filesystem::exists(socket_path)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        // Now we are 100% sure the listener is active.
+        WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(500));
+    }
+
+    int status;
+    waitpid(pid, &status, 0);
+
+    ASSERT_TRUE(WIFEXITED(status));
+    EXPECT_EQ(WEXITSTATUS(status), params.expected_rc);
 }

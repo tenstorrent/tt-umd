@@ -43,7 +43,7 @@ public:
     bool is_hardware_hung() override;
 
 private:
-    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api);
 
     /*
      * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice
@@ -57,7 +57,8 @@ private:
      */
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -92,6 +93,8 @@ protected:
     tt::ARCH arch_name;
     ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
+
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

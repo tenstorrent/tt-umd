@@ -56,6 +56,8 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
+        chip_helpers/simulation_sysmem_manager.cpp
+        chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
@@ -75,7 +77,6 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
-        tt_device/rtl_simulation_tt_device.cpp
         tt_device/tt_sim_tt_device.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
@@ -95,6 +96,7 @@ target_sources(
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
+        noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
@@ -117,6 +119,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/tt_sim_chip.cpp
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
+            tt_device/rtl_simulation_tt_device.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -145,6 +148,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/mock_chip.hpp
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp
+                api/umd/device/chip_helpers/simulation_sysmem_manager.hpp
+                api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/cluster.hpp
@@ -176,6 +181,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
+                api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/tt_sim_chip.hpp

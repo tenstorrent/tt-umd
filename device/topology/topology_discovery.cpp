@@ -14,14 +14,13 @@
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -108,8 +107,8 @@ void TopologyDiscovery::get_connected_chips() {
         std::unique_ptr<LocalChip> chip =
             LocalChip::create(device_id, options.soc_descriptor_path, 0, options.io_device_type);
 
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
@@ -148,8 +147,8 @@ void TopologyDiscovery::discover_remote_chips() {
             continue;
         }
 
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
         verify_fw_bundle_version(chip);
@@ -332,7 +331,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
     // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
     std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
         if (!is_eth_trained(chip, eth_core)) {

@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -24,12 +25,7 @@
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
-// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
-bool umd_use_noc1 = false;
-
 namespace tt::umd {
-
-void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
     std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
@@ -152,7 +148,7 @@ TlbWindow *TTDevice::get_cached_tlb_window() {
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
         return;
     }
 
@@ -162,7 +158,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, umd_use_noc1 ? 1 : 0);
+        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
         return;
     }
 
@@ -290,36 +286,9 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     if (communication_device_type_ == IODeviceType::JTAG) {
         throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
     }
+
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-
-    uint8_t *buffer_addr = static_cast<uint8_t *>(dst);
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_start = core_start.x;
-    config.y_start = core_start.y;
-    config.x_end = core_end.x;
-    config.y_end = core_end.y;
-    config.mcast = true;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.static_vc = architecture_impl_->get_static_vc();
-    TlbWindow *tlb_window = get_cached_tlb_window();
-    tlb_window->configure(config);
-
-    while (size > 0) {
-        size_t tlb_size = tlb_window->get_size();
-
-        uint32_t transfer_size = std::min(size, tlb_size);
-
-        tlb_window->write_block(0, buffer_addr, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-    }
+    get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
 }  // namespace tt::umd

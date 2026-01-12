@@ -62,6 +62,17 @@ set_target_properties(
             system_health
 )
 
+add_executable(tlb_virus tlb_virus.cpp)
+target_link_libraries(tlb_virus PRIVATE tools_common)
+set_target_properties(
+    tlb_virus
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            tlb_virus
+)
+
 add_executable(warm_reset warm_reset.cpp)
 target_link_libraries(warm_reset PRIVATE tools_common)
 set_target_properties(
@@ -81,4 +92,5 @@ add_custom_target(
         harvesting
         system_health
         warm_reset
+        tlb_virus
 )

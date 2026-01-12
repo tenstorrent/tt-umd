@@ -135,8 +135,8 @@ class TestTTDevice(unittest.TestCase):
             return
 
         # Test setting use_noc1 to True
-        tt_umd.TTDevice.use_noc1(True)
-        print("Set use_noc1 to True")
+        tt_umd.set_thread_noc_id(tt_umd.NocId.NOC1)
+        print("Set thread NocId to NOC1")
 
         # Perform basic read/write operations to verify use_noc1 works
         for pci_id in pci_ids:
@@ -160,7 +160,6 @@ class TestTTDevice(unittest.TestCase):
             self.assertEqual(read_data, test_data, "Read data should match written data")
             dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
 
-        tt_umd.TTDevice.use_noc1(False)
-        print("Set use_noc1 back to False")
+        tt_umd.set_thread_noc_id(tt_umd.NocId.NOC0)
+        print("Set thread NocId back to NOC0")
 
-        

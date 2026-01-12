@@ -39,6 +39,8 @@ jobs:
       matrix:
         test-group: [
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable, timeout: 45},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable, timeout: 45},
+          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable, timeout: 45},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

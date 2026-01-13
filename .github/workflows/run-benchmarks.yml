@@ -69,11 +69,12 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Checkout gather_host_specs.py tool
+      - name: Checkout microbenchmark tools
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
             tests/microbenchmark/tools/gather_host_specs.py
+            tests/microbenchmark/tools/analyze_results.py
           sparse-checkout-cone-mode: false
           path: tt-umd
 

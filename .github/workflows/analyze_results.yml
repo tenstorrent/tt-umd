@@ -36,18 +36,26 @@ jobs:
         run: python3 -m pip install --no-cache-dir pandas psutil tabulate
 
       - name: Create benchmark results directory
-        run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}
+        run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/{base,compare}
 
-      - name: Download JSON benchmark results
+      - name: Download baseline JSON benchmark results
         uses: actions/download-artifact@v4
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}
+          run-id: 20960766246
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
+
+      - name: Download comparison JSON benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
 
       - name: Run analysis of benchmark data
         run: |
           python3 tests/microbenchmark/tools/analyze_results.py \
-          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/
+          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare -c ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 
       - name: Cleanup benchmark results directory
         run: rm -rf ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}

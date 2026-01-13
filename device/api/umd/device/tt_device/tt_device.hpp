@@ -305,6 +305,10 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+
+    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -333,11 +337,17 @@ private:
 
     virtual void post_init_hook(){};
 
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
-
     TlbWindow *get_cached_tlb_window();
 
+    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
+
+    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+
+    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
+
     std::mutex tt_device_io_lock;
+
+    std::mutex pcie_dma_lock;
 };
 
 }  // namespace tt::umd

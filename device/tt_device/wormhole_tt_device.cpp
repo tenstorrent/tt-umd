@@ -629,4 +629,5 @@ bool WormholeTTDevice::is_hardware_hung() {
 
     return (scratch_data == HANG_READ_VALUE);
 }
+
 }  // namespace tt::umd

@@ -136,7 +136,7 @@ jobs:
           echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
       - name: Download ttsim binary (wh)
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05  # v1.12
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
@@ -144,7 +144,7 @@ jobs:
           out-file-path: /tmp/ttsim-wh
 
       - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05  # v1.12
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
@@ -181,3 +181,59 @@ jobs:
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+
+      - name: Run tt-metal C++ unit tests (wormhole_b0)
+        env:
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_TESTS_DIR: ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+          TT_METAL_MOCK_CLUSTER_DESC_PATH: ${{ env.TT_METAL_TESTS_DIR }}/6u_cluster_desc.yaml
+        run: |
+          cd tt-metal
+          echo "Running C++ unit tests for wormhole_b0..."
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+
+      - name: Run tt-metal C++ unit tests (blackhole)
+        env:
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_TESTS_DIR: ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+          TT_METAL_MOCK_CLUSTER_DESC_PATH: ${{ env.TT_METAL_TESTS_DIR }}/bh_6u_cluster_desc.yaml
+        run: |
+          cd tt-metal
+          echo "Running C++ unit tests for blackhole..."
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+
+      - name: Build UMD tests
+        run: |
+          cd tt-metal/tt_metal/third_party/umd
+          echo "Compiling UMD tests..."
+          cmake -B ./build -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build ./build --target umd_tests
+          echo "UMD tests compile complete."
+          cd ../../../../
+
+      - name: Run Galaxy unit tests with TTSim
+        env:
+          TT_UMD_SIMULATOR: $(pwd)/sim_wh/libttsim.so
+          TT_UMD_SLOW_DISPATCH_MODE: 1
+          TT_UMD_MOCK_CLUSTER_DESC_PATH: >-
+            $(pwd)/tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/6u_cluster_desc.yaml
+          LD_LIBRARY_PATH: $(pwd)/tt-metal/tt_metal/third_party/umd/build/lib
+        run: |
+          cd tt-metal/tt_metal/third_party/umd
+          echo "Running Galaxy unit tests with TTSim..."
+          echo "TT_UMD_SIMULATOR=$TT_UMD_SIMULATOR"
+          echo "TT_UMD_MOCK_CLUSTER_DESC_PATH=$TT_UMD_MOCK_CLUSTER_DESC_PATH"
+          ./build/test/umd/galaxy/unit_tests_glx

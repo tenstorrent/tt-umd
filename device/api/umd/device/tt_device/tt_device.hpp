@@ -309,7 +309,7 @@ public:
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
-    IODeviceType communication_device_type_ = IODeviceType::UNKNOWN;
+    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;

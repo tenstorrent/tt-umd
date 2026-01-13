@@ -44,7 +44,10 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
 }
 
 void bind_tt_device(nb::module_ &m) {
-    nb::enum_<IODeviceType>(m, "IODeviceType").value("PCIe", IODeviceType::PCIe).value("JTAG", IODeviceType::JTAG);
+    nb::enum_<IODeviceType>(m, "IODeviceType")
+        .value("PCIe", IODeviceType::PCIe)
+        .value("JTAG", IODeviceType::JTAG)
+        .value("Undefined", IODeviceType::UNDEFINED);
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)

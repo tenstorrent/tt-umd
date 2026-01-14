@@ -163,6 +163,14 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
+            if (is_using_eth_coords() && eth_coords.find(current_device_asic_id) == eth_coords.end()) {
+                auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
+                if (local_eth_coord.has_value()) {
+                    eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
+                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
+                }
+            }
+
             if (!is_eth_trained(tt_device, eth_core)) {
                 channel++;
                 continue;
@@ -173,13 +181,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (is_using_eth_coords()) {
-                auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
-                if (local_eth_coord.has_value() && eth_coords.find(current_device_asic_id) == eth_coords.end()) {
-                    eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
-                }
-            }
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
 
             if (!is_board_id_included(

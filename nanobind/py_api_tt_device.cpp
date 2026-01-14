@@ -207,6 +207,50 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             "Write a 32-bit value to the specified address on bar0")
         .def(
+            "dma_read_from_device",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+                tt_xy_pair core = {core_x, core_y};
+                std::vector<uint8_t> buffer(size);
+                self.dma_read_from_device(buffer.data(), size, core, addr);
+                return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            "Read arbitrary-length data from a core at the specified address")
+        .def(
+            "dma_read_from_device",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+                -> void {
+                if (noc_id != 0) {
+                    throw std::runtime_error("noc_id must be 0");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
+                size_t data_size = buffer.size();
+                self.dma_read_from_device(data_ptr, static_cast<uint32_t>(data_size), core, addr);
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("buffer"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "dma_write_to_device",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
+                tt_xy_pair core = {core_x, core_y};
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.dma_write_to_device(data_ptr, static_cast<uint32_t>(data_size), core, addr);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write arbitrary-length data to a core at the specified address")
+        .def(
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,

@@ -199,6 +199,9 @@ void LocalChip::close_device() {
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
         }
+        if (tlb_manager_) {
+            tlb_manager_->clear_mapped_tlbs();
+        }
     }
     chip_started_lock_.reset();
 };

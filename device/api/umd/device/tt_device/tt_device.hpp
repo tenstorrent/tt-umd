@@ -18,6 +18,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -312,7 +313,7 @@ public:
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
-    IODeviceType communication_device_type_;
+    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;

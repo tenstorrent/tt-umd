@@ -81,6 +81,12 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
+    bool is_baremetal = all_chips.size() == 0;
+    bool is_6u = all_chips.size() == 32;
+    if (!is_baremetal && !is_6u && cluster_desc->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        EXPECT_EQ(eth_chip_coords.size(), all_chips.size());
+    }
+
     std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
         cluster_desc->get_chips_grouped_by_closest_mmio();
 }

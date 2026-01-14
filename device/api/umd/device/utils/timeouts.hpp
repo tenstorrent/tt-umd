@@ -10,13 +10,13 @@ namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
-inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(5'000);
+inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
 inline constexpr auto ARC_POST_RESET_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_LONG_POST_RESET_TIMEOUT = std::chrono::milliseconds(300'000);
 
-inline constexpr auto DRAM_TRAINING_TIMEOUT = std::chrono::milliseconds(60'000);
+inline constexpr auto DRAM_TRAINING_TIMEOUT = std::chrono::milliseconds(300'000);
 inline constexpr auto ETH_QUEUE_ENABLE_TIMEOUT = std::chrono::milliseconds(30'000);
-inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(60'000);
+inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(900'000);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);
 

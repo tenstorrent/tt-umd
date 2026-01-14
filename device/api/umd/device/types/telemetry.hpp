@@ -50,11 +50,13 @@ enum TelemetryTag : uint8_t {
     NOC_TRANSLATION = 40,
     FAN_RPM = 41,
     ASIC_LOCATION = 52,
+    TDC_LIMIT_MAX = 55,
     TT_FLASH_VERSION = 58,
     ASIC_ID_HIGH = 61,
     ASIC_ID_LOW = 62,
     AICLK_LIMIT_MAX = 63,
-    NUMBER_OF_TAGS = 64,
+    TDP_LIMIT_MAX = 64,
+    NUMBER_OF_TAGS = 65,
 };
 
 }  // namespace tt::umd

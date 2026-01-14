@@ -117,9 +117,15 @@ void bind_telemetry(nb::module_ &m) {
         .value("ENABLED_GDDR", TelemetryTag::ENABLED_GDDR)
         .value("ENABLED_L2CPU", TelemetryTag::ENABLED_L2CPU)
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
-        .value("FAN_RPM", TelemetryTag::FAN_RPM)
-        .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
         .value("NOC_TRANSLATION", TelemetryTag::NOC_TRANSLATION)
+        .value("FAN_RPM", TelemetryTag::FAN_RPM)
+        .value("ASIC_LOCATION", TelemetryTag::ASIC_LOCATION)
+        .value("TDC_LIMIT_MAX", TelemetryTag::TDC_LIMIT_MAX)
+        .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
+        .value("ASIC_ID_HIGH", TelemetryTag::ASIC_ID_HIGH)
+        .value("ASIC_ID_LOW", TelemetryTag::ASIC_ID_LOW)
+        .value("AICLK_LIMIT_MAX", TelemetryTag::AICLK_LIMIT_MAX)
+        .value("TDP_LIMIT_MAX", TelemetryTag::TDP_LIMIT_MAX)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 

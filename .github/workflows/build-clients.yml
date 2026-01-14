@@ -160,7 +160,7 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          ./build_metal.sh --build-programming-examples
+          ./build_metal.sh --build-programming-examples --build-tests
           cd ../
 
       - name: Prepare sim paths

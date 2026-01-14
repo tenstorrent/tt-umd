@@ -79,7 +79,7 @@ jobs:
           # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
           # # TODO: To be added when available.
           # # {arch: blackhole, card: tt-ubuntu-2204-p100a-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
           # {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
           # {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
           # {arch: wormhole_b0, card: 6u},

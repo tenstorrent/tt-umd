@@ -50,8 +50,14 @@ TTDevice::TTDevice() {}
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
+void TTDevice::probe_arc() {
+    uint32_t dummy;
+    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
+}
+
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     pre_init_hook();
+    probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
         throw std::runtime_error(fmt::format(
             "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));

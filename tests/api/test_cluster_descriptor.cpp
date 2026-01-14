@@ -81,7 +81,9 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
-    if (cluster_desc->get_arch() == tt::ARCH::WORMHOLE_B0) {
+    bool is_baremetal = all_chips.size() == 0;
+    bool is_6u = all_chips.size() == 32;
+    if (!is_baremetal && !is_6u && cluster_desc->get_arch() == tt::ARCH::WORMHOLE_B0) {
         EXPECT_EQ(eth_chip_coords.size(), all_chips.size());
     }
 

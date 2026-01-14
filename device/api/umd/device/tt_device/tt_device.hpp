@@ -333,6 +333,8 @@ private:
 
     virtual void post_init_hook(){};
 
+    void probe_arc();
+
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     TlbWindow *get_cached_tlb_window();

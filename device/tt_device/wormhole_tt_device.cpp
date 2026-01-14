@@ -534,8 +534,6 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
     auto start = std::chrono::steady_clock::now();
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(dummy));  // SCRATCH_0
     while (true) {
         auto now = std::chrono::steady_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();

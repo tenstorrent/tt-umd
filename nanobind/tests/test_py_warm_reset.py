@@ -5,7 +5,7 @@ import unittest
 import tt_umd
 
 class TestWarmReset(unittest.TestCase):
-    @unittest.skip("Skipping warm reset test to avoid resetting cards during unit tests")
+    # @unittest.skip("Skipping warm reset test to avoid resetting cards during unit tests")
     def test_warm_reset(self):
         """Test warm reset functionality - SKIPPED to avoid resetting cards"""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()

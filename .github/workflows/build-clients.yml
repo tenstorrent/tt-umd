@@ -189,11 +189,9 @@ jobs:
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_TESTS_DIR: >-
             ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
-          TT_METAL_MOCK_CLUSTER_DESC_PATH: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/
-            custom_mock_cluster_descriptors/6u_cluster_desc.yaml
         run: |
           cd tt-metal
+          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
           echo "Running C++ unit tests for wormhole_b0..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
@@ -205,11 +203,9 @@ jobs:
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_TESTS_DIR: >-
             ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
-          TT_METAL_MOCK_CLUSTER_DESC_PATH: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/
-            custom_mock_cluster_descriptors/bh_6u_cluster_desc.yaml
         run: |
           cd tt-metal
+          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"
           echo "Running C++ unit tests for blackhole..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"

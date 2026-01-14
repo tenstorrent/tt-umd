@@ -187,8 +187,11 @@ jobs:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
-          TT_METAL_TESTS_DIR: ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
-          TT_METAL_MOCK_CLUSTER_DESC_PATH: ${{ env.TT_METAL_TESTS_DIR }}/6u_cluster_desc.yaml
+          TT_METAL_TESTS_DIR: >-
+            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+          TT_METAL_MOCK_CLUSTER_DESC_PATH: >-
+            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/
+            custom_mock_cluster_descriptors/6u_cluster_desc.yaml
         run: |
           cd tt-metal
           echo "Running C++ unit tests for wormhole_b0..."
@@ -200,8 +203,11 @@ jobs:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
-          TT_METAL_TESTS_DIR: ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
-          TT_METAL_MOCK_CLUSTER_DESC_PATH: ${{ env.TT_METAL_TESTS_DIR }}/bh_6u_cluster_desc.yaml
+          TT_METAL_TESTS_DIR: >-
+            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+          TT_METAL_MOCK_CLUSTER_DESC_PATH: >-
+            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/
+            custom_mock_cluster_descriptors/bh_6u_cluster_desc.yaml
         run: |
           cd tt-metal
           echo "Running C++ unit tests for blackhole..."

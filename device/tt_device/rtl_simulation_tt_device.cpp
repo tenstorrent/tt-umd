@@ -17,7 +17,7 @@ namespace tt::umd {
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
+    SocDescriptor soc_descriptor = SocDescriptor::create_from_yaml(soc_desc_path);
     return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor);
 }
 

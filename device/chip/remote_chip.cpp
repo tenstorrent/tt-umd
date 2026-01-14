@@ -37,7 +37,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     if (sdesc_path.empty()) {
         soc_descriptor = SocDescriptor(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor::create_from_yaml(sdesc_path, remote_tt_device->get_chip_info());
     }
     return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }

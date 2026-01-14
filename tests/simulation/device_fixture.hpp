@@ -28,7 +28,7 @@ protected:
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
         auto soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
-        auto soc_descriptor = SocDescriptor(soc_descriptor_path);
+        auto soc_descriptor = SocDescriptor::create_from_yaml(soc_descriptor_path);
         device = SimulationChip::create(simulator_path, soc_descriptor, 0, 1);
         device->start_device();
     }

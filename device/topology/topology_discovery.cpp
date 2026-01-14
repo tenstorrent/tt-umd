@@ -411,7 +411,7 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
         soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
-        soc_descriptor = SocDescriptor(options.soc_descriptor_path, tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor::create_from_yaml(options.soc_descriptor_path, tt_device->get_chip_info());
     }
 
     soc_descriptor_cache[tt_device] = soc_descriptor;

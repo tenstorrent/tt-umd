@@ -469,21 +469,30 @@ void SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     load_from_soc_desc_info(soc_desc_info);
 }
 
-SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo chip_info) :
-    noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
-    std::ifstream fdesc(device_descriptor_path);
-    if (fdesc.fail()) {
+SocDescriptor SocDescriptor::create_from_yaml(const std::string &soc_descriptor_yaml_path, ChipInfo chip_info) {
+    return create_from_yaml(std::filesystem::path(soc_descriptor_yaml_path), chip_info);
+}
+
+SocDescriptor SocDescriptor::create_from_yaml(
+    const std::filesystem::path &soc_descriptor_yaml_path, ChipInfo chip_info) {
+    SocDescriptor soc_desc;
+    soc_desc.noc_translation_enabled = chip_info.noc_translation_enabled;
+    soc_desc.harvesting_masks = chip_info.harvesting_masks;
+
+    std::ifstream soc_descriptor_yaml_file(soc_descriptor_yaml_path);
+    if (soc_descriptor_yaml_file.fail()) {
         throw std::runtime_error(
-            fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
+            fmt::format("Error: device descriptor file {} does not exist!", soc_descriptor_yaml_path.string()));
     }
-    fdesc.close();
+    soc_descriptor_yaml_file.close();
 
-    YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_path);
+    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_yaml_path.string());
 
-    device_descriptor_file_path = device_descriptor_path;
-    load_from_yaml(device_descriptor_yaml);
+    soc_desc.load_from_yaml(device_descriptor_yaml);
 
-    create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
+    soc_desc.create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
+
+    return soc_desc;
 }
 
 int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }

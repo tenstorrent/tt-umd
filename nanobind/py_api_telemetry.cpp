@@ -117,6 +117,7 @@ void bind_telemetry(nb::module_ &m) {
         .value("ENABLED_GDDR", TelemetryTag::ENABLED_GDDR)
         .value("ENABLED_L2CPU", TelemetryTag::ENABLED_L2CPU)
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
+        .value("FAN_RPM", TelemetryTag::FAN_RPM)
         .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
         .value("NOC_TRANSLATION", TelemetryTag::NOC_TRANSLATION)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)

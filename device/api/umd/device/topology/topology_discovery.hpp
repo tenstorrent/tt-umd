@@ -62,6 +62,9 @@ protected:
 
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
+    virtual void wait_eth_cores_training(
+        TTDevice* tt_device, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
     virtual bool is_board_id_included(uint64_t board_id, uint64_t board_type) const = 0;

@@ -27,6 +27,11 @@ on:
         options:
           - ubuntu-22.04
           - ubuntu-24.04
+      docker-tag:
+        required: true
+        description: 'The docker tag to use'
+        type: string
+        default: latest
       timeout:
         required: true
         description: 'The timeout for the build job in minutes'
@@ -62,7 +67,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.docker-tag }}
 
     steps:
       - name: Print all params
@@ -75,6 +80,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}
+            .cpmcache
+          # yamllint disable rule:line-length
+          key: build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
+          restore-keys: |
+            build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-
+            build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
+          # yamllint enable rule:line-length
 
       # Only perform build with necessary components to run tests.
       - name: Build ${{ env.BUILD_TARGETS }}
@@ -115,12 +133,25 @@ jobs:
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.docker-tag }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}
+            .cpmcache
+          # yamllint disable rule:line-length
+          key: build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
+          restore-keys: |
+            build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-
+            build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
+          # yamllint enable rule:line-length
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4

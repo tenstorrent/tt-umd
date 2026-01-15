@@ -36,20 +36,22 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, compiler: clang},
-          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04,
+          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, docker-tag: latest, compiler: clang},
+          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, docker-tag: latest,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, compiler: clang},
-          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04,
+          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, docker-tag: latest, compiler: clang},
+          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, docker-tag: latest,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-22.04, container-distro: fedora-39,
+          {runs-on: ubuntu-22.04, container-distro: fedora-39, docker-tag: latest,
            compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
         ]
 
     name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
     runs-on: ${{ matrix.image.runs-on }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
+      image: >-
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:${{
+        matrix.image.docker-tag }}
     env:
       ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
       ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
@@ -60,6 +62,19 @@ jobs:
           # Clone under tt-umd directory
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}
+            .cpmcache
+          # yamllint disable rule:line-length
+          key: build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
+          restore-keys: |
+            build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.ref_name }}-${{ matrix.image.compiler }}-
+            build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
+          # yamllint enable rule:line-length
 
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.

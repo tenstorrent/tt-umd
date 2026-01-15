@@ -25,7 +25,8 @@ public:
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
-        size_t num_chips);
+        size_t num_chips,
+        int num_host_mem_channels = 0);
 
     virtual ~SimulationChip() = default;
 
@@ -86,7 +87,10 @@ public:
 
 protected:
     SimulationChip(
-        const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id);
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
 
     // Simulator directory.
     // Common state variables.

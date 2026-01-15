@@ -187,6 +187,8 @@ static PciDeviceInfo read_device_info(int fd) {
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,
+        info.out.subsystem_vendor_id,
+        info.out.subsystem_id,
         info.out.pci_domain,
         bus,
         dev,
@@ -213,7 +215,10 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
                 TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
+        } catch (const std::exception &e) {
+            log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());
         } catch (...) {
+            log_error(tt::LogUMD, "Reset IOCTL failed with unknown error");
         }
 
         close(fd);

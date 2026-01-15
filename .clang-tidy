@@ -8,7 +8,8 @@ Checks: >
     cppcoreguidelines-use-enum-class,
     cppcoreguidelines-pro-type-cstyle-cast,
     performance-for-range-copy,
-    performance-unnecessary-value-param
+    performance-unnecessary-value-param,
+    readability-container-size-empty
 
 HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
 WarningsAsErrors: '*'

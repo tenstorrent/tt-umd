@@ -20,7 +20,8 @@ public:
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
-        bool copy_sim_binary = false);
+        bool copy_sim_binary = false,
+        int num_host_mem_channels = 0);
     ~TTSimChip() override;
 
     void start_device() override;

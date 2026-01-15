@@ -230,4 +230,12 @@ bool RtlSimulationTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("Getting NOC translation status is not supported in RTL simulation device.");
 }
 
+void RtlSimulationTTDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("DMA write to device not supported for RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
+}
+
 }  // namespace tt::umd

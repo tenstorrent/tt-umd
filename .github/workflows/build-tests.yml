@@ -7,6 +7,10 @@ on:
       ubuntu-docker-version:
         required: true
         type: string
+      docker-tag:
+        required: false
+        type: string
+        default: latest
       timeout:
         required: true
         type: number
@@ -28,7 +32,7 @@ on:
           - ubuntu-22.04
           - ubuntu-24.04
       docker-tag:
-        required: true
+        required: false
         description: 'The docker tag to use'
         type: string
         default: latest
@@ -88,9 +92,9 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}
             .cpmcache
           # yamllint disable rule:line-length
-          key: build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
+          key: build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
           restore-keys: |
-            build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-
+            build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-
             build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
           # yamllint enable rule:line-length
 
@@ -147,9 +151,9 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}
             .cpmcache
           # yamllint disable rule:line-length
-          key: build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
+          key: build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
           restore-keys: |
-            build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.ref_name }}-${{ inputs.build-type }}-
+            build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-
             build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
           # yamllint enable rule:line-length
 

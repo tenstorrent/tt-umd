@@ -70,9 +70,9 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}
             .cpmcache
           # yamllint disable rule:line-length
-          key: build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
+          key: build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
           restore-keys: |
-            build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.ref_name }}-${{ matrix.image.compiler }}-
+            build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
             build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
           # yamllint enable rule:line-length
 

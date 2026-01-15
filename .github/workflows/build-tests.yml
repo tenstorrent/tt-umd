@@ -107,6 +107,11 @@ jobs:
             build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
           # yamllint enable rule:line-length
 
+      - name: Print content of repo directory
+        run: |
+          echo "Listing files in the repository:"
+          ls -lAR
+
       # Only perform build with necessary components to run tests.
       - name: Build ${{ env.BUILD_TARGETS }}
         run: |

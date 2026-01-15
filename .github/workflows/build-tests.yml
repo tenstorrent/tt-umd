@@ -85,6 +85,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Restore file timestamps to match git commit
+        run: |
+          mkdir build
+          touch build/compile_commands.json
+          git ls-files | while IFS= read -r file; do
+            touch -d @$(git log -1 --format=%at -- "$file") "$file"
+          done
+
       - name: Restore build cache
         uses: actions/cache@v4
         with:

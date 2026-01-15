@@ -182,7 +182,7 @@ jobs:
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
-      - name: Run tt-metal C++ unit tests (wormhole_b0)
+      - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
@@ -196,7 +196,7 @@ jobs:
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
 
-      - name: Run tt-metal C++ unit tests (blackhole)
+      - name:  Run tt-metal C++ unit test on tt-sim galaxy blackhole
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so

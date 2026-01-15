@@ -101,14 +101,9 @@ void TopologyDiscovery::get_connected_devices() {
         default:
             TT_THROW("Unsupported device type.");
     }
-
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
         tt_device->init_tt_device();
-
-        if (!options.no_wait_for_eth_training) {
-            wait_eth_cores_training(tt_device.get());
-        }
 
         std::vector<CoreCoord> eth_cores =
             get_soc_descriptor(tt_device.get())
@@ -400,23 +395,6 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
             arch_to_str(tt_device->get_arch()));
     }
     return true;
-}
-
-void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
-    auto timeout_left = timeout_ms;
-    const std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(CoreType::ETH);
-    for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = eth_core;
-        if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            // Translated space for ETH cores is different than NOC1 and wait_eth_core training is expecting NOC0
-            // coordinates.
-            actual_eth_core = get_soc_descriptor(tt_device).translate_coord_to(eth_core, CoordSystem::NOC0);
-        } else {
-            actual_eth_core = get_soc_descriptor(tt_device).translate_chip_coord_to_translated(eth_core);
-        }
-
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
-    }
 }
 
 SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {

@@ -30,7 +30,7 @@ struct TopologyDiscoveryOptions {
     // Skip discovery of devices connected via Ethernet.
     bool no_remote_discovery = false;
 
-    // Skip waiting for ETH core training.
+    // Skip waiting for ETH training. TODO: Currently unimplemented.
     bool no_wait_for_eth_training = false;
 
     // Allow unsupported ETH firmware versions and do not fail when
@@ -61,9 +61,6 @@ protected:
     void discover_remote_devices();
 
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
-
-    virtual void wait_eth_cores_training(
-        TTDevice* tt_device, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.

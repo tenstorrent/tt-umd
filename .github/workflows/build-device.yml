@@ -101,6 +101,9 @@ jobs:
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=ON
+          echo "Running ninja explain for debugging purposes..."
+          ninja -C build -n -d explain
+          echo "Starting actual build..."
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 

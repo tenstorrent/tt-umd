@@ -48,3 +48,6 @@ class TestWarmReset(unittest.TestCase):
             should_perform_secondary_bus_reset = not is_wormhole_ubb
             print(f"Executing standard warm reset, with secondary bus reset: {should_perform_secondary_bus_reset}")
             tt_umd.WarmReset.warm_reset(pci_ids, secondary_bus_reset=should_perform_secondary_bus_reset)
+
+        # Verify that the device is back online
+        tt_umd.TopologyDiscovery.discover()

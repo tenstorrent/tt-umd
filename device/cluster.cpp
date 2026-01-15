@@ -1021,7 +1021,7 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, IODeviceType device_type) {
     TopologyDiscoveryOptions options;
-    options.soc_descriptor_path = sdesc_path;
+    options.soc_descriptor_path = std::move(sdesc_path);
     options.io_device_type = device_type;
     return TopologyDiscovery::discover(std::move(options)).first;
 }

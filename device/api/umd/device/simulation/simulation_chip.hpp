@@ -23,7 +23,7 @@ public:
 
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         size_t num_chips,
         int num_host_mem_channels = 0);
@@ -88,7 +88,7 @@ public:
 protected:
     SimulationChip(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels = 0);
 

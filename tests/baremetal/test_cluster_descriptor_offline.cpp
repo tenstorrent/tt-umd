@@ -26,7 +26,7 @@ int count_connections(
 }
 
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
-    for (std::string cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
+    for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_yaml);
 
@@ -49,7 +49,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
-    for (std::string cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
+    for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
 
         // Load file content.
@@ -91,7 +91,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
     }
 
     // Merge into clusters of chips.
-    for (auto connection : cluster_desc->get_ethernet_connections()) {
+    for (const auto& connection : cluster_desc->get_ethernet_connections()) {
         ChipId chip = connection.first;
         for (auto [channel, remote_chip_and_channel] : connection.second) {
             ChipId remote_chip = std::get<0>(remote_chip_and_channel);

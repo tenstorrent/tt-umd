@@ -30,7 +30,7 @@ void move_data(
 void broadcast_data(
     Cluster& device,
     tt_multichip_core_addr sender_core,
-    std::vector<tt_multichip_core_addr> receiver_cores,
+    const std::vector<tt_multichip_core_addr>& receiver_cores,
     uint32_t size) {
     std::vector<uint32_t> readback_vec = {};
     test_utils::read_data_from_device(

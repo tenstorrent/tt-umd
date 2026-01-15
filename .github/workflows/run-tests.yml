@@ -110,7 +110,7 @@ jobs:
           source .venv/bin/activate
           ./scripts/install-deps.sh
           echo "Installing tt-umd wheel..."
-          pip install tt_umd-*.whl --force-reinstall
+          pip install ../tt_umd-*.whl --force-reinstall
           echo "Installation complete."
           echo "Running tt-exalens unit tests..."
           pytest test/ttexalens

@@ -126,12 +126,12 @@ public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
-    static std::vector<int> enumerate_devices(std::unordered_set<int> pci_target_devices = {});
+    static std::vector<int> enumerate_devices(const std::unordered_set<int> &pci_target_devices = {});
 
     /**
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
-    static std::map<int, PciDeviceInfo> enumerate_devices_info(std::unordered_set<int> pci_target_devices = {});
+    static std::map<int, PciDeviceInfo> enumerate_devices_info(const std::unordered_set<int> &pci_target_devices = {});
 
     /**
      * PCI device constructor.
@@ -262,7 +262,7 @@ public:
     /**
      * Reset device via ioctl.
      */
-    static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag);
+    static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.

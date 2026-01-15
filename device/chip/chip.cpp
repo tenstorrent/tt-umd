@@ -20,11 +20,13 @@
 
 namespace tt::umd {
 
-Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) { set_default_params(soc_descriptor.arch); }
+Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
+    set_default_params(soc_descriptor_.arch);
+}
 
 Chip::Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor) :
-    chip_info_(chip_info), soc_descriptor_(soc_descriptor) {
-    set_default_params(soc_descriptor.arch);
+    chip_info_(chip_info), soc_descriptor_(std::move(soc_descriptor)) {
+    set_default_params(soc_descriptor_.arch);
 }
 
 SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }

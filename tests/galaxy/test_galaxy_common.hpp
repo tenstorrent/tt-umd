@@ -41,5 +41,5 @@ void move_data(
 void broadcast_data(
     Cluster& device,
     tt_multichip_core_addr sender_core,
-    std::vector<tt_multichip_core_addr> receiver_cores,
+    const std::vector<tt_multichip_core_addr>& receiver_cores,
     uint32_t size);

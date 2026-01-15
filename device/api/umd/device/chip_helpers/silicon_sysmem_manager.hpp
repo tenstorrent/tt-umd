@@ -40,7 +40,7 @@ private:
     bool pin_or_map_hugepages();
     bool pin_or_map_iommu();
 
-    void print_file_contents(std::string filename, std::string hint = "");
+    void print_file_contents(const std::string& filename, const std::string& hint = "");
 };
 
 }  // namespace tt::umd

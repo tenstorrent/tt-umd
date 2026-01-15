@@ -63,11 +63,19 @@ jobs:
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
+      - name: Restore file timestamps to match git commit
+        run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          git ls-files | xargs -I{} git log -1 --format="%at" {} | \
+            paste - <(git ls-files) | \
+            xargs -n2 sh -c 'touch -d @"$0" "$1"'
+
       - name: Restore build cache
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.TT_UMD_DIR }}
+            ${{ env.TT_UMD_DIR }}/${{ env.BUILD_OUTPUT_DIR }}
+            ${{ env.TT_UMD_DIR }}/.cpmcache
           # yamllint disable rule:line-length
           key: build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
           restore-keys: |

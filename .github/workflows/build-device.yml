@@ -62,6 +62,7 @@ jobs:
           # Clone under tt-umd directory
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
+          fetch-depth: 0
 
       - name: Restore file timestamps to match git commit
         run: |

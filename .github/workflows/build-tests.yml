@@ -84,6 +84,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Restore file timestamps to match git commit
         run: |
@@ -161,6 +162,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Restore file timestamps to match git commit
         run: |

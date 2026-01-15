@@ -5,7 +5,6 @@ import unittest
 import tt_umd
 
 class TestWarmReset(unittest.TestCase):
-    # @unittest.skip("Skipping warm reset test to avoid resetting cards during unit tests")
     def test_warm_reset(self):
         """Test warm reset functionality - SKIPPED to avoid resetting cards"""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
@@ -47,5 +46,5 @@ class TestWarmReset(unittest.TestCase):
             tt_umd.WarmReset.ubb_warm_reset(timeout_s=300)
         else:
             should_perform_secondary_bus_reset = not is_wormhole_ubb
-            print("Executing standard warm reset, with secondary bus reset: {should_perform_secondary_bus_reset}")
+            print(f"Executing standard warm reset, with secondary bus reset: {should_perform_secondary_bus_reset}")
             tt_umd.WarmReset.warm_reset(pci_ids, secondary_bus_reset=should_perform_secondary_bus_reset)

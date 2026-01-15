@@ -138,7 +138,6 @@ add_compile_options(
     -Werror
     -Wno-unused-variable
     -Wno-unused-function
-    -Wno-unused-but-set-variable
     -Wno-sign-compare
 )
 

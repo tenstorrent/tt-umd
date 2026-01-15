@@ -33,7 +33,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
         soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor::create_from_yaml(sdesc_path, tt_device->get_chip_info());
     }
 
     std::unique_ptr<TLBManager> tlb_manager = nullptr;

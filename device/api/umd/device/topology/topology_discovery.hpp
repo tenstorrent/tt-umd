@@ -30,7 +30,7 @@ struct TopologyDiscoveryOptions {
     // Skip discovery of devices connected via Ethernet.
     bool no_remote_discovery = false;
 
-    // Skip waiting for ETH training. TODO: Currently unimplemented.
+    // Skip waiting for ETH core training.
     bool no_wait_for_eth_training = false;
 
     // Allow unsupported ETH firmware versions and do not fail when

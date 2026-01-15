@@ -22,7 +22,7 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor) :
+    const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor) :
     simulator_directory_(simulator_directory), soc_descriptor_(soc_descriptor) {
     log_info(LogUMD, "Instantiating RTL simulation device");
 
@@ -71,7 +71,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
 
 static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw, const std::vector<uint32_t>& vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
@@ -107,7 +107,8 @@ static inline void _print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-static inline void _send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+static inline void _send_command_to_simulation_host(
+    SimulationHost& host, const flatbuffers::FlatBufferBuilder& flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
     _print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));

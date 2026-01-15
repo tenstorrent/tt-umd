@@ -31,7 +31,7 @@ static const std::vector<RiscType> RISC_TYPES_DMS = {
     RiscType::DM7};
 
 inline flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw, const std::vector<uint32_t>& vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
@@ -67,7 +67,7 @@ inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+inline void send_command_to_simulation_host(SimulationHost& host, const flatbuffers::FlatBufferBuilder& flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
     print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
@@ -76,7 +76,7 @@ inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::F
 
 RtlSimulationChip::RtlSimulationChip(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels) {

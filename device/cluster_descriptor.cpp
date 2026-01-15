@@ -391,7 +391,7 @@ std::map<T, ChipId> filter_chip_collection(
 }
 
 std::unordered_set<ChipId> filter_chip_collection(
-    const std::unordered_set<ChipId> &collection, const std::unordered_set<ChipId> chips) {
+    const std::unordered_set<ChipId> &collection, const std::unordered_set<ChipId> &chips) {
     std::unordered_set<ChipId> filtered_collection;
     for (const auto &chip_id : collection) {
         auto it = chips.find(chip_id);
@@ -983,7 +983,7 @@ const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio
 
 const std::unordered_set<ChipId> &ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
-const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(std::unordered_set<ChipId> chips) const {
+const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
     std::vector<ChipId> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(

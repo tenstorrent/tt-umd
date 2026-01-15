@@ -81,7 +81,7 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
-    bool is_baremetal = all_chips.size() == 0;
+    bool is_baremetal = all_chips.empty();
     bool is_6u = all_chips.size() == 32;
     if (!is_baremetal && !is_6u && cluster_desc->get_arch() == tt::ARCH::WORMHOLE_B0) {
         EXPECT_EQ(eth_chip_coords.size(), all_chips.size());
@@ -148,7 +148,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
 
 TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.size() == 0) {
+    if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -198,7 +198,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
     auto all_chips = cluster_desc->get_all_chips();
 
-    if (all_chips.size() == 0) {
+    if (all_chips.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 

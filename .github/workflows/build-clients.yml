@@ -196,7 +196,7 @@ jobs:
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
 
-      - name:  Run tt-metal C++ unit test on tt-sim galaxy blackhole
+      - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so

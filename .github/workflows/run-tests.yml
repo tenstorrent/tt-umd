@@ -101,10 +101,13 @@ jobs:
 
       - name: Run tt-exalens tests
         shell: bash
+        if: ${{ inputs.arch != 'baremetal' }}
         run: |
           echo "Cloning tt-exalens repository..."
           git clone https://github.com/tenstorrent/tt-exalens.git
           cd tt-exalens
+          echo "Make kernels for tests..."
+          make
           echo "Setting up virtual environment for tt-exalens..."
           python -m venv .venv
           source .venv/bin/activate

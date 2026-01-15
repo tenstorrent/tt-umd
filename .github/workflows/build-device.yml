@@ -16,8 +16,10 @@ on:
 
 env:
   TT_UMD_DIR: tt-umd
+  TT_UMD_PYTHON_DIR: tt-umd-python
   # Note that $GITHUB_WORKSPACE can only be used in the shell step.
   TT_UMD_DIR_SHELL: $GITHUB_WORKSPACE/tt-umd
+  TT_UMD_PYTHON_DIR_SHELL: $GITHUB_WORKSPACE/tt-umd-python
   CLIENTS_BUILD_DIR_SHELL: $GITHUB_WORKSPACE/build_clients
   BUILD_OUTPUT_DIR: build
   LIB_OUTPUT_DIR: ./build/lib
@@ -73,17 +75,17 @@ jobs:
             touch -d @$(git log -1 --format=%at -- "$file") "$file"
           done
 
-      - name: Restore build cache
+      - name: umd build cache
         uses: actions/cache@v4
         with:
           path: |
             ${{ env.TT_UMD_DIR }}/${{ env.BUILD_OUTPUT_DIR }}
             ${{ env.TT_UMD_DIR }}/.cpmcache
           # yamllint disable rule:line-length
-          key: build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
+          key: build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
           restore-keys: |
-            build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
-            build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
+            build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
+            build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
           # yamllint enable rule:line-length
 
       - name: Set GCC compiler
@@ -102,9 +104,6 @@ jobs:
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=ON
-          echo "Running ninja explain for debugging purposes..."
-          ninja -C build -n -d explain
-          echo "Starting actual build..."
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -225,9 +224,38 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
+      - uses: actions/checkout@v4
+        with:
+          # Clone under tt-umd-python directory
+          path: ${{ env.TT_UMD_PYTHON_DIR }}
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Restore file timestamps to match git commit
+        run: |
+          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
+          mkdir build
+          touch build/compile_commands.json
+          git ls-files | while IFS= read -r file; do
+            touch -d @$(git log -1 --format=%at -- "$file") "$file"
+          done
+
+      - name: umd-python build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.TT_UMD_PYTHON_DIR }}/${{ env.BUILD_OUTPUT_DIR }}
+            ${{ env.TT_UMD_PYTHON_DIR }}/.cpmcache
+          # yamllint disable rule:line-length
+          key: build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
+          restore-keys: |
+            build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
+            build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
+          # yamllint enable rule:line-length
+
       - name: Rebuild package for python without wheel
         run: |
-          cd ${{ env.TT_UMD_DIR_SHELL }}
+          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
           echo "Recompiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
@@ -236,9 +264,14 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
+      - name: Adjust artifact timestamps using ninja dependency info
+        run: |
+          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
+          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
+
       - name: Generate .deb package for umd-python
         if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
-        working-directory: ${{ env.TT_UMD_DIR }}/build
+        working-directory: ${{ env.TT_UMD_PYTHON_DIR }}/build
         run: |
           cpack -G DEB
 
@@ -248,12 +281,12 @@ jobs:
         with:
           name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
-            ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
+            ${{ env.TT_UMD_PYTHON_DIR }}/build/*umd-python*.deb
           if-no-files-found: error
 
       - name: Generate .rpm package for umd-python
         if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
-        working-directory: ${{ env.TT_UMD_DIR }}/build
+        working-directory: ${{ env.TT_UMD_PYTHON_DIR }}/build
         run: |
           cpack -G RPM
 
@@ -263,7 +296,7 @@ jobs:
         with:
           name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
-            ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
+            ${{ env.TT_UMD_PYTHON_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
 
   build-manylinux-wheels:

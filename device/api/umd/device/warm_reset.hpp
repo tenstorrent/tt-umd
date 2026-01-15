@@ -14,8 +14,7 @@ namespace tt::umd {
 
 class WarmReset {
 public:
-    static void warm_reset(
-        std::vector<int> pci_device_ids = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
+    static void warm_reset(std::vector<int> pci_device_ids = {}, bool reset_m3 = false);
 
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
@@ -30,8 +29,7 @@ private:
     static void warm_reset_arch_agnostic(
         std::vector<int> pci_device_ids,
         bool reset_m3,
-        std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT,
-        bool secondary_bus_reset = true);
+        std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT);
 
     static void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 

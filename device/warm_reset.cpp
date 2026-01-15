@@ -28,7 +28,7 @@ namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset) {
+void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
     if constexpr (is_arm_platform()) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return;
@@ -39,7 +39,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     }
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
+        warm_reset_arch_agnostic(pci_device_ids, reset_m3);
         return;
     }
 
@@ -113,10 +113,7 @@ int wait_for_pci_bdf_to_reappear(
 }
 
 void WarmReset::warm_reset_arch_agnostic(
-    std::vector<int> pci_device_ids,
-    bool reset_m3,
-    std::chrono::milliseconds reset_m3_timeout,
-    bool secondary_bus_reset) {
+    std::vector<int> pci_device_ids, bool reset_m3, std::chrono::milliseconds reset_m3_timeout) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
 
@@ -126,9 +123,7 @@ void WarmReset::warm_reset_arch_agnostic(
     }
 
     log_info(tt::LogUMD, "Starting reset on devices at PCI indices: {}", fmt::join(pci_device_id_set, ", "));
-    if (secondary_bus_reset) {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
-    }
+    PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     if (reset_m3) {
         PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);

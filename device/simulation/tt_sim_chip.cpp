@@ -34,7 +34,7 @@ static_assert(!std::is_abstract<TTSimChip>(), "TTSimChip must be non-abstract.")
 
 TTSimChip::TTSimChip(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     bool copy_sim_binary) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id),

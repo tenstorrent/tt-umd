@@ -15,7 +15,10 @@
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id, size_t num_chips) {
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    size_t num_chips) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id, num_chips > 1);
     } else {
@@ -29,7 +32,7 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 }
 
 SimulationChip::SimulationChip(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+    const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory_);

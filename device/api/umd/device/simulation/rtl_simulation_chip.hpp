@@ -15,7 +15,8 @@ namespace tt::umd {
 // RTL simulation implementation using subprocess and flatbuffer communication.
 class RtlSimulationChip : public SimulationChip {
 public:
-    RtlSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+    RtlSimulationChip(
+        const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id);
     ~RtlSimulationChip() override = default;
 
     void start_device() override;

@@ -18,7 +18,7 @@ class TTSimChip : public SimulationChip {
 public:
     TTSimChip(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         bool copy_sim_binary = false);
     ~TTSimChip() override;

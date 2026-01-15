@@ -6,7 +6,9 @@ Checks: >
     bugprone-use-after-move,
     bugprone-redundant-branch-condition,
     cppcoreguidelines-use-enum-class,
-    cppcoreguidelines-pro-type-cstyle-cast
+    cppcoreguidelines-pro-type-cstyle-cast,
+    performance-for-range-copy,
+    performance-unnecessary-value-param
 
 HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
 WarningsAsErrors: '*'

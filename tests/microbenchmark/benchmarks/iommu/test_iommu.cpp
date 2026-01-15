@@ -158,7 +158,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (21 << MAP_HUGE_SHIFT),
@@ -224,7 +224,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT),

@@ -187,6 +187,8 @@ static PciDeviceInfo read_device_info(int fd) {
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,
+        info.out.subsystem_vendor_id,
+        info.out.subsystem_id,
         info.out.pci_domain,
         bus,
         dev,

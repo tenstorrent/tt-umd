@@ -27,6 +27,8 @@ class semver_t;
 struct PciDeviceInfo {
     uint16_t vendor_id;
     uint16_t device_id;
+    uint16_t subsystem_vendor_id;
+    uint16_t subsystem_id;
     uint16_t pci_domain;
     uint16_t pci_bus;
     uint16_t pci_device;

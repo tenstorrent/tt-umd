@@ -22,14 +22,8 @@ class TestWarmReset(unittest.TestCase):
             print(f"  Subsystem ID: 0x{device_info.subsystem_id:04X}")
             print(f"  PCI BDF: {device_info.pci_bdf}")    
         
-        # Create TTDevice for PCI ID 0
-        dev = tt_umd.TTDevice.create(0)
-        dev.init_tt_device()
-        
         # Get board type and architecture
-        board_type = dev.get_board_type()
-        arch = dev.get_arch()
-        print(f"Device board type: {board_type}")
+        arch = pci_devices_info[0].get_arch()
         print(f"Device architecture: {arch}")
         
         # Check if the first device is a WH UBB (0x0035 subsystem id) and execute warm reset with secondary bus reset disabled

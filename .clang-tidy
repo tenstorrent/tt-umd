@@ -6,7 +6,8 @@ Checks: >
     bugprone-use-after-move,
     bugprone-redundant-branch-condition,
     cppcoreguidelines-use-enum-class,
-    cppcoreguidelines-pro-type-cstyle-cast
+    cppcoreguidelines-pro-type-cstyle-cast,
+    readability-container-size-empty
 
 HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
 WarningsAsErrors: '*'

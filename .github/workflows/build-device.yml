@@ -108,6 +108,11 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
+      - name: Adjust artifact timestamps using ninja dependency info
+        run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
+
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,
       # enabling developers to reproduce the analysis locally and troubleshoot issues.

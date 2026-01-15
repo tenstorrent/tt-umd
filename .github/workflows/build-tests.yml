@@ -97,6 +97,7 @@ jobs:
 
       - name: Restore build cache
         uses: actions/cache@v4
+        id: cache
         with:
           path: |
             ${{ env.BUILD_OUTPUT_DIR }}
@@ -126,6 +127,10 @@ jobs:
           echo "Starting actual build..."
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
+
+      - name: Adjust artifact timestamps using ninja dependency info
+        run: |
+          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
 
       # This is needed to preserve file permissions
       # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
@@ -209,6 +214,10 @@ jobs:
           fi
           CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Compile complete."
+
+      - name: Adjust artifact timestamps using ninja dependency info
+        run: |
+          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
 
       - name: Move python bindings tests in the same wheel folder
         run: |

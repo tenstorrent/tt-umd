@@ -47,7 +47,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
-        uint32_t response = arc_messenger->send_message(
+        [[maybe_unused]] uint32_t response = arc_messenger->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(),
             {0, 0});

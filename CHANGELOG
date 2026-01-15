@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0] - 2026-01-14
+
+### Changed
+
+Many functional fixes and minor changes.
+Final fixes needed for integration into tt-smi.
+Also contains adjustments needed for integration into exalens.
+
 ## [0.7.0] - 2025-11-29
 
 ### Changed

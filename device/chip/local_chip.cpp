@@ -508,7 +508,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
-    if (cores.size()) {
+    if (!cores.empty()) {
         // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
@@ -536,7 +536,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
 }
 
 void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
-    if (cores.size()) {
+    if (!cores.empty()) {
         for (const auto& core : cores) {
             TT_ASSERT(
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,

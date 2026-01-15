@@ -228,7 +228,7 @@ void BlackholeCoordinateManager::translate_l2cpu_coords() {
 
 void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
     size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
-    if (eth_cores.size() == 0) {
+    if (eth_cores.empty()) {
         num_harvested_channels = 0;
     }
     for (size_t eth_channel = 0; eth_channel < eth_cores.size() - num_harvested_channels; eth_channel++) {

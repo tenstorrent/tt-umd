@@ -35,7 +35,7 @@ protected:
         }
 
         auto potential_jlink_devices = Jtag(JtagDevice::jtag_library_path.c_str()).enumerate_jlink();
-        if (!potential_jlink_devices.size()) {
+        if (potential_jlink_devices.empty()) {
             log_warning(tt::LogUMD, "There are no Jlink devices connected..");
             return;
         }

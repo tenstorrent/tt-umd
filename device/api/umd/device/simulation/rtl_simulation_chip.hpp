@@ -9,6 +9,7 @@
 
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
+#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
 namespace tt::umd {
 
@@ -34,7 +35,7 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 private:
-    SimulationHost host;
+    std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

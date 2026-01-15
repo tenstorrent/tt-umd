@@ -184,6 +184,11 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Print content of repo directory
+        run: |
+          echo "Listing files in the repository:"
+          ls -lAR
+
       - name: Build wheel
         shell: bash
         run: |

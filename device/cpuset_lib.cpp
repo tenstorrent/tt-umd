@@ -180,7 +180,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
         }
     }
 
-    if (m_all_tt_devices.size() == 0) {
+    if (m_all_tt_devices.empty()) {
         log_warning(
             LogUMD, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TENSTORRENT_VENDOR_ID);
         return false;

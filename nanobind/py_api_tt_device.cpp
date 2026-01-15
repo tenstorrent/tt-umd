@@ -79,7 +79,11 @@ void bind_tt_device(nb::module_ &m) {
             "Enumerates PCI device information, optionally filtering by target devices.")
         .def("get_device_info", &PCIDevice::get_device_info)
         .def("get_device_num", &PCIDevice::get_device_num)
-        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.");
+        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")
+        .def_static(
+            "is_arch_agnostic_reset_supported",
+            &PCIDevice::is_arch_agnostic_reset_supported,
+            "Check if KMD supports arch agnostic reset.");
 
     nb::class_<RemoteCommunication>(m, "RemoteCommunication")
         .def(

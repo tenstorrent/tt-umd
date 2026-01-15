@@ -110,21 +110,17 @@ jobs:
       - name: Build ${{ env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
-          if [ ! -f "${{ env.BUILD_OUTPUT_DIR }}/build.ninja" ]; then
-            echo "No cached build found, running CMake configure..."
-            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_TESTS=ON \
-              -DTT_UMD_BUILD_SIMULATION=OFF \
-              -DTT_UMD_BUILD_PYTHON=OFF \
-              -DTT_UMD_BUILD_EXAMPLES=OFF \
-              -DTT_UMD_BUILD_TOOLS=OFF \
-              -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
-              -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
-          else
-            echo "Using cached build, skipping CMake configure"
-          fi
+          echo "No cached build found, running CMake configure..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=OFF \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           echo "Running ninja explain for debugging purposes..."
-          ninja -C build -n -d explain
+          ninja -C build -d explain
           echo "Starting actual build..."
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."

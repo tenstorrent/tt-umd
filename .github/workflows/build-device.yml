@@ -67,8 +67,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.BUILD_OUTPUT_DIR }}
-            .cpmcache
+            ${{ env.TT_UMD_DIR_SHELL }}/${{ env.BUILD_OUTPUT_DIR }}
+            ${{ env.TT_UMD_DIR_SHELL }}/.cpmcache
           # yamllint disable rule:line-length
           key: build-device-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
           restore-keys: |

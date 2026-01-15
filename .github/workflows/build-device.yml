@@ -64,11 +64,11 @@ jobs:
           submodules: recursive
 
       - name: Restore file timestamps to match git commit
+        # yamllint disable rule:line-length
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
-          git ls-files | xargs -I{} git log -1 --format="%at" {} | \
-            paste - <(git ls-files) | \
-            xargs -n2 sh -c 'touch -d @"$0" "$1"'
+          git ls-files | xargs -I{} git log -1 --format="%at" {} | paste - <(git ls-files) | xargs -n2 sh -c 'touch -d @"$0" "$1"'
+        # yamllint enable rule:line-length
 
       - name: Restore build cache
         uses: actions/cache@v4

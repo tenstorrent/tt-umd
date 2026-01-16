@@ -349,6 +349,10 @@ jobs:
           build-output-dir: build
           repo-path: ./
 
+      - name: Dump directory structure
+        run: |
+          ls -laR ./
+
   test-packages:
     needs: build
     timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}

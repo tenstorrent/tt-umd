@@ -91,7 +91,14 @@ jobs:
       - name: Force umd rebuild if user set [force-rebuild] in commit message
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          # For PRs, check the actual PR head commit, not the merge commit
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            COMMIT_SHA="HEAD"
+          fi
+          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
+          echo "Checking commit: $COMMIT_SHA"
           echo "Commit message: $COMMIT_MSG"
           if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
             echo "User requested force rebuild via [force-rebuild] in commit message."
@@ -269,7 +276,14 @@ jobs:
       - name: Force umd-python rebuild if user set [force-rebuild] in commit message
         run: |
           cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          # For PRs, check the actual PR head commit, not the merge commit
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            COMMIT_SHA="HEAD"
+          fi
+          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
+          echo "Checking commit: $COMMIT_SHA"
           echo "Commit message: $COMMIT_MSG"
           if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
             echo "User requested force rebuild via [force-rebuild] in commit message."

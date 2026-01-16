@@ -49,7 +49,7 @@ jobs:
     name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: harbor.ci.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
+      image: harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
     env:
       ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
       ARTIFACT_COMPILER: ${{ matrix.image.compiler }}

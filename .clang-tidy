@@ -10,7 +10,8 @@ Checks: >
     cppcoreguidelines-pro-type-cstyle-cast,
     performance-for-range-copy,
     performance-unnecessary-value-param,
-    readability-container-size-empty
+    readability-container-size-empty,
+    modernize-use-nullptr
 
 HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
 WarningsAsErrors: '*'

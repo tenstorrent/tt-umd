@@ -102,7 +102,7 @@ RtlSimulationChip::RtlSimulationChip(
     child_stdio[2].flags = UV_INHERIT_FD;
     child_stdio[2].data.fd = 2;
 
-    uv_process_options_t child_options = {0};
+    uv_process_options_t child_options = {nullptr};
     child_options.file = simulator_path_string.c_str();
     child_options.flags = UV_PROCESS_DETACHED;
     child_options.stdio_count = 3;

@@ -128,9 +128,11 @@ runs:
 
         echo "Branch hierarchy: ${BRANCHES[@]}"
 
-        # Output branches as JSON array for next step
-        BRANCHES_JSON=$(printf '%s\n' "${BRANCHES[@]}" | jq -R . | jq -s -c .)
-        echo "branches=$BRANCHES_JSON" >> $GITHUB_OUTPUT
+        # Output branches as newline-delimited list for next step
+        BRANCHES_LIST=$(printf '%s\n' "${BRANCHES[@]}")
+        echo "branches<<EOF" >> $GITHUB_OUTPUT
+        echo "$BRANCHES_LIST" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
         echo "current-branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
 
     - name: Generate cache keys
@@ -149,12 +151,15 @@ runs:
 
         # Generate restore-keys from branch hierarchy
         RESTORE_KEYS=""
-        for branch in $(echo "$BRANCHES" | jq -r '.[]'); do
+        while IFS= read -r branch; do
+          if [[ -z "$branch" ]]; then
+            continue
+          fi
           if [[ -n "$RESTORE_KEYS" ]]; then
             RESTORE_KEYS="${RESTORE_KEYS}\n"
           fi
           RESTORE_KEYS="${RESTORE_KEYS}${PREFIX}-${branch}-${BUILD_TYPE}-"
-        done
+        done <<< "$BRANCHES"
 
         echo "Generated cache key:"
         echo "  $PRIMARY_KEY"

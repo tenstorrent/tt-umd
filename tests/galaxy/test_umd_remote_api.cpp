@@ -217,7 +217,9 @@ TEST(GalaxyDataMovement, TwoChipMoveData4) {
 }
 
 void run_data_broadcast_test(
-    uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
+    uint32_t vector_size,
+    tt_multichip_core_addr sender_core,
+    const std::vector<tt_multichip_core_addr>& receiver_cores) {
     Cluster device;
     auto target_devices = device.get_target_device_ids();
 

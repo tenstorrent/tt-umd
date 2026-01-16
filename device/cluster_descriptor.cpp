@@ -108,7 +108,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         const Chip2ChipConnection &shelf_to_shelf_connection =
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_a.shelf).at(location_a.y);
         TT_ASSERT(
-            shelf_to_shelf_connection.destination_chip_coords.size(),
+            !shelf_to_shelf_connection.destination_chip_coords.empty(),
             "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
         // for each shelf-to-shelf connection at location_a.y, find the distance to location_b, take min
@@ -152,7 +152,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         const Chip2ChipConnection &shelf_to_shelf_connection =
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).at(location_b.y);
         TT_ASSERT(
-            shelf_to_shelf_connection.destination_chip_coords.size(),
+            !shelf_to_shelf_connection.destination_chip_coords.empty(),
             "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
         // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
@@ -199,7 +199,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         const Chip2ChipConnection &rack_to_rack_connection =
             galaxy_racks_exit_chip_coords_per_x_dim.at(location_a.rack).at(location_a.x);
         TT_ASSERT(
-            rack_to_rack_connection.destination_chip_coords.size(),
+            !rack_to_rack_connection.destination_chip_coords.empty(),
             "Expecting at least one rack-to-rack connection, possibly one-to-many");
 
         // for each rack-to-rack connection at location_a.x, find the distance to location_b, take min
@@ -243,7 +243,7 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         const Chip2ChipConnection &rack_to_rack_connection =
             galaxy_racks_exit_chip_coords_per_x_dim.at(location_b.rack).at(location_b.x);
         TT_ASSERT(
-            rack_to_rack_connection.destination_chip_coords.size(),
+            !rack_to_rack_connection.destination_chip_coords.empty(),
             "Expecting at least one rack-to-rack connection, possibly one-to-many");
 
         // for each rack-to-rack connection at location_a.x, find the distance to location_b, take min
@@ -391,7 +391,7 @@ std::map<T, ChipId> filter_chip_collection(
 }
 
 std::unordered_set<ChipId> filter_chip_collection(
-    const std::unordered_set<ChipId> &collection, const std::unordered_set<ChipId> chips) {
+    const std::unordered_set<ChipId> &collection, const std::unordered_set<ChipId> &chips) {
     std::unordered_set<ChipId> filtered_collection;
     for (const auto &chip_id : collection) {
         auto it = chips.find(chip_id);
@@ -983,7 +983,7 @@ const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio
 
 const std::unordered_set<ChipId> &ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
-const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(std::unordered_set<ChipId> chips) const {
+const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
     std::vector<ChipId> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(

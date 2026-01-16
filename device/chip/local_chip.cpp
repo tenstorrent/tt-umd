@@ -62,7 +62,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
+    int physical_device_id, const SocDescriptor& soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
@@ -95,17 +95,18 @@ std::unique_ptr<LocalChip> LocalChip::create(
 }
 
 LocalChip::LocalChip(
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     std::unique_ptr<TTDevice> tt_device,
     std::unique_ptr<TLBManager> tlb_manager,
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
     int num_host_mem_channels) :
-    Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
+    Chip(tt_device->get_chip_info(), tt_device->get_arch()),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
+    tt_device_->set_soc_descriptor(soc_descriptor);
     wait_chip_to_be_ready();
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();
@@ -122,6 +123,8 @@ LocalChip::~LocalChip() {
     tlb_manager_.reset();
     tt_device_.reset();
 }
+
+const SocDescriptor& LocalChip::get_soc_descriptor() const { return tt_device_->get_soc_descriptor(); }
 
 void LocalChip::initialize_default_chip_mutexes() {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
@@ -145,17 +148,18 @@ void LocalChip::initialize_default_chip_mutexes() {
 
 void LocalChip::initialize_membars() {
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
+        get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
         l1_address_params.tensix_l1_barrier_base);
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
+        get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
-    for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+    for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor().get_num_dram_channels(); dram_idx++) {
+        dram_cores_vector.push_back(
+            get_soc_descriptor().get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -435,16 +439,16 @@ void LocalChip::check_pcie_device_initialized() {
 
 int LocalChip::test_setup_interface() {
     int ret_val = 0;
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+    if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t regval = 0;
         read_from_device_reg(CoreCoord(1, 0, CoreType::ETH, CoordSystem::NOC0), &regval, 0xffb20108, sizeof(uint32_t));
         ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+    } else if (get_soc_descriptor().arch == tt::ARCH::BLACKHOLE) {
         // TODO #768 figure out BH implementation.
         return 0;
     } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(get_soc_descriptor().arch)));
     }
 }
 
@@ -458,7 +462,7 @@ void LocalChip::init_pcie_iatus() {
             throw std::runtime_error(fmt::format("Hugepages are not allocated for ch: {}", channel));
         }
 
-        if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
             // TODO: stop doing this.  The intent was good, but it's not
             // documented and nothing takes advantage of it.
             if (channel == 3) {
@@ -514,7 +518,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> eth_to_sync = {};
 
         for (const auto& core : cores) {
-            auto core_from_soc = soc_descriptor_.get_coord_at(core, core.coord_system);
+            auto core_from_soc = get_soc_descriptor().get_coord_at(core, core.coord_system);
             if (core_from_soc.core_type == CoreType::TENSIX) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
@@ -528,10 +532,11 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
+            get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
+            get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
+            l1_address_params.eth_l1_barrier_base);
     }
 }
 
@@ -539,7 +544,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (!cores.empty()) {
         for (const auto& core : cores) {
             TT_ASSERT(
-                soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                get_soc_descriptor().get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
@@ -547,9 +552,9 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
-        for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
+        for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor().get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(
-                soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+                get_soc_descriptor().get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
         }
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     }
@@ -558,13 +563,13 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED));
+        dram_cores_to_sync.insert(get_soc_descriptor().get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED));
     }
     dram_membar(dram_cores_to_sync);
 }
 
 void LocalChip::deassert_risc_resets() {
-    if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
+    if (get_soc_descriptor().arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),

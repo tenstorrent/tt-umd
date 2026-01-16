@@ -322,7 +322,6 @@ jobs:
           docker-url: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
           build-type: Release
           build-output-dir: build
-          repo-path: ./
           cache-paths: |
             build
             .cpmcache

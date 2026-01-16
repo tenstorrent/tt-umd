@@ -252,7 +252,12 @@ void Chip::wait_for_aiclk_value(
     auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
     if (power_state == DevicePowerState::BUSY) {
-        target_aiclk = tt_device->get_max_clock_freq().value_or(0);
+        auto max_clock = tt_device->get_max_clock_freq();
+        if (!max_clock.has_value()) {
+            log_warning(LogUMD, "Max clock frequency is not available.");
+            return;
+        }
+        target_aiclk = *max_clock;
     } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }

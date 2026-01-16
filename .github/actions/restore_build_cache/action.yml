@@ -52,33 +52,87 @@ runs:
       run: |
         DOCKER_DIGEST="${{ inputs.docker-tag }}"
 
+        echo "=== Docker Digest Detection Debug ==="
+        echo "docker-tag input: ${{ inputs.docker-tag }}"
+        echo "docker-url input: ${{ inputs.docker-url }}"
+
         # Only try to detect digest if docker-tag is "latest" and docker-url is provided
-        if [ "${{ inputs.docker-tag }}" = "latest" ] && [ -n "${{ inputs.docker-url }}" ]; then
-          if [ -S /var/run/docker.sock ] && command -v docker >/dev/null 2>&1; then
-            DOCKER_URL="${{ inputs.docker-url }}"
+        if [ "${{ inputs.docker-tag }}" != "latest" ]; then
+          echo "Skipping detection: docker-tag is not 'latest'"
+        elif [ -z "${{ inputs.docker-url }}" ]; then
+          echo "Skipping detection: docker-url not provided"
+        else
+          echo "Attempting digest detection..."
 
-            # Check if docker-url contains a tag (ends with :tag)
-            # If not, append the docker-tag
-            if [[ ! "$DOCKER_URL" =~ :[^/]+$ ]]; then
-              DOCKER_URL="${DOCKER_URL}:${{ inputs.docker-tag }}"
-              echo "Appended tag to URL: $DOCKER_URL"
-            fi
+          DOCKER_URL="${{ inputs.docker-url }}"
 
-            echo "Inspecting docker image: $DOCKER_URL"
-
-            # Get the RepoDigests from the image URL
-            REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$DOCKER_URL" 2>/dev/null || echo "")
-
-            if [ -n "$REPO_DIGEST" ] && [[ "$REPO_DIGEST" =~ @sha256:([a-f0-9]{64}) ]]; then
-              # Extract the sha256 hash and take first 12 characters
-              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-              echo "Found image digest: sha256:${BASH_REMATCH[1]:0:12}"
-            else
-              echo "Could not extract digest from: $REPO_DIGEST"
-            fi
+          # Check if docker-url contains a tag (ends with :tag)
+          # If not, append the docker-tag
+          if [[ ! "$DOCKER_URL" =~ :[^/]+$ ]]; then
+            DOCKER_URL="${DOCKER_URL}:${{ inputs.docker-tag }}"
+            echo "Appended tag to URL: $DOCKER_URL"
+          else
+            echo "URL already contains tag: $DOCKER_URL"
           fi
+
+          # Method 1: Try skopeo (doesn't require docker daemon)
+          if command -v skopeo >/dev/null 2>&1; then
+            echo "Trying skopeo inspect..."
+            REPO_DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$DOCKER_URL" 2>&1)
+            if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
+              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
+              echo "SUCCESS (skopeo): Found image digest: ${BASH_REMATCH[1]:0:12}"
+              echo "==================================="
+              echo "Using digest/tag: $DOCKER_DIGEST"
+              echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "skopeo failed or no digest: $REPO_DIGEST"
+            fi
+          else
+            echo "skopeo not available"
+          fi
+
+          # Method 2: Try crane (doesn't require docker daemon)
+          if command -v crane >/dev/null 2>&1; then
+            echo "Trying crane digest..."
+            REPO_DIGEST=$(crane digest "$DOCKER_URL" 2>&1)
+            if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
+              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
+              echo "SUCCESS (crane): Found image digest: ${BASH_REMATCH[1]:0:12}"
+              echo "==================================="
+              echo "Using digest/tag: $DOCKER_DIGEST"
+              echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "crane failed or no digest: $REPO_DIGEST"
+            fi
+          else
+            echo "crane not available"
+          fi
+
+          # Method 3: Try docker inspect (requires docker socket)
+          if [ -S /var/run/docker.sock ] && command -v docker >/dev/null 2>&1; then
+            echo "Trying docker inspect..."
+            REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$DOCKER_URL" 2>&1)
+            if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ @sha256:([a-f0-9]{64}) ]]; then
+              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
+              echo "SUCCESS (docker): Found image digest: ${BASH_REMATCH[1]:0:12}"
+              echo "==================================="
+              echo "Using digest/tag: $DOCKER_DIGEST"
+              echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "docker inspect failed or no digest: $REPO_DIGEST"
+            fi
+          else
+            echo "docker not available (socket or command missing)"
+          fi
+
+          echo "FAILED: All methods failed to detect digest"
         fi
 
+        echo "==================================="
         echo "Using digest/tag: $DOCKER_DIGEST"
         echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
 

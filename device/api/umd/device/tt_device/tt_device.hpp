@@ -265,19 +265,19 @@ public:
 
     virtual uint32_t get_clock() = 0;
 
-    uint32_t get_max_clock_freq();
+    std::optional<uint32_t> get_max_clock_freq();
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    uint64_t get_board_id();
+    std::optional<uint64_t> get_board_id();
 
-    uint8_t get_asic_location();
+    std::optional<uint8_t> get_asic_location();
 
     BoardType get_board_type();
 
     virtual bool get_noc_translation_enabled() = 0;
 
-    double get_asic_temperature();
+    std::optional<double> get_asic_temperature();
 
     virtual void wait_for_non_mmio_flush();
 

@@ -252,7 +252,12 @@ void Chip::wait_for_aiclk_value(
     auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
     if (power_state == DevicePowerState::BUSY) {
-        target_aiclk = tt_device->get_max_clock_freq();
+        auto max_clock = tt_device->get_max_clock_freq();
+        if (!max_clock.has_value()) {
+            log_warning(LogUMD, "Max clock frequency is not available.");
+            return;
+        }
+        target_aiclk = *max_clock;
     } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }
@@ -261,6 +266,7 @@ void Chip::wait_for_aiclk_value(
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms.count()) {
+            auto temp = tt_device->get_asic_temperature();
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
@@ -269,7 +275,7 @@ void Chip::wait_for_aiclk_value(
                 timeout_ms,
                 target_aiclk,
                 aiclk,
-                tt_device->get_asic_temperature());
+                temp.has_value() ? std::to_string(temp.value()) : "N/A");
             return;
         }
         aiclk = tt_device->get_clock();

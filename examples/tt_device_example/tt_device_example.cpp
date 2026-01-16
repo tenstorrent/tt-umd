@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fmt/format.h>
+
 #include <iostream>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
@@ -60,8 +62,11 @@ int main(int argc, char* argv[]) {
         device->init_tt_device();
 
         std::cout << "Clock: " << device->get_clock() << " MHz" << std::endl;
-        std::cout << "Board ID: 0x" << std::hex << device->get_board_id() << std::dec << std::endl;
-        std::cout << "Temperature: " << device->get_asic_temperature() << "°C" << std::endl;
+        auto board_id = device->get_board_id();
+        std::cout << "Board ID: " << (board_id.has_value() ? fmt::format("0x{:x}", board_id.value()) : "N/A")
+                  << std::endl;
+        auto temp = device->get_asic_temperature();
+        std::cout << "Temperature: " << (temp.has_value() ? fmt::format("{:.2f}°C", temp.value()) : "N/A") << std::endl;
 
         std::cout << "ArcMessenger available: " << (device->get_arc_messenger() ? "Yes" : "No") << std::endl;
         std::cout << "ArcTelemetryReader available: " << (device->get_arc_telemetry_reader() ? "Yes" : "No")

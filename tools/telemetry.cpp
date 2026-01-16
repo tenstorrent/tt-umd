@@ -31,29 +31,36 @@ std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware
         return fmt::format("Could not get information for device ID {}.", pci_device);
     }
 
-    double asic_temperature = firmware_info_provider->get_asic_temperature();
-    double board_temperature = firmware_info_provider->get_board_temperature().value_or(0);
-    uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
-    uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);
-    uint32_t arcclk = firmware_info_provider->get_arcclk().value_or(0);
-    uint32_t fs = firmware_info_provider->get_fan_speed().value_or(0);
-    uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
-    uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
-    uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
+    auto asic_temp = firmware_info_provider->get_asic_temperature();
+    auto board_temp = firmware_info_provider->get_board_temperature();
+    auto aiclk = firmware_info_provider->get_aiclk();
+    auto axiclk = firmware_info_provider->get_axiclk();
+    auto arcclk = firmware_info_provider->get_arcclk();
+    auto fs = firmware_info_provider->get_fan_speed();
+    auto tdp = firmware_info_provider->get_tdp();
+    auto tdc = firmware_info_provider->get_tdc();
+    auto vcore = firmware_info_provider->get_vcore();
+
+    auto format_temp = [](const std::optional<double>& val) {
+        return val.has_value() ? fmt::format("{:.2f}", *val) : "N/A";
+    };
+    auto format_uint = [](const std::optional<uint32_t>& val) {
+        return val.has_value() ? fmt::format("{}", *val) : "N/A";
+    };
 
     return fmt::format(
-        "Device ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
+        "Device ID {} - Chip {} °C, Board {} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
         "Fan {} rpm, TDP {} W, TDC {} A, VCORE {} mV",
         pci_device,
-        asic_temperature,
-        board_temperature,
-        aiclk,
-        axiclk,
-        arcclk,
-        fs,
-        tdp,
-        tdc,
-        vcore);
+        format_temp(asic_temp),
+        format_temp(board_temp),
+        format_uint(aiclk),
+        format_uint(axiclk),
+        format_uint(arcclk),
+        format_uint(fs),
+        format_uint(tdp),
+        format_uint(tdc),
+        format_uint(vcore));
 }
 
 int main(int argc, char* argv[]) {

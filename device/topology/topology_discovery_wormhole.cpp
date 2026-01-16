@@ -102,8 +102,12 @@ uint64_t TopologyDiscoveryWormhole::get_local_board_id(Chip* chip, tt_xy_pair et
 
     TTDevice* tt_device = chip->get_tt_device();
     // WH-ERISC mangles the ARC board id into 32 bits, just enough to be uniquely identifying.
-    uint64_t board_id = tt_device->get_board_id();
-    return ((board_id >> 4) & 0xF0000000) | (board_id & 0x0FFFFFFF);
+    auto board_id = tt_device->get_board_id();
+    if (!board_id.has_value()) {
+        log_warning(LogUMD, "Board ID is not available for chip.");
+        return 0;
+    }
+    return ((*board_id >> 4) & 0xF0000000) | (*board_id & 0x0FFFFFFF);
 }
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
@@ -291,7 +295,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     auto eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version();
     if (!eth_fw_version.has_value()) {
-        TT_THROW("ETH_FW_VERSION is not available.");
+        log_warning(LogUMD, "Ethernet firmware version is not available.");
     }
     eth_addresses = TopologyDiscoveryWormhole::get_eth_addresses(*eth_fw_version);
 }
@@ -365,7 +369,12 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
-    return chip->get_tt_device()->get_board_id();
+    auto board_id = chip->get_tt_device()->get_board_id();
+    if (!board_id.has_value()) {
+        log_warning(LogUMD, "Board ID is not available for unconnected chip.");
+        return 0;
+    }
+    return *board_id;
 }
 
 bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) {

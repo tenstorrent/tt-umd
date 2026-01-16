@@ -312,6 +312,21 @@ jobs:
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel
 
+      - name: Restore build cache
+        uses: ./.github/actions/restore_build_cache
+        id: cibuildwheel-cache
+        with:
+          cache-key-prefix: build-device-cibuildwheel
+          docker-name: tt-umd-ci-manylinux
+          docker-tag: latest
+          docker-url: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          build-type: Release
+          build-output-dir: build
+          repo-path: ./
+          cache-paths: |
+            build
+            .cpmcache
+
       - name: Build manylinux wheels
         shell: bash
         env:
@@ -326,6 +341,14 @@ jobs:
           echo "Building manylinux wheel..."
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
+
+      - name: Save build cache
+        uses: ./.github/actions/save_build_cache
+        with:
+          cache-key: ${{ steps.cibuildwheel-cache.outputs.cache-key }}
+          cache-paths: ${{ steps.cibuildwheel-cache.outputs.cache-paths }}
+          build-output-dir: build
+          repo-path: ./
 
   test-packages:
     needs: build

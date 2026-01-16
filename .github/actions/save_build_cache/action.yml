@@ -1,0 +1,44 @@
+name: 'Save Build Cache'
+description: 'Adjusts artifact timestamps and saves build cache'
+
+inputs:
+  cache-key-prefix:
+    description: 'Prefix for the cache key (e.g., build-tests, build-tests-wheel)'
+    required: true
+  docker-name:
+    description: 'Docker image name'
+    required: true
+  docker-tag:
+    description: 'Docker tag'
+    required: true
+  build-type:
+    description: 'Build type (Release, Debug, etc.)'
+    required: true
+  build-output-dir:
+    description: 'Build output directory path'
+    required: true
+    default: 'build'
+  repo-path:
+    description: 'Path to the repository (relative to workspace root)'
+    required: false
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - name: Adjust artifact timestamps using ninja dependency info
+      shell: bash
+      working-directory: ${{ inputs.repo-path }}
+      run: |
+        python3 $GITHUB_ACTION_PATH/adjust_artifact_timestamps.py ${{ inputs.build-output-dir }}
+
+    - name: Save build cache
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: |
+          ${{ inputs.repo-path }}/${{ inputs.build-output-dir }}
+          ${{ inputs.repo-path }}/.cpmcache
+        # yamllint disable rule:line-length
+        key: ${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
+        # yamllint enable rule:line-length

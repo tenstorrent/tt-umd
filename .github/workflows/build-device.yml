@@ -66,47 +66,16 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Restore file timestamps to match git commit
-        run: |
-          cd ${{ env.TT_UMD_DIR_SHELL }}
-          mkdir build
-          touch build/compile_commands.json
-          git ls-files | while IFS= read -r file; do
-            touch -d @$(git log -1 --format=%at -- "$file") "$file"
-          done
-
-      - name: umd build cache
-        uses: actions/cache@v4
+      - name: Restore build cache
+        uses: ./tt-umd/.github/actions/restore_build_cache
+        id: cache
         with:
-          path: |
-            ${{ env.TT_UMD_DIR }}/${{ env.BUILD_OUTPUT_DIR }}
-            ${{ env.TT_UMD_DIR }}/.cpmcache
-          # yamllint disable rule:line-length
-          key: build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
-          restore-keys: |
-            build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
-            build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
-          # yamllint enable rule:line-length
-
-      - name: Force umd rebuild if user set [force-rebuild] in commit message
-        run: |
-          cd ${{ env.TT_UMD_DIR_SHELL }}
-          # For PRs, check the actual PR head commit, not the merge commit
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-            COMMIT_SHA="HEAD"
-          fi
-          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
-          echo "Checking commit: $COMMIT_SHA"
-          echo "Commit message: $COMMIT_MSG"
-          if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
-            echo "User requested force rebuild via [force-rebuild] in commit message."
-            echo "Removing build cache..."
-            rm -rf ${{ env.BUILD_OUTPUT_DIR }}
-          else
-            echo "No [force-rebuild] flag found in commit message."
-          fi
+          cache-key-prefix: build-device-umd
+          docker-name: ${{ matrix.image.container-distro }}
+          docker-tag: ${{ matrix.image.docker-tag }}
+          build-type: ${{ matrix.image.compiler }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
+          repo-path: ${{ env.TT_UMD_DIR }}
 
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
@@ -127,10 +96,15 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Adjust artifact timestamps using ninja dependency info
-        run: |
-          cd ${{ env.TT_UMD_DIR_SHELL }}
-          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
+      - name: Save build cache
+        uses: ./tt-umd/.github/actions/save_build_cache
+        with:
+          cache-key-prefix: build-device-umd
+          docker-name: ${{ matrix.image.container-distro }}
+          docker-tag: ${{ matrix.image.docker-tag }}
+          build-type: ${{ matrix.image.compiler }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
+          repo-path: ${{ env.TT_UMD_DIR }}
 
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,
@@ -251,47 +225,15 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Restore file timestamps to match git commit
-        run: |
-          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
-          mkdir build
-          touch build/compile_commands.json
-          git ls-files | while IFS= read -r file; do
-            touch -d @$(git log -1 --format=%at -- "$file") "$file"
-          done
-
-      - name: umd-python build cache
-        uses: actions/cache@v4
+      - name: Restore build cache
+        uses: ./tt-umd/.github/actions/restore_build_cache
         with:
-          path: |
-            ${{ env.TT_UMD_PYTHON_DIR }}/${{ env.BUILD_OUTPUT_DIR }}
-            ${{ env.TT_UMD_PYTHON_DIR }}/.cpmcache
-          # yamllint disable rule:line-length
-          key: build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-${{ github.sha }}
-          restore-keys: |
-            build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
-            build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
-          # yamllint enable rule:line-length
-
-      - name: Force umd-python rebuild if user set [force-rebuild] in commit message
-        run: |
-          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
-          # For PRs, check the actual PR head commit, not the merge commit
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-            COMMIT_SHA="HEAD"
-          fi
-          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
-          echo "Checking commit: $COMMIT_SHA"
-          echo "Commit message: $COMMIT_MSG"
-          if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
-            echo "User requested force rebuild via [force-rebuild] in commit message."
-            echo "Removing build cache..."
-            rm -rf ${{ env.BUILD_OUTPUT_DIR }}
-          else
-            echo "No [force-rebuild] flag found in commit message."
-          fi
+          cache-key-prefix: build-device-umd-python
+          docker-name: ${{ matrix.image.container-distro }}
+          docker-tag: ${{ matrix.image.docker-tag }}
+          build-type: ${{ matrix.image.compiler }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
+          repo-path: ${{ env.TT_UMD_PYTHON_DIR }}
 
       - name: Rebuild package for python without wheel
         run: |
@@ -304,10 +246,15 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Adjust artifact timestamps using ninja dependency info
-        run: |
-          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
-          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
+      - name: Save build cache
+        uses: ./tt-umd/.github/actions/save_build_cache
+        with:
+          cache-key-prefix: build-device-umd-python
+          docker-name: ${{ matrix.image.container-distro }}
+          docker-tag: ${{ matrix.image.docker-tag }}
+          build-type: ${{ matrix.image.compiler }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
+          repo-path: ${{ env.TT_UMD_PYTHON_DIR }}
 
       - name: Generate .deb package for umd-python
         if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}

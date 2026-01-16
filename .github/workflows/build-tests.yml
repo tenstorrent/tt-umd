@@ -86,47 +86,15 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Restore file timestamps to match git commit
-        run: |
-          git config --global --add safe.directory /__w/tt-umd/tt-umd
-          mkdir build
-          touch build/compile_commands.json
-          git ls-files | while IFS= read -r file; do
-            touch -d @$(git log -1 --format=%at -- "$file") "$file"
-          done
-
       - name: Restore build cache
-        uses: actions/cache@v4
+        uses: ./.github/actions/restore_build_cache
         id: cache
         with:
-          path: |
-            ${{ env.BUILD_OUTPUT_DIR }}
-            .cpmcache
-          # yamllint disable rule:line-length
-          key: build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
-          restore-keys: |
-            build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-
-            build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
-          # yamllint enable rule:line-length
-
-      - name: Force rebuild if user set [force-rebuild] in commit message
-        run: |
-          # For PRs, check the actual PR head commit, not the merge commit
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-            COMMIT_SHA="HEAD"
-          fi
-          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
-          echo "Checking commit: $COMMIT_SHA"
-          echo "Commit message: $COMMIT_MSG"
-          if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
-            echo "User requested force rebuild via [force-rebuild] in commit message."
-            echo "Removing build cache..."
-            rm -rf ${{ env.BUILD_OUTPUT_DIR }}
-          else
-            echo "No [force-rebuild] flag found in commit message."
-          fi
+          cache-key-prefix: build-tests
+          docker-name: ${{ inputs.ubuntu-docker-version }}
+          docker-tag: ${{ inputs.docker-tag }}
+          build-type: ${{ inputs.build-type }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
 
       # Only perform build with necessary components to run tests.
       - name: Build ${{ env.BUILD_TARGETS }}
@@ -144,9 +112,14 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
 
-      - name: Adjust artifact timestamps using ninja dependency info
-        run: |
-          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
+      - name: Save build cache
+        uses: ./.github/actions/save_build_cache
+        with:
+          cache-key-prefix: build-tests
+          docker-name: ${{ inputs.ubuntu-docker-version }}
+          docker-tag: ${{ inputs.docker-tag }}
+          build-type: ${{ inputs.build-type }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
 
       # This is needed to preserve file permissions
       # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
@@ -180,46 +153,14 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Restore file timestamps to match git commit
-        run: |
-          git config --global --add safe.directory /__w/tt-umd/tt-umd
-          mkdir build
-          touch build/compile_commands.json
-          git ls-files | while IFS= read -r file; do
-            touch -d @$(git log -1 --format=%at -- "$file") "$file"
-          done
-
       - name: Restore build cache
-        uses: actions/cache@v4
+        uses: ./.github/actions/restore_build_cache
         with:
-          path: |
-            ${{ env.BUILD_OUTPUT_DIR }}
-            .cpmcache
-          # yamllint disable rule:line-length
-          key: build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
-          restore-keys: |
-            build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-
-            build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
-          # yamllint enable rule:line-length
-
-      - name: Force rebuild if user set [force-rebuild] in commit message
-        run: |
-          # For PRs, check the actual PR head commit, not the merge commit
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-            COMMIT_SHA="HEAD"
-          fi
-          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
-          echo "Checking commit: $COMMIT_SHA"
-          echo "Commit message: $COMMIT_MSG"
-          if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
-            echo "User requested force rebuild via [force-rebuild] in commit message."
-            echo "Removing build cache..."
-            rm -rf ${{ env.BUILD_OUTPUT_DIR }}
-          else
-            echo "No [force-rebuild] flag found in commit message."
-          fi
+          cache-key-prefix: build-tests-wheel
+          docker-name: ${{ inputs.ubuntu-docker-version }}
+          docker-tag: ${{ inputs.docker-tag }}
+          build-type: ${{ inputs.build-type }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -250,9 +191,14 @@ jobs:
           CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Adjust artifact timestamps using ninja dependency info
-        run: |
-          python3 .github/scripts/adjust_artifact_timestamps.py ${{ env.BUILD_OUTPUT_DIR }}
+      - name: Save build cache
+        uses: ./.github/actions/save_build_cache
+        with:
+          cache-key-prefix: build-tests-wheel
+          docker-name: ${{ inputs.ubuntu-docker-version }}
+          docker-tag: ${{ inputs.docker-tag }}
+          build-type: ${{ inputs.build-type }}
+          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
 
       - name: Move python bindings tests in the same wheel folder
         run: |

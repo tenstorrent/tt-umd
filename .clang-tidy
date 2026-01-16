@@ -8,6 +8,7 @@ Checks: >
     cppcoreguidelines-use-enum-class,
     cppcoreguidelines-pro-type-cstyle-cast,
     performance-for-range-copy,
+    performance-inefficient-algorithm,
     performance-unnecessary-value-param,
     readability-container-size-empty
 

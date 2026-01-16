@@ -92,6 +92,7 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
           if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
             echo "User requested force rebuild via [force-rebuild] in commit message."
             echo "Removing build cache..."
@@ -269,6 +270,7 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
           COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
           if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
             echo "User requested force rebuild via [force-rebuild] in commit message."
             echo "Removing build cache..."

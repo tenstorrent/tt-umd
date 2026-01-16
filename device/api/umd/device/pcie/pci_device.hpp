@@ -136,6 +136,13 @@ public:
     static std::map<int, PciDeviceInfo> enumerate_devices_info(const std::unordered_set<int> &pci_target_devices = {});
 
     /**
+     * Read device information from sysfs.
+     * @param fd Integer corresponding to the character device descriptor of the PCI device.
+     * @return PciDeviceInfo struct containing the device information.
+     */
+    static PciDeviceInfo read_device_info(int fd);
+
+    /**
      * PCI device constructor.
      *
      * Opens the character device file descriptor, reads device information from

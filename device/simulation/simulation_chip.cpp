@@ -16,7 +16,7 @@ namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
     int num_host_mem_channels) {
@@ -35,7 +35,7 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 
 SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {

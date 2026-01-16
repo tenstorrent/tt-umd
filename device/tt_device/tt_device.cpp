@@ -29,7 +29,7 @@ namespace tt::umd {
 
 TTDevice::TTDevice(
     std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
-    pci_device_(pci_device),
+    pci_device_(std::move(pci_device)),
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
@@ -39,7 +39,7 @@ TTDevice::TTDevice(
     std::shared_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     std::unique_ptr<architecture_implementation> architecture_impl) :
-    jtag_device_(jtag_device),
+    jtag_device_(std::move(jtag_device)),
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),

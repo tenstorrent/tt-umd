@@ -110,7 +110,7 @@ public:
      * Function to help with sorting the passed set into a vector such that local chips are first, followed by remote
      * chips.
      */
-    const std::vector<ChipId> get_chips_local_first(std::unordered_set<ChipId> chips) const;
+    const std::vector<ChipId> get_chips_local_first(const std::unordered_set<ChipId> &chips) const;
 
     /**
      * Returns the architecture of the cluster. Throws an exception if the architecture is Invalid or there are no

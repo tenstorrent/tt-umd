@@ -17,7 +17,7 @@ class RtlSimulationChip : public SimulationChip {
 public:
     RtlSimulationChip(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels = 0);
     ~RtlSimulationChip() override = default;

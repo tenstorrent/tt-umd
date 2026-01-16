@@ -20,8 +20,8 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
-    std::set<uint32_t> remote_transfer_eth_channels,
-    std::string sdesc_path) {
+    const std::set<uint32_t>& remote_transfer_eth_channels,
+    const std::string& sdesc_path) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -39,13 +39,14 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     } else {
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
-    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
-    std::set<uint32_t> remote_transfer_eth_channels,
+    const std::set<uint32_t>& remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
@@ -58,12 +59,13 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
-    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
 }
 
 RemoteChip::RemoteChip(
     SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
+    Chip(remote_tt_device->get_chip_info(), std::move(soc_descriptor)), local_chip_(local_chip) {
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
     // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.

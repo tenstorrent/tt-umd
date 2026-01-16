@@ -7,7 +7,10 @@ Checks: >
     bugprone-redundant-branch-condition,
     cppcoreguidelines-use-enum-class,
     cppcoreguidelines-pro-type-cstyle-cast,
-    readability-container-size-empty
+    performance-for-range-copy,
+    performance-unnecessary-value-param,
+    readability-container-size-empty,
+    modernize-use-nullptr
 
 HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
 WarningsAsErrors: '*'

@@ -42,7 +42,7 @@ public:
      */
     static semver_t get_latest_supported_firmware_version(tt::ARCH arch);
 
-    uint64_t get_board_id() const;
+    std::optional<uint64_t> get_board_id() const;
 
     std::optional<uint32_t> get_eth_fw_version() const;
 
@@ -64,7 +64,7 @@ public:
      * Get ASIC temperature in Celsius.
      * @returns ASIC temperature [Celsius]
      */
-    double get_asic_temperature() const;
+    std::optional<double> get_asic_temperature() const;
 
     /*
      * Get AICLK in MHz.
@@ -116,9 +116,9 @@ public:
 
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
-    uint32_t get_max_clock_freq() const;
+    std::optional<uint32_t> get_max_clock_freq() const;
 
-    uint8_t get_asic_location() const;
+    std::optional<uint8_t> get_asic_location() const;
 
     /*
      * Get heartbeat from ARC core.
@@ -126,7 +126,7 @@ public:
      * On legacy telemetry, the value is taken from ARC0_HEALTH
      * @returns An integer that does not decrease on subsequent calls.
      */
-    uint32_t get_heartbeat() const;
+    std::optional<uint32_t> get_heartbeat() const;
 
 private:
     TTDevice* tt_device = nullptr;

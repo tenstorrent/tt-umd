@@ -244,10 +244,13 @@ semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH 
     }
 }
 
-uint64_t FirmwareInfoProvider::get_board_id() const {
-    uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
-    uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
-    return (static_cast<uint64_t>(high) << 32) | low;
+std::optional<uint64_t> FirmwareInfoProvider::get_board_id() const {
+    auto high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH);
+    auto low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW);
+    if (!high.has_value() || !low.has_value()) {
+        return std::nullopt;
+    }
+    return (static_cast<uint64_t>(*high) << 32) | *low;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
@@ -302,16 +305,16 @@ std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(*raw);
 }
 
-double FirmwareInfoProvider::get_asic_temperature() const {
-    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE).value_or(0.0);
+std::optional<double> FirmwareInfoProvider::get_asic_temperature() const {
+    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE);
 }
 
 std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     return read_scalar<double>(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
-uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
-    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_max_clock_freq() const {
+    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
@@ -343,12 +346,12 @@ std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
     return read_scalar<uint32_t>(FirmwareFeature::VCORE);
 }
 
-uint8_t FirmwareInfoProvider::get_asic_location() const {
-    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION).value_or(0);
+std::optional<uint8_t> FirmwareInfoProvider::get_asic_location() const {
+    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION);
 }
 
-uint32_t FirmwareInfoProvider::get_heartbeat() const {
-    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_heartbeat() const {
+    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT);
 }
 
 // Legacy Wormhole: Each channel uses 4 bits.
@@ -402,15 +405,18 @@ static std::vector<DramTrainingStatus> get_modern_dram_statuses(uint32_t telemet
 }
 
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
-    uint32_t telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS).value_or(0);
+    auto telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS);
+    if (!telemetry_data.has_value()) {
+        return {};
+    }
 
     // Check if we're using legacy Wormhole format (4 bits per channel)
     // or modern format (2 bits per channel).
     bool is_legacy_wormhole = tt_device->get_arch() == ARCH::WORMHOLE_B0 &&
                               semver_t::compare_firmware_bundle(firmware_version, {18, 3, 0}) <= 0;
 
-    return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data, num_dram_channels)
-                              : get_modern_dram_statuses(telemetry_data, num_dram_channels);
+    return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(*telemetry_data, num_dram_channels)
+                              : get_modern_dram_statuses(*telemetry_data, num_dram_channels);
 }
 
 }  // namespace tt::umd

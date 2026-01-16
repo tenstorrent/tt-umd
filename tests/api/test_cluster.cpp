@@ -1368,7 +1368,10 @@ TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
     first_chip->deassert_risc_reset(RiscType::ALL, false);
 
     result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
-    EXPECT_EQ(result.value(), false);
+    if (!result.has_value()) {
+        FAIL() << "Expected result to have value";
+    }
+    EXPECT_EQ(*result, false);
     std::cout << "Passed hash check." << std::endl;
 
     // Revert ERISC FW state with warm reset.

@@ -266,8 +266,11 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(Chip* chip, CoreCoor
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
+        if (!first_fw_bundle_version.has_value()) {
+            throw std::runtime_error("first_fw_bundle_version should have a value");
+        }
         expected_eth_fw_version =
-            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
+            get_expected_eth_firmware_version_from_firmware_bundle(*first_fw_bundle_version, ARCH::BLACKHOLE);
         if (expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
         } else {

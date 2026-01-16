@@ -229,12 +229,16 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     const uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
 
-    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+    auto noc_addr_opt = sysmem_buffer->get_noc_addr();
+    if (!noc_addr_opt.has_value()) {
+        FAIL() << "Expected noc_addr to have value";
+    }
+    uint64_t noc_addr = *noc_addr_opt;
 
     // We haven't actually mapped the hugepage yet, since cluster->start_device or
     // sysmem_manager->pin_or_map_sysmem_to_device wasn't called yet. So this will be the first buffer that was mapped,
     // and it is expected to have the starting NOC address.
-    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    EXPECT_EQ(noc_addr, cluster->get_pcie_base_addr_from_device(mmio_chip));
 
     uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
     for (uint32_t i = 0; i < one_mb; ++i) {
@@ -249,13 +253,12 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     // Write to sysmem buffer using NOC address.
     const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
-    cluster->write_to_device(
-        data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value());
+    cluster->write_to_device(data_write.data(), data_write.size(), mmio_chip, pcie_core, noc_addr);
 
     // Perform a read so we're sure that the write object has been flushed to the device.
     std::vector<uint8_t> readback(one_mb, 0);
     // Read back from sysmem buffer using NOC address.
-    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, noc_addr, one_mb);
     EXPECT_EQ(readback, data_write);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
@@ -266,6 +269,9 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     // If we map another buffer it is expected to have a higher NOC address.
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
-    EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
-    EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    auto noc_addr2_opt = sysmem_buffer2->get_noc_addr();
+    if (!noc_addr2_opt.has_value()) {
+        FAIL() << "Expected noc_addr2 to have value";
+    }
+    EXPECT_GT(*noc_addr2_opt, cluster->get_pcie_base_addr_from_device(mmio_chip));
 }

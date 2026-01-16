@@ -111,7 +111,11 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
-        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+        auto niu_cfg_opt = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR);
+        if (!niu_cfg_opt.has_value()) {
+            throw std::runtime_error("Failed to read NIU_CFG via JTAG");
+        }
+        niu_cfg = *niu_cfg_opt;
     } else {
         niu_cfg = bar_read32(addr);
     }

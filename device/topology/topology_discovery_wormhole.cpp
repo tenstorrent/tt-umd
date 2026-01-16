@@ -102,7 +102,7 @@ uint64_t TopologyDiscoveryWormhole::get_local_board_id(Chip* chip, tt_xy_pair et
 
     TTDevice* tt_device = chip->get_tt_device();
     // WH-ERISC mangles the ARC board id into 32 bits, just enough to be uniquely identifying.
-    uint64_t board_id = tt_device->get_board_id();
+    uint64_t board_id = tt_device->get_board_id().value_or(0);
     return ((board_id >> 4) & 0xF0000000) | (board_id & 0x0FFFFFFF);
 }
 
@@ -365,7 +365,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
-    return chip->get_tt_device()->get_board_id();
+    return chip->get_tt_device()->get_board_id().value_or(0);
 }
 
 bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) {

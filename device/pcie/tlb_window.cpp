@@ -8,9 +8,8 @@
 
 #include <stdexcept>
 
+#include "noc_access.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -84,7 +83,7 @@ void TlbWindow::read_block_reconfigure(
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
 
@@ -110,7 +109,7 @@ void TlbWindow::write_block_reconfigure(
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
 
@@ -140,7 +139,7 @@ void TlbWindow::noc_multicast_write_reconfigure(
     config.x_end = core_end.x;
     config.y_end = core_end.y;
     config.mcast = true;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
 

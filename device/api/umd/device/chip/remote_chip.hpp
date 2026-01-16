@@ -23,13 +23,13 @@ public:
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         EthCoord target_eth_coord,
-        std::set<uint32_t> remote_transfer_eth_channels,
-        std::string sdesc_path = "");
+        const std::set<uint32_t>& remote_transfer_eth_channels,
+        const std::string& sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         EthCoord target_eth_coord,
-        std::set<uint32_t> remote_transfer_eth_channels,
-        SocDescriptor soc_descriptor);
+        const std::set<uint32_t>& remote_transfer_eth_channels,
+        const SocDescriptor& soc_descriptor);
 
     bool is_mmio_capable() const override;
 
@@ -68,7 +68,7 @@ public:
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(const SocDescriptor& soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
 
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;

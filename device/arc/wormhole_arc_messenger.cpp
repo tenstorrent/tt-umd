@@ -8,11 +8,10 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -37,7 +36,7 @@ uint32_t WormholeArcMessenger::send_message(
     uint16_t arg0 = 0;
     uint16_t arg1 = 0;
 
-    if (args.size() >= 1) {
+    if (!args.empty()) {
         if (args[0] > 0xFFFF) {
             throw std::runtime_error(
                 fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
@@ -53,10 +52,10 @@ uint32_t WormholeArcMessenger::send_message(
         arg1 = static_cast<uint16_t>(args[1]);
     }
 
-    const tt_xy_pair arc_core = umd_use_noc1 ? tt_xy_pair(
-                                                   wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                                   wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                                             : wormhole::ARC_CORES_NOC0[0];
+    const tt_xy_pair arc_core = is_selected_noc1() ? tt_xy_pair(
+                                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                                   : wormhole::ARC_CORES_NOC0[0];
 
     // TODO: Once local and remote ttdevice is properly separated, reenable this code.
     // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
@@ -105,7 +104,7 @@ uint32_t WormholeArcMessenger::send_message(
         tt_device->read_from_arc_apb(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
-            if (return_values.size() >= 1) {
+            if (!return_values.empty()) {
                 tt_device->read_from_arc_apb(
                     &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
             }

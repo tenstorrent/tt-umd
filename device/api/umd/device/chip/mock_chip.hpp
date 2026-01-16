@@ -10,7 +10,7 @@
 namespace tt::umd {
 class MockChip : public Chip {
 public:
-    MockChip(SocDescriptor soc_descriptor);
+    MockChip(const SocDescriptor& soc_descriptor);
     bool is_mmio_capable() const override;
 
     void start_device() override;

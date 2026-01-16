@@ -4,6 +4,9 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/vector.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -114,8 +117,15 @@ void bind_telemetry(nb::module_ &m) {
         .value("ENABLED_GDDR", TelemetryTag::ENABLED_GDDR)
         .value("ENABLED_L2CPU", TelemetryTag::ENABLED_L2CPU)
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
-        .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
         .value("NOC_TRANSLATION", TelemetryTag::NOC_TRANSLATION)
+        .value("FAN_RPM", TelemetryTag::FAN_RPM)
+        .value("ASIC_LOCATION", TelemetryTag::ASIC_LOCATION)
+        .value("TDC_LIMIT_MAX", TelemetryTag::TDC_LIMIT_MAX)
+        .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
+        .value("ASIC_ID_HIGH", TelemetryTag::ASIC_ID_HIGH)
+        .value("ASIC_ID_LOW", TelemetryTag::ASIC_ID_LOW)
+        .value("AICLK_LIMIT_MAX", TelemetryTag::AICLK_LIMIT_MAX)
+        .value("TDP_LIMIT_MAX", TelemetryTag::TDP_LIMIT_MAX)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 
@@ -128,6 +138,12 @@ void bind_telemetry(nb::module_ &m) {
         .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
         .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+
+    nb::enum_<tt::DramTrainingStatus>(m, "DramTrainingStatus")
+        .value("IN_PROGRESS", tt::DramTrainingStatus::IN_PROGRESS)
+        .value("FAIL", tt::DramTrainingStatus::FAIL)
+        .value("SUCCESS", tt::DramTrainingStatus::SUCCESS)
+        .def("__int__", [](tt::DramTrainingStatus status) { return static_cast<int>(status); });
 
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
         .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)
@@ -153,5 +169,9 @@ void bind_telemetry(nb::module_ &m) {
         .def_static(
             "get_latest_supported_firmware_version",
             &FirmwareInfoProvider::get_latest_supported_firmware_version,
-            nb::arg("arch"));
+            nb::arg("arch"))
+        .def_static(
+            "create_firmware_info_provider",
+            &FirmwareInfoProvider::create_firmware_info_provider,
+            nb::arg("tt_device"));
 }

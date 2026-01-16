@@ -180,7 +180,7 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {1, 3, 5, 7, 9, 8, 6, 4, 2, 0};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
+inline constexpr uint32_t STATIC_TLB_SIZE = 1 * 1024 * 1024;  // 1MB
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;
@@ -404,11 +404,7 @@ public:
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
-
     uint32_t get_read_checking_offset() const override { return wormhole::ARC_SCRATCH_6_OFFSET; }
-
-    uint32_t get_static_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     uint32_t get_reg_tlb() const override { return wormhole::REG_TLB; }
 
@@ -462,6 +458,12 @@ public:
 
     std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override { return {0, 0}; }
 
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static const std::vector<size_t> tlb_sizes = {1 * one_mb, 2 * one_mb, 16 * one_mb};
+        return tlb_sizes;
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
@@ -474,7 +476,7 @@ public:
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
-    size_t get_cached_tlb_size() const override { return 1 << 20; }  // 1MB
+    size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return true; }
 };

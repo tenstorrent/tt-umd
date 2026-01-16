@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
@@ -186,6 +187,8 @@ static PciDeviceInfo read_device_info(int fd) {
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,
+        info.out.subsystem_vendor_id,
+        info.out.subsystem_id,
         info.out.pci_domain,
         bus,
         dev,
@@ -194,7 +197,7 @@ static PciDeviceInfo read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint32_t flags) {
+static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
@@ -212,7 +215,10 @@ static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint3
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
                 TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
+        } catch (const std::exception &e) {
+            log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());
         } catch (...) {
+            log_error(tt::LogUMD, "Reset IOCTL failed with unknown error");
         }
 
         close(fd);
@@ -228,7 +234,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
+std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -255,7 +261,7 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
     return device_ids;
 }
 
-std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(std::unordered_set<int> pci_target_devices) {
+std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unordered_set<int> &pci_target_devices) {
     std::map<int, PciDeviceInfo> infos;
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
@@ -384,7 +390,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     bar0 = mmap(
-        NULL,
+        nullptr,
         PCIDevice::bar0_size,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
@@ -402,7 +408,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
-            NULL,
+            nullptr,
             bar2_uc_mapping.mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
@@ -420,7 +426,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
-            NULL,
+            nullptr,
             bar2_uc_mapping.mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
@@ -671,10 +677,25 @@ semver_t PCIDevice::read_kmd_version() {
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
-    return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
+    try {
+        return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
+    } catch (const std::exception &e) {
+        if (read_kmd_version() < semver_t(2, 6, 0)) {
+            TT_THROW(
+                "Failed to allocate TLB window. Note that the resource might be exhausted by some other hung process. "
+                "Error: {}",
+                e.what());
+        }
+        TT_THROW(
+            "Failed to allocate TLB window. Look at /sys/kernel/debug/tenstorrent/{}/mappings and "
+            "/proc/driver/tenstorrent/{}/pids for more information. Error: {}",
+            pci_device_num,
+            pci_device_num,
+            e.what());
+    }
 }
 
-void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {
+void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
     umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
 }
 

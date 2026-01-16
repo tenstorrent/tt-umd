@@ -25,8 +25,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -124,8 +123,7 @@ void run_data_mover_test(
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -219,7 +217,9 @@ TEST(GalaxyDataMovement, TwoChipMoveData4) {
 }
 
 void run_data_broadcast_test(
-    uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
+    uint32_t vector_size,
+    tt_multichip_core_addr sender_core,
+    const std::vector<tt_multichip_core_addr>& receiver_cores) {
     Cluster device;
     auto target_devices = device.get_target_device_ids();
 
@@ -236,8 +236,7 @@ void run_data_broadcast_test(
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);

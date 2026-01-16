@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -18,39 +19,35 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
 
-extern bool umd_use_noc1;
-
 namespace tt::umd {
 
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
-    arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                            : wormhole::ARC_CORES_NOC0[0];
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+    arc_core = is_selected_noc1() ? tt_xy_pair(
+                                        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                  : wormhole::ARC_CORES_NOC0[0];
 }
 
-void WormholeTTDevice::post_init_hook() {
-    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
-}
+void WormholeTTDevice::post_init_hook() {}
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
-    arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                            : wormhole::ARC_CORES_NOC0[0];
+    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>()) {
+    arc_core = is_selected_noc1() ? tt_xy_pair(
+                                        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                  : wormhole::ARC_CORES_NOC0[0];
     init_tt_device();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
-    arc_core = umd_use_noc1 ? tt_xy_pair(
-                                  wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                  wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                            : wormhole::ARC_CORES_NOC0[0];
+    arc_core = is_selected_noc1() ? tt_xy_pair(
+                                        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                  : wormhole::ARC_CORES_NOC0[0];
     log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }
 
@@ -59,8 +56,9 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
     // We use DRAM core (0, 0) to read this information, but it can be read from any core.
     // TODO: read this information from PCIE BAR.
-    const tt_xy_pair dram_core =
-        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0]) : tt_xy_pair(0, 0);
+    const tt_xy_pair dram_core = is_selected_noc1()
+                                     ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0])
+                                     : tt_xy_pair(0, 0);
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 
@@ -420,7 +418,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     uint32_t heartbeat_val;
 
     tt_xy_pair actual_eth_core = eth_core;
-    if (umd_use_noc1) {
+    if (is_selected_noc1()) {
         actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
     }
 
@@ -455,58 +453,11 @@ uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
     uint32_t training_status;
     read_from_device(
         &training_status,
-        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
-                     : eth_core,
+        is_selected_noc1() ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
+                           : eth_core,
         0x1104,
         sizeof(uint32_t));
     return training_status;
-}
-
-WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_t eth_fw_version) {
-    uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
-
-    uint64_t node_info;
-    uint64_t eth_conn_info;
-    uint64_t results_buf;
-    uint64_t erisc_remote_board_type_offset;
-    uint64_t erisc_local_board_type_offset;
-    uint64_t erisc_local_board_id_lo_offset;
-    uint64_t erisc_remote_board_id_lo_offset;
-    uint64_t erisc_remote_eth_id_offset;
-
-    if (masked_version >= 0x060000) {
-        node_info = 0x1100;
-        eth_conn_info = 0x1200;
-        results_buf = 0x1ec0;
-    } else {
-        throw std::runtime_error(
-            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
-    }
-
-    if (masked_version >= 0x06C000) {
-        erisc_remote_board_type_offset = 77;
-        erisc_local_board_type_offset = 69;
-        erisc_remote_board_id_lo_offset = 72;
-        erisc_local_board_id_lo_offset = 64;
-        erisc_remote_eth_id_offset = 76;
-    } else {
-        erisc_remote_board_type_offset = 72;
-        erisc_local_board_type_offset = 64;
-        erisc_remote_board_id_lo_offset = 73;
-        erisc_local_board_id_lo_offset = 65;
-        erisc_remote_eth_id_offset = 77;
-    }
-
-    return WormholeTTDevice::EthAddresses{
-        masked_version,
-        node_info,
-        eth_conn_info,
-        results_buf,
-        erisc_remote_board_type_offset,
-        erisc_local_board_type_offset,
-        erisc_local_board_id_lo_offset,
-        erisc_remote_board_id_lo_offset,
-        erisc_remote_eth_id_offset};
 }
 
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
@@ -629,4 +580,5 @@ bool WormholeTTDevice::is_hardware_hung() {
 
     return (scratch_data == HANG_READ_VALUE);
 }
+
 }  // namespace tt::umd

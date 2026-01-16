@@ -17,11 +17,11 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: C++",
     "Topic :: Software Development :: Libraries",
     "Topic :: System :: Hardware",
@@ -37,7 +37,7 @@ classifiers = [
 cmake.build-type = "Release"
 build-dir = "build/"
 # Only build the Python-related targets (new key in scikit-build-core >= 0.10)
-build.targets = ["nanobind_tt_umd", "device"]
+build.targets = ["nanobind_tt_umd_init", "device"]
 # Exclude development files from the wheel
 wheel.exclude = ["CMakeCache.txt", "*.cmake", "CMakeFiles/", "Makefile"]
 # Install only the 'pip_wheel' component defined in CMake (new key path)
@@ -47,10 +47,11 @@ install.components = ["pip_wheel"]
 TT_UMD_BUILD_TOOLS = "OFF"
 TT_UMD_BUILD_EXAMPLES = "OFF"
 TT_UMD_BUILD_TESTS = "OFF"
-TT_UMD_BUILD_SIMULATION = "OFF" 
+TT_UMD_BUILD_SIMULATION = "ON" 
 TT_UMD_BUILD_PIP = "ON"
 TT_UMD_BUILD_PYTHON = "ON"
 TT_UMD_BUILD_STATIC = "ON"
+TT_UMD_ENABLE_LOGGING = "ON"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
@@ -58,7 +59,7 @@ input = "VERSION"
 regex = "(?P<value>.*)"
 
 [tool.cibuildwheel]
-build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 archs = "x86_64"
 skip = "*-musllinux_*"
 build-verbosity = 1

@@ -24,9 +24,10 @@ public:
 
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
-        size_t num_chips);
+        size_t num_chips,
+        int num_host_mem_channels = 0);
 
     virtual ~SimulationChip() = default;
 
@@ -87,7 +88,11 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
-    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+    SimulationChip(
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
 
     // Simulator directory.
     // Common state variables.

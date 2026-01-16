@@ -138,7 +138,7 @@ CPMAddPackage(
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.6)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.7)
 
 ####################################################################################################################
 # cxxopts
@@ -155,7 +155,7 @@ CPMAddPackage(
 ####################################################################################################################
 # nanobind
 ####################################################################################################################
-CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
+CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.10.2 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
 
 ####################################################################################################################
 # picosha2

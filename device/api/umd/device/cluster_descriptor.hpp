@@ -56,6 +56,13 @@ public:
     static std::unique_ptr<ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
 
     /**
+     * Creates a cluster descriptor from a YAML file content.
+     * @param cluster_descriptor_file_content Content of the YAML file containing the cluster descriptor.
+     */
+    static std::unique_ptr<ClusterDescriptor> create_from_yaml_content(
+        const std::string &cluster_descriptor_file_content);
+
+    /**
      * Creates a mock cluster descriptor with the given logical device IDs and architecture.
      * This function is used to create mock cluster descriptor yaml files, for example for simulation.
      * @param logical_device_ids Vector of logical device IDs to be included in the mock cluster.
@@ -103,7 +110,7 @@ public:
      * Function to help with sorting the passed set into a vector such that local chips are first, followed by remote
      * chips.
      */
-    const std::vector<ChipId> get_chips_local_first(std::unordered_set<ChipId> chips) const;
+    const std::vector<ChipId> get_chips_local_first(const std::unordered_set<ChipId> &chips) const;
 
     /**
      * Returns the architecture of the cluster. Throws an exception if the architecture is Invalid or there are no

@@ -37,7 +37,7 @@ void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair cor
 
 void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
-RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return remote_communication_.get(); }
+RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() const { return remote_communication_.get(); }
 
 void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
@@ -88,6 +88,14 @@ void RemoteWormholeTTDevice::noc_multicast_write(
             write_to_device(dst, tt_xy_pair(x, y), addr, size);
         }
     }
+}
+
+void RemoteWormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("DMA write to device not supported for remote Wormhole device.");
+}
+
+void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("DMA read from device not supported for remote Wormhole device.");
 }
 
 }  // namespace tt::umd

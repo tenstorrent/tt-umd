@@ -42,15 +42,12 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
 
 TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
     TTDevice* tt_device, const semver_t& fw_version) {
-    static const semver_t fw_version_18_7 = semver_t(18, 7, 0);
-    static const semver_t fw_version_18_3 = semver_t(18, 3, 0);
-
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            if (semver_t::compare_firmware_bundle(fw_version, fw_version_18_3) <= 0) {
+            if (semver_t::compare_firmware_bundle(fw_version, {18, 3, 0}) <= 0) {
                 // Legacy Wormhole <= 18.3.
                 return create_legacy_wormhole_18_3_base();
-            } else if (semver_t::compare_firmware_bundle(fw_version, fw_version_18_7) <= 0) {
+            } else if (semver_t::compare_firmware_bundle(fw_version, {18, 7, 0}) <= 0) {
                 // Legacy Wormhole 18.4 - 18.7.
                 TelemetryFeatureMap map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {
@@ -60,7 +57,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             // Modern Wormhole > 18.7.
             return create_modern_base();
         case ARCH::BLACKHOLE:
-            if (semver_t::compare_firmware_bundle(fw_version, fw_version_18_7) <= 0) {
+            if (semver_t::compare_firmware_bundle(fw_version, {18, 7, 0}) <= 0) {
                 // Legacy Blackhole <= 18.7.
                 TelemetryFeatureMap map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
@@ -402,9 +399,8 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
 
     // Check if we're using legacy Wormhole format (4 bits per channel)
     // or modern format (2 bits per channel).
-    static const semver_t fw_version_18_3 = semver_t(18, 3, 0);
     bool is_legacy_wormhole = tt_device->get_arch() == ARCH::WORMHOLE_B0 &&
-                              semver_t::compare_firmware_bundle(firmware_version, fw_version_18_3) <= 0;
+                              semver_t::compare_firmware_bundle(firmware_version, {18, 3, 0}) <= 0;
 
     return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data, num_dram_channels)
                               : get_modern_dram_statuses(telemetry_data, num_dram_channels);

@@ -9,7 +9,7 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 15
+        default: 20
   pull_request:
   push:
     branches: ["main"]
@@ -31,7 +31,7 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '20') }}
     strategy:
       fail-fast: false
       matrix:
@@ -236,7 +236,7 @@ jobs:
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '20') }}
 
     name: Build umd manylinux wheel
     runs-on: ubuntu-22.04
@@ -271,7 +271,7 @@ jobs:
 
   test-packages:
     needs: build
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '20') }}
     strategy:
       fail-fast: false
       matrix:

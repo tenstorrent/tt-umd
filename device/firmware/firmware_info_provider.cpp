@@ -77,7 +77,7 @@ semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH ar
 semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return semver_t(0, 0, 0);
+            return semver_t(18, 5, 0);
         }
         case tt::ARCH::BLACKHOLE: {
             return semver_t(18, 5, 0);

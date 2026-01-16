@@ -37,7 +37,7 @@ class TestWarmReset(unittest.TestCase):
         # In case KMD still doesn't support arch agnostic reset, and in case of UBB, we have to call special UBB warm reset
         if is_wormhole_ubb and not kmd_supports_reset:
             print("Executing UBB warm reset...")
-            tt_umd.WarmReset.ubb_warm_reset(timeout_s=300)
+            tt_umd.WarmReset.ubb_warm_reset()
         else:
             should_perform_secondary_bus_reset = not is_wormhole_ubb
             print(f"Executing standard warm reset, with secondary bus reset: {should_perform_secondary_bus_reset}")

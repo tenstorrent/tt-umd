@@ -341,6 +341,10 @@ jobs:
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
 
+      - name: Dump directory structure
+        run: |
+          ls -laR ./
+
       - name: Save build cache
         uses: ./.github/actions/save_build_cache
         with:
@@ -348,10 +352,6 @@ jobs:
           cache-paths: ${{ steps.cibuildwheel-cache.outputs.cache-paths }}
           build-output-dir: build
           repo-path: ./
-
-      - name: Dump directory structure
-        run: |
-          ls -laR ./
 
   test-packages:
     needs: build

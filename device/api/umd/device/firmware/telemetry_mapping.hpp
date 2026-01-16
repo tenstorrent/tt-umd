@@ -65,7 +65,7 @@ struct NotAvailable {};
 // DataConverter: The "How" - can be linear math (including identity) or not available.
 using DataConverter = std::variant<LinearTransform, NotAvailable>;
 
-enum class TelemetryFeature {
+enum class FirmwareFeature {
     // Version information.
     FIRMWARE_VERSION,
     ETH_FW_VERSION,
@@ -112,7 +112,7 @@ struct FeatureProfile {
     DataConverter converter;
 };
 
-// The configuration map: TelemetryFeature -> FeatureProfile.
-using TelemetryFeatureMap = std::map<TelemetryFeature, FeatureProfile>;
+// The configuration map: FirmwareFeature -> FeatureProfile.
+using TelemetryFeatureMap = std::map<FirmwareFeature, FeatureProfile>;
 
 }  // namespace tt::umd

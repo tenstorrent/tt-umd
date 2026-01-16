@@ -154,10 +154,10 @@ private:
     // Engine methods for reading and transforming telemetry data.
     uint32_t read_raw_telemetry(const TelemetryKey& key) const;
 
-    bool is_feature_available(TelemetryFeature feature) const;
+    bool is_feature_available(FirmwareFeature feature) const;
 
     template <typename T>
-    std::optional<T> read_scalar(TelemetryFeature feature) const;
+    std::optional<T> read_scalar(FirmwareFeature feature) const;
 };
 
 }  // namespace tt::umd

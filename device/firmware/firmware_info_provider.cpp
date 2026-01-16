@@ -30,14 +30,14 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     telemetry_feature_map = create_telemetry_feature_map(tt_device, firmware_version);
 
     // Cache availability flags for optional features.
-    aiclk_available = is_feature_available(TelemetryFeature::AICLK);
-    axiclk_available = is_feature_available(TelemetryFeature::AXICLK);
-    arcclk_available = is_feature_available(TelemetryFeature::ARCCLK);
-    fan_speed_available = is_feature_available(TelemetryFeature::FAN_SPEED);
-    tdp_available = is_feature_available(TelemetryFeature::TDP);
-    tdc_available = is_feature_available(TelemetryFeature::TDC);
-    vcore_available = is_feature_available(TelemetryFeature::VCORE);
-    board_temperature_available = is_feature_available(TelemetryFeature::BOARD_TEMPERATURE);
+    aiclk_available = is_feature_available(FirmwareFeature::AICLK);
+    axiclk_available = is_feature_available(FirmwareFeature::AXICLK);
+    arcclk_available = is_feature_available(FirmwareFeature::ARCCLK);
+    fan_speed_available = is_feature_available(FirmwareFeature::FAN_SPEED);
+    tdp_available = is_feature_available(FirmwareFeature::TDP);
+    tdc_available = is_feature_available(FirmwareFeature::TDC);
+    vcore_available = is_feature_available(FirmwareFeature::VCORE);
+    board_temperature_available = is_feature_available(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
@@ -63,7 +63,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             } else if (semver_t::compare_firmware_bundle(fw_version, fw_version_18_7) <= 0) {
                 // Legacy Wormhole 18.4 - 18.7.
                 TelemetryFeatureMap map = create_modern_base();
-                map[TelemetryFeature::MAX_CLOCK_FREQ] = {
+                map[FirmwareFeature::MAX_CLOCK_FREQ] = {
                     SmBusTag{wormhole::TelemetryTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
                 return map;
             }
@@ -73,7 +73,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             if (semver_t::compare_firmware_bundle(fw_version, fw_version_18_7) <= 0) {
                 // Legacy Blackhole <= 18.7.
                 TelemetryFeatureMap map = create_modern_base();
-                map[TelemetryFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
+                map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
                 return map;
             }
             // Modern Blackhole > 18.7.
@@ -86,59 +86,59 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
 // Create base map for modern firmware (StandardTag).
 TelemetryFeatureMap FirmwareInfoProvider::create_modern_base() {
     return {
-        {TelemetryFeature::BOARD_ID_HIGH, {TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
-        {TelemetryFeature::BOARD_ID_LOW, {TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
-        {TelemetryFeature::ASIC_TEMPERATURE,
+        {FirmwareFeature::BOARD_ID_HIGH, {TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_LOW, {TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
+        {FirmwareFeature::ASIC_TEMPERATURE,
          {TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {TelemetryFeature::BOARD_TEMPERATURE,
+        {FirmwareFeature::BOARD_TEMPERATURE,
          {TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {TelemetryFeature::AICLK, {TelemetryTag::AICLK, LinearTransform{}}},
-        {TelemetryFeature::AXICLK, {TelemetryTag::AXICLK, LinearTransform{}}},
-        {TelemetryFeature::ARCCLK, {TelemetryTag::ARCCLK, LinearTransform{}}},
-        {TelemetryFeature::MAX_CLOCK_FREQ, {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}}},
-        {TelemetryFeature::FAN_SPEED, {TelemetryTag::FAN_SPEED, LinearTransform{}}},
-        {TelemetryFeature::TDP, {TelemetryTag::TDP, LinearTransform{}}},
-        {TelemetryFeature::TDC, {TelemetryTag::TDC, LinearTransform{}}},
-        {TelemetryFeature::VCORE, {TelemetryTag::VCORE, LinearTransform{}}},
-        {TelemetryFeature::DDR_STATUS, {TelemetryTag::DDR_STATUS, LinearTransform{}}},
-        {TelemetryFeature::ASIC_LOCATION, {TelemetryTag::ASIC_LOCATION, LinearTransform{}}},
-        {TelemetryFeature::HEARTBEAT, {TelemetryTag::TIMER_HEARTBEAT, LinearTransform{}}},
-        {TelemetryFeature::ETH_FW_VERSION, {TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::GDDR_FW_VERSION, {TelemetryTag::GDDR_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::CM_FW_VERSION, {TelemetryTag::CM_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::DM_APP_FW_VERSION, {TelemetryTag::DM_APP_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::DM_BL_FW_VERSION, {TelemetryTag::DM_BL_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::TT_FLASH_VERSION, {TelemetryTag::TT_FLASH_VERSION, LinearTransform{}}},
+        {FirmwareFeature::AICLK, {TelemetryTag::AICLK, LinearTransform{}}},
+        {FirmwareFeature::AXICLK, {TelemetryTag::AXICLK, LinearTransform{}}},
+        {FirmwareFeature::ARCCLK, {TelemetryTag::ARCCLK, LinearTransform{}}},
+        {FirmwareFeature::MAX_CLOCK_FREQ, {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}}},
+        {FirmwareFeature::FAN_SPEED, {TelemetryTag::FAN_SPEED, LinearTransform{}}},
+        {FirmwareFeature::TDP, {TelemetryTag::TDP, LinearTransform{}}},
+        {FirmwareFeature::TDC, {TelemetryTag::TDC, LinearTransform{}}},
+        {FirmwareFeature::VCORE, {TelemetryTag::VCORE, LinearTransform{}}},
+        {FirmwareFeature::DDR_STATUS, {TelemetryTag::DDR_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ASIC_LOCATION, {TelemetryTag::ASIC_LOCATION, LinearTransform{}}},
+        {FirmwareFeature::HEARTBEAT, {TelemetryTag::TIMER_HEARTBEAT, LinearTransform{}}},
+        {FirmwareFeature::ETH_FW_VERSION, {TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::GDDR_FW_VERSION, {TelemetryTag::GDDR_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::CM_FW_VERSION, {TelemetryTag::CM_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::DM_APP_FW_VERSION, {TelemetryTag::DM_APP_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::DM_BL_FW_VERSION, {TelemetryTag::DM_BL_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::TT_FLASH_VERSION, {TelemetryTag::TT_FLASH_VERSION, LinearTransform{}}},
     };
 }
 
 // Create base map for legacy Wormhole 18.3 firmware (WormholeTag).
 TelemetryFeatureMap FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
     return {
-        {TelemetryFeature::BOARD_ID_HIGH, {wormhole::TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
-        {TelemetryFeature::BOARD_ID_LOW, {wormhole::TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
-        {TelemetryFeature::ASIC_TEMPERATURE,
+        {FirmwareFeature::BOARD_ID_HIGH, {wormhole::TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_LOW, {wormhole::TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
+        {FirmwareFeature::ASIC_TEMPERATURE,
          {wormhole::TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
-        {TelemetryFeature::BOARD_TEMPERATURE,
+        {FirmwareFeature::BOARD_TEMPERATURE,
          {wormhole::TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {TelemetryFeature::AICLK, {wormhole::TelemetryTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {TelemetryFeature::AXICLK, {wormhole::TelemetryTag::AXICLK, LinearTransform{}}},
-        {TelemetryFeature::ARCCLK, {wormhole::TelemetryTag::ARCCLK, LinearTransform{}}},
-        {TelemetryFeature::MAX_CLOCK_FREQ,
+        {FirmwareFeature::AICLK, {wormhole::TelemetryTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::AXICLK, {wormhole::TelemetryTag::AXICLK, LinearTransform{}}},
+        {FirmwareFeature::ARCCLK, {wormhole::TelemetryTag::ARCCLK, LinearTransform{}}},
+        {FirmwareFeature::MAX_CLOCK_FREQ,
          {SmBusTag{wormhole::TelemetryTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
-        {TelemetryFeature::FAN_SPEED, {wormhole::TelemetryTag::FAN_SPEED, LinearTransform{}}},
-        {TelemetryFeature::TDP, {wormhole::TelemetryTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {TelemetryFeature::TDC, {wormhole::TelemetryTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {TelemetryFeature::VCORE, {wormhole::TelemetryTag::VCORE, LinearTransform{}}},
-        {TelemetryFeature::DDR_STATUS, {wormhole::TelemetryTag::DDR_STATUS, LinearTransform{}}},
-        {TelemetryFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
-        {TelemetryFeature::HEARTBEAT, {wormhole::TelemetryTag::ARC0_HEALTH, LinearTransform{}}},
-        {TelemetryFeature::ETH_FW_VERSION, {wormhole::TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::GDDR_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
-        {TelemetryFeature::CM_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
-        {TelemetryFeature::DM_APP_FW_VERSION, {wormhole::TelemetryTag::DM_APP_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::DM_BL_FW_VERSION, {wormhole::TelemetryTag::DM_BL_FW_VERSION, LinearTransform{}}},
-        {TelemetryFeature::TT_FLASH_VERSION, {wormhole::TelemetryTag::TT_FLASH_VERSION, LinearTransform{}}},
+        {FirmwareFeature::FAN_SPEED, {wormhole::TelemetryTag::FAN_SPEED, LinearTransform{}}},
+        {FirmwareFeature::TDP, {wormhole::TelemetryTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::TDC, {wormhole::TelemetryTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::VCORE, {wormhole::TelemetryTag::VCORE, LinearTransform{}}},
+        {FirmwareFeature::DDR_STATUS, {wormhole::TelemetryTag::DDR_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
+        {FirmwareFeature::HEARTBEAT, {wormhole::TelemetryTag::ARC0_HEALTH, LinearTransform{}}},
+        {FirmwareFeature::ETH_FW_VERSION, {wormhole::TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::GDDR_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::CM_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::DM_APP_FW_VERSION, {wormhole::TelemetryTag::DM_APP_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::DM_BL_FW_VERSION, {wormhole::TelemetryTag::DM_BL_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::TT_FLASH_VERSION, {wormhole::TelemetryTag::TT_FLASH_VERSION, LinearTransform{}}},
     };
 }
 
@@ -165,7 +165,7 @@ uint32_t FirmwareInfoProvider::read_raw_telemetry(const TelemetryKey& key) const
         key);
 }
 
-bool FirmwareInfoProvider::is_feature_available(TelemetryFeature feature) const {
+bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
     auto it = telemetry_feature_map.find(feature);
     if (it == telemetry_feature_map.end()) {
         return false;
@@ -198,7 +198,7 @@ bool FirmwareInfoProvider::is_feature_available(TelemetryFeature feature) const 
 }
 
 template <typename T>
-std::optional<T> FirmwareInfoProvider::read_scalar(TelemetryFeature feature) const {
+std::optional<T> FirmwareInfoProvider::read_scalar(FirmwareFeature feature) const {
     auto it = telemetry_feature_map.find(feature);
     if (it == telemetry_feature_map.end()) {
         return std::nullopt;
@@ -229,9 +229,9 @@ std::optional<T> FirmwareInfoProvider::read_scalar(TelemetryFeature feature) con
 }
 
 // Explicit instantiations.
-template std::optional<uint32_t> FirmwareInfoProvider::read_scalar<uint32_t>(TelemetryFeature feature) const;
-template std::optional<double> FirmwareInfoProvider::read_scalar<double>(TelemetryFeature feature) const;
-template std::optional<uint8_t> FirmwareInfoProvider::read_scalar<uint8_t>(TelemetryFeature feature) const;
+template std::optional<uint32_t> FirmwareInfoProvider::read_scalar<uint32_t>(FirmwareFeature feature) const;
+template std::optional<double> FirmwareInfoProvider::read_scalar<double>(FirmwareFeature feature) const;
+template std::optional<uint8_t> FirmwareInfoProvider::read_scalar<uint8_t>(FirmwareFeature feature) const;
 
 semver_t FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
@@ -251,104 +251,104 @@ semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH 
 }
 
 uint64_t FirmwareInfoProvider::get_board_id() const {
-    uint32_t high = read_scalar<uint32_t>(TelemetryFeature::BOARD_ID_HIGH).value_or(0);
-    uint32_t low = read_scalar<uint32_t>(TelemetryFeature::BOARD_ID_LOW).value_or(0);
+    uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
+    uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
     return (static_cast<uint64_t>(high) << 32) | low;
 }
 
 uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
-    return read_scalar<uint32_t>(TelemetryFeature::ETH_FW_VERSION).value_or(0);
+    return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION).value_or(0);
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    if (!is_feature_available(TelemetryFeature::ETH_FW_VERSION)) {
+    if (!is_feature_available(FirmwareFeature::ETH_FW_VERSION)) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(TelemetryFeature::ETH_FW_VERSION).value_or(0);
+    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION).value_or(0);
     return get_eth_fw_version_from_telemetry(raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
-    if (!is_feature_available(TelemetryFeature::GDDR_FW_VERSION)) {
+    if (!is_feature_available(FirmwareFeature::GDDR_FW_VERSION)) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(TelemetryFeature::GDDR_FW_VERSION).value_or(0);
+    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::GDDR_FW_VERSION).value_or(0);
     return get_gddr_fw_version_from_telemetry(raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
-    if (!is_feature_available(TelemetryFeature::CM_FW_VERSION)) {
+    if (!is_feature_available(FirmwareFeature::CM_FW_VERSION)) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(TelemetryFeature::CM_FW_VERSION).value_or(0);
+    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::CM_FW_VERSION).value_or(0);
     return get_cm_fw_version_from_telemetry(raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
-    if (!is_feature_available(TelemetryFeature::DM_APP_FW_VERSION)) {
+    if (!is_feature_available(FirmwareFeature::DM_APP_FW_VERSION)) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(TelemetryFeature::DM_APP_FW_VERSION).value_or(0);
+    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::DM_APP_FW_VERSION).value_or(0);
     return get_dm_app_fw_version_from_telemetry(raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
-    if (!is_feature_available(TelemetryFeature::DM_BL_FW_VERSION)) {
+    if (!is_feature_available(FirmwareFeature::DM_BL_FW_VERSION)) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(TelemetryFeature::DM_BL_FW_VERSION).value_or(0);
+    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::DM_BL_FW_VERSION).value_or(0);
     return get_dm_bl_fw_version_from_telemetry(raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
-    if (!is_feature_available(TelemetryFeature::TT_FLASH_VERSION)) {
+    if (!is_feature_available(FirmwareFeature::TT_FLASH_VERSION)) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(TelemetryFeature::TT_FLASH_VERSION).value_or(0);
+    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::TT_FLASH_VERSION).value_or(0);
     return get_tt_flash_version_from_telemetry(raw);
 }
 
 double FirmwareInfoProvider::get_asic_temperature() const {
-    return read_scalar<double>(TelemetryFeature::ASIC_TEMPERATURE).value_or(0.0);
+    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE).value_or(0.0);
 }
 
 std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    return read_scalar<double>(TelemetryFeature::BOARD_TEMPERATURE);
+    return read_scalar<double>(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
 uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
-    return read_scalar<uint32_t>(TelemetryFeature::MAX_CLOCK_FREQ).value_or(0);
+    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ).value_or(0);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
     if (!aiclk_available) {
         return std::nullopt;
     }
-    return read_scalar<uint32_t>(TelemetryFeature::AICLK);
+    return read_scalar<uint32_t>(FirmwareFeature::AICLK);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_axiclk() const {
     if (!axiclk_available) {
         return std::nullopt;
     }
-    return read_scalar<uint32_t>(TelemetryFeature::AXICLK);
+    return read_scalar<uint32_t>(FirmwareFeature::AXICLK);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
     if (!arcclk_available) {
         return std::nullopt;
     }
-    return read_scalar<uint32_t>(TelemetryFeature::ARCCLK);
+    return read_scalar<uint32_t>(FirmwareFeature::ARCCLK);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
     if (!fan_speed_available) {
         return std::nullopt;
     }
-    auto fan_speed = read_scalar<uint32_t>(TelemetryFeature::FAN_SPEED);
+    auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
     // All ones mean fans not present on board, or not under control of firmware.
     if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
         return std::nullopt;
@@ -360,33 +360,33 @@ std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const {
     if (!tdp_available) {
         return std::nullopt;
     }
-    return read_scalar<uint32_t>(TelemetryFeature::TDP);
+    return read_scalar<uint32_t>(FirmwareFeature::TDP);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const {
     if (!tdc_available) {
         return std::nullopt;
     }
-    return read_scalar<uint32_t>(TelemetryFeature::TDC);
+    return read_scalar<uint32_t>(FirmwareFeature::TDC);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
     if (!vcore_available) {
         return std::nullopt;
     }
-    return read_scalar<uint32_t>(TelemetryFeature::VCORE);
+    return read_scalar<uint32_t>(FirmwareFeature::VCORE);
 }
 
 uint8_t FirmwareInfoProvider::get_asic_location() const {
-    return read_scalar<uint8_t>(TelemetryFeature::ASIC_LOCATION).value_or(0);
+    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION).value_or(0);
 }
 
 uint32_t FirmwareInfoProvider::get_heartbeat() const {
-    return read_scalar<uint32_t>(TelemetryFeature::HEARTBEAT).value_or(0);
+    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
 }
 
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
-    uint32_t telemetry_data = read_scalar<uint32_t>(TelemetryFeature::DDR_STATUS).value_or(0);
+    uint32_t telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS).value_or(0);
     std::vector<DramTrainingStatus> statuses;
 
     // Check if we're using legacy Wormhole format (4 bits per channel)

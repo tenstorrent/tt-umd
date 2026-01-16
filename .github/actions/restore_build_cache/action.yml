@@ -195,7 +195,7 @@ runs:
           fi
           # Prepend repo-path
           if [[ "$REPO_PATH" == "." ]]; then
-            FULL_PATH="$path"
+            FULL_PATH="./${path}"
           else
             FULL_PATH="${REPO_PATH}/${path}"
           fi

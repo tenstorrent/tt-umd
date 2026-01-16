@@ -21,10 +21,6 @@ class TTDevice;
  * running on the device, such as version, board ID, ethernet firmware version, ASIC temperature,
  * and DRAM training status.
  *
- * Design: Instead of using inheritance hierarchies for different firmware versions, this class
- * uses a configuration map (FirmwareMap) that is populated based on the device architecture and
- * firmware version. This data-driven approach makes it easy to add support for new firmware
- * versions by simply adding configuration entries.
  */
 class FirmwareInfoProvider {
 public:

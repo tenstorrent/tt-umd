@@ -1,6 +1,6 @@
 ## Firmware Compatibility Layer
 
-This module provides a data-driven way to handle different firmware versions and architectures while keeping the codebase clean and maintainable.
+This module provides a data-driven way to handle different firmware versions and architectures.
 
 ### Design Overview
 

@@ -22,6 +22,9 @@ inputs:
     description: 'Path to the repository (relative to workspace root)'
     required: false
     default: '.'
+  cache-paths:
+    description: 'Newline-delimited list of paths to cache (relative to repo-path)'
+    required: true
 
 outputs:
   cache-hit:
@@ -171,13 +174,51 @@ runs:
         echo -e "$RESTORE_KEYS" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
+    - name: Prepare cache paths
+      id: cache-paths
+      shell: bash
+      run: |
+        REPO_PATH="${{ inputs.repo-path }}"
+        CACHE_PATHS='${{ inputs.cache-paths }}'
+
+        # Prepare full paths by prepending repo-path to each cache path
+        FULL_PATHS=""
+        while IFS= read -r path; do
+          # Skip empty lines
+          if [[ -z "$path" ]]; then
+            continue
+          fi
+          # Remove leading/trailing whitespace
+          path=$(echo "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          if [[ -z "$path" ]]; then
+            continue
+          fi
+          # Prepend repo-path
+          if [[ "$REPO_PATH" == "." ]]; then
+            FULL_PATH="$path"
+          else
+            FULL_PATH="${REPO_PATH}/${path}"
+          fi
+          if [[ -n "$FULL_PATHS" ]]; then
+            FULL_PATHS="${FULL_PATHS}\n${FULL_PATH}"
+          else
+            FULL_PATHS="${FULL_PATH}"
+          fi
+        done <<< "$CACHE_PATHS"
+
+        echo "Cache paths:"
+        echo -e "$FULL_PATHS"
+
+        # Output for cache action
+        echo "paths<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$FULL_PATHS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
     - name: Restore build cache
       uses: actions/cache/restore@v4
       id: cache
       with:
-        path: |
-          ${{ inputs.repo-path }}/${{ inputs.build-output-dir }}
-          ${{ inputs.repo-path }}/.cpmcache
+        path: ${{ steps.cache-paths.outputs.paths }}
         # yamllint disable rule:line-length
         key: ${{ steps.cache-keys.outputs.key }}
         restore-keys: ${{ steps.cache-keys.outputs.restore-keys }}

@@ -7,7 +7,7 @@
 #include <memory>
 #include <optional>
 
-#include "umd/device/firmware/firmware_schema.hpp"
+#include "umd/device/firmware/telemetry_mapping.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 

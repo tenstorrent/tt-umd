@@ -172,7 +172,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
-                api/umd/device/firmware/firmware_schema.hpp
+                api/umd/device/firmware/telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp

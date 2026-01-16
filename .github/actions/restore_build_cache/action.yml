@@ -49,93 +49,58 @@ runs:
     - name: Detect actual docker image digest
       id: docker-digest
       shell: bash
+      # yamllint disable rule:line-length
       run: |
         DOCKER_DIGEST="${{ inputs.docker-tag }}"
 
-        echo "=== Docker Digest Detection Debug ==="
-        echo "docker-tag input: ${{ inputs.docker-tag }}"
-        echo "docker-url input: ${{ inputs.docker-url }}"
-
         # Only try to detect digest if docker-tag is "latest" and docker-url is provided
-        if [ "${{ inputs.docker-tag }}" != "latest" ]; then
-          echo "Skipping detection: docker-tag is not 'latest'"
-        elif [ -z "${{ inputs.docker-url }}" ]; then
-          echo "Skipping detection: docker-url not provided"
-        else
-          echo "Attempting digest detection..."
-
-          DOCKER_URL="${{ inputs.docker-url }}"
-
-          # Check if docker-url contains a tag (ends with :tag)
-          # If not, append the docker-tag
-          if [[ ! "$DOCKER_URL" =~ :[^/]+$ ]]; then
-            DOCKER_URL="${DOCKER_URL}:${{ inputs.docker-tag }}"
-            echo "Appended tag to URL: $DOCKER_URL"
-          else
-            echo "URL already contains tag: $DOCKER_URL"
-          fi
-
-          # Method 1: Try skopeo (doesn't require docker daemon)
-          if command -v skopeo >/dev/null 2>&1; then
-            echo "Trying skopeo inspect..."
-            REPO_DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$DOCKER_URL" 2>&1)
-            if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
-              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-              echo "SUCCESS (skopeo): Found image digest: ${BASH_REMATCH[1]:0:12}"
-              echo "==================================="
-              echo "Using digest/tag: $DOCKER_DIGEST"
-              echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "skopeo failed or no digest: $REPO_DIGEST"
-            fi
-          else
-            echo "skopeo not available"
-          fi
-
-          # Method 2: Try crane (doesn't require docker daemon)
-          if command -v crane >/dev/null 2>&1; then
-            echo "Trying crane digest..."
-            REPO_DIGEST=$(crane digest "$DOCKER_URL" 2>&1)
-            if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
-              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-              echo "SUCCESS (crane): Found image digest: ${BASH_REMATCH[1]:0:12}"
-              echo "==================================="
-              echo "Using digest/tag: $DOCKER_DIGEST"
-              echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "crane failed or no digest: $REPO_DIGEST"
-            fi
-          else
-            echo "crane not available"
-          fi
-
-          # Method 3: Try docker inspect (requires docker socket)
-          if [ -S /var/run/docker.sock ] && command -v docker >/dev/null 2>&1; then
-            echo "Trying docker inspect..."
-            REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$DOCKER_URL" 2>&1)
-            if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ @sha256:([a-f0-9]{64}) ]]; then
-              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-              echo "SUCCESS (docker): Found image digest: ${BASH_REMATCH[1]:0:12}"
-              echo "==================================="
-              echo "Using digest/tag: $DOCKER_DIGEST"
-              echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "docker inspect failed or no digest: $REPO_DIGEST"
-            fi
-          else
-            echo "docker not available (socket or command missing)"
-          fi
-
-          echo "FAILED: All methods failed to detect digest"
+        if [ "${{ inputs.docker-tag }}" != "latest" ] || [ -z "${{ inputs.docker-url }}" ]; then
+          echo "Using docker tag as digest: $DOCKER_DIGEST"
+          echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+          exit 0
         fi
 
-        echo "==================================="
+        echo "Attempting digest detection..."
+        DOCKER_URL="${{ inputs.docker-url }}"
+
+        # Check if docker-url contains a tag (ends with :tag)
+        # If not, append the docker-tag
+        if [[ ! "$DOCKER_URL" =~ :[^/]+$ ]]; then
+          DOCKER_URL="${DOCKER_URL}:${{ inputs.docker-tag }}"
+        fi
+        echo "Inspecting image: $DOCKER_URL"
+
+        # Install crane if not available
+        if ! command -v crane >/dev/null 2>&1; then
+          echo "crane not found, installing..."
+          CRANE_VERSION="v0.19.1"
+          CRANE_URL="https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+
+          # Download and extract to a temporary location
+          TMP_DIR=$(mktemp -d)
+          curl -sL "$CRANE_URL" | tar -xz -C "$TMP_DIR" crane
+
+          # Add to PATH for this step
+          export PATH="$TMP_DIR:$PATH"
+          echo "crane installed to: $TMP_DIR/crane"
+        else
+          echo "crane already available at: $(command -v crane)"
+        fi
+
+        # Get the digest using crane
+        REPO_DIGEST=$(crane digest "$DOCKER_URL" 2>&1)
+        if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
+          DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
+          echo "Found image digest: sha256:${BASH_REMATCH[1]:0:12}"
+        else
+          echo "Failed to get digest: $REPO_DIGEST"
+          echo "Falling back to tag: $DOCKER_DIGEST"
+        fi
+
         echo "Using digest/tag: $DOCKER_DIGEST"
         echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
 
+      # yamllint enable rule:line-length
     - name: Restore file timestamps to match git commit
       shell: bash
       working-directory: ${{ inputs.repo-path }}
@@ -318,10 +283,8 @@ runs:
       id: cache
       with:
         path: ${{ steps.cache-paths.outputs.paths }}
-        # yamllint disable rule:line-length
         key: ${{ steps.cache-keys.outputs.key }}
         restore-keys: ${{ steps.cache-keys.outputs.restore-keys }}
-        # yamllint enable rule:line-length
 
     - name: Force rebuild if user set [force-rebuild] in commit message
       shell: bash

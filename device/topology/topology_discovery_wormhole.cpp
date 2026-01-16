@@ -289,8 +289,11 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
     tt_device->init_tt_device();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
-    eth_addresses =
-        TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());
+    auto eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version();
+    if (!eth_fw_version.has_value()) {
+        TT_THROW("ETH_FW_VERSION is not available.");
+    }
+    eth_addresses = TopologyDiscoveryWormhole::get_eth_addresses(*eth_fw_version);
 }
 
 bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {

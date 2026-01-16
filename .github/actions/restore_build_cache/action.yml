@@ -11,6 +11,9 @@ inputs:
   docker-tag:
     description: 'Docker tag'
     required: true
+  docker-digest:
+    description: 'Docker image digest/SHA (optional, for more specific cache keys than "latest")'
+    required: false
   build-type:
     description: 'Build type (Release, Debug, etc.)'
     required: true
@@ -48,17 +51,42 @@ runs:
         # This helps create stable cache keys even when using "latest" tag
         DOCKER_DIGEST=""
 
-        # Method 1: Check if we're in a container and can inspect it
-        if [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
-          # Try to get image digest from environment or inspect
-          if command -v docker >/dev/null 2>&1; then
-            # Get the container ID (hostname in container is usually the container ID)
-            CONTAINER_ID=$(hostname)
-            # Try to get the image SHA
-            DOCKER_DIGEST=$(docker inspect --format='{{.Image}}' "$CONTAINER_ID" 2>/dev/null \
-              | cut -d: -f2 \
-              | cut -c1-12 \
-              || echo "")
+        # Method 0: Use explicitly provided digest if available
+        if [ -n "${{ inputs.docker-digest }}" ]; then
+          DOCKER_DIGEST="${{ inputs.docker-digest }}"
+          echo "Using provided docker digest: $DOCKER_DIGEST"
+        fi
+
+        # Method 1: Use docker socket if available (GitHub Actions mounts it)
+        if [ -z "$DOCKER_DIGEST" ] && [ -S /var/run/docker.sock ] && command -v docker >/dev/null 2>&1; then
+          CONTAINER_ID=$(hostname)
+          echo "Attempting to inspect container: $CONTAINER_ID"
+
+          # Get the image ID from the running container
+          IMAGE_SHA=$(docker inspect --format='{{.Image}}' "$CONTAINER_ID" 2>/dev/null || echo "")
+
+          if [ -n "$IMAGE_SHA" ]; then
+            # Get the RepoDigests from the image
+            REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_SHA" 2>/dev/null || echo "")
+            if [ -n "$REPO_DIGEST" ] && [[ "$REPO_DIGEST" =~ @sha256:([a-f0-9]{64}) ]]; then
+              # Extract the sha256 hash and take first 12 characters
+              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
+              echo "Found image digest from RepoDigests: $DOCKER_DIGEST"
+            elif [[ "$IMAGE_SHA" =~ sha256:([a-f0-9]+) ]]; then
+              # Fall back to image ID (first 12 chars)
+              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
+              echo "Using image ID: $DOCKER_DIGEST"
+            fi
+          fi
+        fi
+
+        # Method 2: Try reading from hostname (container ID)
+        if [ -z "$DOCKER_DIGEST" ]; then
+          HOSTNAME=$(hostname)
+          # Container IDs are typically hex characters
+          if [[ "$HOSTNAME" =~ ^[0-9a-f]{12,}$ ]]; then
+            DOCKER_DIGEST="${HOSTNAME:0:12}"
+            echo "Using container hostname as digest: $DOCKER_DIGEST"
           fi
         fi
 
@@ -67,7 +95,7 @@ runs:
           DOCKER_DIGEST="${{ inputs.docker-tag }}"
         fi
 
-        echo "Docker digest/tag: $DOCKER_DIGEST"
+        echo "Final docker digest/tag: $DOCKER_DIGEST"
         echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
 
     - name: Restore file timestamps to match git commit

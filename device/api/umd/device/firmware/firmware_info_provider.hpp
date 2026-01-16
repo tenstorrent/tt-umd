@@ -44,7 +44,7 @@ public:
 
     uint64_t get_board_id() const;
 
-    uint32_t get_eth_fw_version() const;
+    std::optional<uint32_t> get_eth_fw_version() const;
 
     // TODO: remove semver suffix from this function when client code is changed to use semver_t directly.
     // Remove version of the function that returns uint32_t accordingly.

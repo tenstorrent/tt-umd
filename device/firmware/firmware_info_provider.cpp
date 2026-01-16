@@ -61,10 +61,17 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
                 // Legacy Blackhole <= 18.7.
                 TelemetryFeatureMap map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
+                // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
+                map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
                 return map;
             }
             // Modern Blackhole > 18.7.
-            return create_modern_base();
+            {
+                TelemetryFeatureMap map = create_modern_base();
+                // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
+                map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
+                return map;
+            }
         default:
             TT_THROW("Unsupported architecture for telemetry feature map.");
     }
@@ -243,8 +250,8 @@ uint64_t FirmwareInfoProvider::get_board_id() const {
     return (static_cast<uint64_t>(high) << 32) | low;
 }
 
-uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
-    return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
+    return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const {

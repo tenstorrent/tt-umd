@@ -40,6 +40,36 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Detect actual docker image digest
+      id: docker-digest
+      shell: bash
+      run: |
+        # Try to get the actual docker image digest/SHA that's running
+        # This helps create stable cache keys even when using "latest" tag
+        DOCKER_DIGEST=""
+
+        # Method 1: Check if we're in a container and can inspect it
+        if [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+          # Try to get image digest from environment or inspect
+          if command -v docker >/dev/null 2>&1; then
+            # Get the container ID (hostname in container is usually the container ID)
+            CONTAINER_ID=$(hostname)
+            # Try to get the image SHA
+            DOCKER_DIGEST=$(docker inspect --format='{{.Image}}' "$CONTAINER_ID" 2>/dev/null \
+              | cut -d: -f2 \
+              | cut -c1-12 \
+              || echo "")
+          fi
+        fi
+
+        # If we couldn't detect a digest, use the provided tag
+        if [ -z "$DOCKER_DIGEST" ] || [ "$DOCKER_DIGEST" == "latest" ]; then
+          DOCKER_DIGEST="${{ inputs.docker-tag }}"
+        fi
+
+        echo "Docker digest/tag: $DOCKER_DIGEST"
+        echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+
     - name: Restore file timestamps to match git commit
       shell: bash
       working-directory: ${{ inputs.repo-path }}
@@ -146,7 +176,7 @@ runs:
       shell: bash
       run: |
         BRANCHES='${{ steps.discover-branches.outputs.branches }}'
-        PREFIX="${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}"
+        PREFIX="${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ steps.docker-digest.outputs.digest }}"
         BUILD_TYPE="${{ inputs.build-type }}"
         CURRENT_BRANCH='${{ steps.discover-branches.outputs.current-branch }}'
         COMMIT_SHA="${{ github.sha }}"

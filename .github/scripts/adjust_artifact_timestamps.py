@@ -57,9 +57,8 @@ def get_dependencies(build_dir: Path, target: str) -> List[str]:
         
         # If we're in the inputs section, collect dependencies
         if in_inputs_section:
-            # Skip order-only dependencies (lines starting with ||)
             if stripped.startswith('||'):
-                continue
+                stripped = stripped[2:].strip()
             
             # Skip empty lines
             if not stripped:
@@ -67,8 +66,44 @@ def get_dependencies(build_dir: Path, target: str) -> List[str]:
             
             # This is a dependency - add it
             dependencies.append(stripped)
+
+    # For compiled targets (object files, libraries, executables), 
+    # also get header dependencies from Ninja's dependency database
+    if target.endswith('.o') or target.endswith('.obj') or target.endswith('.a') or target.endswith('.so'):
+        header_deps = get_ninja_deps(build_dir, target)
+        dependencies.extend(header_deps)
     
     return dependencies
+
+
+def get_ninja_deps(build_dir: Path, target: str) -> List[str]:
+    """Get all dependencies for a target from Ninja's dependency database."""
+    try:
+        result = subprocess.run(
+            ['ninja', '-t', 'deps', target],
+            cwd=build_dir,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        deps = []
+        # Output format:
+        # target: #deps N, deps mtime ... (VALID)
+        #     /path/to/dep1
+        #     /path/to/dep2
+        # We skip the first line and collect all indented lines
+        for line in result.stdout.splitlines()[1:]:
+            if line.startswith('    '):
+                dep = line.strip()
+                if dep:
+                    deps.append(dep)
+        
+        return deps
+        
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If ninja -t deps fails, return empty list
+        return []
 
 
 def find_timestamps(build_dir: Path) -> Dict[Path, float]:
@@ -135,34 +170,34 @@ def find_timestamps(build_dir: Path) -> Dict[Path, float]:
                 return mtime
             except OSError:
                 return 0
-        
+
         # File is inside build directory - compute based on dependencies
         relative_target = str(target_path.relative_to(build_dir))
         dependencies = get_dependencies(build_dir, relative_target)
-        
+
         max_dep_time = 0
         for dep in dependencies:
             dep_path = build_dir / dep
             dep_time = compute_timestamp(dep_path)
             max_dep_time = max(max_dep_time, dep_time)
-        
+
         # Set timestamp = max(dependencies) + 1
         new_timestamp = max_dep_time + 1 if max_dep_time > 0 else 0
         timestamps[target_path] = new_timestamp
         computed.add(target_path)
         return new_timestamp
-    
+
     # Compute timestamps for all targets
     for target in targets:
         target_path = build_dir / target
         compute_timestamp(target_path)
-    
+
     # Filter to only return paths inside build directory that need updating
     result_timestamps = {
         path: ts for path, ts in timestamps.items()
         if path.exists() and path.is_relative_to(build_dir) and ts > 0
     }
-    
+
     print(f"Computed timestamps for {len(result_timestamps)} artifacts")
     return result_timestamps
 

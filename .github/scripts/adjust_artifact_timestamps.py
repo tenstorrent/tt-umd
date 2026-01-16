@@ -170,19 +170,18 @@ def find_timestamps(build_dir: Path) -> Dict[Path, float]:
 def update_timestamps(timestamps: Dict[Path, float]) -> None:
     """Apply the computed timestamps to files."""
     print(f"Applying timestamps to {len(timestamps)} files...")
-    
+
     adjusted_count = 0
     for path, timestamp in timestamps.items():
         try:
+            previous_timestamp = path.stat().st_mtime
             os.utime(path, (timestamp, timestamp))
-            adjusted_count += 1
-            if adjusted_count <= 10:  # Only print first 10 to avoid log spam
-                print(f"  Set {path.name} to timestamp {timestamp}")
+            if previous_timestamp != timestamp:
+                adjusted_count += 1
+                print(f"  Set {path.name} to timestamp {timestamp} from {previous_timestamp}")
         except OSError as e:
             print(f"Warning: Could not adjust timestamp for {path}: {e}")
-    
-    if adjusted_count > 10:
-        print(f"  ... and {adjusted_count - 10} more files")
+
     print(f"Timestamp adjustment complete. Adjusted {adjusted_count} files.")
 
 

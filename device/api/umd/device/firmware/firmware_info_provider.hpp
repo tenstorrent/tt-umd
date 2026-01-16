@@ -133,16 +133,6 @@ private:
 
     semver_t firmware_version = semver_t(0, 0, 0);
 
-    // Cached availability flags for optional features.
-    bool aiclk_available = false;
-    bool axiclk_available = false;
-    bool arcclk_available = false;
-    bool fan_speed_available = false;
-    bool tdp_available = false;
-    bool tdc_available = false;
-    bool vcore_available = false;
-    bool board_temperature_available = false;
-
     // Configuration map that drives the data-driven behavior.
     TelemetryFeatureMap telemetry_feature_map;
 

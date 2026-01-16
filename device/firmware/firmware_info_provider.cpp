@@ -28,16 +28,6 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 
     // Build the telemetry feature map based on architecture and version.
     telemetry_feature_map = create_telemetry_feature_map(tt_device, firmware_version);
-
-    // Cache availability flags for optional features.
-    aiclk_available = is_feature_available(FirmwareFeature::AICLK);
-    axiclk_available = is_feature_available(FirmwareFeature::AXICLK);
-    arcclk_available = is_feature_available(FirmwareFeature::ARCCLK);
-    fan_speed_available = is_feature_available(FirmwareFeature::FAN_SPEED);
-    tdp_available = is_feature_available(FirmwareFeature::TDP);
-    tdc_available = is_feature_available(FirmwareFeature::TDC);
-    vcore_available = is_feature_available(FirmwareFeature::VCORE);
-    board_temperature_available = is_feature_available(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
@@ -261,51 +251,51 @@ uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    if (!is_feature_available(FirmwareFeature::ETH_FW_VERSION)) {
+    auto raw = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION).value_or(0);
-    return get_eth_fw_version_from_telemetry(raw, tt_device->get_arch());
+    return get_eth_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
-    if (!is_feature_available(FirmwareFeature::GDDR_FW_VERSION)) {
+    auto raw = read_scalar<uint32_t>(FirmwareFeature::GDDR_FW_VERSION);
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::GDDR_FW_VERSION).value_or(0);
-    return get_gddr_fw_version_from_telemetry(raw, tt_device->get_arch());
+    return get_gddr_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
-    if (!is_feature_available(FirmwareFeature::CM_FW_VERSION)) {
+    auto raw = read_scalar<uint32_t>(FirmwareFeature::CM_FW_VERSION);
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::CM_FW_VERSION).value_or(0);
-    return get_cm_fw_version_from_telemetry(raw, tt_device->get_arch());
+    return get_cm_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
-    if (!is_feature_available(FirmwareFeature::DM_APP_FW_VERSION)) {
+    auto raw = read_scalar<uint32_t>(FirmwareFeature::DM_APP_FW_VERSION);
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::DM_APP_FW_VERSION).value_or(0);
-    return get_dm_app_fw_version_from_telemetry(raw, tt_device->get_arch());
+    return get_dm_app_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
-    if (!is_feature_available(FirmwareFeature::DM_BL_FW_VERSION)) {
+    auto raw = read_scalar<uint32_t>(FirmwareFeature::DM_BL_FW_VERSION);
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::DM_BL_FW_VERSION).value_or(0);
-    return get_dm_bl_fw_version_from_telemetry(raw, tt_device->get_arch());
+    return get_dm_bl_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
-    if (!is_feature_available(FirmwareFeature::TT_FLASH_VERSION)) {
+    auto raw = read_scalar<uint32_t>(FirmwareFeature::TT_FLASH_VERSION);
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    uint32_t raw = read_scalar<uint32_t>(FirmwareFeature::TT_FLASH_VERSION).value_or(0);
-    return get_tt_flash_version_from_telemetry(raw);
+    return get_tt_flash_version_from_telemetry(*raw);
 }
 
 double FirmwareInfoProvider::get_asic_temperature() const {
@@ -313,9 +303,6 @@ double FirmwareInfoProvider::get_asic_temperature() const {
 }
 
 std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
-    if (!board_temperature_available) {
-        return std::nullopt;
-    }
     return read_scalar<double>(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
@@ -324,30 +311,18 @@ uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
-    if (!aiclk_available) {
-        return std::nullopt;
-    }
     return read_scalar<uint32_t>(FirmwareFeature::AICLK);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_axiclk() const {
-    if (!axiclk_available) {
-        return std::nullopt;
-    }
     return read_scalar<uint32_t>(FirmwareFeature::AXICLK);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
-    if (!arcclk_available) {
-        return std::nullopt;
-    }
     return read_scalar<uint32_t>(FirmwareFeature::ARCCLK);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
-    if (!fan_speed_available) {
-        return std::nullopt;
-    }
     auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
     // All ones mean fans not present on board, or not under control of firmware.
     if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
@@ -356,24 +331,11 @@ std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
     return fan_speed;
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const {
-    if (!tdp_available) {
-        return std::nullopt;
-    }
-    return read_scalar<uint32_t>(FirmwareFeature::TDP);
-}
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const {
-    if (!tdc_available) {
-        return std::nullopt;
-    }
-    return read_scalar<uint32_t>(FirmwareFeature::TDC);
-}
+std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const { return read_scalar<uint32_t>(FirmwareFeature::TDC); }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
-    if (!vcore_available) {
-        return std::nullopt;
-    }
     return read_scalar<uint32_t>(FirmwareFeature::VCORE);
 }
 

@@ -109,6 +109,13 @@ jobs:
             build-tests-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
           # yamllint enable rule:line-length
 
+      - name: Force rebuild if user set [force-rebuild] in commit message
+        if: contains(github.event.head_commit.message, '[force-rebuild]')
+        run: |
+          echo "User requested force rebuild via [force-rebuild] in commit message."
+          echo "Removing build cache..."
+          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
+
       # Only perform build with necessary components to run tests.
       - name: Build ${{ env.BUILD_TARGETS }}
         run: |
@@ -182,6 +189,13 @@ jobs:
             build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-
             build-tests-wheel-${{ inputs.ubuntu-docker-version }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
           # yamllint enable rule:line-length
+
+      - name: Force rebuild if user set [force-rebuild] in commit message
+        if: contains(github.event.head_commit.message, '[force-rebuild]')
+        run: |
+          echo "User requested force rebuild via [force-rebuild] in commit message."
+          echo "Removing build cache..."
+          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4

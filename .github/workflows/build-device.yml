@@ -88,6 +88,14 @@ jobs:
             build-device-umd-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
           # yamllint enable rule:line-length
 
+      - name: Force umd rebuild if user set [force-rebuild] in commit message
+        if: contains(github.event.head_commit.message, '[force-rebuild]')
+        run: |
+          echo "User requested force rebuild via [force-rebuild] in commit message."
+          echo "Removing build cache..."
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
+
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
         if: ${{ matrix.image.compiler != 'clang' }}
@@ -252,6 +260,14 @@ jobs:
             build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ matrix.image.compiler }}-
             build-device-umd-python-${{ matrix.image.container-distro }}-${{ matrix.image.docker-tag }}-main-${{ matrix.image.compiler }}-
           # yamllint enable rule:line-length
+
+      - name: Force umd-python rebuild if user set [force-rebuild] in commit message
+        if: contains(github.event.head_commit.message, '[force-rebuild]')
+        run: |
+          echo "User requested force rebuild via [force-rebuild] in commit message."
+          echo "Removing build cache..."
+          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
+          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
 
       - name: Rebuild package for python without wheel
         run: |

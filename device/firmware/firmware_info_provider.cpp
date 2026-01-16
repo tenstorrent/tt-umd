@@ -79,7 +79,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             // Modern Blackhole > 18.7.
             return create_modern_base();
         default:
-            return create_modern_base();
+            throw std::runtime_error("Unsupported architecture for telemetry feature map.");
     }
 }
 

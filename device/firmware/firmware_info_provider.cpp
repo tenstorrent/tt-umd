@@ -5,8 +5,8 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
 #include <cstdint>
-#include <stdexcept>
 
+#include "assert.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -23,7 +23,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (telemetry == nullptr) {
-        throw std::runtime_error("No telemetry reader present in tt_device.");
+        TT_THROW("No telemetry reader present in tt_device.");
     }
 
     // Build the telemetry feature map based on architecture and version.
@@ -36,7 +36,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
         case ARCH::BLACKHOLE:
             return std::make_unique<FirmwareInfoProvider>(tt_device);
         default:
-            throw std::runtime_error("Unsupported architecture for firmware versioner.");
+            TT_THROW("Unsupported architecture for firmware versioner.");
     }
 }
 
@@ -69,7 +69,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             // Modern Blackhole > 18.7.
             return create_modern_base();
         default:
-            throw std::runtime_error("Unsupported architecture for telemetry feature map.");
+            TT_THROW("Unsupported architecture for telemetry feature map.");
     }
 }
 
@@ -236,7 +236,7 @@ semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH 
             return semver_t(18, 5, 0);
         }
         default:
-            throw std::runtime_error("Unsupported architecture for firmware info provider.");
+            TT_THROW("Unsupported architecture for firmware info provider.");
     }
 }
 

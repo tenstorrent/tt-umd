@@ -347,9 +347,58 @@ uint32_t FirmwareInfoProvider::get_heartbeat() const {
     return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
 }
 
+// Legacy Wormhole: Each channel uses 4 bits.
+static std::vector<DramTrainingStatus> get_legacy_wormhole_dram_statuses(
+    uint32_t telemetry_data, uint32_t num_channels) {
+    std::vector<DramTrainingStatus> statuses;
+    for (uint32_t channel = 0; channel < num_channels; ++channel) {
+        uint8_t status = (telemetry_data >> (channel * 4)) & 0xF;
+        switch (status) {
+            case wormhole::WormholeDramTrainingStatus::TrainingNone:
+                statuses.push_back(DramTrainingStatus::IN_PROGRESS);
+                break;
+            case wormhole::WormholeDramTrainingStatus::TrainingFail:
+                statuses.push_back(DramTrainingStatus::FAIL);
+                break;
+            case wormhole::WormholeDramTrainingStatus::TrainingPass:
+            case wormhole::WormholeDramTrainingStatus::TrainingSkip:
+                statuses.push_back(DramTrainingStatus::SUCCESS);
+                break;
+            default:
+                statuses.push_back(DramTrainingStatus::FAIL);
+        }
+    }
+    return statuses;
+}
+
+// Modern format: Each channel gets two bits in the 32-bit value (16 bits used).
+// The lower bits are for lower channels.
+// Lower of the two bits reports the training status and higher of the two bits reports the training error.
+// Example: 0b 00 00 00 00 00 00 01 10
+// would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained
+// and don't have errors. If some channel is harvested the bits are always going to be zero.
+static std::vector<DramTrainingStatus> get_modern_dram_statuses(uint32_t telemetry_data, uint32_t num_channels) {
+    std::vector<DramTrainingStatus> statuses;
+    for (uint32_t channel = 0; channel < num_channels; ++channel) {
+        uint8_t status = (telemetry_data >> (channel * 2)) & 0x3;
+        switch (status) {
+            case 0b01:
+                statuses.push_back(DramTrainingStatus::SUCCESS);
+                break;
+            case 0b10:
+            case 0b11:
+                statuses.push_back(DramTrainingStatus::FAIL);
+                break;
+            default:  // 0b00
+                statuses.push_back(DramTrainingStatus::IN_PROGRESS);
+                break;
+        }
+    }
+    return statuses;
+}
+
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
     uint32_t telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS).value_or(0);
-    std::vector<DramTrainingStatus> statuses;
 
     // Check if we're using legacy Wormhole format (4 bits per channel)
     // or modern format (2 bits per channel).
@@ -357,50 +406,8 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
     bool is_legacy_wormhole = tt_device->get_arch() == ARCH::WORMHOLE_B0 &&
                               semver_t::compare_firmware_bundle(firmware_version, fw_version_18_3) <= 0;
 
-    if (is_legacy_wormhole) {
-        // Legacy Wormhole: Each channel uses 4 bits.
-        for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {
-            uint8_t status = (telemetry_data >> (channel * 4)) & 0xF;
-            switch (status) {
-                case wormhole::WormholeDramTrainingStatus::TrainingNone:
-                    statuses.push_back(DramTrainingStatus::IN_PROGRESS);
-                    break;
-                case wormhole::WormholeDramTrainingStatus::TrainingFail:
-                    statuses.push_back(DramTrainingStatus::FAIL);
-                    break;
-                case wormhole::WormholeDramTrainingStatus::TrainingPass:
-                case wormhole::WormholeDramTrainingStatus::TrainingSkip:
-                    statuses.push_back(DramTrainingStatus::SUCCESS);
-                    break;
-                default:
-                    statuses.push_back(DramTrainingStatus::FAIL);
-            }
-        }
-    } else {
-        // Modern format: Each channel gets two bits in the 32-bit value (16 bits used).
-        // The lower bits are for lower channels.
-        // Lower of the two bits reports the training status and higher of the two bits reports the training error.
-        // Example: 0b 00 00 00 00 00 00 01 10
-        // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained
-        // and don't have errors. If some channel is harvested the bits are always going to be zero.
-        for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {
-            uint8_t status = (telemetry_data >> (2 * channel)) & 0x3;
-            switch (status) {
-                case 0b01:
-                    statuses.push_back(DramTrainingStatus::SUCCESS);
-                    break;
-                case 0b10:
-                case 0b11:
-                    statuses.push_back(DramTrainingStatus::FAIL);
-                    break;
-                default:  // 0b00
-                    statuses.push_back(DramTrainingStatus::IN_PROGRESS);
-                    break;
-            }
-        }
-    }
-
-    return statuses;
+    return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data, num_dram_channels)
+                              : get_modern_dram_statuses(telemetry_data, num_dram_channels);
 }
 
 }  // namespace tt::umd

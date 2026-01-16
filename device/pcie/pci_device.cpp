@@ -170,7 +170,7 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
     return std::nullopt;
 }
 
-static PciDeviceInfo read_device_info(int fd) {
+PciDeviceInfo PCIDevice::read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
 

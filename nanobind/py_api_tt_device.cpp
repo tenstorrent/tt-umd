@@ -80,6 +80,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_device_info", &PCIDevice::get_device_info)
         .def("get_device_num", &PCIDevice::get_device_num)
         .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")
+        .def_static("read_device_info", &PCIDevice::read_device_info, nb::arg("fd"), "Read PCI device information.")
         .def_static(
             "is_arch_agnostic_reset_supported",
             &PCIDevice::is_arch_agnostic_reset_supported,

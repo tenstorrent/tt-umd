@@ -78,7 +78,26 @@ runs:
 
           # Download and extract to a temporary location
           TMP_DIR=$(mktemp -d)
-          curl -sL "$CRANE_URL" | tar -xz -C "$TMP_DIR" crane
+
+          # Try multiple download methods
+          if command -v curl >/dev/null 2>&1; then
+            echo "Using curl to download..."
+            curl -sL "$CRANE_URL" | tar -xz -C "$TMP_DIR" crane
+          elif command -v wget >/dev/null 2>&1; then
+            echo "Using wget to download..."
+            wget -qO- "$CRANE_URL" | tar -xz -C "$TMP_DIR" crane
+          elif command -v python3 >/dev/null 2>&1; then
+            echo "Using python3 to download..."
+            python3 -c "import urllib.request; import sys; sys.stdout.buffer.write(urllib.request.urlopen('$CRANE_URL').read())" | tar -xz -C "$TMP_DIR" crane
+          elif command -v python >/dev/null 2>&1; then
+            echo "Using python to download..."
+            python -c "import urllib2; import sys; sys.stdout.write(urllib2.urlopen('$CRANE_URL').read())" | tar -xz -C "$TMP_DIR" crane
+          else
+            echo "ERROR: No download tool available (curl, wget, or python)"
+            echo "Falling back to tag: $DOCKER_DIGEST"
+            echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
           # Add to PATH for this step
           export PATH="$TMP_DIR:$PATH"

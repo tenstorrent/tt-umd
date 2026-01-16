@@ -11,6 +11,9 @@ inputs:
   docker-tag:
     description: 'Docker tag'
     required: true
+  docker-url:
+    description: 'Full docker image URL (e.g., ghcr.io/org/image:tag) for digest detection'
+    required: false
   docker-digest:
     description: 'Docker image digest/SHA (optional, for more specific cache keys than "latest")'
     required: false
@@ -47,59 +50,36 @@ runs:
       id: docker-digest
       shell: bash
       run: |
-        # Try to get the actual docker image digest/SHA that's running
-        # This helps create stable cache keys even when using "latest" tag
-        DOCKER_DIGEST=""
+        DOCKER_DIGEST="${{ inputs.docker-tag }}"
 
-        # Method 0: Use explicitly provided digest if available
-        if [ -n "${{ inputs.docker-digest }}" ]; then
-          DOCKER_DIGEST="${{ inputs.docker-digest }}"
-          echo "Using provided docker digest: $DOCKER_DIGEST"
-        fi
+        # Only try to detect digest if docker-tag is "latest" and docker-url is provided
+        if [ "${{ inputs.docker-tag }}" = "latest" ] && [ -n "${{ inputs.docker-url }}" ]; then
+          if [ -S /var/run/docker.sock ] && command -v docker >/dev/null 2>&1; then
+            DOCKER_URL="${{ inputs.docker-url }}"
 
-        # Method 1: Use docker socket if available (GitHub Actions mounts it)
-        if [ -z "$DOCKER_DIGEST" ] && [ -S /var/run/docker.sock ] && command -v docker >/dev/null 2>&1; then
-          # Get container ID from cgroup
-          CONTAINER_ID=$(cat /proc/1/cgroup 2>/dev/null | grep 'docker' | head -1 | \
-            sed 's/.*\/docker\///' | cut -d/ -f1)
+            # Check if docker-url contains a tag (ends with :tag)
+            # If not, append the docker-tag
+            if [[ ! "$DOCKER_URL" =~ :[^/]+$ ]]; then
+              DOCKER_URL="${DOCKER_URL}:${{ inputs.docker-tag }}"
+              echo "Appended tag to URL: $DOCKER_URL"
+            fi
 
-          if [ -z "$CONTAINER_ID" ]; then
-            # Fallback: try hostname (GitHub Actions uses short container name)
-            CONTAINER_ID=$(hostname)
-          fi
+            echo "Inspecting docker image: $DOCKER_URL"
 
-          echo "Attempting to inspect container: $CONTAINER_ID"
-
-          # Get the image ID from the running container
-          IMAGE_SHA=$(docker inspect --format='{{.Image}}' "$CONTAINER_ID" 2>/dev/null || echo "")
-
-          if [ -n "$IMAGE_SHA" ]; then
-            echo "Found image: $IMAGE_SHA"
-            # Get the RepoDigests from the image (this is the actual published digest)
-            REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_SHA" 2>/dev/null || echo "")
-            echo "RepoDigest: $REPO_DIGEST"
+            # Get the RepoDigests from the image URL
+            REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$DOCKER_URL" 2>/dev/null || echo "")
 
             if [ -n "$REPO_DIGEST" ] && [[ "$REPO_DIGEST" =~ @sha256:([a-f0-9]{64}) ]]; then
               # Extract the sha256 hash and take first 12 characters
               DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-              echo "Found image digest from RepoDigests: sha256:${BASH_REMATCH[1]}"
-            elif [[ "$IMAGE_SHA" =~ sha256:([a-f0-9]+) ]]; then
-              # Fall back to image ID (first 12 chars) - less stable but better than nothing
-              DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-              echo "Using image ID as fallback: $DOCKER_DIGEST"
+              echo "Found image digest: sha256:${BASH_REMATCH[1]:0:12}"
+            else
+              echo "Could not extract digest from: $REPO_DIGEST"
             fi
-          else
-            echo "Failed to get image information from docker"
           fi
         fi
 
-        # If we couldn't detect a digest, use the provided tag
-        if [ -z "$DOCKER_DIGEST" ] || [ "$DOCKER_DIGEST" == "latest" ]; then
-          DOCKER_DIGEST="${{ inputs.docker-tag }}"
-          echo "Using docker tag as digest: $DOCKER_DIGEST"
-        fi
-
-        echo "Final docker digest/tag: $DOCKER_DIGEST"
+        echo "Using digest/tag: $DOCKER_DIGEST"
         echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
 
     - name: Restore file timestamps to match git commit

@@ -93,6 +93,7 @@ jobs:
           cache-key-prefix: build-tests
           docker-name: ${{ inputs.ubuntu-docker-version }}
           docker-tag: ${{ inputs.docker-tag }}
+          docker-url: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}
           build-type: ${{ inputs.build-type }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
           cache-paths: |
@@ -161,6 +162,7 @@ jobs:
           cache-key-prefix: build-tests-wheel
           docker-name: ${{ inputs.ubuntu-docker-version }}
           docker-tag: ${{ inputs.docker-tag }}
+          docker-url: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}
           build-type: ${{ inputs.build-type }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
           cache-paths: |

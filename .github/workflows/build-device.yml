@@ -73,6 +73,7 @@ jobs:
           cache-key-prefix: build-device-umd
           docker-name: ${{ matrix.image.container-distro }}
           docker-tag: ${{ matrix.image.docker-tag }}
+          docker-url: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}
           build-type: ${{ matrix.image.compiler }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
           repo-path: ${{ env.TT_UMD_DIR }}
@@ -233,6 +234,7 @@ jobs:
           cache-key-prefix: build-device-umd-python
           docker-name: ${{ matrix.image.container-distro }}
           docker-tag: ${{ matrix.image.docker-tag }}
+          docker-url: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}
           build-type: ${{ matrix.image.compiler }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
           repo-path: ${{ env.TT_UMD_PYTHON_DIR }}

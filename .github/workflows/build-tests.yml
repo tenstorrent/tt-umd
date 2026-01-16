@@ -54,7 +54,7 @@ on:
 
 env:
   BUILD_TARGETS: "umd_tests ubench"
-  BUILD_OUTPUT_DIR: ./build
+  BUILD_OUTPUT_DIR: build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test

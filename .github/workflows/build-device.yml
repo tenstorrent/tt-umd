@@ -89,12 +89,16 @@ jobs:
           # yamllint enable rule:line-length
 
       - name: Force umd rebuild if user set [force-rebuild] in commit message
-        if: contains(github.event.head_commit.message, '[force-rebuild]')
         run: |
-          echo "User requested force rebuild via [force-rebuild] in commit message."
-          echo "Removing build cache..."
           cd ${{ env.TT_UMD_DIR_SHELL }}
-          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
+            echo "User requested force rebuild via [force-rebuild] in commit message."
+            echo "Removing build cache..."
+            rm -rf ${{ env.BUILD_OUTPUT_DIR }}
+          else
+            echo "No [force-rebuild] flag found in commit message."
+          fi
 
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
@@ -262,12 +266,16 @@ jobs:
           # yamllint enable rule:line-length
 
       - name: Force umd-python rebuild if user set [force-rebuild] in commit message
-        if: contains(github.event.head_commit.message, '[force-rebuild]')
         run: |
-          echo "User requested force rebuild via [force-rebuild] in commit message."
-          echo "Removing build cache..."
           cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
-          rm -rf ${{ env.BUILD_OUTPUT_DIR }}
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
+            echo "User requested force rebuild via [force-rebuild] in commit message."
+            echo "Removing build cache..."
+            rm -rf ${{ env.BUILD_OUTPUT_DIR }}
+          else
+            echo "No [force-rebuild] flag found in commit message."
+          fi
 
       - name: Rebuild package for python without wheel
         run: |

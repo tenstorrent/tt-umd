@@ -27,6 +27,9 @@ outputs:
   cache-hit:
     description: 'Whether the cache was hit'
     value: ${{ steps.cache.outputs.cache-hit }}
+  cache-key:
+    description: 'The cache key used for restore and to be used for save'
+    value: ${{ steps.cache-keys.outputs.key }}
 
 runs:
   using: composite
@@ -42,6 +45,127 @@ runs:
           touch -d @$(git log -1 --format=%at -- "$file") "$file"
         done
 
+    - name: Discover branch hierarchy
+      id: discover-branches
+      shell: bash
+      working-directory: ${{ inputs.repo-path }}
+      run: |
+        CURRENT_BRANCH="${{ github.head_ref != '' && github.head_ref || github.ref_name }}"
+        echo "Current branch: $CURRENT_BRANCH"
+
+        # Start with current branch
+        BRANCHES=("$CURRENT_BRANCH")
+
+        # Get all remote branches
+        git fetch --all --quiet 2>/dev/null || true
+
+        # Function to find parent branch by looking at merge-base with common branches
+        find_parent_branch() {
+          local current="$1"
+          local current_commit=$(git rev-parse "$current" 2>/dev/null || git rev-parse HEAD)
+
+          # Get all branches sorted by commit date (most recent first)
+          local all_branches=$(git for-each-ref \
+            --sort=-committerdate \
+            --format='%(refname:short)' \
+            refs/remotes/origin/ 2>/dev/null \
+            | sed 's|^origin/||' \
+            | grep -v '^HEAD$')
+
+          # Try to find the most likely parent branch
+          local best_parent=""
+          local best_distance=999999
+
+          for branch in $all_branches; do
+            # Skip if this is the current branch or already in our list
+            [[ "$branch" == "$current" ]] && continue
+            local skip=0
+            for seen in "${BRANCHES[@]}"; do
+              [[ "$branch" == "$seen" ]] && skip=1 && break
+            done
+            [[ $skip -eq 1 ]] && continue
+
+            # Check if branch exists
+            if git rev-parse "origin/$branch" >/dev/null 2>&1; then
+              # Find merge-base
+              local merge_base=$(git merge-base "$current_commit" "origin/$branch" 2>/dev/null || echo "")
+              if [[ -n "$merge_base" ]]; then
+                # Calculate distance from merge-base to current
+                local distance=$(git rev-list --count "$merge_base..$current_commit" 2>/dev/null || echo "999999")
+
+                # If this branch contains most of our history, it's likely the parent
+                if [[ $distance -lt $best_distance ]]; then
+                  best_distance=$distance
+                  best_parent="$branch"
+                fi
+              fi
+            fi
+          done
+
+          echo "$best_parent"
+        }
+
+        # Find up to 3 parent branches
+        MAX_DEPTH=3
+        current="$CURRENT_BRANCH"
+        for ((i=0; i<MAX_DEPTH; i++)); do
+          parent=$(find_parent_branch "$current")
+          if [[ -n "$parent" ]] && [[ "$parent" != "$current" ]]; then
+            BRANCHES+=("$parent")
+            current="$parent"
+            echo "Found parent branch: $parent"
+            # Stop if we reached main or master
+            [[ "$parent" == "main" ]] || [[ "$parent" == "master" ]] && break
+          else
+            break
+          fi
+        done
+
+        # Ensure main is always at the end if not already present
+        if [[ ! " ${BRANCHES[@]} " =~ " main " ]]; then
+          BRANCHES+=("main")
+        fi
+
+        echo "Branch hierarchy: ${BRANCHES[@]}"
+
+        # Output branches as JSON array for next step
+        BRANCHES_JSON=$(printf '%s\n' "${BRANCHES[@]}" | jq -R . | jq -s -c .)
+        echo "branches=$BRANCHES_JSON" >> $GITHUB_OUTPUT
+        echo "current-branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
+
+    - name: Generate cache keys
+      id: cache-keys
+      shell: bash
+      run: |
+        BRANCHES='${{ steps.discover-branches.outputs.branches }}'
+        PREFIX="${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}"
+        BUILD_TYPE="${{ inputs.build-type }}"
+        CURRENT_BRANCH='${{ steps.discover-branches.outputs.current-branch }}'
+        COMMIT_SHA="${{ github.sha }}"
+
+        # Generate primary key
+        PRIMARY_KEY="${PREFIX}-${CURRENT_BRANCH}-${BUILD_TYPE}-${COMMIT_SHA}"
+        echo "key=$PRIMARY_KEY" >> $GITHUB_OUTPUT
+
+        # Generate restore-keys from branch hierarchy
+        RESTORE_KEYS=""
+        for branch in $(echo "$BRANCHES" | jq -r '.[]'); do
+          if [[ -n "$RESTORE_KEYS" ]]; then
+            RESTORE_KEYS="${RESTORE_KEYS}\n"
+          fi
+          RESTORE_KEYS="${RESTORE_KEYS}${PREFIX}-${branch}-${BUILD_TYPE}-"
+        done
+
+        echo "Generated cache key:"
+        echo "  $PRIMARY_KEY"
+        echo "Generated restore keys:"
+        echo -e "$RESTORE_KEYS"
+
+        # Output for use in next step
+        echo "restore-keys<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$RESTORE_KEYS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
     - name: Restore build cache
       uses: actions/cache/restore@v4
       id: cache
@@ -50,10 +174,8 @@ runs:
           ${{ inputs.repo-path }}/${{ inputs.build-output-dir }}
           ${{ inputs.repo-path }}/.cpmcache
         # yamllint disable rule:line-length
-        key: ${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
-        restore-keys: |
-          ${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-
-          ${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}-main-${{ inputs.build-type }}-
+        key: ${{ steps.cache-keys.outputs.key }}
+        restore-keys: ${{ steps.cache-keys.outputs.restore-keys }}
         # yamllint enable rule:line-length
 
     - name: Force rebuild if user set [force-rebuild] in commit message

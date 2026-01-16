@@ -109,8 +109,8 @@ runs:
         # Get the digest using crane
         REPO_DIGEST=$(crane digest "$DOCKER_URL" 2>&1)
         if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
-          DOCKER_DIGEST="${BASH_REMATCH[1]:0:12}"
-          echo "Found image digest: sha256:${BASH_REMATCH[1]:0:12}"
+          DOCKER_DIGEST="${BASH_REMATCH[1]}"
+          echo "Found image digest: sha256:${BASH_REMATCH[1]}"
         else
           echo "Failed to get digest: $REPO_DIGEST"
           echo "Falling back to tag: $DOCKER_DIGEST"

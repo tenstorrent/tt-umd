@@ -390,7 +390,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     bar0 = mmap(
-        NULL,
+        nullptr,
         PCIDevice::bar0_size,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
@@ -408,7 +408,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
-            NULL,
+            nullptr,
             bar2_uc_mapping.mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
@@ -426,7 +426,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
-            NULL,
+            nullptr,
             bar2_uc_mapping.mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,

@@ -8,13 +8,14 @@
 
 #include "assert.hpp"
 // PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED.
-#include <errno.h>     // errno, ENOENT
-#include <fcntl.h>     // O_RDWR, O_CREATE
-#include <pthread.h>   // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
-#include <sys/file.h>  // flock
-#include <sys/stat.h>  // for fstat
-#include <time.h>      // clock_gettime, timespec
-#include <unistd.h>    // ftruncate, close, gettid
+#include <errno.h>        // errno, ENOENT
+#include <fcntl.h>        // O_RDWR, O_CREATE
+#include <pthread.h>      // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
+#include <sys/file.h>     // flock
+#include <sys/stat.h>     // for fstat
+#include <sys/syscall.h>  // SYS_gettid
+#include <time.h>         // clock_gettime, timespec
+#include <unistd.h>       // ftruncate, close, getpid, syscall
 
 #include <chrono>
 #include <functional>
@@ -414,7 +415,7 @@ void RobustMutex::lock() {
     }
 
     // lock_res is 0, so this is a success case.
-    mutex_wrapper_ptr_->owner_tid = gettid();
+    mutex_wrapper_ptr_->owner_tid = static_cast<pid_t>(::syscall(SYS_gettid));
     mutex_wrapper_ptr_->owner_pid = getpid();
 
     tsan_annotate_mutex_acquire(mutex_name_);

@@ -33,7 +33,11 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
 }
 
 void WormholeTTDevice::post_init_hook() {
-    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
+    auto eth_fw_version = get_firmware_info_provider()->get_eth_fw_version();
+    if (!eth_fw_version.has_value()) {
+        TT_THROW("ETH_FW_VERSION is not available.");
+    }
+    eth_addresses = WormholeTTDevice::get_eth_addresses(*eth_fw_version);
 }
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :

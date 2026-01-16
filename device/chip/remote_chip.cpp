@@ -66,6 +66,8 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 RemoteChip::RemoteChip(
     const SocDescriptor& soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), soc_descriptor.arch), local_chip_(local_chip) {
+    remote_tt_device->set_soc_descriptor(soc_descriptor);
+
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
     // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.

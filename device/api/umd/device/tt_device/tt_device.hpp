@@ -69,6 +69,10 @@ public:
     tt::ARCH get_arch();
 
     const SocDescriptor &get_soc_descriptor() const;
+    // Assigns default SocDescriptor.
+    void set_soc_descriptor();
+    void set_soc_descriptor(const SocDescriptor &soc_descriptor);
+    void set_soc_descriptor(const std::string &soc_descriptor_path);
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;

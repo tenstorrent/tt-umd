@@ -106,6 +106,7 @@ LocalChip::LocalChip(
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
+    tt_device_->set_soc_descriptor(soc_descriptor);
     wait_chip_to_be_ready();
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();

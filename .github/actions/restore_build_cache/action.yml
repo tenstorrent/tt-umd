@@ -33,6 +33,9 @@ outputs:
   cache-key:
     description: 'The cache key used for restore and to be used for save'
     value: ${{ steps.cache-keys.outputs.key }}
+  cache-paths:
+    description: 'The generated cache paths used for restore and to be used for save'
+    value: ${{ steps.cache-paths.outputs.paths }}
 
 runs:
   using: composite

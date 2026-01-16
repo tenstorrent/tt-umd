@@ -118,10 +118,8 @@ jobs:
       - name: Save build cache
         uses: ./.github/actions/save_build_cache
         with:
-          cache-key-prefix: build-tests
-          docker-name: ${{ inputs.ubuntu-docker-version }}
-          docker-tag: ${{ inputs.docker-tag }}
-          build-type: ${{ inputs.build-type }}
+          cache-key: ${{ steps.cache.outputs.cache-key }}
+          cache-paths: ${{ steps.cache.outputs.cache-paths }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
 
       # This is needed to preserve file permissions
@@ -201,10 +199,8 @@ jobs:
       - name: Save build cache
         uses: ./.github/actions/save_build_cache
         with:
-          cache-key-prefix: build-tests-wheel
-          docker-name: ${{ inputs.ubuntu-docker-version }}
-          docker-tag: ${{ inputs.docker-tag }}
-          build-type: ${{ inputs.build-type }}
+          cache-key: ${{ steps.cache.outputs.cache-key }}
+          cache-paths: ${{ steps.cache.outputs.cache-paths }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
 
       - name: Move python bindings tests in the same wheel folder

@@ -2,17 +2,11 @@ name: 'Save Build Cache'
 description: 'Adjusts artifact timestamps and saves build cache'
 
 inputs:
-  cache-key-prefix:
-    description: 'Prefix for the cache key (e.g., build-tests, build-tests-wheel)'
+  cache-key:
+    description: 'Cache key from restore_build_cache action output'
     required: true
-  docker-name:
-    description: 'Docker image name'
-    required: true
-  docker-tag:
-    description: 'Docker tag'
-    required: true
-  build-type:
-    description: 'Build type (Release, Debug, etc.)'
+  cache-paths:
+    description: 'Cache paths from restore_build_cache action output'
     required: true
   build-output-dir:
     description: 'Build output directory path'
@@ -36,9 +30,5 @@ runs:
       uses: actions/cache/save@v4
       if: always()
       with:
-        path: |
-          ${{ inputs.repo-path }}/${{ inputs.build-output-dir }}
-          ${{ inputs.repo-path }}/.cpmcache
-        # yamllint disable rule:line-length
-        key: ${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ inputs.docker-tag }}-${{ github.head_ref != '' && github.head_ref || github.ref_name }}-${{ inputs.build-type }}-${{ github.sha }}
-        # yamllint enable rule:line-length
+        path: ${{ inputs.cache-paths }}
+        key: ${{ inputs.cache-key }}

@@ -102,10 +102,8 @@ jobs:
       - name: Save build cache
         uses: ./tt-umd/.github/actions/save_build_cache
         with:
-          cache-key-prefix: build-device-umd
-          docker-name: ${{ matrix.image.container-distro }}
-          docker-tag: ${{ matrix.image.docker-tag }}
-          build-type: ${{ matrix.image.compiler }}
+          cache-key: ${{ steps.umd-build-cache.outputs.cache-key }}
+          cache-paths: ${{ steps.umd-build-cache.outputs.cache-paths }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
           repo-path: ${{ env.TT_UMD_DIR }}
 
@@ -256,10 +254,8 @@ jobs:
       - name: Save build cache
         uses: ./tt-umd/.github/actions/save_build_cache
         with:
-          cache-key-prefix: build-device-umd-python
-          docker-name: ${{ matrix.image.container-distro }}
-          docker-tag: ${{ matrix.image.docker-tag }}
-          build-type: ${{ matrix.image.compiler }}
+          cache-key: ${{ steps.umd-python-build-cache.outputs.cache-key }}
+          cache-paths: ${{ steps.umd-python-build-cache.outputs.cache-paths }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
           repo-path: ${{ env.TT_UMD_PYTHON_DIR }}
 

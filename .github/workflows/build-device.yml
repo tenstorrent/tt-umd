@@ -26,6 +26,8 @@ env:
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
   WHEEL_OUTPUT_DIR: ./build/wheel
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
 jobs:
   build:

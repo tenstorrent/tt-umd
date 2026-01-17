@@ -2,7 +2,7 @@ name: 'Build with Cache'
 description: 'Restores build cache, runs build command, and saves build cache'
 
 inputs:
-  # Inputs for restore_build_cache
+  # Inputs for cache configuration
   cache-key-prefix:
     description: 'Prefix for the cache key (e.g., build-tests, build-tests-wheel)'
     required: true
@@ -44,44 +44,315 @@ inputs:
 outputs:
   cache-hit:
     description: 'Whether the cache was hit'
-    value: ${{ steps.restore.outputs.cache-hit }}
+    value: ${{ steps.cache.outputs.cache-hit }}
   cache-key:
     description: 'The cache key used for restore and save'
-    value: ${{ steps.restore.outputs.cache-key }}
+    value: ${{ steps.cache-keys.outputs.key }}
   cache-paths:
     description: 'The generated cache paths used for restore and save'
-    value: ${{ steps.restore.outputs.cache-paths }}
+    value: ${{ steps.cache-paths.outputs.paths }}
 
 runs:
   using: composite
   steps:
-    - name: Restore build cache
+    # ===== RESTORE BUILD CACHE LOGIC =====
+    - name: Detect actual docker image digest
+      id: docker-digest
+      shell: bash
       # yamllint disable rule:line-length
-      uses: ${{ inputs.repo-path == '.' && './.github/actions/restore_build_cache' || format('./{0}/.github/actions/restore_build_cache', inputs.repo-path) }}
-      # yamllint enable rule:line-length
-      id: restore
-      with:
-        cache-key-prefix: ${{ inputs.cache-key-prefix }}
-        docker-name: ${{ inputs.docker-name }}
-        docker-tag: ${{ inputs.docker-tag }}
-        docker-url: ${{ inputs.docker-url }}
-        docker-digest: ${{ inputs.docker-digest }}
-        build-type: ${{ inputs.build-type }}
-        build-output-dir: ${{ inputs.build-output-dir }}
-        repo-path: ${{ inputs.repo-path }}
-        cache-paths: ${{ inputs.cache-paths }}
+      run: |
+        DOCKER_DIGEST="${{ inputs.docker-tag }}"
 
+        # Only try to detect digest if docker-tag is "latest" and docker-url is provided
+        if [ "${{ inputs.docker-tag }}" != "latest" ] || [ -z "${{ inputs.docker-url }}" ]; then
+          echo "Using docker tag as digest: $DOCKER_DIGEST"
+          echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "Attempting digest detection..."
+        DOCKER_URL="${{ inputs.docker-url }}"
+
+        # Check if docker-url contains a tag (ends with :tag)
+        # If not, append the docker-tag
+        if [[ ! "$DOCKER_URL" =~ :[^/]+$ ]]; then
+          DOCKER_URL="${DOCKER_URL}:${{ inputs.docker-tag }}"
+        fi
+        echo "Inspecting image: $DOCKER_URL"
+
+        # Install crane if not available
+        if ! command -v crane >/dev/null 2>&1; then
+          echo "crane not found, installing..."
+          CRANE_VERSION="v0.19.1"
+          CRANE_URL="https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+
+          # Download and extract to a temporary location
+          TMP_DIR=$(mktemp -d)
+
+          # Try multiple download methods
+          if command -v curl >/dev/null 2>&1; then
+            echo "Using curl to download..."
+            curl -sL "$CRANE_URL" | tar -xz -C "$TMP_DIR" crane
+          elif command -v wget >/dev/null 2>&1; then
+            echo "Using wget to download..."
+            wget -qO- "$CRANE_URL" | tar -xz -C "$TMP_DIR" crane
+          elif command -v python3 >/dev/null 2>&1; then
+            echo "Using python3 to download..."
+            python3 -c "import urllib.request; import sys; sys.stdout.buffer.write(urllib.request.urlopen('$CRANE_URL').read())" | tar -xz -C "$TMP_DIR" crane
+          elif command -v python >/dev/null 2>&1; then
+            echo "Using python to download..."
+            python -c "import urllib2; import sys; sys.stdout.write(urllib2.urlopen('$CRANE_URL').read())" | tar -xz -C "$TMP_DIR" crane
+          else
+            echo "ERROR: No download tool available (curl, wget, or python)"
+            echo "Falling back to tag: $DOCKER_DIGEST"
+            echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Add to PATH for this step
+          export PATH="$TMP_DIR:$PATH"
+          echo "crane installed to: $TMP_DIR/crane"
+        else
+          echo "crane already available at: $(command -v crane)"
+        fi
+
+        # Get the digest using crane
+        REPO_DIGEST=$(crane digest "$DOCKER_URL" 2>&1)
+        if [ $? -eq 0 ] && [[ "$REPO_DIGEST" =~ sha256:([a-f0-9]{64}) ]]; then
+          DOCKER_DIGEST="${BASH_REMATCH[1]}"
+          echo "Found image digest: sha256:${BASH_REMATCH[1]}"
+        else
+          echo "Failed to get digest: $REPO_DIGEST"
+          echo "Falling back to tag: $DOCKER_DIGEST"
+        fi
+
+        echo "Using digest/tag: $DOCKER_DIGEST"
+        echo "digest=$DOCKER_DIGEST" >> $GITHUB_OUTPUT
+
+      # yamllint enable rule:line-length
+    - name: Restore file timestamps to match git commit
+      shell: bash
+      working-directory: ${{ inputs.repo-path }}
+      run: |
+        git config --global --add safe.directory "$PWD"
+        mkdir -p build
+        touch build/compile_commands.json
+        git ls-files | while IFS= read -r file; do
+          touch -d @$(git log -1 --format=%at -- "$file") "$file"
+        done
+
+    - name: Discover branch hierarchy
+      id: discover-branches
+      shell: bash
+      working-directory: ${{ inputs.repo-path }}
+      run: |
+        CURRENT_BRANCH="${{ github.head_ref != '' && github.head_ref || github.ref_name }}"
+        echo "Current branch: $CURRENT_BRANCH"
+
+        # Start with current branch
+        BRANCHES=("$CURRENT_BRANCH")
+
+        # Get all remote branches
+        git fetch --all --quiet 2>/dev/null || true
+
+        # Function to find parent branch by looking at merge-base with common branches
+        find_parent_branch() {
+          local current="$1"
+          local current_commit=$(git rev-parse "$current" 2>/dev/null || git rev-parse HEAD)
+
+          # Get all branches sorted by commit date (most recent first)
+          local all_branches=$(git for-each-ref \
+            --sort=-committerdate \
+            --format='%(refname:short)' \
+            refs/remotes/origin/ 2>/dev/null \
+            | sed 's|^origin/||' \
+            | grep -v '^HEAD$')
+
+          # Try to find the most likely parent branch
+          local best_parent=""
+          local best_distance=999999
+
+          for branch in $all_branches; do
+            # Skip if this is the current branch or already in our list
+            [[ "$branch" == "$current" ]] && continue
+            local skip=0
+            for seen in "${BRANCHES[@]}"; do
+              [[ "$branch" == "$seen" ]] && skip=1 && break
+            done
+            [[ $skip -eq 1 ]] && continue
+
+            # Check if branch exists
+            if git rev-parse "origin/$branch" >/dev/null 2>&1; then
+              # Find merge-base
+              local merge_base=$(git merge-base "$current_commit" "origin/$branch" 2>/dev/null || echo "")
+              if [[ -n "$merge_base" ]]; then
+                # Calculate distance from merge-base to current
+                local distance=$(git rev-list --count "$merge_base..$current_commit" 2>/dev/null || echo "999999")
+
+                # If this branch contains most of our history, it's likely the parent
+                if [[ $distance -lt $best_distance ]]; then
+                  best_distance=$distance
+                  best_parent="$branch"
+                fi
+              fi
+            fi
+          done
+
+          echo "$best_parent"
+        }
+
+        # Find up to 3 parent branches
+        MAX_DEPTH=3
+        current="$CURRENT_BRANCH"
+        for ((i=0; i<MAX_DEPTH; i++)); do
+          parent=$(find_parent_branch "$current")
+          if [[ -n "$parent" ]] && [[ "$parent" != "$current" ]]; then
+            BRANCHES+=("$parent")
+            current="$parent"
+            echo "Found parent branch: $parent"
+            # Stop if we reached main or master
+            [[ "$parent" == "main" ]] || [[ "$parent" == "master" ]] && break
+          else
+            break
+          fi
+        done
+
+        # Ensure main is always at the end if not already present
+        if [[ ! " ${BRANCHES[@]} " =~ " main " ]]; then
+          BRANCHES+=("main")
+        fi
+
+        echo "Branch hierarchy: ${BRANCHES[@]}"
+
+        # Output branches as newline-delimited list for next step
+        BRANCHES_LIST=$(printf '%s\n' "${BRANCHES[@]}")
+        echo "branches<<EOF" >> $GITHUB_OUTPUT
+        echo "$BRANCHES_LIST" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        echo "current-branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
+
+    - name: Generate cache keys
+      id: cache-keys
+      shell: bash
+      run: |
+        BRANCHES='${{ steps.discover-branches.outputs.branches }}'
+        PREFIX="${{ inputs.cache-key-prefix }}-${{ inputs.docker-name }}-${{ steps.docker-digest.outputs.digest }}"
+        BUILD_TYPE="${{ inputs.build-type }}"
+        CURRENT_BRANCH='${{ steps.discover-branches.outputs.current-branch }}'
+        COMMIT_SHA="${{ github.sha }}"
+
+        # Generate primary key
+        PRIMARY_KEY="${PREFIX}-${CURRENT_BRANCH}-${BUILD_TYPE}-${COMMIT_SHA}"
+        echo "key=$PRIMARY_KEY" >> $GITHUB_OUTPUT
+
+        # Generate restore-keys from branch hierarchy
+        RESTORE_KEYS=""
+        while IFS= read -r branch; do
+          if [[ -z "$branch" ]]; then
+            continue
+          fi
+          if [[ -n "$RESTORE_KEYS" ]]; then
+            RESTORE_KEYS="${RESTORE_KEYS}\n"
+          fi
+          RESTORE_KEYS="${RESTORE_KEYS}${PREFIX}-${branch}-${BUILD_TYPE}-"
+        done <<< "$BRANCHES"
+
+        echo "Generated cache key:"
+        echo "  $PRIMARY_KEY"
+        echo "Generated restore keys:"
+        echo -e "$RESTORE_KEYS"
+
+        # Output for use in next step
+        echo "restore-keys<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$RESTORE_KEYS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Prepare cache paths
+      id: cache-paths
+      shell: bash
+      run: |
+        REPO_PATH="${{ inputs.repo-path }}"
+        CACHE_PATHS='${{ inputs.cache-paths }}'
+
+        # Prepare full paths by prepending repo-path to each cache path
+        FULL_PATHS=""
+        while IFS= read -r path; do
+          # Skip empty lines
+          if [[ -z "$path" ]]; then
+            continue
+          fi
+          # Remove leading/trailing whitespace
+          path=$(echo "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          if [[ -z "$path" ]]; then
+            continue
+          fi
+          # Prepend repo-path
+          if [[ "$REPO_PATH" == "." ]]; then
+            FULL_PATH="./${path}"
+          else
+            FULL_PATH="${REPO_PATH}/${path}"
+          fi
+          if [[ -n "$FULL_PATHS" ]]; then
+            FULL_PATHS="${FULL_PATHS}\n${FULL_PATH}"
+          else
+            FULL_PATHS="${FULL_PATH}"
+          fi
+        done <<< "$CACHE_PATHS"
+
+        echo "Cache paths:"
+        echo -e "$FULL_PATHS"
+
+        # Output for cache action
+        echo "paths<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$FULL_PATHS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Restore build cache
+      uses: actions/cache/restore@v4
+      id: cache
+      with:
+        path: ${{ steps.cache-paths.outputs.paths }}
+        key: ${{ steps.cache-keys.outputs.key }}
+        restore-keys: ${{ steps.cache-keys.outputs.restore-keys }}
+
+    - name: Force rebuild if user set [force-rebuild] in commit message
+      shell: bash
+      working-directory: ${{ inputs.repo-path }}
+      run: |
+        # For PRs, check the actual PR head commit, not the merge commit
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
+        else
+          COMMIT_SHA="HEAD"
+        fi
+        COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
+        echo "Checking commit: $COMMIT_SHA"
+        echo "Commit message: $COMMIT_MSG"
+        if echo "$COMMIT_MSG" | grep -q "\[force-rebuild\]"; then
+          echo "User requested force rebuild via [force-rebuild] in commit message."
+          echo "Removing build cache..."
+          rm -rf ${{ inputs.build-output-dir }}
+        else
+          echo "No [force-rebuild] flag found in commit message."
+        fi
+
+    # ===== RUN BUILD =====
     - name: Run build
       shell: bash
       working-directory: ${{ inputs.working-directory || inputs.repo-path }}
       run: ${{ inputs.run }}
 
+    # ===== SAVE BUILD CACHE LOGIC =====
+    - name: Adjust artifact timestamps using ninja dependency info
+      shell: bash
+      working-directory: ${{ inputs.repo-path }}
+      run: |
+        # Script is always at the same relative location from within repo-path
+        python3 .github/actions/save_build_cache/adjust_artifact_timestamps.py ${{ inputs.build-output-dir }}
+
     - name: Save build cache
-      # yamllint disable rule:line-length
-      uses: ${{ inputs.repo-path == '.' && './.github/actions/save_build_cache' || format('./{0}/.github/actions/save_build_cache', inputs.repo-path) }}
-      # yamllint enable rule:line-length
+      uses: actions/cache/save@v4
+      if: always()
       with:
-        cache-key: ${{ steps.restore.outputs.cache-key }}
-        cache-paths: ${{ steps.restore.outputs.cache-paths }}
-        build-output-dir: ${{ inputs.build-output-dir }}
-        repo-path: ${{ inputs.repo-path }}
+        path: ${{ steps.cache-paths.outputs.paths }}
+        key: ${{ steps.cache-keys.outputs.key }}

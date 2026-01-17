@@ -1,0 +1,87 @@
+name: 'Build with Cache'
+description: 'Restores build cache, runs build command, and saves build cache'
+
+inputs:
+  # Inputs for restore_build_cache
+  cache-key-prefix:
+    description: 'Prefix for the cache key (e.g., build-tests, build-tests-wheel)'
+    required: true
+  docker-name:
+    description: 'Docker image name'
+    required: true
+  docker-tag:
+    description: 'Docker tag'
+    required: true
+  docker-url:
+    description: 'Full docker image URL (e.g., ghcr.io/org/image:tag) for digest detection'
+    required: false
+  docker-digest:
+    description: 'Docker image digest/SHA (optional, for more specific cache keys than "latest")'
+    required: false
+  build-type:
+    description: 'Build type (Release, Debug, etc.)'
+    required: true
+  build-output-dir:
+    description: 'Build output directory path'
+    required: true
+    default: 'build'
+  repo-path:
+    description: 'Path to the repository (relative to workspace root)'
+    required: false
+    default: '.'
+  cache-paths:
+    description: 'Newline-delimited list of paths to cache (relative to repo-path)'
+    required: true
+
+  # Build command input
+  run:
+    description: 'The build command(s) to execute'
+    required: true
+  working-directory:
+    description: 'Working directory for the build command (defaults to repo-path)'
+    required: false
+
+outputs:
+  cache-hit:
+    description: 'Whether the cache was hit'
+    value: ${{ steps.restore.outputs.cache-hit }}
+  cache-key:
+    description: 'The cache key used for restore and save'
+    value: ${{ steps.restore.outputs.cache-key }}
+  cache-paths:
+    description: 'The generated cache paths used for restore and save'
+    value: ${{ steps.restore.outputs.cache-paths }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore build cache
+      # yamllint disable rule:line-length
+      uses: ${{ inputs.repo-path == '.' && './.github/actions/restore_build_cache' || format('./{0}/.github/actions/restore_build_cache', inputs.repo-path) }}
+      # yamllint enable rule:line-length
+      id: restore
+      with:
+        cache-key-prefix: ${{ inputs.cache-key-prefix }}
+        docker-name: ${{ inputs.docker-name }}
+        docker-tag: ${{ inputs.docker-tag }}
+        docker-url: ${{ inputs.docker-url }}
+        docker-digest: ${{ inputs.docker-digest }}
+        build-type: ${{ inputs.build-type }}
+        build-output-dir: ${{ inputs.build-output-dir }}
+        repo-path: ${{ inputs.repo-path }}
+        cache-paths: ${{ inputs.cache-paths }}
+
+    - name: Run build
+      shell: bash
+      working-directory: ${{ inputs.working-directory || inputs.repo-path }}
+      run: ${{ inputs.run }}
+
+    - name: Save build cache
+      # yamllint disable rule:line-length
+      uses: ${{ inputs.repo-path == '.' && './.github/actions/save_build_cache' || format('./{0}/.github/actions/save_build_cache', inputs.repo-path) }}
+      # yamllint enable rule:line-length
+      with:
+        cache-key: ${{ steps.restore.outputs.cache-key }}
+        cache-paths: ${{ steps.restore.outputs.cache-paths }}
+        build-output-dir: ${{ inputs.build-output-dir }}
+        repo-path: ${{ inputs.repo-path }}

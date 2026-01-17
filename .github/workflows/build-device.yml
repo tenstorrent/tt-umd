@@ -66,8 +66,16 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Restore build cache
-        uses: ./tt-umd/.github/actions/restore_build_cache
+      - name: Set GCC compiler
+        # In case clang is selected, don't set these variables, cmake will find it by default.
+        if: ${{ matrix.image.compiler != 'clang' }}
+        run: |
+          echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER=${{ matrix.image.cpp }}" >> $GITHUB_ENV
+
+      # Build with all components to verify the build passes, with cache management
+      - name: Build All with cache
+        uses: ./tt-umd/.github/actions/build_with_cache
         id: umd-build-cache
         with:
           cache-key-prefix: build-device-umd
@@ -80,33 +88,15 @@ jobs:
           cache-paths: |
             ${{ env.BUILD_OUTPUT_DIR }}
             .cpmcache
-
-      - name: Set GCC compiler
-        # In case clang is selected, don't set these variables, cmake will find it by default.
-        if: ${{ matrix.image.compiler != 'clang' }}
-        run: |
-          echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV
-          echo "CMAKE_CXX_COMPILER=${{ matrix.image.cpp }}" >> $GITHUB_ENV
-
-      # Build with all components to verify the build passes.
-      - name: Build All
-        run: |
-          cd ${{ env.TT_UMD_DIR_SHELL }}
-          echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_ALL=ON \
-            -DTT_UMD_BUILD_PIP=ON \
-            -DTT_UMD_ENABLE_CLANG_TIDY=ON
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
-          echo "Compile complete."
-
-      - name: Save build cache
-        uses: ./tt-umd/.github/actions/save_build_cache
-        with:
-          cache-key: ${{ steps.umd-build-cache.outputs.cache-key }}
-          cache-paths: ${{ steps.umd-build-cache.outputs.cache-paths }}
-          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
-          repo-path: ${{ env.TT_UMD_DIR }}
+          working-directory: ${{ env.TT_UMD_DIR }}
+          run: |
+            echo "Compiling the code..."
+            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+              -DTT_UMD_BUILD_ALL=ON \
+              -DTT_UMD_BUILD_PIP=ON \
+              -DTT_UMD_ENABLE_CLANG_TIDY=ON
+            cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+            echo "Compile complete."
 
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,
@@ -227,8 +217,9 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Restore build cache
-        uses: ./tt-umd/.github/actions/restore_build_cache
+      # Rebuild package for python without wheel, with cache management
+      - name: Rebuild package for python without wheel with cache
+        uses: ./tt-umd/.github/actions/build_with_cache
         id: umd-python-build-cache
         with:
           cache-key-prefix: build-device-umd-python
@@ -241,25 +232,15 @@ jobs:
           cache-paths: |
             ${{ env.BUILD_OUTPUT_DIR }}
             .cpmcache
-
-      - name: Rebuild package for python without wheel
-        run: |
-          cd ${{ env.TT_UMD_PYTHON_DIR_SHELL }}
-          echo "Recompiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_ALL=ON \
-            -DTT_UMD_BUILD_PIP=OFF \
-            -DENABLE_CLANG_TIDY=ON
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
-          echo "Compile complete."
-
-      - name: Save build cache
-        uses: ./tt-umd/.github/actions/save_build_cache
-        with:
-          cache-key: ${{ steps.umd-python-build-cache.outputs.cache-key }}
-          cache-paths: ${{ steps.umd-python-build-cache.outputs.cache-paths }}
-          build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
-          repo-path: ${{ env.TT_UMD_PYTHON_DIR }}
+          working-directory: ${{ env.TT_UMD_PYTHON_DIR }}
+          run: |
+            echo "Recompiling the code..."
+            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+              -DTT_UMD_BUILD_ALL=ON \
+              -DTT_UMD_BUILD_PIP=OFF \
+              -DENABLE_CLANG_TIDY=ON
+            cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+            echo "Compile complete."
 
       - name: Generate .deb package for umd-python
         if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}

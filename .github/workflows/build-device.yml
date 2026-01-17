@@ -63,6 +63,13 @@ jobs:
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
+      - name: Install ccache on Fedora
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
+        run: |
+          if ! command -v ccache &> /dev/null; then
+            dnf install -y ccache
+          fi
+
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:

@@ -362,6 +362,20 @@ jobs:
         with:
           path: tt-umd
           submodules: recursive
+
+      - name: Install ccache on Fedora
+        if: ${{ contains(matrix.pkg.distro, 'fedora') }}
+        run: |
+          if ! command -v ccache &> /dev/null; then
+            dnf install -y ccache
+          fi
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: build-device-test-packages-ccache-${{ matrix.pkg.distro }}-${{ matrix.build.os }}
+          verbose: 2
+
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:

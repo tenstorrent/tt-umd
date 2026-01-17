@@ -73,8 +73,8 @@ jobs:
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          create-symlink: true
           key: build-device-build-ccache-${{ matrix.image.container-distro }}
+          verbose: 2
 
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
@@ -89,10 +89,13 @@ jobs:
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          ccache -s
           echo "Compile complete."
 
       # Upload compile_commands.json for debugging and IDE integration.
@@ -192,19 +195,28 @@ jobs:
       - name: Build examples as standalone
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build nanobind as standalone
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build tools as standalone
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Rebuild package for python without wheel
@@ -212,10 +224,13 @@ jobs:
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Recompiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          ccache -s
           echo "Compile complete."
 
       - name: Generate .deb package for umd-python
@@ -277,6 +292,15 @@ jobs:
           restore-keys: |
             ccache-manylinux-
 
+      - name: Setup ccache directory
+        id: setup-ccache
+        run: |
+          mkdir -p .ccache
+          CCACHE_HOST_DIR=$(pwd)/.ccache
+          echo "CCACHE_HOST_DIR=$CCACHE_HOST_DIR" >> $GITHUB_OUTPUT
+          echo "Host ccache directory: $CCACHE_HOST_DIR"
+          echo "Container will use: /host$CCACHE_HOST_DIR"
+
       - name: Build manylinux wheels
         shell: bash
         env:
@@ -286,30 +310,17 @@ jobs:
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
           # Install ccache in the manylinux container before building
           CIBW_BEFORE_ALL: yum install -y ccache
+          CIBW_BEFORE_BUILD: ccache --version && ccache -z && ccache -s
+          CIBW_BEFORE_TEST: ccache -s
+          CIBW_ENVIRONMENT: >-
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=/host${{ steps.setup-ccache.outputs.CCACHE_HOST_DIR }}
+            CCACHE_MAXSIZE=2G
         run: |
           echo "Cleaning up wheel directory in case of previous build..."
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
-          echo "Set up ccache directory on host and get full path"
-          mkdir -p .ccache
-          CCACHE_HOST_DIR=$(pwd)/.ccache
-          echo "Host ccache directory: $CCACHE_HOST_DIR"
-          echo "Container will use: /host$CCACHE_HOST_DIR"
-          CIBW_BEFORE_BUILD="echo '=== Setting up ccache ===' && \
-            export CCACHE_DIR=/host$CCACHE_HOST_DIR && \
-            mkdir -p /host$CCACHE_HOST_DIR && \
-            ccache --version && \
-            ccache -z && \
-            ccache -s && \
-            echo '=== ccache setup complete ==='" \
-          CIBW_ENVIRONMENT="CMAKE_C_COMPILER_LAUNCHER=ccache \
-            CMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            CCACHE_DIR=/host$CCACHE_HOST_DIR \
-            CCACHE_MAXSIZE=2G" \
-          CIBW_BEFORE_TEST="echo '=== ccache statistics after build ===' && \
-            export CCACHE_DIR=/host$CCACHE_HOST_DIR && \
-            ccache -s && \
-            echo '=== end ccache statistics ==='" \
           echo "Building manylinux wheel..."
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."

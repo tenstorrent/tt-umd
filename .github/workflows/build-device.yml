@@ -312,6 +312,14 @@ jobs:
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel
 
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-manylinux-${{ github.sha }}
+          restore-keys: |
+            ccache-manylinux-
+
       - name: Build manylinux wheels
         shell: bash
         env:
@@ -319,13 +327,36 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
+          # Install ccache in the manylinux container before building
+          CIBW_BEFORE_ALL: yum install -y ccache
+          # Configure CMake to use ccache and set ccache directory in project
+          CIBW_ENVIRONMENT: >
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=/project/.ccache
         run: |
           echo "Cleaning up wheel directory in case of previous build..."
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
-          echo "Building manylinux wheel..."
+          # Set up ccache directory in project (which is mounted into the container)
+          mkdir -p .ccache
+          echo "Building manylinux wheel with ccache..."
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
+
+      - name: Show ccache stats
+        run: |
+          if [ -d .ccache ]; then
+            echo "ccache directory contents:"
+            du -sh .ccache 2>/dev/null || echo "Unable to get ccache size"
+          fi
+
+      - name: Save ccache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .ccache
+          key: ccache-manylinux-${{ github.sha }}
 
   test-packages:
     needs: build

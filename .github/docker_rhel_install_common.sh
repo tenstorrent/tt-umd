@@ -33,7 +33,8 @@ $DNFC \
     gtest-devel \
     yaml-cpp-devel \
     boost-devel \
-    python3-devel 
+    python3-devel \
+    ccache
 
 # --- Install Clang toolchain (Fedora) ---
 echo "Installing Clang toolchain from Fedora repositories..."

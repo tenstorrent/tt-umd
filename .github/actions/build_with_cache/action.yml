@@ -348,7 +348,7 @@ runs:
       working-directory: ${{ inputs.repo-path }}
       run: |
         # Script is always at the same relative location from within repo-path
-        python3 .github/actions/save_build_cache/adjust_artifact_timestamps.py ${{ inputs.build-output-dir }}
+        python3 $GITHUB_ACTION_PATH/adjust_artifact_timestamps.py ${{ inputs.build-output-dir }}
 
     - name: Save build cache
       uses: actions/cache/save@v4

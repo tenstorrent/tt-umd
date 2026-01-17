@@ -16,10 +16,8 @@ on:
 
 env:
   TT_UMD_DIR: tt-umd
-  TT_UMD_PYTHON_DIR: tt-umd-python
   # Note that $GITHUB_WORKSPACE can only be used in the shell step.
   TT_UMD_DIR_SHELL: $GITHUB_WORKSPACE/tt-umd
-  TT_UMD_PYTHON_DIR_SHELL: $GITHUB_WORKSPACE/tt-umd-python
   CLIENTS_BUILD_DIR_SHELL: $GITHUB_WORKSPACE/build_clients
   BUILD_OUTPUT_DIR: build
   LIB_OUTPUT_DIR: ./build/lib
@@ -210,13 +208,6 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
-      - uses: actions/checkout@v4
-        with:
-          # Clone under tt-umd-python directory
-          path: ${{ env.TT_UMD_PYTHON_DIR }}
-          submodules: recursive
-          fetch-depth: 0
-
       # Rebuild package for python without wheel, with cache management
       - name: Rebuild package for python without wheel with cache
         uses: ./tt-umd/.github/actions/build_with_cache
@@ -228,11 +219,11 @@ jobs:
           docker-url: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}
           build-type: ${{ matrix.image.compiler }}
           build-output-dir: ${{ env.BUILD_OUTPUT_DIR }}
-          repo-path: ${{ env.TT_UMD_PYTHON_DIR }}
+          repo-path: ${{ env.TT_UMD_DIR }}
           cache-paths: |
             ${{ env.BUILD_OUTPUT_DIR }}
             .cpmcache
-          working-directory: ${{ env.TT_UMD_PYTHON_DIR }}
+          working-directory: ${{ env.TT_UMD_DIR }}
           run: |
             echo "Recompiling the code..."
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
@@ -244,7 +235,7 @@ jobs:
 
       - name: Generate .deb package for umd-python
         if: ${{ contains(matrix.image.container-distro, 'ubuntu-') }}
-        working-directory: ${{ env.TT_UMD_PYTHON_DIR }}/build
+        working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G DEB
 
@@ -254,12 +245,12 @@ jobs:
         with:
           name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
-            ${{ env.TT_UMD_PYTHON_DIR }}/build/*umd-python*.deb
+            ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
           if-no-files-found: error
 
       - name: Generate .rpm package for umd-python
         if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
-        working-directory: ${{ env.TT_UMD_PYTHON_DIR }}/build
+        working-directory: ${{ env.TT_UMD_DIR }}/build
         run: |
           cpack -G RPM
 
@@ -269,7 +260,7 @@ jobs:
         with:
           name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
           path: |
-            ${{ env.TT_UMD_PYTHON_DIR }}/build/*umd-python*.rpm
+            ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
 
   build-manylinux-wheels:

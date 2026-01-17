@@ -295,20 +295,24 @@ jobs:
           CCACHE_HOST_DIR=$(pwd)/.ccache
           echo "Host ccache directory: $CCACHE_HOST_DIR"
           echo "Container will use: /host$CCACHE_HOST_DIR"
+          CIBW_BEFORE_BUILD="echo '=== Setting up ccache ===' && \
+            export CCACHE_DIR=/host$CCACHE_HOST_DIR && \
+            mkdir -p /host$CCACHE_HOST_DIR && \
+            ccache --version && \
+            ccache -z && \
+            ccache -s && \
+            echo '=== ccache setup complete ==='" \
           CIBW_ENVIRONMENT="CMAKE_C_COMPILER_LAUNCHER=ccache \
             CMAKE_CXX_COMPILER_LAUNCHER=ccache \
             CCACHE_DIR=/host$CCACHE_HOST_DIR \
             CCACHE_MAXSIZE=2G" \
+          CIBW_BEFORE_TEST="echo '=== ccache statistics after build ===' && \
+            export CCACHE_DIR=/host$CCACHE_HOST_DIR && \
+            ccache -s && \
+            echo '=== end ccache statistics ==='" \
           echo "Building manylinux wheel..."
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
-
-      - name: Save ccache
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: .ccache
-          key: ccache-manylinux-${{ github.sha }}
 
   test-packages:
     needs: build

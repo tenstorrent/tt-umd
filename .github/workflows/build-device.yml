@@ -329,26 +329,41 @@ jobs:
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
           # Install ccache in the manylinux container before building
           CIBW_BEFORE_ALL: yum install -y ccache
-          # Configure CMake to use ccache and set ccache directory in project
-          CIBW_ENVIRONMENT: >
-            CMAKE_C_COMPILER_LAUNCHER=ccache
-            CMAKE_CXX_COMPILER_LAUNCHER=ccache
-            CCACHE_DIR=/project/.ccache
         run: |
           echo "Cleaning up wheel directory in case of previous build..."
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
-          # Set up ccache directory in project (which is mounted into the container)
+          # Set up ccache directory on host and get full path
           mkdir -p .ccache
-          echo "Building manylinux wheel with ccache..."
+          CCACHE_HOST_DIR=$(pwd)/.ccache
+          echo "Host ccache directory: $CCACHE_HOST_DIR"
+          echo "Container will use: /host$CCACHE_HOST_DIR"
+          # Build with ccache configuration
+          CIBW_BEFORE_BUILD="echo '=== Setting up ccache ===' && \
+            export CCACHE_DIR=/host$CCACHE_HOST_DIR && \
+            mkdir -p /host$CCACHE_HOST_DIR && \
+            ccache --version && \
+            ccache -z && \
+            ccache -s && \
+            echo '=== ccache setup complete ==='" \
+          CIBW_ENVIRONMENT="CMAKE_C_COMPILER_LAUNCHER=ccache \
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            CCACHE_DIR=/host$CCACHE_HOST_DIR \
+            CCACHE_MAXSIZE=2G" \
+          CIBW_BEFORE_TEST="echo '=== ccache statistics after build ===' && \
+            export CCACHE_DIR=/host$CCACHE_HOST_DIR && \
+            ccache -s && \
+            echo '=== end ccache statistics ==='" \
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
 
-      - name: Show ccache stats
+      - name: Show ccache stats on host
         run: |
           if [ -d .ccache ]; then
-            echo "ccache directory contents:"
+            echo "ccache directory size:"
             du -sh .ccache 2>/dev/null || echo "Unable to get ccache size"
+            echo "ccache directory contents:"
+            ls -lah .ccache 2>/dev/null || echo "Unable to list ccache contents"
           fi
 
       - name: Save ccache

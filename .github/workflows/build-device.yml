@@ -26,6 +26,8 @@ env:
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
   WHEEL_OUTPUT_DIR: ./build/wheel
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
 jobs:
   build:
@@ -64,6 +66,19 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Install ccache on Fedora
+        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
+        run: |
+          if ! command -v ccache &> /dev/null; then
+            dnf install -y ccache
+          fi
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: build-device-build-ccache-${{ matrix.image.container-distro }}
+          verbose: 2
+
       - name: Set GCC compiler
         # In case clang is selected, don't set these variables, cmake will find it by default.
         if: ${{ matrix.image.compiler != 'clang' }}
@@ -90,10 +105,13 @@ jobs:
           run: |
             echo "Compiling the code..."
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_ALL=ON \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON
             cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+            ccache -s
             echo "Compile complete."
 
       # Upload compile_commands.json for debugging and IDE integration.
@@ -193,19 +211,28 @@ jobs:
       - name: Build examples as standalone
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build nanobind as standalone
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build tools as standalone
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
-          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       # Rebuild package for python without wheel, with cache management
@@ -227,10 +254,13 @@ jobs:
           run: |
             echo "Recompiling the code..."
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_ALL=ON \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=OFF \
               -DENABLE_CLANG_TIDY=ON
             cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+            ccache -s
             echo "Compile complete."
 
       - name: Generate .deb package for umd-python
@@ -382,6 +412,20 @@ jobs:
         with:
           path: tt-umd
           submodules: recursive
+
+      - name: Install ccache on Fedora
+        if: ${{ contains(matrix.pkg.distro, 'fedora') }}
+        run: |
+          if ! command -v ccache &> /dev/null; then
+            dnf install -y ccache
+          fi
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: build-device-test-packages-ccache-${{ matrix.pkg.distro }}-${{ matrix.build.os }}
+          verbose: 2
+
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:

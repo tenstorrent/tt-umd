@@ -62,6 +62,8 @@ env:
   CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./nanobind/tests
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
 jobs:
   build:
@@ -85,6 +87,12 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          create-symlink: true
+          key: build-tests-build-ccache-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version }}
 
       # Build with cache management
       - name: Build ${{ env.BUILD_TARGETS }} with cache
@@ -145,6 +153,12 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          create-symlink: true
+          key: build-tests-build-wheel-ccache-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version }}
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4

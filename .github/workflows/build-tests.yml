@@ -236,7 +236,7 @@ jobs:
 
       - name: Install tt-umd wheel
         run: |
-          pip install ../tt_umd-*.whl --force-reinstall
+          pip install tt_umd-*.whl --force-reinstall
 
       - name: Run Python tests for tt-exalens library
         run: |

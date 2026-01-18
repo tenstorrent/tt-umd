@@ -15,7 +15,7 @@
 namespace tt::umd {
 class RtlSimulationTTDevice : public TTDevice {
 public:
-    RtlSimulationTTDevice(const std::filesystem::path &simulator_directory, SocDescriptor soc_descriptor);
+    RtlSimulationTTDevice(const std::filesystem::path &simulator_directory, const SocDescriptor &soc_descriptor);
     ~RtlSimulationTTDevice();
 
     static std::unique_ptr<RtlSimulationTTDevice> create(const std::filesystem::path &simulator_directory);

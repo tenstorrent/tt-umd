@@ -338,6 +338,8 @@ private:
 
     virtual void post_init_hook(){};
 
+    void probe_arc();
+
     TlbWindow *get_cached_tlb_window();
 
     TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);

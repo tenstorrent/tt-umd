@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.4] - 2026-01-16
+
+### Changed
+
+Use older manylinux image
+
+## [0.8.3] - 2026-01-15
+
+### Changed
+
+Reverted remote discovery issue
+
+## [0.8.2] - 2026-01-15
+
+### Changed
+
+Support warm reset without secondary bus reset.
+Expose subsystem vendor id.
+
+## [0.8.1] - 2026-01-15
+
+### Changed
+
+Support dma functions on TTDevice layer
+
 ## [0.8.0] - 2026-01-14
 
 ### Changed

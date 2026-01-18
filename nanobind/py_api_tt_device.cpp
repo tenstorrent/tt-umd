@@ -52,6 +52,8 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
         .def_ro("device_id", &PciDeviceInfo::device_id)
+        .def_ro("subsystem_vendor_id", &PciDeviceInfo::subsystem_vendor_id)
+        .def_ro("subsystem_id", &PciDeviceInfo::subsystem_id)
         .def_ro("pci_domain", &PciDeviceInfo::pci_domain)
         .def_ro("pci_bus", &PciDeviceInfo::pci_bus)
         .def_ro("pci_device", &PciDeviceInfo::pci_device)
@@ -77,7 +79,12 @@ void bind_tt_device(nb::module_ &m) {
             "Enumerates PCI device information, optionally filtering by target devices.")
         .def("get_device_info", &PCIDevice::get_device_info)
         .def("get_device_num", &PCIDevice::get_device_num)
-        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.");
+        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")
+        .def_static("read_device_info", &PCIDevice::read_device_info, nb::arg("fd"), "Read PCI device information.")
+        .def_static(
+            "is_arch_agnostic_reset_supported",
+            &PCIDevice::is_arch_agnostic_reset_supported,
+            "Check if KMD supports arch agnostic reset.");
 
     nb::class_<RemoteCommunication>(m, "RemoteCommunication")
         .def(

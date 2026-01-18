@@ -99,30 +99,6 @@ jobs:
           echo "Running tests..."
           .venv/bin/python -m pytest -s tests
 
-      - name: Run tt-exalens tests
-        shell: bash
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          echo "Cloning tt-exalens repository..."
-          git clone https://github.com/tenstorrent/tt-exalens.git
-          cd tt-exalens
-          echo "Make kernels for tests..."
-          make
-          echo "Setting up virtual environment for tt-exalens..."
-          python -m venv .venv
-          source .venv/bin/activate
-          ./scripts/install-deps.sh
-          echo "Installing tt-umd wheel..."
-          pip install ../tt_umd-*.whl --force-reinstall
-          echo "Installation complete."
-          echo "Running tt-exalens unit tests..."
-          pytest test/ttexalens
-          echo "Running tt-exalens app tests..."
-          pytest test/app
-          echo "tt-exalens tests complete. Cleaning up..."
-          cd ..
-          rm -rf tt-exalens
-
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:

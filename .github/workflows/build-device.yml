@@ -477,6 +477,9 @@ jobs:
 
       - name: Install tt-umd wheel
         run: |
+          echo "Listing content of current directory before installing the wheel:"
+          ls -lAR
+          echo "Installing tt-umd wheel..."
           pip install tt_umd-*-cp310*.whl --force-reinstall
 
       - name: Run Python tests for tt-exalens library

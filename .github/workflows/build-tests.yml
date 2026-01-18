@@ -225,7 +225,7 @@ jobs:
           submodules: recursive
 
       - name: Get tt-exalens kernels artifact
-        uses: actions/download-artifact@v4
+        uses: pyTooling/download-artifact@v4
         with:
           name: ttexalens-build
 

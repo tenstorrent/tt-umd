@@ -167,7 +167,7 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-24-04:latest
 
     steps:
       - uses: actions/checkout@v4
@@ -198,6 +198,7 @@ jobs:
   run-exalens-tests:
     name: Run tt-exalens tests
     needs:
+      - build-wheel
       - build-exalens-kernels
     strategy:
       matrix:
@@ -208,7 +209,7 @@ jobs:
         ]
     runs-on: ${{ matrix.runner-info.runs-on }}
     container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-24-04:latest
       options: --device /dev/tenstorrent/0
       volumes:
         - /dev/hugepages:/dev/hugepages

@@ -269,8 +269,8 @@ jobs:
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
 
-      - name: Upload libraries as artifacts
-        uses: pyTooling/upload-artifact@v4
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: manylinux-wheel-artifact
           path: |
@@ -429,7 +429,7 @@ jobs:
           rm -rf build/sfpi_backup
           rm -f build/sfpi_*
 
-      - name: Upload libraries as artifacts
+      - name: Upload kernels as artifacts
         uses: pyTooling/upload-artifact@v4
         with:
           name: ttexalens-build

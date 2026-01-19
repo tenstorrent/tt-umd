@@ -161,3 +161,36 @@ jobs:
           # Note that wheel is built with hardcoded Release build type at the moment.
           name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}
+
+  build-exalens-kernels:
+    name: Build tt-exalens kernels for tests
+    timeout-minutes: 5
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-exalens
+          ref: main
+          submodules: recursive
+
+      - name: Build test kernels
+        run: |
+          make
+
+      - name: Remove SFPI from build artifacts
+        run: |
+          mv build/sfpi build/sfpi_backup
+          mkdir -p build/sfpi/compiler/bin/
+          cp build/sfpi_backup/compiler/bin/riscv-tt-elf-gdb build/sfpi/compiler/bin/riscv-tt-elf-gdb
+          rm -rf build/sfpi_backup
+          rm -f build/sfpi_*
+
+      - name: Upload kernels as artifacts
+        uses: pyTooling/upload-artifact@v4
+        with:
+          name: ttexalens-build
+          path: |
+            build

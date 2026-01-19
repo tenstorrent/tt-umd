@@ -299,7 +299,7 @@ jobs:
       ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39')
       || format('tt-umd-ci-{0}', matrix.build.os) }}-${{
       (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }})
-    runs-on: tt-ubuntu-2204-large-stable
+    runs-on: ubuntu-22.04
     container:
       image: >-
         ${{ matrix.pkg.package == 'rpm' && format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)

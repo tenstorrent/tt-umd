@@ -66,18 +66,23 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
-static void check_timeout(
+static bool check_timeout(
     const std::chrono::steady_clock::time_point start_time,
     const std::chrono::milliseconds timeout,
-    const std::string& error_msg) {
+    const std::string& error_msg,
+    bool throw_on_timeout = true) {
     if (timeout.count() == 0) {
-        return;
+        return false;
     }
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
     if (elapsed > timeout) {
-        throw std::runtime_error(error_msg);
+        if (throw_on_timeout) {
+            throw std::runtime_error(error_msg);
+        }
+        return true;
     }
+    return false;
 }
 
 }  // namespace tt::umd::utils

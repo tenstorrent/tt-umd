@@ -102,6 +102,15 @@ ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
         return closest_mmio_chip_cache[chip];
     }
 
+    const auto chips_on_the_same_board = get_board_chips(get_board_id_for_chip(chip));
+
+    for (const ChipId &candidate_mmio_chip : chips_on_the_same_board) {
+        if (is_chip_mmio_capable(candidate_mmio_chip)) {
+            closest_mmio_chip_cache[chip] = candidate_mmio_chip;
+            return candidate_mmio_chip;
+        }
+    }
+
     throw std::runtime_error(fmt::format("Closest mmio capable chip not found for chip {}.", chip));
 }
 

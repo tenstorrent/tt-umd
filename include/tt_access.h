@@ -39,6 +39,9 @@
  *  - Device identifier and discovery.
  *  - Architecture type enumeration.
  *
+ * TLB
+ *  - Translation Lookaside Buffer allocations.
+ *
  * MESSAGING
  *  - Send commands to ARC controller.
  *
@@ -230,6 +233,120 @@ typedef struct tt_device_info {
  * @return          TT_OK or error code.
  */
 tt_result_t tt_get_device_info(tt_device_t dev, tt_device_info_t *info);
+
+/*============================================================================
+ * TLB ALLOCATIONS
+ *
+ * TLB (Translation Lookaside Buffer) windows provide direct memory-mapped
+ * access to device NOC addresses. These are fixed-size apertures that
+ * transparently translate host memory operations to device transactions.
+ *============================================================================*/
+
+/**
+ * @brief TLB handle.
+ *
+ * An integer identifying a TLB window, similar to a file descriptor.
+ */
+typedef uint32_t tt_tlb_t;
+
+/** Invalid TLB handle sentinel value. */
+#define TT_TLB_INVALID ((tt_tlb_t)-1)
+
+/**
+ * @brief TLB mapping type.
+ */
+typedef enum tt_tlb_mapping {
+    TT_TLB_UC = 0,  /**< Uncached (for registers) */
+    TT_TLB_WC = 1,  /**< Write-combined (for memory) */
+} tt_tlb_mapping_t;
+
+/**
+ * @brief TLB ordering mode.
+ */
+typedef enum tt_tlb_ordering {
+    TT_TLB_RELAXED = 0,  /**< Relaxed ordering */
+    TT_TLB_STRICT  = 1,  /**< Strict ordering (full AXI) */
+    TT_TLB_POSTED  = 2,  /**< Posted writes */
+} tt_tlb_ordering_t;
+
+/**
+ * @brief TLB NOC configuration.
+ *
+ * Specifies the NOC target and address mapping for a TLB window.
+ */
+typedef struct tt_tlb_config {
+    uint64_t addr;              /**< Device address (aligned to TLB size) */
+    uint8_t x_end;              /**< Target X coordinate */
+    uint8_t y_end;              /**< Target Y coordinate */
+    uint8_t x_start;            /**< Multicast start X (if mcast=true) */
+    uint8_t y_start;            /**< Multicast start Y (if mcast=true) */
+    uint8_t noc;                /**< NOC selector (0 or 1) */
+    tt_tlb_ordering_t ordering; /**< Ordering mode */
+    bool mcast;                 /**< Multicast enable */
+    bool linked;                /**< Linked TLB flag */
+    uint8_t static_vc;          /**< Static virtual channel */
+} tt_tlb_config_t;
+
+/**
+ * @brief Allocate a TLB window.
+ *
+ * Allocates a TLB of the requested size. The actual allocated size may
+ * differ based on architecture constraints.
+ *
+ * @param dev          Device identifier
+ * @param size         Requested size in bytes
+ * @param mapping      Mapping type (UC or WC)
+ * @param[out] tlb     Receives TLB handle
+ * @param[out] ptr     Receives memory-mapped pointer
+ * @param[out] actual_size Receives actual allocated size
+ * @return             TT_OK or error code
+ *
+ * The TLB must be configured with tt_tlb_configure() before use.
+ */
+tt_result_t tt_tlb_alloc(
+    tt_device_t dev,
+    size_t size,
+    tt_tlb_mapping_t mapping,
+    tt_tlb_t *tlb,
+    void **ptr,
+    size_t *actual_size
+);
+
+/**
+ * @brief Configure TLB NOC mapping.
+ *
+ * Sets the NOC target address and coordinates. The TLB can be reconfigured
+ * at any time to point to different device addresses or cores.
+ *
+ * @param dev   Device identifier
+ * @param tlb   TLB handle
+ * @param cfg   NOC configuration
+ * @return      TT_OK or error code
+ */
+tt_result_t tt_tlb_configure(
+    tt_device_t dev,
+    tt_tlb_t tlb,
+    const tt_tlb_config_t *cfg
+);
+
+/**
+ * @brief Free a TLB window.
+ *
+ * Releases the TLB window and unmaps its memory region.
+ * Must pass the same pointer and size returned by tt_tlb_alloc().
+ *
+ * @param dev   Device identifier
+ * @param tlb   TLB handle
+ * @param ptr   Memory-mapped pointer (from tt_tlb_alloc)
+ * @param size  Allocated size (from tt_tlb_alloc)
+ * @return      TT_OK or error code
+ */
+tt_result_t tt_tlb_free(
+    tt_device_t dev,
+    tt_tlb_t tlb,
+    void *ptr,
+    size_t size
+);
 
 /*============================================================================
  * MESSAGING

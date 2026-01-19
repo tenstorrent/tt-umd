@@ -171,10 +171,15 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return true;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (elapsed_ms > timeout_ms.count()) {
-            log_warning(LogUMD, "Wait for ARC core to start timed out after: {}", timeout_ms.count());
+        if (utils::check_timeout(
+                start,
+                timeout_ms,
+                fmt::format(
+                    "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                    timeout_ms.count(),
+                    arc_core.x,
+                    arc_core.y),
+                utils::TimeoutAction::Return)) {
             return false;
         }
 

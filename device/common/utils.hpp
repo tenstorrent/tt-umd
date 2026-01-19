@@ -9,6 +9,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
 #include "fmt/ranges.h"
@@ -82,6 +83,7 @@ static bool check_timeout(
         if (action == TimeoutAction::Throw) {
             throw std::runtime_error(error_msg);
         }
+        log_warning(LogUMD, error_msg);
         return true;
     }
     return false;

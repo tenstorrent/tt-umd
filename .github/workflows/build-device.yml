@@ -241,7 +241,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
 
     name: Build umd manylinux wheel
-    runs-on: ubuntu-22.04
+    runs-on: tt-ubuntu-2204-large-stable
 
     steps:
       - uses: actions/checkout@v4

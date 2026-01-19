@@ -183,7 +183,8 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return false;
         }
 
-        // Sleep to yield CPU.
+        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
+        // polling hardware state that changes on the order of milliseconds.
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }

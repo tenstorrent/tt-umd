@@ -45,7 +45,6 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "blackhole_P300_second_mmio.yaml",
              "blackhole_P300_both_mmio.yaml",
              "t3k_cluster_desc.yaml",
-             "tg_cluster_desc.yaml",
              "wormhole_2xN300_unconnected.yaml",
              "wormhole_4xN300_mesh.yaml",
              "wormhole_N150_unique_ids.yaml",

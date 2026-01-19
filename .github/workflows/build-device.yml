@@ -474,6 +474,8 @@ jobs:
 
       - name: Build test kernels
         run: |
+          unset CMAKE_C_COMPILER_LAUNCHER
+          unset CMAKE_CXX_COMPILER_LAUNCHER
           make
 
       - name: Remove SFPI from build artifacts

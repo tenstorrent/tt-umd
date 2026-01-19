@@ -610,6 +610,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
                     "Wait for ARC core to start timed out after: {}. Status: 0x{:x}, PostCode: 0x{:x}, MessageId "
                     "0x{:x}",
                     timeout_ms.count(),
+                    arc_core.x,
+                    arc_core.y,
                     bar_read_arc_reset_scratch_status,
                     bar_read_arc_post_code,
                     message_id),

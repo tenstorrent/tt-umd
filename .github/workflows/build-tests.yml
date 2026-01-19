@@ -188,15 +188,9 @@ jobs:
           rm -rf build/sfpi_backup
           rm -f build/sfpi_*
 
-      - name: Prepare build and test artifacts
-        run: |
-          mkdir -p tt-exalens-artifacts
-          cp -r build tt-exalens-artifacts/
-          cp -r test tt-exalens-artifacts/
-
       - name: Upload kernels as artifacts
         uses: pyTooling/upload-artifact@v4
         with:
           name: ttexalens-build
           path: |
-            tt-exalens-artifacts
+            build

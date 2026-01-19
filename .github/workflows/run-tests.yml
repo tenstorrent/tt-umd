@@ -80,11 +80,18 @@ jobs:
         with:
           python-version: '3.10'
 
+      - uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-exalens
+          ref: main
+          submodules: recursive
+          path: tt-exalens
+
       - name: Get tt-exalens kernels artifact
         uses: pyTooling/download-artifact@v4
         with:
           name: ttexalens-build
-          path: ./
+          path: tt-exalens/
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v4
@@ -93,12 +100,14 @@ jobs:
           path: ./
 
       - name: Run Python tests for tt-exalens library
+        working-directory: tt-exalens
         run: |
-          python3 -m unittest discover -v -t . -s tt-exalens-artifacts/test/ttexalens -p *test*.py
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
       - name: Run Python tests for tt-exalens app
+        working-directory: tt-exalens
         run: |
-          python3 -m unittest discover -v -t . -s tt-exalens-artifacts/test/app -p *test*.py
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py
 
       - name: Install wheel and run pytest
         shell: bash

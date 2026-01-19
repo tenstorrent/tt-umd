@@ -6,6 +6,6 @@ rules:
   # yaml documents should start optionally with ---
   document-start: disable
   line-length:
-    max: 125
+    max: 120
   # the "on:" is detected as truthy value and spawns a false warning
   truthy: disable

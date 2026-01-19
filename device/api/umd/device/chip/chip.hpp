@@ -121,6 +121,9 @@ public:
     DeviceDramAddressParams dram_address_params;
     DeviceL1AddressParams l1_address_params;
 
+    // TODO: To be removed once we properly refactor usage of NOC1 coords.
+    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
+
 protected:
     void wait_chip_to_be_ready();
 

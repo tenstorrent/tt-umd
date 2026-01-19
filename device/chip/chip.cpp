@@ -64,9 +64,9 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
         if (get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
             // Translated space for ETH cores is different than NOC1 and wait_eth_core training is expecting NOC0
             // coordinates.
-            actual_eth_core = get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0);
+            actual_eth_core = soc_descriptor_.translate_coord_to(eth_core, CoordSystem::NOC0);
         } else {
-            actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
+            actual_eth_core = translate_chip_coord_to_translated(eth_core);
         }
 
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
@@ -112,7 +112,7 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = static_cast<uint32_t>(valid);
-    get_tt_device()->set_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core), valid_val);
+    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), valid_val);
 }
 
 // TODO: Remove this API once we switch to the new one.
@@ -123,14 +123,12 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 }
 
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
@@ -141,13 +139,11 @@ void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
         soft_reset_current_state,
         soft_reset_update,
         soft_reset_new);
-    get_tt_device()->set_risc_reset_state(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), soft_reset_new);
+    get_tt_device()->set_risc_reset_state(translate_chip_coord_to_translated(core), soft_reset_new);
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(translate_chip_coord_to_translated(core));
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     // The update variable should be applied in such a way that it clears the bits that are set in the selected_riscs.
@@ -163,7 +159,7 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
         soft_reset_update,
         soft_reset_new_with_staggered_start);
     get_tt_device()->set_risc_reset_state(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
+        translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
@@ -247,6 +243,18 @@ void Chip::set_power_state(DevicePowerState state) {
     wait_for_aiclk_value(get_tt_device(), state);
 }
 
+tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the is_selected_noc1() flag.
+    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
+    if (soc_descriptor_.noc_translation_enabled && soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    }
+
+    return soc_descriptor_.translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+}
+
 void Chip::wait_for_aiclk_value(
     TTDevice* tt_device, DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
@@ -282,11 +290,7 @@ void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, Cor
         TT_THROW("noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
-        dst,
-        size,
-        get_soc_descriptor().translate_chip_coord_to_translated(core_start),
-        get_soc_descriptor().translate_chip_coord_to_translated(core_end),
-        addr);
+        dst, size, translate_chip_coord_to_translated(core_start), translate_chip_coord_to_translated(core_end), addr);
 }
 
 }  // namespace tt::umd

@@ -16,6 +16,7 @@ RUN dnf install -y \
     ninja-build \
     hwloc-devel \
     vim-common \
+    ccache \
     && dnf clean all
 
 # Set up environment variables for building

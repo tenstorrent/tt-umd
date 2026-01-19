@@ -36,20 +36,22 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, compiler: clang},
-          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04,
+          {container-distro: ubuntu-22.04, compiler: clang},
+          {container-distro: ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, compiler: clang},
-          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04,
+          {container-distro: ubuntu-24.04, compiler: clang},
+          {container-distro: ubuntu-24.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-22.04, container-distro: fedora-39,
+          {container-distro: fedora-39,
            compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
         ]
 
     name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
-    runs-on: ${{ matrix.image.runs-on }}
+    runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
+      image: >-
+        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        matrix.image.container-distro }}:latest
     env:
       ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
       ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
@@ -88,7 +90,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-compile-commands-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+            clang-tidy-compile-commands-${{ matrix.image.container-distro }}-${{ matrix.image.compiler }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
       - name: Prepare clang-tidy config file for upload
@@ -104,7 +106,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+            clang-tidy-config-${{ matrix.image.container-distro }}-${{ matrix.image.compiler }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package

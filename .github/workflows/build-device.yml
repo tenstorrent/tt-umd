@@ -63,13 +63,6 @@ jobs:
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
-      - name: Install ccache on Fedora
-        if: ${{ contains(matrix.image.container-distro, 'fedora-') }}
-        run: |
-          if ! command -v ccache &> /dev/null; then
-            dnf install -y ccache
-          fi
-
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
@@ -309,7 +302,6 @@ jobs:
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
           # Install ccache in the manylinux container before building
-          CIBW_BEFORE_ALL: yum install -y ccache
           CIBW_BEFORE_BUILD: ccache --version && ccache -z && ccache -s
           CIBW_BEFORE_TEST: ccache -s
           CIBW_ENVIRONMENT: >-
@@ -369,13 +361,6 @@ jobs:
         with:
           path: tt-umd
           submodules: recursive
-
-      - name: Install ccache on Fedora
-        if: ${{ contains(matrix.pkg.distro, 'fedora') }}
-        run: |
-          if ! command -v ccache &> /dev/null; then
-            dnf install -y ccache
-          fi
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2

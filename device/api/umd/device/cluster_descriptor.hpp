@@ -210,13 +210,6 @@ public:
     const std::unordered_map<ChipId, std::unordered_set<ChipId>> &get_chips_grouped_by_closest_mmio() const;
 
     /**
-     * Return the distance between two chips in terms of ethernet hops.
-     * @param chip_a Logical chip id of the first chip.
-     * @param chip_b Logical chip id of the second chip.
-     */
-    int get_ethernet_link_distance(ChipId chip_a, ChipId chip_b) const;
-
-    /**
      * Returns wether the ethernet core has an active ethernet link.
      */
     bool ethernet_core_has_active_ethernet_link(ChipId local_chip, EthernetChannel local_ethernet_channel) const;

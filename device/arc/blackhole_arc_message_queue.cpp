@@ -124,9 +124,13 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
 
     uint64_t queue_control_block;
     if (tt_device->get_communication_device_type() == IODeviceType::JTAG) {
-        queue_control_block = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr).value();
-        queue_control_block |=
-            ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
+        auto low_word = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr);
+        auto high_word = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4);
+        if (!low_word.has_value() || !high_word.has_value()) {
+            throw std::runtime_error("Failed to read queue control block via JTAG");
+        }
+        queue_control_block = *low_word;
+        queue_control_block |= (static_cast<uint64_t>(*high_word) << 32);
     } else {
         tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
     }

@@ -211,7 +211,10 @@ void TopologyDiscovery::discover_remote_chips() {
                 discovered_chips.insert(remote_asic_id);
                 remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, gateway_chip_id);
                 if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
+                    if (!eth_coord.has_value()) {
+                        throw std::runtime_error("eth_coord should have a value when using eth coords");
+                    }
+                    eth_coords.emplace(remote_asic_id, *eth_coord);
                 }
             } else {
                 ethernet_connections.push_back(

@@ -115,6 +115,9 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    virtual void read_from_device_wc(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device_wc(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
@@ -342,9 +345,13 @@ private:
 
     TlbWindow *get_cached_tlb_window();
 
+    TlbWindow *get_cached_wc_tlb_window();
+
     TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+
+    std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
 
     std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 

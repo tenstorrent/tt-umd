@@ -599,7 +599,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         } else if (is_handling) {
             message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
         } else if (is_complete && !dma_request) {
-            // We only return true if the message says complete AND DMA is idle.
+            // We only return true if the message says complete and DMA is idle.
             return true;
         }
 

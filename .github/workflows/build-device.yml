@@ -302,8 +302,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: >-
-        ${{ matrix.pkg.package == 'rpm' && format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)
-        || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
+        ${{ matrix.pkg.package == 'rpm'
+        && format('harbor.ci.tenstorrent.net/ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)
+        || format('harbor.ci.tenstorrent.net/ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
 
     env:
       ARTIFACT_DISTRO_VER: >-

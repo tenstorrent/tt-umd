@@ -104,7 +104,7 @@ jobs:
 
       - name: Run API tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_repeat=10
 
       # - name: Run arch-specific UMD unit tests
       #   if: ${{ inputs.arch != 'baremetal' }}

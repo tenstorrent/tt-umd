@@ -94,6 +94,7 @@ TEST(Multiprocess, MultipleClusters) {
 TEST(Multiprocess, MultipleThreadsSingleCluster) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Running IO for thread " << i << " inside cluster." << std::endl;
@@ -109,6 +110,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 // Many threads open and close many clusters.
 TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Create cluster " << i << std::endl;
@@ -124,6 +126,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 // Many threads start and stop many clusters.
 TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Creating cluster " << i << std::endl;
@@ -142,6 +145,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
 // This test runs in parallel testing the lock guarding the start/stop of the device.
 TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::unique_ptr<Cluster> cluster =

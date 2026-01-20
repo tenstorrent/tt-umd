@@ -576,6 +576,34 @@ typedef struct tt_telemetry {
  */
 tt_result_t tt_get_telemetry(tt_device_t dev, tt_telemetry_t *telemetry);
 
+/*============================================================================
+ * RESET
+ *
+ * Device reset operations.
+ *============================================================================*/
+
+/**
+ * @brief Reset type.
+ */
+typedef enum tt_reset_type {
+    TT_RESET_PCIE = 1,  /**< PCIe link reset */
+    TT_RESET_USER = 3,  /**< User-initiated reset */
+    TT_RESET_ASIC = 4,  /**< ASIC chip reset */
+    TT_RESET_DMC  = 5,  /**< DMC reset */
+} tt_reset_type_t;
+
+/**
+ * @brief Trigger device reset.
+ *
+ * Initiates a reset sequence. After reset, the device may need time to
+ * reinitialize before becoming available again.
+ *
+ * @param dev   Device identifier
+ * @param type  Type of reset to perform
+ * @return      TT_OK or error code
+ */
+tt_result_t tt_reset(tt_device_t dev, tt_reset_type_t type);
+
 #ifdef __cplusplus
 }
 #endif

@@ -62,7 +62,7 @@ env:
   WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
   # Machine-specific timeout values (in seconds)
   # API test timeouts per machine (including VIOMMU variants)
-  API_TIMEOUT_N150: 12         # N150 machines - slower
+  API_TIMEOUT_N150: 5         # N150 machines - slower
   API_TIMEOUT_N150_VIOMMU: 120  # N150 VIOMMU machines - slower + VIOMMU overhead
   API_TIMEOUT_N300: 70          # N300 machines - baseline (1min + 10% tolerance)
   API_TIMEOUT_N300_VIOMMU: 85   # N300 VIOMMU machines - baseline + VIOMMU overhead

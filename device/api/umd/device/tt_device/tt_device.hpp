@@ -349,8 +349,6 @@ private:
     std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex tt_device_io_lock;
-
-    std::mutex pcie_dma_lock;
 };
 
 }  // namespace tt::umd

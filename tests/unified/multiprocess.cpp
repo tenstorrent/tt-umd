@@ -304,12 +304,12 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // Use the first available PCI device for this test
+    // Use the first available PCI device for this test.
     const int test_device_id = pci_device_ids.at(0);
     const int num_processes = 4;
     const int num_iterations = 500;
     const uint64_t test_address = 0x1000;
-    const size_t data_size = 1024; // 1KB data per operation
+    const size_t data_size = 1024;  // 1KB data per operation
 
     std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
 
@@ -317,66 +317,55 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
     for (int process_id = 0; process_id < num_processes; process_id++) {
         process_threads.push_back(std::thread([=]() {
-            std::cout << "Process " << process_id << ": Creating TTDevice for PCI device "
-                      << test_device_id << std::endl;
+            std::cout << "Process " << process_id << ": Creating TTDevice for PCI device " << test_device_id
+                      << std::endl;
 
-            // Each process creates its own TTDevice object with the same PCIDevice
+            // Each process creates its own TTDevice object with the same PCIDevice.
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
             tt_device->init_tt_device();
 
             SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
             CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-            // Create unique data pattern for this process
+            // Create unique data pattern for this process.
             std::vector<uint32_t> write_data(data_size / sizeof(uint32_t));
             std::vector<uint32_t> read_data(data_size / sizeof(uint32_t));
 
             for (size_t i = 0; i < write_data.size(); i++) {
-                write_data[i] = (process_id << 24) | (i & 0xFFFFFF); // Unique pattern per process
+                write_data[i] = (process_id << 24) | (i & 0xFFFFFF);  // Unique pattern per process
             }
 
             std::cout << "Process " << process_id << ": Starting DMA operations" << std::endl;
 
             for (int iter = 0; iter < num_iterations; iter++) {
                 try {
-                    // Use different addresses per process to avoid data corruption
+                    // Use different addresses per process to avoid data corruption.
                     uint64_t process_address = test_address + (process_id * data_size * 2);
 
-                    // Write data using DMA
-                    tt_device->dma_write_to_device(
-                        write_data.data(),
-                        data_size,
-                        tensix_core,
-                        process_address
-                    );
+                    // Write data using DMA.
+                    tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using DMA
+                    // Read data back using DMA.
                     std::fill(read_data.begin(), read_data.end(), 0);
-                    tt_device->dma_read_from_device(
-                        read_data.data(),
-                        data_size,
-                        tensix_core,
-                        process_address
-                    );
+                    tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
 
-                    // Verify data integrity
+                    // Verify data integrity.
                     ASSERT_EQ(write_data, read_data)
-                        << "Data mismatch in process " << process_id
-                        << " iteration " << iter;
+                        << "Data mismatch in process " << process_id << " iteration " << iter;
 
                 } catch (const std::exception& e) {
-                    std::cout << "Process " << process_id << " iteration " << iter
-                              << " failed: " << e.what() << std::endl;
+                    std::cout << "Process " << process_id << " iteration " << iter << " failed: " << e.what()
+                              << std::endl;
                     FAIL() << "DMA operation failed in process " << process_id;
                 }
             }
 
-            std::cout << "Process " << process_id << ": Completed " << num_iterations
-                      << " DMA operations successfully" << std::endl;
+            std::cout << "Process " << process_id << ": Completed " << num_iterations << " DMA operations successfully"
+                      << std::endl;
         }));
     }
 
-    // Wait for all process threads to complete
+    // Wait for all process threads to complete.
     for (auto& thread : process_threads) {
         thread.join();
     }

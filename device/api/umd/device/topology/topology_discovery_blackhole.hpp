@@ -49,6 +49,8 @@ protected:
 
     bool verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) override;
 
+    bool is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) override;
+
     std::unique_ptr<RemoteChip> create_remote_chip(
         std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 

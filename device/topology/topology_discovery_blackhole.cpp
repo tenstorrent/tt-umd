@@ -317,4 +317,8 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_chip_id(Chip* chip) {
 
 bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) { return true; }
 
+bool TopologyDiscoveryBlackhole::is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) {
+    return true;
+}
+
 }  // namespace tt::umd

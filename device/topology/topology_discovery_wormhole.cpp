@@ -392,4 +392,28 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const 
     return true;
 }
 
+bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) {
+    uint64_t addr = 0x1200 + (channel * 4);
+    uint32_t eth_connection_info;
+
+    TTDevice* tt_device = chip->get_tt_device();
+
+    while (true) {
+        tt_device->read_from_device(&eth_connection_info, eth_core, addr, sizeof(uint32_t));
+
+        // std::cout << "eth core " << eth_core.x << "," << eth_core.y << " channel " << channel
+        //           << " eth_connection_info: " << eth_connection_info << std::endl;
+
+        if (eth_connection_info > 1) {
+            return true;
+        }
+
+        if (eth_connection_info == 1) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
 }  // namespace tt::umd

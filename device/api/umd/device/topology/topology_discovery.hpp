@@ -131,6 +131,8 @@ protected:
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
 
+    virtual bool is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) = 0;
+
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 

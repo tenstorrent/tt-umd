@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.6] - 2026-01-20
+
+### Changed
+
+Make predicting ETH FW from CMFW optional in TopologyDiscovery.
+
 ## [0.8.4] - 2026-01-16
 
 ### Changed

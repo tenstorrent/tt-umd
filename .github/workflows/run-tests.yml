@@ -86,19 +86,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install wheel and run pytest
-        shell: bash
-        run: |
-          echo "Setting up virtual environment..."
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip wheel pytest
-          echo "Installing the wheel..."
-          pip install tt_umd-*.whl --force-reinstall
-          echo "Installation complete."
-          echo "Running tests..."
-          .venv/bin/python -m pytest -s tests
-
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -136,3 +123,16 @@ jobs:
       #   if: ${{ inputs.arch != 'baremetal' }}
       #   run: |
       #     ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Install wheel and run pytest
+        shell: bash
+        run: |
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel pytest
+          echo "Installing the wheel..."
+          pip install tt_umd-*.whl --force-reinstall
+          echo "Installation complete."
+          echo "Running tests..."
+          .venv/bin/python -m pytest -s tests

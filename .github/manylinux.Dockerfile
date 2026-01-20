@@ -1,10 +1,10 @@
-FROM quay.io/pypa/manylinux_2_34_x86_64
-# (AlmaLinux 9 based)
-# Built wheels are also expected to be compatible with other distros using glibc 2.34 or later, including:
-#     Debian 12+
-#     Ubuntu 21.10+
-#     Fedora 35+
-#     CentOS/RHEL 9+
+FROM quay.io/pypa/manylinux_2_28_x86_64
+# (AlmaLinux 8 based)
+# Built wheels are also expected to be compatible with other distros using glibc 2.28 or later, including:
+#     Debian 10+
+#     Ubuntu 18.10+ (includes 20.04 LTS)
+#     Fedora 29+
+#     CentOS/RHEL 8+
 
 # Hack for CIv2 - fix mirror URLs
 RUN FILES=(/etc/yum.repos.d/*.repo) && \

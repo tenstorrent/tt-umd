@@ -26,6 +26,6 @@ void bind_warm_reset(nb::module_ &m) {
         .def_static(
             "ubb_warm_reset",
             &WarmReset::ubb_warm_reset,
-            nb::arg("timeout_s") = 100,
+            nb::arg("timeout_s") = 100.0,
             "Perform a UBB warm reset with specified timeout in seconds.");
 }

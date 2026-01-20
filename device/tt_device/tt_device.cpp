@@ -29,22 +29,27 @@
 namespace tt::umd {
 
 TTDevice::TTDevice(
-    std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
+    std::shared_ptr<PCIDevice> pci_device,
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    const std::string &soc_desc_path) :
     pci_device_(std::move(pci_device)),
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()),
+    soc_descriptor_path_(soc_desc_path) {}
 
 TTDevice::TTDevice(
     std::shared_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
-    std::unique_ptr<architecture_implementation> architecture_impl) :
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    const std::string &soc_desc_path) :
     jtag_device_(std::move(jtag_device)),
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()),
+    soc_descriptor_path_(soc_desc_path) {}
 
 TTDevice::TTDevice() {}
 
@@ -66,10 +71,19 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+
+    // Create SocDescriptor.
+    if (soc_descriptor_path_.empty()) {
+        soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info());
+    } else {
+        soc_descriptor_ = SocDescriptor(soc_descriptor_path_, get_chip_info());
+    }
+
     post_init_hook();
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+    int device_number, IODeviceType device_type, const std::string &soc_desc_path) {
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
@@ -96,7 +110,8 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication, const std::string &soc_desc_path) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
@@ -298,14 +313,11 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
-const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
-
-void TTDevice::set_soc_descriptor() { soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info()); }
-
-void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) { soc_descriptor_ = soc_descriptor; }
-
-void TTDevice::set_soc_descriptor(const std::string &soc_descriptor_path) {
-    soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
+const SocDescriptor &TTDevice::get_soc_descriptor() const {
+    if (!soc_descriptor_.has_value()) {
+        TT_THROW("Requesting SocDescriptor on uninitialized TTDevice.");
+    }
+    return soc_descriptor_.value();
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {

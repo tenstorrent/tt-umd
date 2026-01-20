@@ -51,14 +51,20 @@ public:
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, const std::string &soc_desc_path = "");
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication, const std::string &soc_desc_path = "");
 
-    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::string &soc_desc_path = "");
     TTDevice(
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::string &soc_desc_path = "");
 
     virtual ~TTDevice() = default;
 
@@ -69,10 +75,6 @@ public:
     tt::ARCH get_arch();
 
     const SocDescriptor &get_soc_descriptor() const;
-    // Assigns default SocDescriptor.
-    void set_soc_descriptor();
-    void set_soc_descriptor(const SocDescriptor &soc_descriptor);
-    void set_soc_descriptor(const std::string &soc_descriptor_path);
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
@@ -342,6 +344,7 @@ protected:
     tt_xy_pair arc_core;
 
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    std::string soc_descriptor_path_ = "";
 
 private:
     virtual void pre_init_hook(){};

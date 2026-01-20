@@ -47,7 +47,8 @@ public:
     void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
 private:
-    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
+    RemoteWormholeTTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication, const std::string& soc_desc_path = "");
 
     /*
      * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice
@@ -61,7 +62,8 @@ private:
      */
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        std::unique_ptr<RemoteCommunication> remote_communication, const std::string& soc_desc_path);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

@@ -23,6 +23,31 @@ on:
         required: true
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
+      # Individual test suite timeouts (in seconds)
+      api-test-timeout:
+        required: false
+        type: number
+        default: 70  # 1 minute + 10% tolerance
+      baremetal-test-timeout:
+        required: false
+        type: number
+        default: 300  # 5 minutes
+      umd-unit-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      pci-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      misc-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      unified-test-timeout:
+        required: false
+        type: number
+        default: 300  # 5 minutes
   pull_request:
   push:
     branches: ["main"]
@@ -51,5 +76,24 @@ jobs:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
       timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
+      # Pass through individual test suite timeouts (with adjustments for slower builds)
+      api-test-timeout: ${{
+        (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') &&
+        (inputs.api-test-timeout * 2) || inputs.api-test-timeout }}
+      baremetal-test-timeout: ${{
+        (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') &&
+        (inputs.baremetal-test-timeout * 2) || inputs.baremetal-test-timeout }}
+      umd-unit-test-timeout: ${{
+        (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') &&
+        (inputs.umd-unit-test-timeout * 2) || inputs.umd-unit-test-timeout }}
+      pci-test-timeout: ${{
+        (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') &&
+        (inputs.pci-test-timeout * 2) || inputs.pci-test-timeout }}
+      misc-test-timeout: ${{
+        (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') &&
+        (inputs.misc-test-timeout * 2) || inputs.misc-test-timeout }}
+      unified-test-timeout: ${{
+        (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') &&
+        (inputs.unified-test-timeout * 2) || inputs.unified-test-timeout }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

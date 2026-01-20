@@ -28,6 +28,31 @@ on:
         required: false
         type: string
         default: ""
+      # Timeout configurations for individual test suites (in seconds)
+      api-test-timeout:
+        required: false
+        type: number
+        default: 70  # 1 minute + 10% tolerance
+      baremetal-test-timeout:
+        required: false
+        type: number
+        default: 300  # 5 minutes
+      umd-unit-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      pci-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      misc-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      unified-test-timeout:
+        required: false
+        type: number
+        default: 300  # 5 minutes
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -35,6 +60,85 @@ env:
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   TT_LOGGER_LEVEL: ${{ inputs.log-level }}
   WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  # Machine-specific timeout values (in seconds)
+  # API test timeouts per machine (including VIOMMU variants)
+  API_TIMEOUT_N150: 12         # N150 machines - slower
+  API_TIMEOUT_N150_VIOMMU: 120  # N150 VIOMMU machines - slower + VIOMMU overhead
+  API_TIMEOUT_N300: 70          # N300 machines - baseline (1min + 10% tolerance)
+  API_TIMEOUT_N300_VIOMMU: 85   # N300 VIOMMU machines - baseline + VIOMMU overhead
+  API_TIMEOUT_N300_LLMBOX: 75   # N300 LLMBOX machines
+  API_TIMEOUT_N300_LLMBOX_VIOMMU: 90  # N300 LLMBOX VIOMMU machines
+  API_TIMEOUT_P100A_VIOMMU: 85  # P100A VIOMMU machines (only VIOMMU available)
+  API_TIMEOUT_P150B: 70         # P150B machines - baseline
+  API_TIMEOUT_P150B_VIOMMU: 85  # P150B VIOMMU machines - baseline + VIOMMU overhead
+  API_TIMEOUT_BH_GH_07: 55      # bh-gh-07 (P300) - faster
+  API_TIMEOUT_6U: 75            # 6u machines
+  API_TIMEOUT_BAREMETAL: 70     # baremetal - baseline
+  # Baremetal test timeouts per machine (including VIOMMU variants)
+  BAREMETAL_TIMEOUT_N150: 100           # 7.5 minutes
+  BAREMETAL_TIMEOUT_N150_VIOMMU: 100    # 9 minutes
+  BAREMETAL_TIMEOUT_N300: 100           # 5 minutes
+  BAREMETAL_TIMEOUT_N300_VIOMMU: 100    # 6 minutes
+  BAREMETAL_TIMEOUT_N300_LLMBOX: 100    # 5.5 minutes
+  BAREMETAL_TIMEOUT_N300_LLMBOX_VIOMMU: 100  # 6.5 minutes
+  BAREMETAL_TIMEOUT_P100A_VIOMMU: 100   # 6 minutes (only VIOMMU available)
+  BAREMETAL_TIMEOUT_P150B: 100          # 5 minutes
+  BAREMETAL_TIMEOUT_P150B_VIOMMU: 100   # 6 minutes
+  BAREMETAL_TIMEOUT_BH_GH_07: 100       # 4 minutes
+  BAREMETAL_TIMEOUT_6U: 100             # 5.5 minutes
+  BAREMETAL_TIMEOUT_BAREMETAL: 100      # 5 minutes
+  # UMD unit test timeouts per machine (including VIOMMU variants)
+  UMD_TIMEOUT_N150: 33             # 4.5 minutes
+  UMD_TIMEOUT_N150_VIOMMU: 324      # 5.4 minutes
+  UMD_TIMEOUT_N300: 180             # 3 minutes
+  UMD_TIMEOUT_N300_VIOMMU: 216      # 3.6 minutes
+  UMD_TIMEOUT_N300_LLMBOX: 198      # 3.3 minutes
+  UMD_TIMEOUT_N300_LLMBOX_VIOMMU: 238  # 3.97 minutes
+  UMD_TIMEOUT_P100A_VIOMMU: 216     # 3.6 minutes (only VIOMMU available)
+  UMD_TIMEOUT_P150B: 180            # 3 minutes
+  UMD_TIMEOUT_P150B_VIOMMU: 216     # 3.6 minutes
+  UMD_TIMEOUT_BH_GH_07: 144         # 2.4 minutes
+  UMD_TIMEOUT_6U: 198               # 3.3 minutes
+  UMD_TIMEOUT_BAREMETAL: 180        # 3 minutes
+  # PCI test timeouts per machine (including VIOMMU variants)
+  PCI_TIMEOUT_N150: 10             # 4.5 minutes
+  PCI_TIMEOUT_N150_VIOMMU: 10      # 5.4 minutes
+  PCI_TIMEOUT_N300: 10             # 3 minutes
+  PCI_TIMEOUT_N300_VIOMMU: 10      # 3.6 minutes
+  PCI_TIMEOUT_N300_LLMBOX: 10      # 3.3 minutes
+  PCI_TIMEOUT_N300_LLMBOX_VIOMMU: 10  # 3.97 minutes
+  PCI_TIMEOUT_P100A_VIOMMU: 10     # 3.6 minutes (only VIOMMU available)
+  PCI_TIMEOUT_P150B: 10            # 3 minutes
+  PCI_TIMEOUT_P150B_VIOMMU: 10     # 3.6 minutes
+  PCI_TIMEOUT_BH_GH_07: 10         # 2.4 minutes
+  PCI_TIMEOUT_6U: 10               # 3.3 minutes
+  PCI_TIMEOUT_BAREMETAL: 10        # 3 minutes
+  # MISC test timeouts per machine (including VIOMMU variants)
+  MISC_TIMEOUT_N150: 10             # 4.5 minutes
+  MISC_TIMEOUT_N150_VIOMMU: 10      # 5.4 minutes
+  MISC_TIMEOUT_N300: 10             # 3 minutes
+  MISC_TIMEOUT_N300_VIOMMU: 10      # 3.6 minutes
+  MISC_TIMEOUT_N300_LLMBOX: 10      # 3.3 minutes
+  MISC_TIMEOUT_N300_LLMBOX_VIOMMU: 10  # 3.97 minutes
+  MISC_TIMEOUT_P100A_VIOMMU: 10     # 3.6 minutes (only VIOMMU available)
+  MISC_TIMEOUT_P150B: 10            # 3 minutes
+  MISC_TIMEOUT_P150B_VIOMMU: 10     # 3.6 minutes
+  MISC_TIMEOUT_BH_GH_07: 10         # 2.4 minutes
+  MISC_TIMEOUT_6U: 10               # 3.3 minutes
+  MISC_TIMEOUT_BAREMETAL: 10        # 3 minutes
+  # Unified test timeouts per machine (including VIOMMU variants)
+  UNIFIED_TIMEOUT_N150: 42           # 7.5 minutes
+  UNIFIED_TIMEOUT_N150_VIOMMU: 540    # 9 minutes
+  UNIFIED_TIMEOUT_N300: 300           # 5 minutes
+  UNIFIED_TIMEOUT_N300_VIOMMU: 360    # 6 minutes
+  UNIFIED_TIMEOUT_N300_LLMBOX: 330    # 5.5 minutes
+  UNIFIED_TIMEOUT_N300_LLMBOX_VIOMMU: 390  # 6.5 minutes
+  UNIFIED_TIMEOUT_P100A_VIOMMU: 360   # 6 minutes (only VIOMMU available)
+  UNIFIED_TIMEOUT_P150B: 300          # 5 minutes
+  UNIFIED_TIMEOUT_P150B_VIOMMU: 360   # 6 minutes
+  UNIFIED_TIMEOUT_BH_GH_07: 240       # 4 minutes
+  UNIFIED_TIMEOUT_6U: 330             # 5.5 minutes
+  UNIFIED_TIMEOUT_BAREMETAL: 300      # 5 minutes
 
 jobs:
   test:
@@ -66,6 +170,9 @@ jobs:
           echo build-tests - card: ${{ inputs.card }}
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - log-level: ${{ inputs.log-level }}
+          echo "Machine-specific timeout values for card: ${{ inputs.card }}"
+          echo "Fallback timeout inputs - API: ${{ inputs.api-test-timeout }}s"
+          echo "Fallback timeout inputs - UMD: ${{ inputs.umd-unit-test-timeout }}s"
 
       - name: Cleanup workspace directory from previous runs.
         # If this is not a new VM, we might have some artefacts from previous runs that need to be cleaned up.
@@ -112,27 +219,111 @@ jobs:
 
       - name: Run baremetal tests
         if: ${{ inputs.arch == 'baremetal' }}
+        timeout-minutes: ${{
+          (contains(inputs.card, 'n150-viommu') && env.BAREMETAL_TIMEOUT_N150_VIOMMU ||
+           contains(inputs.card, 'n300-llmbox-viommu') && env.BAREMETAL_TIMEOUT_N300_LLMBOX_VIOMMU ||
+           contains(inputs.card, 'n300-viommu') && env.BAREMETAL_TIMEOUT_N300_VIOMMU ||
+           contains(inputs.card, 'p100a-viommu') && env.BAREMETAL_TIMEOUT_P100A_VIOMMU ||
+           contains(inputs.card, 'p150b-viommu') && env.BAREMETAL_TIMEOUT_P150B_VIOMMU ||
+           contains(inputs.card, 'n150-stable') && env.BAREMETAL_TIMEOUT_N150 ||
+           contains(inputs.card, 'n300-llmbox-stable') && env.BAREMETAL_TIMEOUT_N300_LLMBOX ||
+           contains(inputs.card, 'n300-stable') && env.BAREMETAL_TIMEOUT_N300 ||
+           contains(inputs.card, 'p150b-stable') && env.BAREMETAL_TIMEOUT_P150B ||
+           contains(inputs.card, 'bh-gh-07') && env.BAREMETAL_TIMEOUT_BH_GH_07 ||
+           contains(inputs.card, '6u') && env.BAREMETAL_TIMEOUT_6U ||
+           contains(inputs.card, 'ubuntu-22.04') && env.BAREMETAL_TIMEOUT_BAREMETAL ||
+           inputs.baremetal-test-timeout) / 60.0 }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
       - name: Run API tests
+        timeout-minutes: ${{
+          (contains(inputs.card, 'n150-viommu') && env.API_TIMEOUT_N150_VIOMMU ||
+           contains(inputs.card, 'n300-llmbox-viommu') && env.API_TIMEOUT_N300_LLMBOX_VIOMMU ||
+           contains(inputs.card, 'n300-viommu') && env.API_TIMEOUT_N300_VIOMMU ||
+           contains(inputs.card, 'p100a-viommu') && env.API_TIMEOUT_P100A_VIOMMU ||
+           contains(inputs.card, 'p150b-viommu') && env.API_TIMEOUT_P150B_VIOMMU ||
+           contains(inputs.card, 'n150-stable') && env.API_TIMEOUT_N150 ||
+           contains(inputs.card, 'n300-llmbox-stable') && env.API_TIMEOUT_N300_LLMBOX ||
+           contains(inputs.card, 'n300-stable') && env.API_TIMEOUT_N300 ||
+           contains(inputs.card, 'p150b-stable') && env.API_TIMEOUT_P150B ||
+           contains(inputs.card, 'bh-gh-07') && env.API_TIMEOUT_BH_GH_07 ||
+           contains(inputs.card, '6u') && env.API_TIMEOUT_6U ||
+           contains(inputs.card, 'ubuntu-22.04') && env.API_TIMEOUT_BAREMETAL ||
+           inputs.api-test-timeout) / 60.0 }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       - name: Run arch-specific UMD unit tests
         if: ${{ inputs.arch != 'baremetal' }}
+        timeout-minutes: ${{
+          (contains(inputs.card, 'n150-viommu') && env.UMD_TIMEOUT_N150_VIOMMU ||
+           contains(inputs.card, 'n300-llmbox-viommu') && env.UMD_TIMEOUT_N300_LLMBOX_VIOMMU ||
+           contains(inputs.card, 'n300-viommu') && env.UMD_TIMEOUT_N300_VIOMMU ||
+           contains(inputs.card, 'p100a-viommu') && env.UMD_TIMEOUT_P100A_VIOMMU ||
+           contains(inputs.card, 'p150b-viommu') && env.UMD_TIMEOUT_P150B_VIOMMU ||
+           contains(inputs.card, 'n150-stable') && env.UMD_TIMEOUT_N150 ||
+           contains(inputs.card, 'n300-llmbox-stable') && env.UMD_TIMEOUT_N300_LLMBOX ||
+           contains(inputs.card, 'n300-stable') && env.UMD_TIMEOUT_N300 ||
+           contains(inputs.card, 'p150b-stable') && env.UMD_TIMEOUT_P150B ||
+           contains(inputs.card, 'bh-gh-07') && env.UMD_TIMEOUT_BH_GH_07 ||
+           contains(inputs.card, '6u') && env.UMD_TIMEOUT_6U ||
+           contains(inputs.card, 'ubuntu-22.04') && env.UMD_TIMEOUT_BAREMETAL ||
+           inputs.umd-unit-test-timeout) / 60.0 }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
       - name: Run PCI tests
+        timeout-minutes: ${{
+          (contains(inputs.card, 'n150-viommu') && env.PCI_TIMEOUT_N150_VIOMMU ||
+           contains(inputs.card, 'n300-llmbox-viommu') && env.PCI_TIMEOUT_N300_LLMBOX_VIOMMU ||
+           contains(inputs.card, 'n300-viommu') && env.PCI_TIMEOUT_N300_VIOMMU ||
+           contains(inputs.card, 'p100a-viommu') && env.PCI_TIMEOUT_P100A_VIOMMU ||
+           contains(inputs.card, 'p150b-viommu') && env.PCI_TIMEOUT_P150B_VIOMMU ||
+           contains(inputs.card, 'n150-stable') && env.PCI_TIMEOUT_N150 ||
+           contains(inputs.card, 'n300-llmbox-stable') && env.PCI_TIMEOUT_N300_LLMBOX ||
+           contains(inputs.card, 'n300-stable') && env.PCI_TIMEOUT_N300 ||
+           contains(inputs.card, 'p150b-stable') && env.PCI_TIMEOUT_P150B ||
+           contains(inputs.card, 'bh-gh-07') && env.PCI_TIMEOUT_BH_GH_07 ||
+           contains(inputs.card, '6u') && env.PCI_TIMEOUT_6U ||
+           contains(inputs.card, 'ubuntu-22.04') && env.PCI_TIMEOUT_BAREMETAL ||
+           inputs.pci-test-timeout) / 60.0 }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
       - name: Run MISC tests
+        timeout-minutes: ${{
+          (contains(inputs.card, 'n150-viommu') && env.MISC_TIMEOUT_N150_VIOMMU ||
+           contains(inputs.card, 'n300-llmbox-viommu') && env.MISC_TIMEOUT_N300_LLMBOX_VIOMMU ||
+           contains(inputs.card, 'n300-viommu') && env.MISC_TIMEOUT_N300_VIOMMU ||
+           contains(inputs.card, 'p100a-viommu') && env.MISC_TIMEOUT_P100A_VIOMMU ||
+           contains(inputs.card, 'p150b-viommu') && env.MISC_TIMEOUT_P150B_VIOMMU ||
+           contains(inputs.card, 'n150-stable') && env.MISC_TIMEOUT_N150 ||
+           contains(inputs.card, 'n300-llmbox-stable') && env.MISC_TIMEOUT_N300_LLMBOX ||
+           contains(inputs.card, 'n300-stable') && env.MISC_TIMEOUT_N300 ||
+           contains(inputs.card, 'p150b-stable') && env.MISC_TIMEOUT_P150B ||
+           contains(inputs.card, 'bh-gh-07') && env.MISC_TIMEOUT_BH_GH_07 ||
+           contains(inputs.card, '6u') && env.MISC_TIMEOUT_6U ||
+           contains(inputs.card, 'ubuntu-22.04') && env.MISC_TIMEOUT_BAREMETAL ||
+           inputs.misc-test-timeout) / 60.0 }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
       - name: Run unified tests
         if: ${{ inputs.arch != 'baremetal' }}
+        timeout-minutes: ${{
+          (contains(inputs.card, 'n150-viommu') && env.UNIFIED_TIMEOUT_N150_VIOMMU ||
+           contains(inputs.card, 'n300-llmbox-viommu') && env.UNIFIED_TIMEOUT_N300_LLMBOX_VIOMMU ||
+           contains(inputs.card, 'n300-viommu') && env.UNIFIED_TIMEOUT_N300_VIOMMU ||
+           contains(inputs.card, 'p100a-viommu') && env.UNIFIED_TIMEOUT_P100A_VIOMMU ||
+           contains(inputs.card, 'p150b-viommu') && env.UNIFIED_TIMEOUT_P150B_VIOMMU ||
+           contains(inputs.card, 'n150-stable') && env.UNIFIED_TIMEOUT_N150 ||
+           contains(inputs.card, 'n300-llmbox-stable') && env.UNIFIED_TIMEOUT_N300_LLMBOX ||
+           contains(inputs.card, 'n300-stable') && env.UNIFIED_TIMEOUT_N300 ||
+           contains(inputs.card, 'p150b-stable') && env.UNIFIED_TIMEOUT_P150B ||
+           contains(inputs.card, 'bh-gh-07') && env.UNIFIED_TIMEOUT_BH_GH_07 ||
+           contains(inputs.card, '6u') && env.UNIFIED_TIMEOUT_6U ||
+           contains(inputs.card, 'ubuntu-22.04') && env.UNIFIED_TIMEOUT_BAREMETAL ||
+           inputs.unified-test-timeout) / 60.0 }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

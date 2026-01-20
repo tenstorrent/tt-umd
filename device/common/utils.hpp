@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "assert.hpp"
 #include "fmt/ranges.h"
 
 namespace tt::umd::utils {
@@ -76,7 +77,7 @@ static void check_timeout(
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
     if (elapsed > timeout) {
-        throw std::runtime_error(error_msg);
+        TT_THROW(error_msg);
     }
 }
 

@@ -86,18 +86,18 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install wheel and run pytest
-        shell: bash
-        run: |
-          echo "Setting up virtual environment..."
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip wheel pytest
-          echo "Installing the wheel..."
-          pip install tt_umd-*.whl --force-reinstall
-          echo "Installation complete."
-          echo "Running tests..."
-          .venv/bin/python -m pytest -s tests
+      # - name: Install wheel and run pytest
+      #   shell: bash
+      #   run: |
+      #     echo "Setting up virtual environment..."
+      #     python -m venv .venv
+      #     source .venv/bin/activate
+      #     python -m pip install --upgrade pip wheel pytest
+      #     echo "Installing the wheel..."
+      #     pip install tt_umd-*.whl --force-reinstall
+      #     echo "Installation complete."
+      #     echo "Running tests..."
+      #     .venv/bin/python -m pytest -s tests
 
       - name: Use build artifacts
         uses: actions/download-artifact@v4
@@ -110,29 +110,29 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Run baremetal tests
-        if: ${{ inputs.arch == 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+      # - name: Run baremetal tests
+      #   if: ${{ inputs.arch == 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
       - name: Run API tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_repeat=100 --gtest_filter=*ETHRepro*
 
-      - name: Run arch-specific UMD unit tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+      # - name: Run arch-specific UMD unit tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
-      - name: Run PCI tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+      # - name: Run PCI tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
-      - name: Run MISC tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+      # - name: Run MISC tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
-      - name: Run unified tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+      # - name: Run unified tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

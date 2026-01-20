@@ -257,7 +257,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 DATA_WORD_SIZE);
 
-            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+            utils::check_timeout(
+                start,
+                timeout_ms,
+                "Timeout waiting for Ethernet core service remote IO request. read  erisc_resp_q_wptr ");
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
         tt_driver_atomics::lfence();
         uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
@@ -269,7 +272,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.response_routing_cmd_queue_base + flags_offset,
                 DATA_WORD_SIZE);
 
-            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+            utils::check_timeout(
+                start,
+                timeout_ms,
+                "Timeout waiting for Ethernet core service remote IO request. read erisc_resp_flags");
         } while (erisc_resp_flags[0] == 0);
 
         if (erisc_resp_flags[0] == resp_flags) {
@@ -407,7 +413,10 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
 
-            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+            utils::check_timeout(
+                start,
+                timeout_ms,
+                "Timeout waiting for Ethernet core service remote IO request. write is_non_mmio_cmd_q_full");
         }
         // full = true;
         //  set full only if this command will make the q full.
@@ -547,7 +556,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
 
-        utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request. write ");
     }
 }
 
@@ -574,7 +583,9 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                         eth_interface_params.remote_update_ptr_size_bytes * 2);
 
                     utils::check_timeout(
-                        start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
+                        start_time,
+                        timeout_ms,
+                        "Timeout waiting for Ethernet core service remote IO request flush. erisc_q_ptrs");
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
@@ -584,7 +595,9 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                         erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8);
 
                     utils::check_timeout(
-                        start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
+                        start_time,
+                        timeout_ms,
+                        "Timeout waiting for Ethernet core service remote IO request flush. erisc_txn_counters");
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }
         }

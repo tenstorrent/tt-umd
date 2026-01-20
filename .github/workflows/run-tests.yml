@@ -75,16 +75,16 @@ jobs:
           echo "Cleaning up working directory from previous runs: $(pwd)"
           rm -rf *
 
-      - name: Use wheel artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.WHEEL_ARTIFACT_NAME }}
-          path: ./
+      # - name: Use wheel artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: ${{ env.WHEEL_ARTIFACT_NAME }}
+      #     path: ./
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+      # - name: Set up Python 3.10
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.10'
 
       # - name: Install wheel and run pytest
       #   shell: bash
@@ -117,7 +117,8 @@ jobs:
 
       - name: Run API tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_repeat=10 --gtest_filter=*ETHRepro*
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_repeat=10 \
+            --gtest_filter=*ETHRepro* --gtest_break_on_failure
 
       # - name: Run arch-specific UMD unit tests
       #   if: ${{ inputs.arch != 'baremetal' }}

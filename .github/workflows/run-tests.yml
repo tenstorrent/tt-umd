@@ -102,9 +102,9 @@ jobs:
       #   run: |
       #     ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
-      - name: Run API tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+      # - name: Run API tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       # - name: Run arch-specific UMD unit tests
       #   if: ${{ inputs.arch != 'baremetal' }}

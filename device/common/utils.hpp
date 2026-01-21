@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 
@@ -66,16 +67,37 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
-static void check_timeout(
-    const std::chrono::steady_clock::time_point start_time,
-    const std::chrono::milliseconds timeout,
-    const std::string& error_msg) {
+/**
+ * Checks if `timeout` amount of time has elapsed since `start_time`.
+ * @param start_time Point in time when the measured event started.
+ * @param timeout Time expected for event to complete.
+ * @return Has the requested event timed out.
+ */
+static bool check_timeout(
+    const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) {
+    // A timeout of 0 can never time out.
     if (timeout.count() == 0) {
-        return;
+        return false;
     }
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
     if (elapsed > timeout) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Throw std::runtime_error if `timeout` amount of time has elapsed since `start_time`.
+ * @param start_time Point in time when the measured event started.
+ * @param timeout Time expected for event to complete.
+ * @param error_msg Error message to pass to std::runtime_error.
+ */
+static void check_timeout(
+    const std::chrono::steady_clock::time_point start_time,
+    const std::chrono::milliseconds timeout,
+    const std::string& error_msg) {
+    if (check_timeout(start_time, timeout)) {
         throw std::runtime_error(error_msg);
     }
 }

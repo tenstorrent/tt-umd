@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
-#include "device/common/utils.hpp"
+#include "test_utils/pipe_communication.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -236,7 +236,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     auto params = GetParam();
-    tt::umd::utils::MultiProcessPipe pipe(1);
+    tt::umd::test_utils::MultiProcessPipe pipe(1);
 
     pid_t pid = fork();
 

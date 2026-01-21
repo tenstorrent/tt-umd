@@ -8,5 +8,5 @@ set_target_properties(
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/test/umd/test_utils
         OUTPUT_NAME
-            test_utils
+            test_utils_tests
 )

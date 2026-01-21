@@ -427,18 +427,21 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
                     tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
 
                     // Verify data integrity.
-                    ASSERT_EQ(write_data, read_data)
-                        << "Data mismatch in process " << process_id << " iteration " << iter;
+                    if (write_data != read_data) {
+                        std::cout << "Data mismatch in process " << process_id << " iteration " << iter << std::endl;
+                        _exit(1);  // Return 1 for Data Mismatch
+                    }
 
                 } catch (const std::exception& e) {
                     std::cout << "Process " << process_id << " iteration " << iter << " failed: " << e.what()
                               << std::endl;
-                    FAIL() << "DMA operation failed in process " << process_id;
+                    _exit(2);  // Return 2 for Exception
                 }
             }
 
             std::cout << "Process " << process_id << ": Completed " << num_iterations << " DMA operations successfully"
                       << std::endl;
+            _exit(0);  // Return 0 for Success
         }
         pids.push_back(pid);
     }
@@ -447,7 +450,12 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     for (pid_t p : pids) {
         int status;
         waitpid(p, &status, 0);
-        EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << p << " failed.";
+        if (WIFEXITED(status)) {
+            EXPECT_EQ(WEXITSTATUS(status), 0)
+                << "Child process " << p << " failed with exit code " << WEXITSTATUS(status);
+        } else {
+            ADD_FAILURE() << "Child process " << p << " exited abnormally";
+        }
     }
 
     std::cout << "DMA race condition test completed" << std::endl;

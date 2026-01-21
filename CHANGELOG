@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.8.6] - 2026-01-20
+
+### Changed
+
+Make predicting ETH FW from CMFW optional in TopologyDiscovery.
+
+## [0.8.4] - 2026-01-16
+
+### Changed
+
+Use older manylinux image
+
+## [0.8.3] - 2026-01-15
+
+### Changed
+
+Reverted remote discovery issue
+
 ## [0.8.2] - 2026-01-15
 
 ### Changed

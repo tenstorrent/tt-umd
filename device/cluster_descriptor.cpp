@@ -1008,13 +1008,6 @@ const std::unordered_map<ChipId, bool> &ClusterDescriptor::get_noc_translation_t
 
 std::size_t ClusterDescriptor::get_number_of_chips() const { return this->all_chips.size(); }
 
-int ClusterDescriptor::get_ethernet_link_distance(ChipId chip_a, ChipId chip_b) const {
-    TT_ASSERT(
-        !this->chip_locations.empty(),
-        "Getting noc0 chip coordinates is only valid for systems where chips have coordinates");
-    return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
-}
-
 BoardType ClusterDescriptor::get_board_type(ChipId chip_id) const {
     TT_ASSERT(
         chip_board_type.find(chip_id) != chip_board_type.end(),

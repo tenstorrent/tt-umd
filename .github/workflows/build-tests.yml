@@ -148,11 +148,11 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
 
           echo "Repairing wheel with auditwheel..."
           WHL_PATH=$(ls ${{ env.WHEEL_OUTPUT_DIR }}/*.whl)
-          auditwheel repair "$WHL_PATH" -w ${{ env.WHEEL_OUTPUT_DIR }}
+          auditwheel -v repair "$WHL_PATH" -w ${{ env.WHEEL_OUTPUT_DIR }}
           rm "$WHL_PATH"
           echo "Compile complete."
 

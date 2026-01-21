@@ -295,7 +295,7 @@ private:
     std::unordered_map<ChipId, uint64_t> chip_to_board_id;
     std::unordered_map<ChipId, std::string> chip_pci_bdfs;
 
-    std::map<ChipId, HarvestingMasks> harvesting_masks_map = {};
+    std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

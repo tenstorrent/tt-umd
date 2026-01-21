@@ -84,18 +84,11 @@ private:
     }
 };
 
-// Helper function to detect if the cluster is a 4U Galaxy configuration.
-inline bool is_4u_galaxy_configuration(Cluster* cluster) {
-    return cluster != nullptr && !cluster->get_target_remote_device_ids().empty() &&
-           cluster->get_cluster_description()->get_board_type(*cluster->get_target_remote_device_ids().begin()) ==
-               tt::BoardType::GALAXY;
-}
-
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     bool is_6u_galaxy_configuration = !cluster->get_target_device_ids().empty() &&
                                       cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
-    return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
+    return is_6u_galaxy_configuration;
 }
 
 inline bool has_remote_chips() {
@@ -107,7 +100,7 @@ inline bool has_remote_chips() {
     tt_device->init_tt_device();
 
     auto board_type = tt_device->get_board_type();
-    return board_type == tt::BoardType::N300 || board_type == tt::BoardType::GALAXY;
+    return board_type == tt::BoardType::N300;
 }
 
 inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }

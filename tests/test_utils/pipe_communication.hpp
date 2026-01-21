@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace tt::umd {
+namespace tt::umd::test_utils {
 
 class MultiProcessPipe {
 private:
@@ -106,4 +106,4 @@ public:
     }
 };
 
-}  // namespace tt::umd
+}  // namespace tt::umd::test_utils

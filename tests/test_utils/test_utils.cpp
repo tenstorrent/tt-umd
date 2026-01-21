@@ -76,10 +76,8 @@ TEST(MultiProcessPipeTest, PartialSuccessIsFailure) {
                 // Odd child processes won't signal the parent process.
                 // They sleep longer than the timeout (simulating a hang or crash).
                 std::this_thread::sleep_for(std::chrono::seconds(2));
-                // They eventually exit without signaling (or signal too late).
             } else {
-                // Even child processes will signal the parent process.
-                // They signal immediately.
+                // Even child processes signal immediately.
                 pipe.signal_ready_from_child(i);
             }
 
@@ -88,13 +86,11 @@ TEST(MultiProcessPipeTest, PartialSuccessIsFailure) {
         child_pids.push_back(pid);
     }
 
-    // The timeout is 1 second and
-    // even children (0, 2) will signal instantly.
-    // Odd children (1) will not signal within 1 second,
-    // therefore, the aggregate result must be false.
+    // Timeout is 1 second. Even child processes (0, 2) signal instantly,
+    // but odd child process (1) won't signal in time, so the result must be false.
     bool success = pipe.wait_for_all_children(1);
 
-    EXPECT_FALSE(success) << "Should fail because odd children did not signal in time";
+    EXPECT_FALSE(success) << "Should fail because odd child processes did not signal in time";
 
     // Clean up all zombie processes.
     for (pid_t pid : child_pids) {

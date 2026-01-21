@@ -71,8 +71,6 @@ private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
-    void post_init_hook() override;
-
     bool is_hardware_hung() override;
 
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;

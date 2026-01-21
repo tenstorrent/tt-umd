@@ -319,10 +319,6 @@ protected:
     tt_xy_pair arc_core;
 
 private:
-    virtual void pre_init_hook(){};
-
-    virtual void post_init_hook(){};
-
     void probe_arc();
 
     TlbWindow *get_cached_tlb_window();

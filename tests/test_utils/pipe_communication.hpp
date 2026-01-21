@@ -87,7 +87,14 @@ public:
             timeout.tv_sec = timeout_seconds_per_process;
             timeout.tv_usec = 0;
 
-            // Wait here for up to timeout_seconds.
+            // select() blocks until the pipe has data to read, or the timeout expires.
+            // Args: (nfds, readfds, writefds, exceptfds, timeout)
+            //   - nfds: highest fd + 1 (select scans fds from 0 to nfds-1)
+            //   - readfds: set of fds to monitor for incoming data (we watch the pipe's read end)
+            //   - writefds: set of fds to monitor for write-ready (unused, nullptr)
+            //   - exceptfds: set of fds to monitor for errors (unused, nullptr)
+            //   - timeout: max time to wait before returning 0
+            // Returns: >0 if fd is ready, 0 if timeout, -1 on error.
             int ready = select(child_pipes[i][PIPE_READ] + 1, &read_set, nullptr, nullptr, &timeout);
 
             if (ready <= 0) {

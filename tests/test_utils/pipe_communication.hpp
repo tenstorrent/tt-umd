@@ -79,9 +79,13 @@ public:
                 child_pipes[i][PIPE_WRITE] = -1;
             }
 
-            fd_set read_set;
-            FD_ZERO(&read_set);
-            FD_SET(child_pipes[i][PIPE_READ], &read_set);
+            // Prepare a file descriptor set containing only this child's pipe for select() to monitor.
+            // Note: fd_set is a 1024-bit bitmask, limiting select() to file descriptors 0-1023.
+            // For more than 1024 open fd scenarios, consider switching to poll() or epoll().
+
+            fd_set read_set;                               // Declare a bitmask to hold file descriptors.
+            FD_ZERO(&read_set);                            // Clear all bits (required before use).
+            FD_SET(child_pipes[i][PIPE_READ], &read_set);  // Add the pipe's read end to the set.
 
             struct timeval timeout;
             timeout.tv_sec = timeout_seconds_per_process;

@@ -106,6 +106,7 @@ public:
             }
 
             char sync_token;
+            // read() returns: >0 = bytes read (success), 0 = EOF (pipe closed), -1 = error.
             if (read(child_pipes[i][PIPE_READ], &sync_token, 1) <= 0) {
                 return false;
             }

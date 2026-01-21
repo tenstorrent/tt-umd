@@ -95,4 +95,7 @@ TEST(Semver, FirmwareExpectedVersions) {
     EXPECT_EQ(std::nullopt, f(semver_t(18, 0, 0), tt::ARCH::BLACKHOLE));
     EXPECT_EQ(semver_t(1, 6, 0), f(semver_t(18, 11, 0), tt::ARCH::BLACKHOLE));
     EXPECT_EQ(erisc_firmware::BH_ERISC_FW_VERSION_MAP.back().second, f(semver_t(79, 99, 99), tt::ARCH::BLACKHOLE));
+    // Experimental versions do not get suggestested ETH FW versions.
+    EXPECT_EQ(std::nullopt, f(semver_t(18, 12, 0, 99), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(std::nullopt, f(semver_t(19, 3, 0, 99), tt::ARCH::WORMHOLE_B0));
 }

@@ -58,6 +58,58 @@ class TestTTDevice(unittest.TestCase):
                            "Buffer-based noc_read should match original noc_read")
             print(f"noc_read buffer version verified against original version")
 
+    def test_dma_tt_device(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", pci_ids)
+        if (len(pci_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.init_tt_device()
+            if dev.is_remote():
+                print(f"Skipping remote device {pci_id} for DMA test")
+                continue
+
+            soc_descriptor = tt_umd.SocDescriptor(dev)
+            tensix_core = soc_descriptor.get_cores(tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED)[0]
+
+            # Test noc_read32
+            val = int.from_bytes(dev.dma_read_from_device(tensix_core.x, tensix_core.y, 0, 4), byteorder="little")
+            print(f"Read value from device, core {tensix_core.x},{tensix_core.y} addr 0x0: {val}")
+
+            # Test noc_write32 and noc_read32
+            original = int.from_bytes(dev.dma_read_from_device(tensix_core.x, tensix_core.y, 0x100, 4), byteorder="little")
+            test_val = (original + 0x12345678) & 0xFFFFFFFF  # Add offset to ensure different value
+            dev.dma_write_to_device(tensix_core.x, tensix_core.y, 0x100, test_val.to_bytes(4, byteorder="little"))
+            read_back = int.from_bytes(dev.dma_read_from_device(tensix_core.x, tensix_core.y, 0x100, 4), byteorder="little")
+            print(f"noc_write32/read32: original=0x{original:08x}, wrote 0x{test_val:08x}, read 0x{read_back:08x}")
+            self.assertEqual(read_back, test_val, "Read value should match written value")
+            dev.dma_write_to_device(tensix_core.x, tensix_core.y, 0x100, original.to_bytes(4, byteorder="little"))  # Restore
+
+            # Test noc_read and noc_write
+            original_data = dev.dma_read_from_device(tensix_core.x, tensix_core.y, 0x200, 16)
+            # Modify original data by XORing with a pattern to ensure it's different
+            test_data = bytes([(b ^ 0xAA) for b in original_data])
+            dev.dma_write_to_device(tensix_core.x, tensix_core.y, 0x200, test_data)
+            read_data = dev.dma_read_from_device(tensix_core.x, tensix_core.y, 0x200, 16)
+            print(f"noc_write/read: wrote {test_data.hex()}, read {read_data.hex()}")
+            self.assertEqual(read_data, test_data, "Read data should match written data")
+            dev.dma_write_to_device(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
+
+            # Test noc_read with buffer parameter
+            buffer_size = 32
+            buffer = bytearray(buffer_size)
+            dev.dma_read_from_device(0, tensix_core.x, tensix_core.y, 0x300, buffer)
+            print(f"noc_read with buffer: read {buffer.hex()}")
+
+            # Verify buffer version matches the original version
+            data_via_original = dev.dma_read_from_device(tensix_core.x, tensix_core.y, 0x300, buffer_size)
+            self.assertEqual(bytes(buffer), data_via_original, 
+                           "Buffer-based noc_read should match original noc_read")
+            print(f"noc_read buffer version verified against original version")
+
     def test_remote_tt_device(self):
         cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
         for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):

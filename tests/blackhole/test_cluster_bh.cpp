@@ -339,7 +339,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x30000000;
-        for (std::vector<CoreCoord> core_ls : cluster.get_soc_descriptor(0).get_dram_cores()) {
+        for (const std::vector<CoreCoord>& core_ls : cluster.get_soc_descriptor(0).get_dram_cores()) {
             for (int loop = 0; loop < 100; loop++) {
                 for (const CoreCoord& core : core_ls) {
                     cluster.write_to_device(

@@ -107,4 +107,11 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     throw std::runtime_error(fmt::format("Failed to allocate TLB window."));
 }
 
+void TLBManager::clear_mapped_tlbs() {
+    log_debug(LogUMD, "Clearing all TLB mappings.");
+    tlb_config_map_.clear();
+    map_core_to_tlb_.clear();
+    tlb_windows_.clear();
+}
+
 };  // namespace tt::umd

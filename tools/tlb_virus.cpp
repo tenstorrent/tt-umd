@@ -41,6 +41,8 @@ uint32_t get_tlb_count_for_size(architecture_implementation* arch_impl, size_t t
 int main(int argc, char* argv[]) {
     cxxopts::Options options("tlb_virus", "Allocate TLBs in an infinite loop until failure for all sizes.");
 
+    options.add_options()("h,help", "Print usage");
+
     auto result = options.parse(argc, argv);
 
     if (result.count("help")) {

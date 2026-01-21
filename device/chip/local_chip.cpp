@@ -22,6 +22,8 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB.
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+constexpr uint32_t DRAM_SUBCHANNEL_FOR_MEMBAR = 0;
+
 std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
@@ -155,7 +157,8 @@ void LocalChip::initialize_membars() {
 
     std::vector<CoreCoord> dram_cores_vector = {};
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+        dram_cores_vector.push_back(
+            soc_descriptor_.get_dram_core_for_channel(dram_idx, DRAM_SUBCHANNEL_FOR_MEMBAR, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -548,8 +551,8 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-            dram_cores_vector.push_back(
-                soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+            dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(
+                dram_idx, DRAM_SUBCHANNEL_FOR_MEMBAR, CoordSystem::TRANSLATED));
         }
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     }
@@ -558,7 +561,8 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED));
+        dram_cores_to_sync.insert(
+            soc_descriptor_.get_dram_core_for_channel(chan, DRAM_SUBCHANNEL_FOR_MEMBAR, CoordSystem::TRANSLATED));
     }
     dram_membar(dram_cores_to_sync);
 }

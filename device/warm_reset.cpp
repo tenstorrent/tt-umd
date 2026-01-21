@@ -428,11 +428,7 @@ static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_co
             connected_sockets.push_back(sock);
             log_debug(tt::LogUMD, "Successfully connected to client with PID {}.", target_pid);
         } catch (const std::exception& e) {
-<<<<<<< HEAD
-            log_debug(tt::LogUMD, "Couldn't connect to client with PID {}: {}.", target_pid), e.what();
-=======
             log_debug(tt::LogUMD, "Couldn't connect to client with PID {}: {}.", target_pid, e.what());
->>>>>>> main
         }
     }
     return connected_sockets;

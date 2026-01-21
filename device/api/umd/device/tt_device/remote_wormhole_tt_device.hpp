@@ -15,6 +15,10 @@ public:
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
+    void write_to_device_wc(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+
+    void read_from_device_wc(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;

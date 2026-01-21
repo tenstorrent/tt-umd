@@ -150,6 +150,8 @@ jobs:
           fi
           CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
 
+          # This is done so that all the necessary libraries are included in the wheel.
+          # Specifically, this will make the wheel runnable on exalens ci image.
           echo "Repairing wheel with auditwheel..."
           WHL_PATH=$(ls ${{ env.WHEEL_OUTPUT_DIR }}/*.whl)
           auditwheel -v repair "$WHL_PATH" -w ${{ env.WHEEL_OUTPUT_DIR }}

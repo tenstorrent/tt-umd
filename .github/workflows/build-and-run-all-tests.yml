@@ -40,7 +40,6 @@ on:
         type: number
         default: 30
 
-
 jobs:
   build-tests:
     name: ""
@@ -61,7 +60,6 @@ jobs:
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
-
 
   test-all:
     name: ""
@@ -103,7 +101,6 @@ jobs:
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
-
 
   run-exalens:
     name: ""

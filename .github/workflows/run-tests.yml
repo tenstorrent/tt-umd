@@ -75,16 +75,16 @@ jobs:
           echo "Cleaning up working directory from previous runs: $(pwd)"
           rm -rf *
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
       - name: Use wheel artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
       - name: Install wheel and run pytest
         shell: bash

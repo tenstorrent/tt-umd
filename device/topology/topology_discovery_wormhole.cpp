@@ -316,8 +316,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
     uint32_t eth_fw_version_read;
-    chip->read_from_device(
-        eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
+    chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
 
     semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
 

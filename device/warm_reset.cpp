@@ -31,7 +31,7 @@ namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3) {
+void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset) {
     if constexpr (is_arm_platform()) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return;
@@ -121,7 +121,10 @@ int wait_for_pci_bdf_to_reappear(
 }
 
 void WarmReset::warm_reset_arch_agnostic(
-    std::vector<int> pci_device_ids, bool reset_m3, std::chrono::milliseconds reset_m3_timeout) {
+    std::vector<int> pci_device_ids,
+    bool reset_m3,
+    std::chrono::milliseconds reset_m3_timeout,
+    bool secondary_bus_reset) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
 
@@ -131,7 +134,9 @@ void WarmReset::warm_reset_arch_agnostic(
     }
 
     log_info(tt::LogUMD, "Starting reset on devices at PCI indices: {}", fmt::join(pci_device_id_set, ", "));
-    PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+    if (secondary_bus_reset) {
+        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+    }
 
     if (reset_m3) {
         PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);
@@ -423,7 +428,11 @@ static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_co
             connected_sockets.push_back(sock);
             log_debug(tt::LogUMD, "Successfully connected to client with PID {}.", target_pid);
         } catch (const std::exception& e) {
+<<<<<<< HEAD
             log_debug(tt::LogUMD, "Couldn't connect to client with PID {}: {}.", target_pid), e.what();
+=======
+            log_debug(tt::LogUMD, "Couldn't connect to client with PID {}: {}.", target_pid, e.what());
+>>>>>>> main
         }
     }
     return connected_sockets;

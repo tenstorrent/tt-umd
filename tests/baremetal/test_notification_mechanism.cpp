@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
-#include "device/common/utils.hpp"
+#include "test_utils/pipe_communication.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -24,7 +24,7 @@ public:
     static int run_child_monitor_logic(
         std::chrono::seconds process_pre_notification_wait_time = std::chrono::seconds(4),
         std::chrono::seconds process_post_notification_wait_time = std::chrono::seconds(4),
-        std::function<void()> on_started = nullptr) {
+        const std::function<void()>& on_started = nullptr) {
         std::promise<void> pre_reset_promise;
         std::promise<void> post_reset_promise;
         auto pre_future = pre_reset_promise.get_future();
@@ -236,7 +236,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     auto params = GetParam();
-    tt::umd::utils::MultiProcessPipe pipe(1);
+    tt::umd::test_utils::MultiProcessPipe pipe(1);
 
     pid_t pid = fork();
 

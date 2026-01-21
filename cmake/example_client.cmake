@@ -14,7 +14,7 @@ CPMAddPackage(
         "SPDLOG_FMT_EXTERNAL_HO ON"
         "SPDLOG_INSTALL ON"
 )
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.6)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.7)
 CPMAddPackage(
     NAME cxxopts
     GITHUB_REPOSITORY jarro2783/cxxopts

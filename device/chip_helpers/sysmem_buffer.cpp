@@ -38,8 +38,6 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
     const uint8_t* buffer = reinterpret_cast<const uint8_t*>(get_device_io_addr(offset));
 
-    PCIDevice* pci_device = tt_device_->get_pci_device().get();
-
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
     // proper coordinates.
@@ -92,8 +90,6 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
     validate(offset);
     uint8_t* buffer = reinterpret_cast<uint8_t*>(get_device_io_addr(offset));
-    PCIDevice* pci_device = tt_device_->get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
@@ -147,7 +143,6 @@ SysmemBuffer::~SysmemBuffer() {
 
 void SysmemBuffer::align_address_and_size() {
     static const auto page_size = sysconf(_SC_PAGESIZE);
-    uint64_t unaligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_);
     uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);
     offset_from_aligned_addr_ = reinterpret_cast<uint64_t>(buffer_va_) - aligned_buffer_va;
     buffer_va_ = reinterpret_cast<void*>(aligned_buffer_va);

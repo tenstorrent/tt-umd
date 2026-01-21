@@ -49,7 +49,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
 // active.
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
-static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
+static inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
     const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
     return target_devices.empty() && env_var_value.has_value()
                ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
@@ -73,7 +73,7 @@ std::string to_hex_string(T value) {
  * @param timeout Time expected for event to complete.
  * @return Has the requested event timed out.
  */
-static bool check_timeout(
+static inline bool check_timeout(
     const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) {
     // A timeout of 0 can never time out.
     if (timeout.count() == 0) {
@@ -93,7 +93,7 @@ static bool check_timeout(
  * @param timeout Time expected for event to complete.
  * @param error_msg Error message to pass to std::runtime_error.
  */
-static void check_timeout(
+static inline void check_timeout(
     const std::chrono::steady_clock::time_point start_time,
     const std::chrono::milliseconds timeout,
     const std::string& error_msg) {

@@ -149,7 +149,6 @@ void TopologyDiscovery::discover_remote_chips() {
 
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-        TTDevice* tt_device = chip->get_tt_device();
 
         verify_fw_bundle_version(chip);
 

@@ -61,10 +61,6 @@ protected:
      */
     WormholeTTDevice();
 
-    uint64_t get_arc_apb_noc_base_address() const;
-
-    uint64_t get_arc_csm_noc_base_address() const;
-
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
 

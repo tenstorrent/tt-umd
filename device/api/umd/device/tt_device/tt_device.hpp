@@ -307,12 +307,8 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
-
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
-
-    ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
 

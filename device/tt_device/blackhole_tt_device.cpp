@@ -170,7 +170,7 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         if ((arc_boot_status & 0x7) == 0x5) {
             return true;
         }
-    } while (utils::check_timeout(start, timeout_ms));
+    } while (!utils::check_timeout(start, timeout_ms));
     return false;
 }
 

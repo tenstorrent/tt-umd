@@ -557,7 +557,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
             return true;
         }
-    } while (utils::check_timeout(start_time, timeout_ms));
+    } while (!utils::check_timeout(start_time, timeout_ms));
     return false;
 }
 

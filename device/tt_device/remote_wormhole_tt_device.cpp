@@ -98,4 +98,12 @@ void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_
     throw std::runtime_error("DMA read from device not supported for remote Wormhole device.");
 }
 
+void RemoteWormholeTTDevice::write_to_device_wc(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    write_to_device(mem_ptr, core, addr, size);
+}
+
+void RemoteWormholeTTDevice::read_from_device_wc(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    read_from_device(mem_ptr, core, addr, size);
+}
+
 }  // namespace tt::umd

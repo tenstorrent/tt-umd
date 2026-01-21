@@ -55,11 +55,14 @@ public:
     }
 
     // Called by the Child process after it is fully initialized.
+    // Sends an arbitrary byte through the pipe to signal the parent that this child is ready.
     void signal_ready_from_child(int child_index) {
         // Close the read end we don't need in the child.
         close(child_pipes[child_index][PIPE_READ]);
         child_pipes[child_index][PIPE_READ] = -1;
 
+        // Write a single byte to signal readiness. The value '1' is arbitrary—
+        // the parent only cares that *something* was written, not what it is.
         char sync_token = '1';
         if (write(child_pipes[child_index][PIPE_WRITE], &sync_token, 1) == -1) {
             perror("Barrier: Failed to write sync token");

@@ -136,7 +136,7 @@ jobs:
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip wheel auditwheel
           echo "Compiling the code..."
           # Override CMAKE_BUILD_TYPE to Release for sanitizer builds to avoid symbol conflicts with Python
           # Python interpreters are not built with sanitizers, so TSAN/ASAN wheels cannot be loaded
@@ -149,6 +149,11 @@ jobs:
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
           CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
+
+          echo "Repairing wheel with auditwheel..."
+          WHL_PATH=$(ls ${{ env.WHEEL_OUTPUT_DIR }}/*.whl)
+          auditwheel repair "$WHL_PATH" -w ${{ env.WHEEL_OUTPUT_DIR }}
+          rm "$WHL_PATH"
           echo "Compile complete."
 
       - name: Move python bindings tests in the same wheel folder

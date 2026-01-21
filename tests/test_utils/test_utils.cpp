@@ -88,10 +88,10 @@ TEST(MultiProcessPipeTest, PartialSuccessIsFailure) {
         child_pids.push_back(pid);
     }
 
-    // The timeout is 1 second.
-    // Even children (0, 2) will signal instantly.
-    // Odd children (1) will not signal within 1 second.
-    // Therefore, the aggregate result must be FALSE.
+    // The timeout is 1 second and
+    // even children (0, 2) will signal instantly.
+    // Odd children (1) will not signal within 1 second,
+    // therefore, the aggregate result must be false.
     bool success = pipe.wait_for_all_children(1);
 
     EXPECT_FALSE(success) << "Should fail because odd children did not signal in time";

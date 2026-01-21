@@ -73,19 +73,6 @@ private:
 
     bool is_hardware_hung() override;
 
-    struct EthAddresses {
-        uint32_t masked_version;
-
-        uint64_t node_info;
-        uint64_t eth_conn_info;
-        uint64_t results_buf;
-        uint64_t erisc_remote_board_type_offset;
-        uint64_t erisc_local_board_type_offset;
-        uint64_t erisc_local_board_id_lo_offset;
-        uint64_t erisc_remote_board_id_lo_offset;
-        uint64_t erisc_remote_eth_id_offset;
-    };
-
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
     uint32_t read_training_status(tt_xy_pair eth_core);

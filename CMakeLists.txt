@@ -154,6 +154,7 @@ if(TT_UMD_BUILD_SIMULATION)
     message(STATUS "Building ${PROJECT_NAME} with Simulation")
 endif()
 add_subdirectory(device)
+
 if(TT_UMD_BUILD_PYTHON)
     message(STATUS "Building ${PROJECT_NAME} with Python Bindings")
     add_subdirectory(nanobind)

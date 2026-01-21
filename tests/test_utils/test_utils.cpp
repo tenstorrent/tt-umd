@@ -73,12 +73,12 @@ TEST(MultiProcessPipeTest, PartialSuccessIsFailure) {
 
         if (pid == 0) {
             if (i % 2 == 1) {
-                // Odd children are "Bad Actors".
+                // Odd child processes won't signal the parent process.
                 // They sleep longer than the timeout (simulating a hang or crash).
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 // They eventually exit without signaling (or signal too late).
             } else {
-                // Even children are "Good Actors".
+                // Even child processes will signal the parent process.
                 // They signal immediately.
                 pipe.signal_ready_from_child(i);
             }

@@ -5,6 +5,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -13,8 +14,10 @@
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
 #include "umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -102,8 +105,12 @@ std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const 
     if (!telemetry->is_entry_available(TelemetryTag::ETH_FW_VERSION)) {
         return std::nullopt;
     }
-    return get_eth_fw_version_from_telemetry(
-        telemetry->read_entry(TelemetryTag::ETH_FW_VERSION), tt_device->get_arch());
+    switch (tt_device->get_arch()) {
+        case tt::ARCH::WORMHOLE_B0:
+            return semver_t::from_wormhole_eth_firmware_tag(get_eth_fw_version());
+        default:  // Unimplemented for BH.
+            return std::nullopt;
+    }
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {

@@ -372,3 +372,83 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
     std::cout << "DMA race condition test completed" << std::endl;
 }
+
+TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr int NUM_PROCESSES = 4;
+    std::vector<pid_t> pids;
+
+    // Use the first available PCI device for this test.
+    const int test_device_id = pci_device_ids.at(0);
+    constexpr int num_iterations = 500;
+    constexpr uint64_t test_address = 0x1000;
+    constexpr size_t data_size = 1024;  // 1KB data per operation
+
+    std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
+
+    for (int process_id = 0; process_id < NUM_PROCESSES; process_id++) {
+        pid_t pid = fork();
+        if (pid == 0) {  // Child Process
+            std::cout << "Process " << process_id << ": Creating TTDevice for PCI device " << test_device_id
+                      << std::endl;
+
+            // Each process creates its own TTDevice object with the same PCIDevice.
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            tt_device->init_tt_device();
+
+            SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+            CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+            // Create unique data pattern for this process.
+            std::vector<uint32_t> write_data(data_size / sizeof(uint32_t));
+            std::vector<uint32_t> read_data(data_size / sizeof(uint32_t));
+
+            for (size_t i = 0; i < write_data.size(); i++) {
+                write_data[i] = (process_id << 24) | (i & 0xFFFFFF);  // Unique pattern per process
+            }
+
+            std::cout << "Process " << process_id << ": Starting DMA operations" << std::endl;
+
+            for (int iter = 0; iter < num_iterations; iter++) {
+                try {
+                    // Use different addresses per process to avoid data corruption.
+                    uint64_t process_address = test_address + (process_id * data_size * 2);
+
+                    // Write data using DMA.
+                    tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
+
+                    // Read data back using DMA.
+                    std::fill(read_data.begin(), read_data.end(), 0);
+                    tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
+
+                    // Verify data integrity.
+                    ASSERT_EQ(write_data, read_data)
+                        << "Data mismatch in process " << process_id << " iteration " << iter;
+
+                } catch (const std::exception& e) {
+                    std::cout << "Process " << process_id << " iteration " << iter << " failed: " << e.what()
+                              << std::endl;
+                    FAIL() << "DMA operation failed in process " << process_id;
+                }
+            }
+
+            std::cout << "Process " << process_id << ": Completed " << num_iterations << " DMA operations successfully"
+                      << std::endl;
+        }
+        pids.push_back(pid);
+    }
+
+    // Wait for all process threads to complete.
+    for (pid_t p : pids) {
+        int status;
+        waitpid(p, &status, 0);
+        EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << p << " failed.";
+    }
+
+    std::cout << "DMA race condition test completed" << std::endl;
+}

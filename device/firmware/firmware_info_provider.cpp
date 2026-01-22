@@ -108,7 +108,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const 
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
             return semver_t::from_wormhole_eth_firmware_tag(get_eth_fw_version());
-        default:  // Unimplemented for BH.
+        default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
             return std::nullopt;
     }
 }

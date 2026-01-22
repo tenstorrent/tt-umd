@@ -310,10 +310,10 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
     // Use the first available PCI device for this test.
     const int test_device_id = pci_device_ids.at(0);
-    const int num_processes = 4;
-    const int num_iterations = 500;
-    const uint64_t test_address = 0x1000;
-    const size_t data_size = 1024;  // 1KB data per operation
+    constexpr int num_processes = 4;
+    constexpr int num_iterations = 500;
+    constexpr uint64_t test_address = 0x1000;
+    constexpr size_t data_size = 1024;  // 1KB data per operation
 
     std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
 

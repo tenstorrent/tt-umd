@@ -553,7 +553,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         }
     } while (!utils::check_timeout(start_time, timeout_ms));
 
-    log_error(LogUMD, "Timed out waiting for ARC core start after {} ms", timeout_ms);
+    log_error(LogUMD, "Timed out waiting for ARC core start after {} ms", timeout_ms.count());
     return false;
 }
 

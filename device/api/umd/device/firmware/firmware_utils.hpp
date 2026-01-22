@@ -12,7 +12,7 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-static semver_t fw_version_from_telemetry(const uint32_t telemetry_data);
+static inline semver_t fw_version_from_telemetry(const uint32_t telemetry_data);
 
 semver_t get_firmware_version_util(TTDevice* tt_device);
 

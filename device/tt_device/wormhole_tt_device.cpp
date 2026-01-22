@@ -32,8 +32,6 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
                                   : wormhole::ARC_CORES_NOC0[0];
 }
 
-void WormholeTTDevice::post_init_hook() {}
-
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>()) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
@@ -460,7 +458,7 @@ uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
     return training_status;
 }
 
-bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -484,15 +482,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    auto start = std::chrono::steady_clock::now();
-    while (true) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (timeout_ms.count() != 0 && elapsed_ms > timeout_ms.count()) {
-            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms.count());
-            return false;
-        }
-
+    auto start_time = std::chrono::steady_clock::now();
+    do {
         uint32_t bar_read_arc_reset_scratch_status;
 
         read_from_arc_apb(
@@ -566,7 +557,9 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
             return true;
         }
-    }
+    } while (!utils::check_timeout(start_time, timeout_ms));
+
+    return false;
 }
 
 bool WormholeTTDevice::is_hardware_hung() {

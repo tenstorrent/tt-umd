@@ -52,11 +52,6 @@ uint32_t WormholeArcMessenger::send_message(
         arg1 = static_cast<uint16_t>(args[1]);
     }
 
-    const tt_xy_pair arc_core = is_selected_noc1() ? tt_xy_pair(
-                                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                                                   : wormhole::ARC_CORES_NOC0[0];
-
     // TODO: Once local and remote ttdevice is properly separated, reenable this code.
     // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
     // locks.
@@ -71,10 +66,8 @@ uint32_t WormholeArcMessenger::send_message(
     //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
     uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
+    int exit_code;
 
     tt_device->write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
     tt_device->write_to_arc_apb(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));

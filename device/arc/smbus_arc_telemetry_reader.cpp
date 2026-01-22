@@ -15,12 +15,12 @@ SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelem
                                    : tt_xy_pair(
                                          wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                          wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
-    get_telemetry_address();
+    SmBusArcTelemetryReader::get_telemetry_address();
 }
 
 void SmBusArcTelemetryReader::get_telemetry_address() {
     std::vector<uint32_t> arc_msg_return_values = {0};
-    uint32_t exit_code = tt_device->get_arc_messenger()->send_message(
+    tt_device->get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | (uint32_t)wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
         arc_msg_return_values,
         {0, 0});

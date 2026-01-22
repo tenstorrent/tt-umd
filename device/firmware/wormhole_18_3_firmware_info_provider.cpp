@@ -10,6 +10,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -36,9 +37,8 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() const {
 }
 
 std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    return get_eth_fw_version_from_telemetry(
-        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION),
-        tt_device->get_arch());
+    return semver_t::from_wormhole_eth_firmware_tag(
+        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 }
 
 double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {

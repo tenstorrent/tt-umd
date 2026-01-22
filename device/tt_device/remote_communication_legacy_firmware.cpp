@@ -208,7 +208,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
-        local_tt_device_->write_to_device_wc(
+        local_tt_device_->write_to_device(
             erisc_command.data(),
             remote_transfer_ethernet_core,
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
@@ -220,7 +220,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         std::vector<std::uint32_t> erisc_q_wptr;
         erisc_q_wptr.resize(1);
         erisc_q_wptr[0] = erisc_q_ptrs[0];
-        local_tt_device_->write_to_device_wc(
+        local_tt_device_->write_to_device(
             erisc_q_wptr.data(),
             remote_transfer_ethernet_core,
             eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
@@ -316,7 +316,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
         // Finally increment the rdptr for the response command q.
         erisc_resp_q_rptr[0] = (erisc_resp_q_rptr[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
-        local_tt_device_->write_to_device_wc(
+        local_tt_device_->write_to_device(
             erisc_resp_q_rptr.data(),
             remote_transfer_ethernet_core,
             eth_interface_params.response_cmd_queue_base + sizeof(remote_update_ptr_t) +
@@ -471,7 +471,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
-                local_tt_device_->write_to_device_wc(
+                local_tt_device_->write_to_device(
                     data_block.data(), remote_transfer_ethernet_core, buf_address, data_block.size() * DATA_WORD_SIZE);
             }
             tt_driver_atomics::sfence();
@@ -509,7 +509,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
-        local_tt_device_->write_to_device_wc(
+        local_tt_device_->write_to_device(
             erisc_command.data(),
             remote_transfer_ethernet_core,
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
@@ -520,7 +520,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         std::vector<std::uint32_t> erisc_q_wptr;
         erisc_q_wptr.resize(1);
         erisc_q_wptr[0] = erisc_q_ptrs[0];
-        local_tt_device_->write_to_device_wc(
+        local_tt_device_->write_to_device(
             erisc_q_wptr.data(),
             remote_transfer_ethernet_core,
             eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,

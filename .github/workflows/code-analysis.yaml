@@ -313,7 +313,6 @@ jobs:
 
       - name: Publish to GitHub Pages (requires PAT secret)
         uses: peaceiris/actions-gh-pages@v4
-        if: ${{ secrets.CLANGSA_RESULTS_PAT != '' }}
         with:
           personal_token: ${{ secrets.CLANGSA_RESULTS_PAT }}
           external_repository: blozano-tt/umd-clangsa-results

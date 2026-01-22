@@ -81,7 +81,16 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr
     if (td == nullptr) {
         return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(chips));
     }
-    std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
+    std::unique_ptr<ClusterDescriptor> cluster_desc;
+    if (options.create_eth_map) {
+        cluster_desc = td->create_ethernet_map();
+    } else {
+        // Still do discovery to populate chips, but skip get_connected_chips.
+        td->init_topology_discovery();
+        td->discover_remote_chips();
+        log_debug(LogUMD, "Completed topology discovery (without getting connected chips).");
+        cluster_desc = std::make_unique<ClusterDescriptor>();
+    }
     return std::make_pair(std::move(cluster_desc), std::move(td->chips));
 }
 

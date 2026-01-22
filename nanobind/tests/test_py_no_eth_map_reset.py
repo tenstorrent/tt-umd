@@ -1,0 +1,156 @@
+# SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+import sys
+import os
+# Add build directory to path to use the newly built module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../build/nanobind'))
+import tt_umd
+import time
+
+def profile_topology_discovery(options, label):
+    print(f"\n{'='*60}")
+    print(f"Profiling: {label}")
+    print(f"{'='*60}")
+    
+    total_start = time.time()
+    
+    # Discover topology
+    cluster_desc = tt_umd.TopologyDiscovery.create_cluster_descriptor(options)
+    
+    total_time = time.time() - total_start
+    
+    print(f"\nTotal topology discovery time: {total_time:.3f} seconds")
+    print(f"Number of chips discovered: {len(cluster_desc.get_all_chips())}")
+    
+    # Get device info
+    mmio_chips = cluster_desc.get_chips_with_mmio()
+    print(f"MMIO-capable chips: {len(mmio_chips)}")
+    for chip_id, pci_id in mmio_chips.items():
+        print(f"  Chip {chip_id} -> PCI device {pci_id}")
+    
+    return cluster_desc, total_time
+
+# Perform warm reset first
+print("\n" + "="*60)
+print("PERFORMING WARM RESET")
+print("="*60)
+
+reset_start = time.time()
+reset_time = 0.0
+pci_ids = tt_umd.PCIDevice.enumerate_devices()
+if len(pci_ids) == 0:
+    print("No PCI devices found. Skipping warm reset.")
+else:
+    print(f"Found {len(pci_ids)} PCI device(s): {pci_ids}")
+    
+    # Get PCI device info to determine reset method
+    pci_devices_info = tt_umd.PCIDevice.enumerate_devices_info()
+    arch = pci_devices_info[0].get_arch()
+    print(f"Device architecture: {arch}")
+    
+    # Check if the first device is a WH UBB (0x0035 subsystem id)
+    is_wormhole_ubb = arch == tt_umd.ARCH.WORMHOLE_B0 and pci_devices_info[0].subsystem_id == 0x0035
+    kmd_supports_reset = tt_umd.PCIDevice.is_arch_agnostic_reset_supported()
+    print(f"KMD supports arch agnostic reset: {kmd_supports_reset}")
+    print(f"Is Wormhole UBB: {is_wormhole_ubb}")
+    
+    # Perform appropriate warm reset
+    if is_wormhole_ubb and not kmd_supports_reset:
+        print("Executing UBB warm reset...")
+        tt_umd.WarmReset.ubb_warm_reset()
+    else:
+        should_perform_secondary_bus_reset = not is_wormhole_ubb
+        print(f"Executing standard warm reset, with secondary bus reset: {should_perform_secondary_bus_reset}")
+        tt_umd.WarmReset.warm_reset(pci_ids, secondary_bus_reset=should_perform_secondary_bus_reset)
+    
+    reset_time = time.time() - reset_start
+    print(f"Warm reset completed in {reset_time:.3f} seconds")
+    print("\nWaiting a moment for devices to stabilize...")
+    time.sleep(2)  # Give devices a moment to stabilize
+
+# Test 1: With no_remote_discovery=True (POST RESET)
+print("\n" + "="*60)
+print("PROFILING TOPOLOGY DISCOVERY (POST RESET)")
+print("="*60)
+
+options_local = tt_umd.TopologyDiscoveryOptions()
+options_local.no_remote_discovery = True
+options_local.create_eth_map = False  # Skip create_ethernet_map entirely - fastest option
+cluster_desc_local, time_local = profile_topology_discovery(options_local, "Local-only POST RESET (no_remote_discovery=True, create_eth_map=False)")
+
+# Test 2: With full discovery (if you want to compare)
+# Uncomment to compare:
+# options_full = tt_umd.TopologyDiscoveryOptions()
+# options_full.no_remote_discovery = False
+# cluster_desc_full, time_full = profile_topology_discovery(options_full, "Full discovery (no_remote_discovery=False)")
+# print(f"\nTime difference: {time_full - time_local:.3f} seconds slower with full discovery")
+
+# Discover topology
+cluster_desc = cluster_desc_local
+
+# Build comprehensive device map
+print("\n" + "="*60)
+print("BUILDING DEVICE MAP")
+print("="*60)
+
+map_start = time.time()
+device_map = {}
+
+for chip_id in cluster_desc.get_all_chips():
+    device_map[chip_id] = {
+        # Basic info
+        'chip_id': chip_id,
+        'unique_id': cluster_desc.get_chip_unique_ids().get(chip_id),
+        'arch': cluster_desc.get_arch(chip_id),
+        
+        # Connectivity
+        'is_mmio_capable': cluster_desc.is_chip_mmio_capable(chip_id),
+        'is_remote': cluster_desc.is_chip_remote(chip_id),
+        'pci_device_num': cluster_desc.get_chips_with_mmio().get(chip_id),
+        'closest_mmio_chip': cluster_desc.get_closest_mmio_capable_chip(chip_id) if not cluster_desc.is_chip_mmio_capable(chip_id) else chip_id,
+        
+        # Location
+        'location': cluster_desc.get_chip_locations().get(chip_id),  # EthCoord with cluster_id, x, y, rack, shelf
+        
+        # Board info
+        'board_type': cluster_desc.get_board_type(chip_id),
+        'board_id': cluster_desc.get_board_id_for_chip(chip_id) if chip_id in cluster_desc.get_chips_with_mmio() else None,
+        
+        # Ethernet
+        'active_eth_channels': list(cluster_desc.get_active_eth_channels(chip_id)),
+        'ethernet_connections': cluster_desc.get_ethernet_connections().get(chip_id, {}),
+    }
+
+map_time = time.time() - map_start
+print(f"Device map building time: {map_time:.3f} seconds")
+
+# Print summary
+print(f"\n{'='*60}")
+print("DEVICE MAP SUMMARY")
+print(f"{'='*60}")
+print(f"Total devices: {len(device_map)}")
+for chip_id, info in device_map.items():
+    print(f"\nChip {chip_id}:")
+    print(f"  Architecture: {info['arch']}")
+    print(f"  MMIO-capable: {info['is_mmio_capable']}")
+    print(f"  PCI device: {info['pci_device_num']}")
+    print(f"  Board type: {info['board_type']}")
+    print(f"  Board ID: {info['board_id']:#x}")
+    print(f"  Active ETH channels: {len(info['active_eth_channels'])}")
+    if info['location']:
+        loc = info['location']
+        print(f"  Location: cluster={loc.cluster_id}, rack={loc.rack}, shelf={loc.shelf}, x={loc.x}, y={loc.y}")
+
+print(f"\n{'='*60}")
+print(f"TOTAL TIME BREAKDOWN:")
+if len(pci_ids) > 0:
+    print(f"  Warm reset: {reset_time:.3f}s")
+print(f"  Topology discovery (post-reset): {time_local:.3f}s")
+print(f"  Device map building: {map_time:.3f}s")
+total_time = reset_time + time_local + map_time
+print(f"  Total: {total_time:.3f}s")
+print(f"{'='*60}")
+print(f"\nNOTE: The 17s delay you're seeing is likely in the device initialization")
+print(f"      phase (init_tt_device) which waits for ARC core startup after reset.")
+print(f"      Check the C++ logs above (with TT_LOGGER_LEVEL=info) for detailed timing breakdown.")

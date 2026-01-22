@@ -558,6 +558,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             return true;
         }
     } while (!utils::check_timeout(start_time, timeout_ms));
+
     return false;
 }
 

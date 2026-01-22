@@ -171,6 +171,7 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return true;
         }
     } while (!utils::check_timeout(start, timeout_ms));
+
     return false;
 }
 

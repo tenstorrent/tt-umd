@@ -318,6 +318,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
     std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
 
     std::vector<std::thread> process_threads;
+    process_threads.reserve(num_processes);
 
     for (int process_id = 0; process_id < num_processes; process_id++) {
         process_threads.push_back(std::thread([=]() {

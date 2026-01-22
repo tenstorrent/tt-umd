@@ -50,16 +50,8 @@ WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implem
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
-    uint32_t niu_cfg;
-    // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
-    // We use DRAM core (0, 0) to read this information, but it can be read from any core.
-    // TODO: read this information from PCIE BAR.
-    const tt_xy_pair dram_core = is_selected_noc1()
-                                     ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0])
-                                     : tt_xy_pair(0, 0);
-    const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
-    read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
-
+    const uint64_t BAR0_NIU0_NIU_CFG_0_ADDR = 0x1FD20000 + 0x100;
+    uint32_t niu_cfg = bar_read32(BAR0_NIU0_NIU_CFG_0_ADDR);
     return (niu_cfg & (1 << 14)) != 0;
 }
 

@@ -321,10 +321,9 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version =
-            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::WORMHOLE_B0);
-        if (options.predict_eth_fw_version && expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        expected_eth_fw_version = chip->get_tt_device()->get_firmware_info_provider()->get_eth_fw_version_semver();
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
             log_debug(

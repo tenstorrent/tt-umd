@@ -4,28 +4,6 @@ on:
   schedule:
     # Run daily at 6 PM PST (2 AM UTC next day)
     - cron: "0 2 * * *"
-  workflow_call:
-    inputs:
-      enable-static-analysis:
-        description: "Enable Clang Static Analyzer (CSA) via CodeChecker"
-        required: false
-        type: boolean
-        default: false
-      debug-file-filter:
-        description: "Analyze only specific file(s) for fast debugging (e.g., 'device/**/*.hpp' or 'path/to/file.cpp')"
-        required: false
-        type: string
-        default: ""
-      enable-copilot-fix:
-        description: "Enable Copilot to automatically fix ClangSA issues and create a PR"
-        required: false
-        type: boolean
-        default: false
-      copilot-max-fixes:
-        description: "Maximum number of issues for Copilot to fix"
-        required: false
-        type: string
-        default: ""
   workflow_dispatch:
     inputs:
       enable-static-analysis:

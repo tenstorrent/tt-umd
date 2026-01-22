@@ -246,11 +246,10 @@ jobs:
           {
             echo "Fix these Clang Static Analyzer issues:"
             echo ""
-            jq -r --argjson limit "$LIMIT" '
-              .reports[:$limit][] |
-              "- \(.checker_name) in \(.file.path | sub("^/work/"; "")):\(.line) \
-                — \(.message)"
-            ' /tmp/codechecker_issues.json
+            jq -r --argjson limit "$LIMIT" \
+              '.reports[:$limit][] |
+               "- \(.checker_name) in \(.file.path | sub("^/work/"; "")):\(.line) — \(.message)"' \
+              /tmp/codechecker_issues.json
             echo ""
             echo "For each: verify it's real, apply minimal fix, follow coding standards."
           } > /tmp/prompt.txt

@@ -1,0 +1,9 @@
+{
+    "analyze": [
+        "--analyzers",
+        "clangsa",
+        "--skip",
+        "${sourceDir}/.codechecker.skiplist",
+        "--drop-reports-from-skipped-files"
+    ]
+}

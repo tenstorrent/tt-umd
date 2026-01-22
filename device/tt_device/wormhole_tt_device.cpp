@@ -50,8 +50,10 @@ WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implem
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
-    const uint64_t BAR0_NIU0_NIU_CFG_0_ADDR = 0x1FD20000 + 0x100;
-    uint32_t niu_cfg = bar_read32(BAR0_NIU0_NIU_CFG_0_ADDR);
+    uint32_t niu_cfg = 0x0;
+    const uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
+    const uint32_t NIU_CFG_0_OFFSET = 0x100;
+    read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof niu_cfg);
     return (niu_cfg & (1 << 14)) != 0;
 }
 
@@ -551,6 +553,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         }
     } while (!utils::check_timeout(start_time, timeout_ms));
 
+    log_error(LogUMD, "Timed out waiting for ARC core start after {} ms", timeout_ms);
     return false;
 }
 

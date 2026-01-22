@@ -4,23 +4,10 @@
 
 tt-umd (Tenstorrent User Mode Driver) is a C++17 library that provides user-space access to Tenstorrent AI accelerator hardware. It supports Wormhole and Blackhole chip architectures.
 
-## Build Dependencies
+## Build Verification
 
-To build this project, install the following system dependencies:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get update && sudo apt-get install -y \
-    build-essential \
-    cmake \
-    ninja-build \
-    git \
-    libhwloc-dev \
-    python3-dev \
-    python3-pip
-```
-
-## Build Commands
+The environment is pre-configured with dependencies via `copilot-setup-steps.yml`.
+To rebuild after making changes:
 
 ```bash
 # Use GCC (set these env vars before cmake, or use clang-17 if available)

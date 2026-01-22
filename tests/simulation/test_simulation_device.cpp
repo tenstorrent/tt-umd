@@ -89,7 +89,6 @@ TEST_F(SimulationDeviceFixture, SimpleApiTest) {
 
     auto core = device->get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
 
-    auto &soc_desc = device->get_soc_descriptor();
     device->write_to_device(core, wdata1.data(), 0x100, wdata1.size() * sizeof(uint32_t));
     device->read_from_device(core, rdata1.data(), 0x100, rdata1.size() * sizeof(uint32_t));
     ASSERT_EQ(wdata1, rdata1);

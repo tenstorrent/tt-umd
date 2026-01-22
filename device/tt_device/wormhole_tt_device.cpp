@@ -478,7 +478,6 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
     // Post codes.
     constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
-    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_START = 0xC0DE0030;
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 

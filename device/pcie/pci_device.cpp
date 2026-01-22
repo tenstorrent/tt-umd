@@ -29,16 +29,8 @@
 
 namespace tt::umd {
 
-static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
-
-// TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
-// TLB windows and there is no longer a pre-defined WC/UC split.
-static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
-
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
-static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {

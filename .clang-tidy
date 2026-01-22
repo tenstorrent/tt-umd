@@ -56,7 +56,6 @@ Checks: >
     -performance-avoid-endl,
     -performance-faster-string-find,
     -performance-inefficient-algorithm,
-    -performance-inefficient-vector-operation,
     -performance-move-const-arg,
     -performance-no-int-to-ptr,
     -readability-const-return-type,

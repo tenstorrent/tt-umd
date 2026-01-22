@@ -46,6 +46,9 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
         warm_reset_arch_agnostic(pci_device_ids, reset_m3);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
+        // Re-enumerate here as a safety net for potential race conditions where devices disappear
+        // between the pre-reset notification and now. Clients are still guaranteed to receive the
+        // post-reset notification since it's sent unconditionally after this block.
         log_warning(tt::LogUMD, "No devices found to reset in legacy path.");
     } else {
         auto arch = enumerate_devices.begin()->second.get_arch();

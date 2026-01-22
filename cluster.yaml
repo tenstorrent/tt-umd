@@ -10,10 +10,14 @@ chips:
   1:
     - 0
 <<<<<<< HEAD
+<<<<<<< HEAD
     - 0
 =======
     - 1
 >>>>>>> 624d90ed (Fix tests)
+=======
+    - 1
+>>>>>>> d6913435 (More eth trained protection)
     - 0
     - 0
 chip_unique_ids:
@@ -23,15 +27,18 @@ ethernet_connections:
   -
     - chip: 0
 <<<<<<< HEAD
+<<<<<<< HEAD
       chan: 9
     - chip: 1
       chan: 1
   -
+=======
+      chan: 8
+>>>>>>> d6913435 (More eth trained protection)
     - chip: 1
       chan: 0
-    - chip: 1
-      chan: 8
   -
+<<<<<<< HEAD
     - chip: 1
 =======
       chan: 8
@@ -40,6 +47,9 @@ ethernet_connections:
   -
     - chip: 0
 >>>>>>> 624d90ed (Fix tests)
+=======
+    - chip: 0
+>>>>>>> d6913435 (More eth trained protection)
       chan: 9
     - chip: 1
       chan: 1
@@ -58,7 +68,7 @@ harvesting:
     l2cpu_harvesting_mask: 0
   1:
     noc_translation: true
-    harvest_mask: 544
+    harvest_mask: 513
     dram_harvesting_mask: 0
     eth_harvesting_mask: 0
     pcie_harvesting_mask: 0
@@ -79,7 +89,11 @@ boards:
 asic_locations:
   0: 0
 <<<<<<< HEAD
+<<<<<<< HEAD
   1: 0
 =======
   1: 1
 >>>>>>> 624d90ed (Fix tests)
+=======
+  1: 1
+>>>>>>> d6913435 (More eth trained protection)

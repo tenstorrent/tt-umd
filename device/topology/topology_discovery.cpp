@@ -71,7 +71,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     get_connected_chips();
     discover_remote_chips();
     log_debug(LogUMD, "Completed topology discovery.");
-    return options.create_eth_map ? fill_cluster_descriptor_info() : std::make_unique<ClusterDescriptor>();
+    return fill_cluster_descriptor_info();
 }
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> TopologyDiscovery::discover(

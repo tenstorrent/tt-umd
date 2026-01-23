@@ -41,9 +41,6 @@ struct TopologyDiscoveryOptions {
 
     // Enables verifying ERISC FW on cores to ensure reliability of discovery.
     bool verify_eth_fw_hash = false;
-
-    // Create ethernet map (ClusterDescriptor) during discovery. If false, only discover chips.
-    bool create_eth_map = true;
 };
 
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.

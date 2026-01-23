@@ -77,36 +77,23 @@ class TestNoEthMapReset(unittest.TestCase):
 
     # @unittest.skip("Comment this out to profile warm reset and topology discovery.")
     def test_profiling_and_reset(self):
-        # Test 1: With no_remote_discovery=True, create_eth_map=False
         reset_time_1 = self.perform_warm_reset()
         options_1 = tt_umd.TopologyDiscoveryOptions()
-        options_1.no_remote_discovery = True
-        options_1.create_eth_map = False
-        _, time_1 = self.profile_topology_discovery(options_1, "Local-only, no eth map (no_remote_discovery=True, create_eth_map=False)")
+        options_1.no_remote_discovery = False
+        options_1.no_wait_for_eth_training = False
+        cluster_desc, time_1 = self.profile_topology_discovery(options_1, "Full discovery (no_remote_discovery=False, no_wait_for_eth_training=False)")
 
-        # Test 2: With no_remote_discovery=False, create_eth_map=False
         reset_time_2 = self.perform_warm_reset()
         options_2 = tt_umd.TopologyDiscoveryOptions()
-        options_2.no_remote_discovery = False
-        options_2.create_eth_map = False
-        _, time_2 = self.profile_topology_discovery(options_2, "Full discovery, no eth map (no_remote_discovery=False, create_eth_map=False)")
+        options_1.no_remote_discovery = True
+        options_1.no_wait_for_eth_training = False
+        _, time_2 = self.profile_topology_discovery(options_2, "Local-only, full initialization (no_remote_discovery=True, no_wait_for_eth_training=False)")
 
-        # Test 3: With no_remote_discovery=True, create_eth_map=True
         reset_time_3 = self.perform_warm_reset()
         options_3 = tt_umd.TopologyDiscoveryOptions()
         options_3.no_remote_discovery = True
-        options_3.create_eth_map = True
-        _, time_3 = self.profile_topology_discovery(options_3, "Local-only, with eth map (no_remote_discovery=True, create_eth_map=True)")
-
-        # Test 4: With no_remote_discovery=False, create_eth_map=True
-        reset_time_4 = self.perform_warm_reset()
-        options_4 = tt_umd.TopologyDiscoveryOptions()
-        options_4.no_remote_discovery = False
-        options_4.create_eth_map = True
-        cluster_desc_final, time_4 = self.profile_topology_discovery(options_4, "Full discovery, with eth map (no_remote_discovery=False, create_eth_map=True)")
-
-        # Discover topology
-        cluster_desc = cluster_desc_final
+        options_3.no_wait_for_eth_training = True
+        _, time_3 = self.profile_topology_discovery(options_3, "Local-only, no waiting on eth (no_remote_discovery=True, no_wait_for_eth_training=True)")
 
         # Build comprehensive device map
         print("\n" + "="*60)
@@ -167,17 +154,10 @@ class TestNoEthMapReset(unittest.TestCase):
         print(f"  Test 1 (L-only, no eth): Reset: {reset_time_1:.3f}s, Discovery: {time_1:.3f}s")
         print(f"  Test 2 (Full, no eth):   Reset: {reset_time_2:.3f}s, Discovery: {time_2:.3f}s")
         print(f"  Test 3 (L-only, eth):    Reset: {reset_time_3:.3f}s, Discovery: {time_3:.3f}s")
-        print(f"  Test 4 (Full, eth):      Reset: {reset_time_4:.3f}s, Discovery: {time_4:.3f}s")
         print(f"  Device map building:     {map_time:.3f}s")
-        total_time = reset_time_1 + time_1 + reset_time_2 + time_2 + reset_time_3 + time_3 + reset_time_4 + time_4 + map_time
+        total_time = reset_time_1 + time_1 + reset_time_2 + time_2 + reset_time_3 + time_3 + map_time
         print(f"  Total: {total_time:.3f}s")
         print(f"{'='*60}")
-        print(f"\nNOTE: The 17s delay you're seeing is likely in the device initialization")
-        print(f"      phase (init_tt_device) which waits for ARC core startup after reset.")
-        print(f"      Check the C++ logs above (with TT_LOGGER_LEVEL=info) for detailed timing breakdown.")
-        print(f"\nNOTE: The 17s delay you're seeing is likely in the device initialization")
-        print(f"      phase (init_tt_device) which waits for ARC core startup after reset.")
-        print(f"      Check the C++ logs above (with TT_LOGGER_LEVEL=info) for detailed timing breakdown.")
 
 if __name__ == '__main__':
     unittest.main()

@@ -182,6 +182,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
+            if (!is_eth_trained_and_connected(chip, eth_core, channel)) {
+                channel++;
+                continue;
+            }
+
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core)) ||

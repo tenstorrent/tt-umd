@@ -82,7 +82,7 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_id(Chip* chip, tt_xy_pair e
 
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &board_id,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
@@ -109,7 +109,7 @@ uint64_t TopologyDiscoveryWormhole::get_local_board_id(Chip* chip, tt_xy_pair et
 uint64_t TopologyDiscoveryWormhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &board_id,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_type_offset),
@@ -120,13 +120,13 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_type(Chip* chip, tt_xy_pair
 uint64_t TopologyDiscoveryWormhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t asic_id_lo;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_lo,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
         sizeof(uint32_t));
     uint32_t asic_id_hi;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_hi,
         eth_core,
         eth_addresses.results_buf + (4 * (eth_addresses.erisc_local_board_id_lo_offset + 1)),
@@ -137,13 +137,13 @@ uint64_t TopologyDiscoveryWormhole::get_local_asic_id(Chip* chip, tt_xy_pair eth
 uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t asic_id_lo;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_lo,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
         sizeof(uint32_t));
     uint32_t asic_id_hi;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_hi,
         eth_core,
         eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_id_lo_offset + 1)),
@@ -155,7 +155,7 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair
     const uint32_t shelf_offset = 9;
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t remote_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_id,
         {local_eth_core.x, local_eth_core.y},
         eth_addresses.node_info + (4 * shelf_offset),
@@ -167,7 +167,7 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair
 uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair eth_core) {
     uint32_t training_status;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
+    tt_device->read_from_device_wc(&training_status, eth_core, 0x1104, sizeof(uint32_t));
     return training_status;
 }
 
@@ -178,7 +178,7 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair loc
     }
     uint32_t remote_eth_id;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_eth_id,
         local_eth_core,
         eth_addresses.results_buf + 4 * eth_addresses.erisc_remote_eth_id_offset,
@@ -190,7 +190,8 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(Chip* chi
     TTDevice* tt_device = chip->get_tt_device();
 
     uint32_t current_chip_eth_coord_info;
-    tt_device->read_from_device(&current_chip_eth_coord_info, eth_core, eth_addresses.node_info + 8, sizeof(uint32_t));
+    tt_device->read_from_device_wc(
+        &current_chip_eth_coord_info, eth_core, eth_addresses.node_info + 8, sizeof(uint32_t));
 
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
@@ -209,13 +210,13 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip* ch
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * rack_offset), sizeof(uint32_t));
 
     eth_coord.rack = remote_id & 0xFF;
     eth_coord.shelf = (remote_id >> 8) & 0xFF;
 
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * shelf_offset), sizeof(uint32_t));
 
     eth_coord.x = (remote_id >> 16) & 0x3F;
@@ -368,7 +369,7 @@ uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
 bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) {
     uint32_t routing_firmware_disabled;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
     if (is_running_on_6u && routing_firmware_disabled == 0) {
         auto message = fmt::format(
@@ -390,6 +391,32 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const 
         TT_THROW(message);
     }
     return true;
+}
+
+bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) {
+    uint64_t addr = 0x1200 + (channel * 4);
+    uint32_t eth_connection_info;
+
+    TTDevice* tt_device = chip->get_tt_device();
+
+    tt_device->wait_eth_core_training(eth_core, std::chrono::milliseconds(5000));
+
+    while (true) {
+        tt_device->read_from_device(&eth_connection_info, eth_core, addr, sizeof(uint32_t));
+
+        // std::cout << "eth core " << eth_core.x << "," << eth_core.y << " channel " << channel
+        //           << " eth_connection_info: " << eth_connection_info << std::endl;
+
+        if (eth_connection_info > 1) {
+            return true;
+        }
+
+        if (eth_connection_info == 1) {
+            return false;
+        }
+    }
+
+    return false;
 }
 
 }  // namespace tt::umd

@@ -69,6 +69,8 @@ protected:
 
     bool verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) override;
 
+    bool is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) override;
+
     EthAddresses eth_addresses;
 
     bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) override;

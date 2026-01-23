@@ -68,10 +68,15 @@ TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
+    if (options.no_remote_discovery && !options.create_eth_map) {
+        log_debug(LogUMD, "Skipping remote discovery and eth map creation as requested.");
+        return std::make_unique<ClusterDescriptor>();
+    }
+    // In case of no remote discovery, we still need the info that these functions fill up to fill up the eth map.
     get_connected_chips();
     discover_remote_chips();
     log_debug(LogUMD, "Completed topology discovery.");
-    return fill_cluster_descriptor_info();
+    return options.create_eth_map ? fill_cluster_descriptor_info() : std::make_unique<ClusterDescriptor>();
 }
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<Chip>>> TopologyDiscovery::discover(
@@ -81,16 +86,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr
     if (td == nullptr) {
         return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(chips));
     }
-    std::unique_ptr<ClusterDescriptor> cluster_desc;
-    if (options.create_eth_map) {
-        cluster_desc = td->create_ethernet_map();
-    } else {
-        // Still do discovery to populate chips, but skip get_connected_chips.
-        td->init_topology_discovery();
-        td->discover_remote_chips();
-        log_debug(LogUMD, "Completed topology discovery (without getting connected chips).");
-        cluster_desc = std::make_unique<ClusterDescriptor>();
-    }
+    std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     return std::make_pair(std::move(cluster_desc), std::move(td->chips));
 }
 

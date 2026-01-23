@@ -151,7 +151,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 
     const size_t max_num_harvested_y = 10;
 
-    // We go up to numbers less than 2^10 - 1 to test all possible harvesting masks, we fon't want to try to convert
+    // We go up to numbers less than 2^10 - 1 to test all possible harvesting masks, we don't want to try to convert
     // if everything is harvested.
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y) - 1; harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =

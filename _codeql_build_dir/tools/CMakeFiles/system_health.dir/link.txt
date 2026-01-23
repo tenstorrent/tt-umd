@@ -1,1 +1,0 @@
-/usr/bin/clang++-17 -O3 -DNDEBUG -Xlinker --dependency-file=CMakeFiles/system_health.dir/link.d CMakeFiles/system_health.dir/system_health.cpp.o -o umd/system_health  -Wl,-rpath,/home/runner/work/tt-umd/tt-umd/_codeql_build_dir/device ../device/libdevice.so

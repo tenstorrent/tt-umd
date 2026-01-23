@@ -10,6 +10,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
 #include "fmt/ranges.h"
@@ -67,14 +68,20 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
+enum class TimeoutAction { Throw, Return };
+
 /**
- * Checks if `timeout` amount of time has elapsed since `start_time`.
+ * Throw std::runtime_error or return true if `timeout` amount of time has elapsed since `start_time`.
  * @param start_time Point in time when the measured event started.
  * @param timeout Time expected for event to complete.
- * @return Has the requested event timed out.
+ * @param error_msg Error message to log or pass to std::runtime_error.
+ * @param action Decide which action (throw or return false) is done when timeout elapses.
  */
 static inline bool check_timeout(
-    const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) {
+    const std::chrono::steady_clock::time_point start_time,
+    const std::chrono::milliseconds timeout,
+    const std::string& error_msg,
+    TimeoutAction action = TimeoutAction::Throw) {
     // A timeout of 0 can never time out.
     if (timeout.count() == 0) {
         return false;
@@ -82,24 +89,13 @@ static inline bool check_timeout(
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
     if (elapsed > timeout) {
+        if (action == TimeoutAction::Throw) {
+            throw std::runtime_error(error_msg);
+        }
+        log_warning(LogUMD, error_msg);
         return true;
     }
     return false;
-}
-
-/**
- * Throw std::runtime_error if `timeout` amount of time has elapsed since `start_time`.
- * @param start_time Point in time when the measured event started.
- * @param timeout Time expected for event to complete.
- * @param error_msg Error message to pass to std::runtime_error.
- */
-static inline void check_timeout(
-    const std::chrono::steady_clock::time_point start_time,
-    const std::chrono::milliseconds timeout,
-    const std::string& error_msg) {
-    if (check_timeout(start_time, timeout)) {
-        throw std::runtime_error(error_msg);
-    }
 }
 
 }  // namespace tt::umd::utils

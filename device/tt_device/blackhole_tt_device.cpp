@@ -161,18 +161,32 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 }
 
 bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
-    auto start = std::chrono::steady_clock::now();
     uint32_t arc_boot_status;
-    do {
+    auto start = std::chrono::steady_clock::now();
+    while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
             return true;
         }
-    } while (!utils::check_timeout(start, timeout_ms));
 
-    return false;
+        if (utils::check_timeout(
+                start,
+                timeout_ms,
+                fmt::format(
+                    "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                    timeout_ms.count(),
+                    arc_core.x,
+                    arc_core.y),
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+
+        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
+        // polling hardware state that changes on the order of milliseconds.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 }
 
 uint32_t BlackholeTTDevice::get_clock() {

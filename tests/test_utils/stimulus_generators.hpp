@@ -361,7 +361,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
 }
 
 // Add a default test harness that can be invoked with custom distributions only.
-static void print_command(remote_transfer_sample_t const& command) {
+static inline void print_command(remote_transfer_sample_t const& command) {
     RemoteTransferType transfer_type = std::get<0>(command);
     switch (transfer_type) {
         case RemoteTransferType::WRITE: {
@@ -462,7 +462,7 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
     std::cout << std::endl;
 }
 
-static void print_command_history_executable_code(std::vector<remote_transfer_sample_t> const& command_history) {
+static inline void print_command_history_executable_code(std::vector<remote_transfer_sample_t> const& command_history) {
     std::cout << "std::vector<uint32_t> payload;" << std::endl;
     for (remote_transfer_sample_t const& command : command_history) {
         print_command_executable_code(command);
@@ -535,14 +535,14 @@ void RunMixedTransfers(
     }
 }
 
-static ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>
+static inline ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>
 get_default_address_generator(int seed, address_t start, address_t end) {
     auto const& address_distribution = std::uniform_int_distribution<address_t>(start, end);
     return ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>(
         seed + 1, address_distribution, address_aligner);
 }
 
-static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>
+static inline ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>
 get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
     assert(cluster != nullptr);
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
@@ -555,7 +555,7 @@ get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
         [core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
 }
 
-static WriteCommandGenerator<
+static inline WriteCommandGenerator<
     std::uniform_int_distribution,
     std::uniform_int_distribution,
     transfer_size_t,
@@ -580,7 +580,7 @@ build_dummy_write_command_generator(Cluster& cluster) {
     return WriteCommandGenerator(dest_generator, addr_generator, write_size_generator);
 }
 
-static ReadCommandGenerator<
+static inline ReadCommandGenerator<
     std::uniform_int_distribution,
     std::uniform_int_distribution,
     transfer_size_t,

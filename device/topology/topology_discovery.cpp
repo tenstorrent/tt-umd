@@ -68,11 +68,6 @@ TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
     init_topology_discovery();
-    if (options.no_remote_discovery && !options.create_eth_map) {
-        log_debug(LogUMD, "Skipping remote discovery and eth map creation as requested.");
-        return std::make_unique<ClusterDescriptor>();
-    }
-    // In case of no remote discovery, we still need the info that these functions fill up to fill up the eth map.
     get_connected_chips();
     discover_remote_chips();
     log_debug(LogUMD, "Completed topology discovery.");

@@ -14,9 +14,13 @@ To rebuild after making changes:
 export CMAKE_C_COMPILER=/usr/bin/gcc
 export CMAKE_CXX_COMPILER=/usr/bin/g++
 
-cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_ENABLE_CLANG_TIDY=OFF
 cmake --build build
 ```
+
+**Important**:
+- Always use cmake/ninja to build. Do NOT compile files directly with g++ (dependencies like fmt are managed by CPM and require cmake).
+- Do NOT modify `CMakeLists.txt`.
 
 ## Code Style Guidelines
 

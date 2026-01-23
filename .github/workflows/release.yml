@@ -447,7 +447,7 @@ jobs:
             - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64)
             - Compatible with Ubuntu 20.04+, RHEL 8+, and other modern Linux distributions
             - Includes Python bindings for tt-umd
-            - TestPyPI: https://test.pypi.org/project/tt-umd/
+            - PyPI: https://pypi.org/project/tt-umd/
 
             ---
 

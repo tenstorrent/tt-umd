@@ -1,0 +1,2 @@
+/usr/bin/llvm-ar-17 qc libfmt.a CMakeFiles/fmt.dir/src/format.cc.o CMakeFiles/fmt.dir/src/os.cc.o
+/usr/bin/llvm-ranlib-17 libfmt.a

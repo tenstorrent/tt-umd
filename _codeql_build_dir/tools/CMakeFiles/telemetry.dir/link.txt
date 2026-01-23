@@ -1,0 +1,1 @@
+/usr/bin/clang++-17 -O3 -DNDEBUG -Xlinker --dependency-file=CMakeFiles/telemetry.dir/link.d CMakeFiles/telemetry.dir/telemetry.cpp.o -o umd/telemetry  -Wl,-rpath,/home/runner/work/tt-umd/tt-umd/_codeql_build_dir/device ../device/libdevice.so

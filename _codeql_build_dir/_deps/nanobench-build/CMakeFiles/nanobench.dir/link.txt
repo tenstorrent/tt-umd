@@ -1,0 +1,2 @@
+/usr/bin/llvm-ar-17 qc libnanobench.a CMakeFiles/nanobench.dir/src/test/app/nanobench.cpp.o
+/usr/bin/llvm-ranlib-17 libnanobench.a

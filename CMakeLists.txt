@@ -134,6 +134,7 @@ add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
+    -Wno-sign-compare
     -Wno-unused-function
 )
 

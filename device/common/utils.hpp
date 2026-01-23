@@ -71,11 +71,11 @@ std::string to_hex_string(T value) {
 enum class TimeoutAction { Throw, Return };
 
 /**
- * Throw std::runtime_error if `timeout` amount of time has elapsed since `start_time`.
+ * Throw std::runtime_error or return false if `timeout` amount of time has elapsed since `start_time`.
  * @param start_time Point in time when the measured event started.
  * @param timeout Time expected for event to complete.
  * @param error_msg Error message to log or pass to std::runtime_error.
- * @param action Decide which action is done when timeout elapses.
+ * @param action Decide which action (throw or return false) is done when timeout elapses.
  */
 static inline bool check_timeout(
     const std::chrono::steady_clock::time_point start_time,

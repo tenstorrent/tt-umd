@@ -151,10 +151,10 @@ class TestNoEthMapReset(unittest.TestCase):
 
         print(f"\n{'='*60}")
         print(f"TOTAL TIME BREAKDOWN:")
-        print(f"  Test 1 (L-only, no eth): Reset: {reset_time_1:.3f}s, Discovery: {time_1:.3f}s")
-        print(f"  Test 2 (Full, no eth):   Reset: {reset_time_2:.3f}s, Discovery: {time_2:.3f}s")
-        print(f"  Test 3 (L-only, eth):    Reset: {reset_time_3:.3f}s, Discovery: {time_3:.3f}s")
-        print(f"  Device map building:     {map_time:.3f}s")
+        print(f"  Test 1 (Full discovery):                   Reset: {reset_time_1:.3f}s, Discovery: {time_1:.3f}s")
+        print(f"  Test 2 (Local-only, full initialization):  Reset: {reset_time_2:.3f}s, Discovery: {time_2:.3f}s")
+        print(f"  Test 3 (Local-only, no waiting on eth):    Reset: {reset_time_3:.3f}s, Discovery: {time_3:.3f}s")
+        print(f"  Device map building:                       {map_time:.3f}s")
         total_time = reset_time_1 + time_1 + reset_time_2 + time_2 + reset_time_3 + time_3 + map_time
         print(f"  Total: {total_time:.3f}s")
         print(f"{'='*60}")

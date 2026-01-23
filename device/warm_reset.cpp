@@ -7,10 +7,13 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <asio.hpp>
+#include <charconv>  // for std::from_chars
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <string_view>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
@@ -38,27 +41,35 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         pci_device_ids = PCIDevice::enumerate_devices();
     }
 
+    WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
+
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
-        return;
+        warm_reset_arch_agnostic(pci_device_ids, reset_m3);
+    } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
+        // Re-enumerate here as a safety net for potential race conditions where devices disappear
+        // between the pre-reset notification and now. Clients are still guaranteed to receive the
+        // post-reset notification since it's sent unconditionally after this block.
+        log_warning(tt::LogUMD, "No devices found to reset in legacy path.");
+    } else {
+        auto arch = enumerate_devices.begin()->second.get_arch();
+        log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
+        switch (arch) {
+            case ARCH::WORMHOLE_B0:
+                warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+                break;
+            case ARCH::BLACKHOLE:
+                if (reset_m3) {
+                    log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
+                }
+                warm_reset_blackhole_legacy(pci_device_ids);
+                break;
+            default:
+                log_warning(tt::LogUMD, "Unknown architecture '{}'. Skipping reset actions.", arch_to_str(arch));
+                break;
+        }
     }
 
-    auto enumerate_devices = PCIDevice::enumerate_devices_info();
-    auto arch = enumerate_devices.begin()->second.get_arch();
-    log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
-    switch (arch) {
-        case ARCH::WORMHOLE_B0:
-            warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
-            return;
-        case ARCH::BLACKHOLE:
-            if (reset_m3) {
-                log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
-            }
-            warm_reset_blackhole_legacy(pci_device_ids);
-            return;
-        default:
-            return;
-    }
+    WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 }
 
 int wait_for_pci_bdf_to_reappear(
@@ -361,6 +372,251 @@ void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     sleep(30);
     log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
+}
+
+// Free helper function for extracting pid.
+static int extract_pid_from_socket_name(std::string_view filename) {
+    // Format: "client_<PID>.sock".
+    constexpr std::string_view prefix = "client_";
+    constexpr std::string_view suffix = ".sock";
+
+    if (filename.size() <= prefix.size() + suffix.size()) {
+        return -1;
+    }
+
+    if (filename.substr(0, prefix.size()) != prefix || filename.substr(filename.size() - suffix.size()) != suffix) {
+        return -1;
+    }
+
+    filename.remove_prefix(prefix.size());
+    filename.remove_suffix(suffix.size());
+
+    int pid = -1;
+    auto [ptr, ec] = std::from_chars(filename.data(), filename.data() + filename.size(), pid);
+
+    // Ensure parsing succeeded and consumed the entire string (e.g., "123a" fails).
+    if (ec == std::errc() && (ptr == filename.data() + filename.size())) {
+        return pid;
+    }
+
+    return -1;
+}
+
+// Free helper function for getting connected listeners.
+static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_connected_listeners(
+    asio::io_context& io) {
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> connected_sockets;
+
+    if (!std::filesystem::exists(WarmResetCommunication::LISTENER_DIR)) {
+        return connected_sockets;
+    }
+
+    int my_pid = getpid();
+
+    for (const auto& entry : std::filesystem::directory_iterator(WarmResetCommunication::LISTENER_DIR)) {
+        if (!entry.is_socket()) {
+            continue;
+        }
+
+        std::string filename = entry.path().filename().string();
+        int target_pid = extract_pid_from_socket_name(filename);
+
+        if (target_pid == -1 || target_pid == my_pid) {
+            continue;
+        }
+
+        auto sock = std::make_shared<asio::local::stream_protocol::socket>(io);
+        try {
+            sock->connect(asio::local::stream_protocol::endpoint(entry.path().string()));
+            connected_sockets.push_back(sock);
+            log_debug(tt::LogUMD, "Successfully connected to client with PID {}.", target_pid);
+        } catch (const std::exception& e) {
+            log_debug(tt::LogUMD, "Couldn't connect to client with PID {}: {}.", target_pid, e.what());
+        }
+    }
+    return connected_sockets;
+}
+
+static std::atomic<bool> keep_monitoring{false};
+static std::weak_ptr<asio::io_context> weak_io;
+
+bool WarmResetCommunication::Monitor::start_monitoring(
+    std::function<void()>&& on_cleanup_request, std::function<void()>&& post_cleanup_request) {
+    if (keep_monitoring.exchange(true)) {
+        log_warning(tt::LogUMD, "Reset monitoring is already running.");
+        return false;
+    }
+
+    std::thread([on_cleanup_request = std::move(on_cleanup_request),
+                 post_cleanup_request = std::move(post_cleanup_request)]() {
+        auto io = std::make_shared<asio::io_context>();
+        weak_io = io;
+        std::error_code ec;
+
+        std::filesystem::create_directories(LISTENER_DIR, ec);
+        std::filesystem::permissions(LISTENER_DIR, std::filesystem::perms::all, ec);
+
+        // Create Unique Socket Name: client_<PID>.sock.
+        // We use the PID so the Notifier knows who this is.
+        std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
+        std::filesystem::path socket_path = std::filesystem::path(LISTENER_DIR) / socket_name;
+
+        // Cleanup stale socket if we crashed previously.
+        ::unlink(socket_path.c_str());
+
+        asio::local::stream_protocol::acceptor acceptor(*io);
+        asio::local::stream_protocol::endpoint endpoint(socket_path.string());
+
+        acceptor.open(endpoint.protocol(), ec);
+        if (ec) {
+            log_warning(
+                tt::LogUMD, "Monitor Thread: Failed to OPEN socket. Error: '{}' (Code: {})", ec.message(), ec.value());
+            keep_monitoring.store(false);
+            return;
+        }
+
+        acceptor.bind(endpoint, ec);
+        if (ec) {
+            if (ec == std::errc::no_such_file_or_directory) {
+                log_warning(
+                    tt::LogUMD,
+                    "Monitor Thread: Failed to BIND. Parent directory is missing (Shutdown/TearDown race). Exiting "
+                    "thread.");
+            } else {
+                log_warning(
+                    tt::LogUMD,
+                    "Monitor Thread: Failed to BIND. Error: '{}' (Code: {}) Path: {}",
+                    ec.message(),
+                    ec.value(),
+                    socket_path.string());
+            }
+            keep_monitoring.store(false);
+            return;
+        }
+
+        acceptor.listen(asio::socket_base::max_listen_connections, ec);
+        if (ec) {
+            log_warning(
+                tt::LogUMD, "Monitor Thread: Failed to LISTEN. Error: '{}' (Code: {})", ec.message(), ec.value());
+            keep_monitoring.store(false);
+            return;
+        }
+
+        // Ensure socket is writable by others (if running as different users).
+        std::filesystem::permissions(socket_path, std::filesystem::perms::all, ec);
+
+        std::function<void()> do_accept;
+
+        do_accept = [&]() {
+            auto sock = std::make_shared<asio::local::stream_protocol::socket>(*io);
+            acceptor.async_accept(
+                *sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](std::error_code ec) {
+                    if (ec || !keep_monitoring) {
+                        return;
+                    }
+
+                    auto buf = std::make_shared<WarmResetCommunication::MessageType>();
+                    sock->async_read_some(
+                        asio::buffer(buf.get(), sizeof(WarmResetCommunication::MessageType)),
+                        [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t len) {
+                            if (ec) {
+                                return;
+                            }
+                            switch (*buf) {
+                                case WarmResetCommunication::PRE_RESET:
+                                    log_info(tt::LogUMD, "Received Pre-Reset Notification!");
+
+                                    if (on_cleanup_request) {
+                                        on_cleanup_request();
+                                    }
+                                    return;
+                                case WarmResetCommunication::POST_RESET:
+                                    log_info(tt::LogUMD, "Received Post-Reset Notification!");
+
+                                    if (post_cleanup_request) {
+                                        post_cleanup_request();
+                                    }
+                                    return;
+                                default:
+                                    log_warning(
+                                        tt::LogUMD, "Unknown message byte received: {}", static_cast<int>(*buf));
+                                    break;
+                            }
+                        });
+                    if (keep_monitoring) {
+                        (do_accept)();
+                    }
+                });
+        };
+
+        (do_accept)();
+
+        if (keep_monitoring) {
+            io->run();
+        }
+
+        // Cleanup on exit.
+        ::unlink(socket_path.c_str());
+
+        // Detach so it runs in background.
+    }).detach();
+
+    return true;
+}
+
+void WarmResetCommunication::Monitor::stop_monitoring() {
+    keep_monitoring.store(false);
+    if (auto io = weak_io.lock()) {
+        io->stop();
+    }
+}
+
+void WarmResetCommunication::Notifier::notify_all_listeners(
+    MessageType msg_type, std::optional<std::chrono::milliseconds> timeout_ms) {
+    if (!std::filesystem::exists(LISTENER_DIR)) {
+        return;
+    }
+
+    asio::io_context io;
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = get_connected_listeners(io);
+
+    if (active_sockets.empty()) {
+        return;
+    }
+
+    log_debug(tt::LogUMD, "Sending message {} on {} socket(s)...", static_cast<int>(msg_type), active_sockets.size());
+
+    const MessageType* msg_ptr =
+        (msg_type == MessageType::PreReset) ? &WarmResetCommunication::PRE_RESET : &WarmResetCommunication::POST_RESET;
+
+    for (auto& sock : active_sockets) {
+        asio::async_write(
+            *sock,
+            asio::buffer(msg_ptr, sizeof(MessageType)),
+            [](std::error_code, size_t) { /* Ignore write errors */ });
+    }
+
+    std::optional<asio::steady_timer> timer;
+
+    if (timeout_ms.has_value()) {
+        timer.emplace(io, *timeout_ms);
+        timer->async_wait([&](std::error_code ec) {
+            if (!ec) {
+                log_info(tt::LogUMD, "Timeout elapsed, invoking reset.");
+                io.stop();
+            }
+        });
+    }
+
+    io.run();
+}
+
+void WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds timeout_ms) {
+    Notifier::notify_all_listeners(MessageType::PreReset, timeout_ms);
+}
+
+void WarmResetCommunication::Notifier::notify_all_listeners_post_reset() {
+    Notifier::notify_all_listeners(MessageType::PostReset, std::nullopt);
 }
 
 }  // namespace tt::umd

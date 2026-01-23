@@ -59,7 +59,6 @@ void TTDevice::probe_arc() {
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
-    pre_init_hook();
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
         throw std::runtime_error(fmt::format(
@@ -68,7 +67,6 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    post_init_hook();
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {

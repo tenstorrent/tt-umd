@@ -62,6 +62,21 @@
                         "${sourceDir}/cmake/clang-tidy-export-fixes-wrapper.sh;${sourceDir}/.build/clang-tidy-fix-parallel/fixes;--config-file=${sourceDir}/.clang-tidy"
                 }
             }
+        },
+        {
+            "name": "clang-static-analyzer",
+            "inherits": "default",
+            "description": "Run Clang Static Analyzer",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/.build/clang-static-analyzer",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "value": "Debug"
+                },
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "FALSE"
+                }
+            }
         }
     ],
     "buildPresets": [

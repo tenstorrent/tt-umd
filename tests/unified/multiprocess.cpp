@@ -94,6 +94,7 @@ TEST(Multiprocess, MultipleClusters) {
 TEST(Multiprocess, MultipleThreadsSingleCluster) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Running IO for thread " << i << " inside cluster." << std::endl;
@@ -109,6 +110,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 // Many threads open and close many clusters.
 TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Create cluster " << i << std::endl;
@@ -124,6 +126,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 // Many threads start and stop many clusters.
 TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Creating cluster " << i << std::endl;
@@ -142,6 +145,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
 // This test runs in parallel testing the lock guarding the start/stop of the device.
 TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     std::vector<std::thread> threads;
+    threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::unique_ptr<Cluster> cluster =
@@ -314,6 +318,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
     std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
 
     std::vector<std::thread> process_threads;
+    process_threads.reserve(num_processes);
 
     for (int process_id = 0; process_id < num_processes; process_id++) {
         process_threads.push_back(std::thread([=]() {
@@ -387,13 +392,13 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     const int test_device_id = pci_device_ids.at(0);
     constexpr int num_iterations = 500;
     constexpr uint64_t test_address = 0x1000;
-    constexpr size_t data_size = 1024;  // 1KB data per operation
+    constexpr size_t data_size = 1024;  // 1KB data per operation.
 
-    std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
+    std::cout << "Testing DMA race condition (real fork) on PCI device " << test_device_id << std::endl;
 
     for (int process_id = 0; process_id < NUM_PROCESSES; process_id++) {
         pid_t pid = fork();
-        if (pid == 0) {  // Child Process
+        if (pid == 0) {  // Child Process.
             std::cout << "Process " << process_id << ": Creating TTDevice for PCI device " << test_device_id
                       << std::endl;
 
@@ -409,10 +414,10 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
             std::vector<uint32_t> read_data(data_size / sizeof(uint32_t));
 
             for (size_t i = 0; i < write_data.size(); i++) {
-                write_data[i] = (process_id << 24) | (i & 0xFFFFFF);  // Unique pattern per process
+                write_data[i] = (process_id << 24) | (i & 0xFFFFFF);  // Unique pattern per process.
             }
 
-            std::cout << "Process " << process_id << ": Starting DMA operations" << std::endl;
+            std::cout << "Process " << process_id " with pid " << pid << ": Starting DMA operations" << std::endl;
 
             for (int iter = 0; iter < num_iterations; iter++) {
                 try {
@@ -429,20 +434,21 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
                     // Verify data integrity.
                     if (write_data != read_data) {
                         std::cout << "Data mismatch in process " << process_id << " iteration " << iter << std::endl;
-                        _exit(1);  // Return 1 for Data Mismatch
+                        _exit(1);  // Return 1 for Data Mismatch.
                     }
 
                 } catch (const std::exception& e) {
                     std::cout << "Process " << process_id << " iteration " << iter << " failed: " << e.what()
                               << std::endl;
-                    _exit(2);  // Return 2 for Exception
+                    _exit(2);  // Return 2 for Exception.
                 }
             }
 
             std::cout << "Process " << process_id << ": Completed " << num_iterations << " DMA operations successfully"
                       << std::endl;
-            _exit(0);  // Return 0 for Success
+            _exit(0);  // Return 0 for Success.
         }
+        // Parent process.
         pids.push_back(pid);
     }
 
@@ -458,5 +464,5 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
         }
     }
 
-    std::cout << "DMA race condition test completed" << std::endl;
+    std::cout << "DMA race condition test (real fork) completed" << std::endl;
 }

@@ -416,8 +416,6 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
                 write_data[i] = (process_id << 24) | (i & 0xFFFFFF);  // Unique pattern per process.
             }
 
-            std::cout << "Process " << process_id " with pid " << pid << ": Starting DMA operations" << std::endl;
-
             for (int iter = 0; iter < num_iterations; iter++) {
                 try {
                     // Use different addresses per process to avoid data corruption.

@@ -399,8 +399,7 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     for (int process_id = 0; process_id < NUM_PROCESSES; process_id++) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process.
-            std::cout << "Process " << process_id << ": Creating TTDevice for PCI device " << test_device_id
-                      << std::endl;
+            std::cout << "Process " << process_id << " with pid " << pid << ": Starting DMA operations" << std::endl;
 
             // Each process creates its own TTDevice object with the same PCIDevice.
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);

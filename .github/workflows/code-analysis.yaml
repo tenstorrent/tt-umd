@@ -1,31 +1,9 @@
-name: "Code analysis"
+name: "Code Analysis"
 
 on:
   schedule:
-    # Static analysis: 6 PM PST Mon/Wed/Fri (2 AM UTC Tue/Thu/Sat)
-    - cron: "0 2 * * 2,4,6"
-  workflow_call:
-    inputs:
-      enable-static-analysis:
-        description: "Enable Clang Static Analyzer (CSA) via CodeChecker"
-        required: false
-        type: boolean
-        default: false
-      debug-file-filter:
-        description: "Analyze only specific file(s) for fast debugging (e.g., 'device/**/*.hpp' or 'path/to/file.cpp')"
-        required: false
-        type: string
-        default: ""
-      enable-copilot-fix:
-        description: "Enable Copilot to automatically fix ClangSA issues and create a PR"
-        required: false
-        type: boolean
-        default: false
-      copilot-max-fixes:
-        description: "Maximum number of issues for Copilot to fix (default: 15)"
-        required: false
-        type: string
-        default: ""
+    # Run daily at 6 PM PST (2 AM UTC next day)
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       enable-static-analysis:
@@ -44,7 +22,7 @@ on:
         type: boolean
         default: false
       copilot-max-fixes:
-        description: "Maximum number of issues for Copilot to fix (default: 15)"
+        description: "Maximum number of issues for Copilot to fix"
         required: false
         type: string
         default: ""
@@ -53,7 +31,7 @@ jobs:
   clang-static-analyzer:
     name: 🔬 Clang Static Analyzer
     if: ${{ inputs.enable-static-analysis == true || github.event_name == 'schedule' }}
-    runs-on: ubuntu-latest
+    runs-on: tt-ubuntu-2204-xlarge-stable
     container:
       image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       volumes:
@@ -214,6 +192,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Authenticate first (required for all gh commands)
+          if [ -z "$COPILOT_OAUTH_TOKEN" ]; then
+            echo "::error::COPILOT_OAUTH_TOKEN secret not set. \
+              Run 'gh auth login' locally, then 'gh auth token' and add as secret."
+            exit 1
+          fi
+          echo "$COPILOT_OAUTH_TOKEN" | gh auth login --with-token
+
           # Check for issues
           if [ ! -f "/tmp/codechecker_issues.json" ]; then
             echo "No issues found"
@@ -231,26 +217,27 @@ jobs:
           echo "Found $ISSUE_COUNT issues"
           echo "has-issues=true" >> "$GITHUB_OUTPUT"
 
-          # Authenticate with OAuth token (required for agent-task)
-          if [ -z "$COPILOT_OAUTH_TOKEN" ]; then
-            echo "::error::COPILOT_OAUTH_TOKEN secret not set. \
-              Run 'gh auth login' locally, then 'gh auth token' and add as secret."
-            exit 1
+          # Check for existing open Copilot PRs to avoid duplicates
+          OPEN_COPILOT_PRS=$(gh pr list --repo "${{ github.repository }}" \
+            --state open --label "copilot-autofix" --json number --jq 'length' 2>/dev/null || echo "0")
+          if [ "$OPEN_COPILOT_PRS" -gt 0 ]; then
+            echo "⏭️ Skipping: $OPEN_COPILOT_PRS open Copilot PR(s) already exist"
+            echo "Review and merge existing PRs before creating new ones."
+            echo "has-issues=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          echo "$COPILOT_OAUTH_TOKEN" | gh auth login --with-token
 
-          # Build prompt
+          # Build prompt - default to 1 issue for focused, quality fixes
           LIMIT="${{ inputs.copilot-max-fixes }}"
-          LIMIT="${LIMIT:-15}"
+          LIMIT="${LIMIT:-1}"  # Default: 1 issue per run
 
           {
             echo "Fix these Clang Static Analyzer issues:"
             echo ""
-            jq -r --argjson limit "$LIMIT" '
-              .reports[:$limit][] |
-              "- \(.checker_name) in \(.file.path | sub("^/work/"; "")):\(.line) \
-                — \(.message)"
-            ' /tmp/codechecker_issues.json
+            jq -r --argjson limit "$LIMIT" \
+              '.reports[:$limit][] |
+               "- \(.checker_name) in \(.file.path | sub("^/work/"; "")):\(.line) — \(.message)"' \
+              /tmp/codechecker_issues.json
             echo ""
             echo "For each: verify it's real, apply minimal fix, follow coding standards."
           } > /tmp/prompt.txt
@@ -271,7 +258,8 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then
             echo "pr-url=https://github.com/${{ github.repository }}/pull/${PR_NUMBER}" >> "$GITHUB_OUTPUT"
             echo "pr-created=true" >> "$GITHUB_OUTPUT"
-            gh pr comment "$PR_NUMBER" -R "${{ github.repository }}" --body "/codeowners ping" || true
+            # Add label to track Copilot PRs and prevent duplicates
+            gh pr edit "$PR_NUMBER" -R "${{ github.repository }}" --add-label "copilot-autofix" || true
           else
             echo "pr-created=false" >> "$GITHUB_OUTPUT"
           fi
@@ -313,7 +301,6 @@ jobs:
 
       - name: Publish to GitHub Pages (requires PAT secret)
         uses: peaceiris/actions-gh-pages@v4
-        if: ${{ secrets.CLANGSA_RESULTS_PAT != '' }}
         with:
           personal_token: ${{ secrets.CLANGSA_RESULTS_PAT }}
           external_repository: blozano-tt/umd-clangsa-results

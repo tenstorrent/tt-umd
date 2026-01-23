@@ -259,6 +259,22 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             break;
         }
 
+        // This covers dual LLMBox.
+        case 16: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 8);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 80);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
         // This covers 6U galaxy.
         case 32: {
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();

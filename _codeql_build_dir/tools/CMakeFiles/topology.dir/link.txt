@@ -1,0 +1,1 @@
+/usr/bin/clang++-17 -O3 -DNDEBUG -Xlinker --dependency-file=CMakeFiles/topology.dir/link.d CMakeFiles/topology.dir/topology.cpp.o -o umd/topology  -Wl,-rpath,/home/runner/work/tt-umd/tt-umd/_codeql_build_dir/device ../device/libdevice.so

@@ -1,0 +1,1 @@
+/usr/bin/clang++-17 -O3 -DNDEBUG -Xlinker --dependency-file=CMakeFiles/harvesting.dir/link.d CMakeFiles/harvesting.dir/harvesting.cpp.o -o umd/harvesting  -Wl,-rpath,/home/runner/work/tt-umd/tt-umd/_codeql_build_dir/device ../device/libdevice.so

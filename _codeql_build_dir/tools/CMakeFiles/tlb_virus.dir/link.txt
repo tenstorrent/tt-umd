@@ -1,0 +1,1 @@
+/usr/bin/clang++-17 -O3 -DNDEBUG -Xlinker --dependency-file=CMakeFiles/tlb_virus.dir/link.d CMakeFiles/tlb_virus.dir/tlb_virus.cpp.o -o umd/tlb_virus  -Wl,-rpath,/home/runner/work/tt-umd/tt-umd/_codeql_build_dir/device ../device/libdevice.so

@@ -11,7 +11,7 @@ namespace tt::umd {
 class SimulationSysmemManager : public SysmemManager {
 public:
     SimulationSysmemManager(uint32_t num_host_mem_channels);
-    ~SimulationSysmemManager();
+    ~SimulationSysmemManager() override;
 
     bool pin_or_map_sysmem_to_device() override;
 

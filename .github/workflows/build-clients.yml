@@ -53,36 +53,6 @@ jobs:
           ./build_metal.sh --build-all --enable-ccache
           cd ../
 
-  build-tt-exalens:
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
-
-    name: Build tt-exalens with newest UMD
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
-
-    steps:
-      - name: Checkout tt-exalens repo
-        uses: actions/checkout@v4
-        with:
-          # Clone under tt-exalens directory
-          path: tt-exalens
-          repository: tenstorrent/tt-exalens
-          submodules: recursive
-
-      - name: Checkout UMD
-        uses: actions/checkout@v4
-        with:
-          # Clone directly into tt-exalens directory for umd
-          path: tt-exalens/third_party/umd
-          submodules: recursive
-
-      - name: Build tt-exalens
-        run: |
-          cd tt-exalens
-          make build
-          cd ../
-
   build-tt-sim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
@@ -136,7 +106,7 @@ jobs:
           echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
       - name: Download ttsim binary (wh)
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05  # v1.12
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
@@ -144,7 +114,7 @@ jobs:
           out-file-path: /tmp/ttsim-wh
 
       - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05  # v1.12
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
@@ -160,7 +130,7 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          ./build_metal.sh --build-programming-examples
+          ./build_metal.sh --build-programming-examples --build-tests
           cd ../
 
       - name: Prepare sim paths
@@ -181,3 +151,31 @@ jobs:
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+
+      - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
+        env:
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_TESTS_DIR: >-
+            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+        run: |
+          cd tt-metal
+          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
+          echo "Running C++ unit tests for wormhole_b0..."
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+
+      - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
+        env:
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_TESTS_DIR: >-
+            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+        run: |
+          cd tt-metal
+          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"
+          echo "Running C++ unit tests for blackhole..."
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
+          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"

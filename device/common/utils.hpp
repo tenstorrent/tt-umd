@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
@@ -49,7 +50,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
 // active.
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
-static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
+static inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
     const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
     return target_devices.empty() && env_var_value.has_value()
                ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
@@ -69,11 +70,19 @@ std::string to_hex_string(T value) {
 
 enum class TimeoutAction { Throw, Return };
 
-static bool check_timeout(
+/**
+ * Throw std::runtime_error if `timeout` amount of time has elapsed since `start_time`.
+ * @param start_time Point in time when the measured event started.
+ * @param timeout Time expected for event to complete.
+ * @param error_msg Error message to log or pass to std::runtime_error.
+ * @param action Decide which action is done when timeout elapses.
+ */
+static inline bool check_timeout(
     const std::chrono::steady_clock::time_point start_time,
     const std::chrono::milliseconds timeout,
     const std::string& error_msg,
     TimeoutAction action = TimeoutAction::Throw) {
+    // A timeout of 0 can never time out.
     if (timeout.count() == 0) {
         return false;
     }

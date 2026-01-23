@@ -138,9 +138,11 @@ add_compile_options(
     -Werror
     -Wno-unused-variable
     -Wno-unused-function
-    -Wno-unused-but-set-variable
     -Wno-sign-compare
 )
+
+# Fixed this warning on clang, but not yet gcc
+add_compile_options("$<$<NOT:$<CXX_COMPILER_ID:Clang>>:-Wno-unused-but-set-variable>")
 
 # Conditionally add -Wno-maybe-uninitialized for GCC
 # If this is left enabled it produces a hard to track down issue in stimulus_generators.hpp with ConstrainedTemplateTemplateGenerator

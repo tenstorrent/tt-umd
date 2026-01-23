@@ -149,7 +149,6 @@ void TopologyDiscovery::discover_remote_chips() {
 
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-        TTDevice* tt_device = chip->get_tt_device();
 
         verify_fw_bundle_version(chip);
 
@@ -165,6 +164,14 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
+            if (is_using_eth_coords() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
+                auto local_eth_coord = get_local_eth_coord(chip, eth_core);
+                if (local_eth_coord.has_value()) {
+                    eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
+                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());
+                }
+            }
+
             if (!is_eth_trained(chip, eth_core)) {
                 channel++;
                 continue;
@@ -175,13 +182,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
-            if (is_using_eth_coords()) {
-                auto local_eth_coord = get_local_eth_coord(chip, eth_core);
-                if (local_eth_coord.has_value() && eth_coords.find(current_chip_asic_id) == eth_coords.end()) {
-                    eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Chip {} has ETH coord: {}", current_chip_asic_id, local_eth_coord.value());
-                }
-            }
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core)) ||

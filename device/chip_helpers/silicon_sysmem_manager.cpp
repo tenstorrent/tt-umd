@@ -328,7 +328,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
     return true;
 }
 
-void SiliconSysmemManager::print_file_contents(std::string filename, std::string hint) {
+void SiliconSysmemManager::print_file_contents(const std::string &filename, const std::string &hint) {
     if (std::filesystem::exists(filename)) {
         std::ifstream meminfo(filename);
         if (meminfo.is_open()) {

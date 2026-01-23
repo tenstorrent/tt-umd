@@ -317,13 +317,13 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
     uint32_t eth_fw_version_read;
     chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
 
-    semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
+    semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
         expected_eth_fw_version =
             get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::WORMHOLE_B0);
-        if (expected_eth_fw_version.has_value()) {
+        if (options.predict_eth_fw_version && expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;

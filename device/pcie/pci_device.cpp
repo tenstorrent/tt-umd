@@ -199,6 +199,7 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
 
 static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;

@@ -348,9 +348,9 @@ void bind_tt_device(nb::module_ &m) {
 
     nb::class_<SPITTDevice>(m, "SPITTDevice")
         .def(
-            [](TTDevice &device) -> std::unique_ptr<SPITTDevice> { return std::make_unique<SPITTDevice>(&device); },
+            "__init__",
+            [](SPITTDevice *self, TTDevice &device) { new (self) SPITTDevice(&device); },
             nb::arg("device"),
-            nb::rv_policy::take_ownership,
             "Create an SPITTDevice for the given TTDevice")
         .def(
             "read",

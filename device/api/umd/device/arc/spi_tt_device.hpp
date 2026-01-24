@@ -15,9 +15,10 @@ namespace tt::umd {
 class TTDevice;
 
 /**
- * SPI implementation that provides SPI operations for a TTDevice.
+ * Interface to the SPI flash memory on Tenstorrent devices.
+ * This SPI flash stores device images including ARC firmware, ETH base firmware, and other system images.
  * This class takes a pointer to TTDevice on construction and provides
- * read/write operations to SPI flash memory.
+ * read/write operations to the SPI flash memory.
  */
 class SPITTDevice {
 public:

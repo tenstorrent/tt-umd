@@ -19,12 +19,14 @@ SPITTDevice::SPITTDevice(TTDevice *device) : device_(device) {
 
 void SPITTDevice::read(uint32_t addr, uint8_t *data, size_t size) {
     // TODO: Implement architecture-specific SPI read based on device_->get_arch().
-    throw std::runtime_error("SPI read not yet implemented for this device architecture.");
+    throw std::runtime_error(
+        fmt::format("SPI read not yet implemented for this {} architecture.", device_->get_arch()));
 }
 
 void SPITTDevice::write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi) {
     // TODO: Implement architecture-specific SPI write based on device_->get_arch().
-    throw std::runtime_error("SPI write not yet implemented for this device architecture.");
+    throw std::runtime_error(
+        fmt::format("SPI write not yet implemented for this {} architecture.", device_->get_arch()));
 }
 
 }  // namespace tt::umd

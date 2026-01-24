@@ -378,7 +378,7 @@ void RobustMutex::lock() {
     // Try to acquire the lock with a 1-second timeout first.
     struct timespec timeout;
     clock_gettime(CLOCK_REALTIME, &timeout);
-    timeout.tv_sec += 1;  // 1 second timeout
+    timeout.tv_sec += 5;  // 1 second timeout
 
     int lock_res = pthread_mutex_timedlock(&(mutex_wrapper_ptr_->mutex), &timeout);
 

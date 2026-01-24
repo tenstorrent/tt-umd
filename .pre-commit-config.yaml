@@ -7,6 +7,10 @@ repos:
   rev: v17.0.6
   hooks:
   - id: clang-format
+- repo: https://github.com/psf/black
+  rev: 24.1.1
+  hooks:
+  - id: black
 - repo: https://github.com/adrienverge/yamllint
   rev: v1.35.1
   hooks:

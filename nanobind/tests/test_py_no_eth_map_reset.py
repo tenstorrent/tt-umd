@@ -75,7 +75,7 @@ class TestNoEthMapReset(unittest.TestCase):
         time.sleep(2)  # Give devices a moment to stabilize
         return reset_time
 
-    # @unittest.skip("Comment this out to profile warm reset and topology discovery.")
+    @unittest.skip("Comment this out to profile warm reset and topology discovery.")
     def test_profiling_and_reset(self):
         reset_time_1 = self.perform_warm_reset()
         options_1 = tt_umd.TopologyDiscoveryOptions()

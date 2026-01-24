@@ -248,6 +248,10 @@ You can change the VERSION as part of another PR or as an isolated PR. Please al
 
 Once the PR is merged, a draft Release will be created with the generated changelog and artifacts. Please review it and publish it using the tag which exactly matches the version of the release.
 
+# CI/CD
+
+For information about GitHub Actions, see the [GitHub Actions documentation](https://docs.github.com/en/actions).
+
 # Grayskull End of Life
 
 Grayskull is no longer actively supported by Tenstorrent. [Last UMD commit](https://github.com/tenstorrent/tt-umd/commit/a5b4719b7d44f0c7c953542803faf6851574329a) supporting Grayskull.

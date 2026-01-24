@@ -51,7 +51,7 @@ public:
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
 protected:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool allow_spi = false);
+    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     bool is_hardware_hung() override;
@@ -61,7 +61,7 @@ protected:
 private:
     int get_pcie_x_coordinate();
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool allow_spi);
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

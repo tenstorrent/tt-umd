@@ -44,7 +44,7 @@ public:
     bool is_hardware_hung() override;
 
 private:
-    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi = false);
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
     /*
      * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice
@@ -56,11 +56,9 @@ private:
      * TODO: In the future, either remove this constructor or refactor the class hierarchy to better support PCIe use
      * case.
      */
-    RemoteWormholeTTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type, bool allow_spi = false);
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi);
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

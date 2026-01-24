@@ -7,9 +7,8 @@
 
 namespace tt::umd {
 
-RemoteBlackholeTTDevice::RemoteBlackholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi) :
-    BlackholeTTDevice(remote_communication->get_local_device()->get_pci_device(), allow_spi),
+RemoteBlackholeTTDevice::RemoteBlackholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
+    BlackholeTTDevice(remote_communication->get_local_device()->get_pci_device()),
     remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
 }

@@ -115,26 +115,27 @@ class TestTTDevice(unittest.TestCase):
         chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
 
         # Create TTDevice instances for all chips (local and remote)
-        # Note that we have to enable SPI for the test to work.
-        allow_spi = True;
         for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):
             if cluster_descriptor.is_chip_mmio_capable(chip):
-                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip], allow_spi = allow_spi)
+                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
                 umd_tt_devices[chip].init_tt_device()
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(
-                    umd_tt_devices[closest_mmio], cluster_descriptor, chip, allow_spi)
+                    umd_tt_devices[closest_mmio], cluster_descriptor, chip)
                 umd_tt_devices[chip].init_tt_device()
 
         # Test SPI operations on each device
         for chip_id, tt_device in umd_tt_devices.items():
             print(f"\n=== Testing SPI on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
 
+            # Create SPI implementation for this device
+            spi_impl = tt_umd.SPITTDevice(tt_device)
+
             # Test SPI read - board info
             board_info_addr = 0x20108
             board_info = bytearray(8)
-            tt_device.spi_read(board_info_addr, board_info)
+            spi_impl.read(board_info_addr, board_info)
             print(f"Board info: {' '.join([f'{b:02x}' for b in board_info])}")
 
             # Verify board info is not all zeros
@@ -144,7 +145,7 @@ class TestTTDevice(unittest.TestCase):
             # Test read-modify-write on spare area
             spare_addr = 0x20134
             original = bytearray(2)
-            tt_device.spi_read(spare_addr, original)
+            spi_impl.read(spare_addr, original)
             print(f"Original value at 0x{spare_addr:x}: {original[1]:02x}{original[0]:02x}")
 
             # Increment the value
@@ -154,11 +155,11 @@ class TestTTDevice(unittest.TestCase):
                 new_val[1] = (new_val[1] + 1) % 256
 
             # Write back incremented value
-            tt_device.spi_write(spare_addr, bytes(new_val))
+            spi_impl.write(spare_addr, bytes(new_val))
 
             # Verify the write
             verify = bytearray(2)
-            tt_device.spi_read(spare_addr, verify)
+            spi_impl.read(spare_addr, verify)
             print(f"Updated value at 0x{spare_addr:x}: {verify[1]:02x}{verify[0]:02x}")
 
             self.assertEqual(list(new_val), list(verify), 
@@ -172,11 +173,11 @@ class TestTTDevice(unittest.TestCase):
 
             # Performs write to the buffer, but doesn't commit it to SPI (skip_write_to_spi=True)
             print(f"SPI write (fake) to 0x{spare_addr:x}")
-            tt_device.spi_write(spare_addr, bytes(new_val), True)
+            spi_impl.write(spare_addr, bytes(new_val), True)
 
             # Read back to verify - should NOT match new_val since we didn't actually write to SPI
             verify2 = bytearray(2)
-            tt_device.spi_read(spare_addr, verify2)
+            spi_impl.read(spare_addr, verify2)
             print(f"Value after fake write at 0x{spare_addr:x}: {verify2[1]:02x}{verify2[0]:02x}")
 
             self.assertNotEqual(list(new_val), list(verify2),
@@ -184,7 +185,7 @@ class TestTTDevice(unittest.TestCase):
 
             # Read wider area
             wide_read = bytearray(8)
-            tt_device.spi_read(spare_addr, wide_read)
+            spi_impl.read(spare_addr, wide_read)
             wide_value = int.from_bytes(wide_read, byteorder='little')
             print(f"Wide read at 0x{spare_addr:x}: {wide_value:016x}")
 

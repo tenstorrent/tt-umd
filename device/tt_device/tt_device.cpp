@@ -11,7 +11,6 @@
 
 #include "assert.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
-#include "umd/device/arc/spi.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -70,7 +69,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     post_init_hook();
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool allow_spi) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
@@ -89,15 +88,15 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device, allow_spi));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device, allow_spi));
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device));
         default:
             return nullptr;
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication, bool allow_spi) {
+std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
@@ -106,15 +105,14 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
                 return std::unique_ptr<RemoteWormholeTTDevice>(
                     new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(
-                new RemoteWormholeTTDevice(std::move(remote_communication), allow_spi));
+            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
                 TT_THROW("Remote TTDevice creation over JTAG is not yet supported for Blackhole architecture.");
             }
             return std::unique_ptr<RemoteBlackholeTTDevice>(
-                new RemoteBlackholeTTDevice(std::move(remote_communication), allow_spi));
+                new RemoteBlackholeTTDevice(std::move(remote_communication)));
         }
         default:
             throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
@@ -643,20 +641,6 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
         addr += transfer_size;
         buffer_addr += transfer_size;
     }
-}
-
-void TTDevice::spi_read(uint32_t addr, uint8_t *data, size_t size) {
-    if (!spi_) {
-        throw std::runtime_error("SPI not available for this device.");
-    }
-    spi_->read(addr, data, size);
-}
-
-void TTDevice::spi_write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi) {
-    if (!spi_) {
-        throw std::runtime_error("SPI not available for this device.");
-    }
-    spi_->write(addr, data, size, skip_write_to_spi);
 }
 
 }  // namespace tt::umd

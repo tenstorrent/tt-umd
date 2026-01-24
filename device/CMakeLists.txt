@@ -97,6 +97,7 @@ target_sources(
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
+        arc/spi_tt_device.cpp
         warm_reset.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
@@ -219,7 +220,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag.hpp
                 api/umd/device/tt_kmd_lib/tt_kmd_lib.h
                 api/umd/device/arch/grendel_implementation.hpp
-                api/umd/device/arc/spi.hpp
+                api/umd/device/arc/spi_tt_device.hpp
     )
 endif()
 

@@ -8,18 +8,27 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace tt::umd {
 
 class TTDevice;
 
 /**
- * Abstract interface for SPI operations on Tenstorrent devices.
- * Different architectures implement this interface differently.
+ * SPI implementation that provides SPI operations for a TTDevice.
+ * This class takes a pointer to TTDevice on construction and provides
+ * read/write operations to SPI flash memory.
  */
-class SPI {
+class SPITTDevice {
 public:
-    virtual ~SPI() = default;
+    /**
+     * Constructor that takes a pointer to TTDevice.
+     *
+     * @param device Pointer to the TTDevice to use for SPI operations
+     */
+    explicit SPITTDevice(TTDevice *device);
+
+    virtual ~SPITTDevice() = default;
 
     /**
      * Read data from SPI flash memory.
@@ -28,7 +37,7 @@ public:
      * @param data Buffer to store the read data
      * @param size Number of bytes to read
      */
-    virtual void read(uint32_t addr, uint8_t* data, size_t size) = 0;
+    void read(uint32_t addr, uint8_t *data, size_t size);
 
     /**
      * Write data to SPI flash memory.
@@ -38,7 +47,10 @@ public:
      * @param size Number of bytes to write
      * @param skip_write_to_spi If true, the data will not be committed to SPI. This is useful for testing.
      */
-    virtual void write(uint32_t addr, const uint8_t* data, size_t size, bool skip_write_to_spi = false) = 0;
+    void write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi = false);
+
+protected:
+    TTDevice *device_;
 };
 
 }  // namespace tt::umd

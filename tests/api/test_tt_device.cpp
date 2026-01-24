@@ -8,6 +8,7 @@
 #include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -323,11 +324,9 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
                   << std::endl;
 
         // Create local or remote TTDevice instance for the chip.
-        // Note that we have to enable SPI for the test to work.
-        bool allow_spi = true;
         if (cluster_desc->is_chip_mmio_capable(chip_id)) {
             int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
-            auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe, allow_spi);
+            auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe);
             tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(tt_device);
         } else {
@@ -341,7 +340,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
                 local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
             remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
-            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication), allow_spi);
+            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
             remote_tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(remote_tt_device);
         }
@@ -351,13 +350,16 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         std::cout << "\n=== Testing device " << chip_id << " (remote: " << tt_device->is_remote()
                   << ") ===" << std::endl;
 
+        // Create SPI implementation for this device
+        auto spi_impl = std::make_unique<SPITTDevice>(tt_device.get());
+
         // Test SPI read functionality
         // Note: SPI addresses are chip-specific. Using a safe area for testing.
         uint32_t test_addr = 0x20108;  // Board info address (safe to read)
         std::vector<uint8_t> read_data(8, 0);
 
         // Test SPI read - should work on chips with ARC SPI support
-        tt_device->spi_read(test_addr, read_data.data(), read_data.size());
+        spi_impl->read(test_addr, read_data.data(), read_data.size());
 
         std::cout << "Read board info: ";
         for (uint8_t byte : read_data) {
@@ -381,7 +383,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         // Read current value
         std::vector<uint8_t> original_value(2, 0);
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        tt_device->spi_read(spare_addr, original_value.data(), original_value.size());
+        spi_impl->read(spare_addr, original_value.data(), original_value.size());
 
         std::cout << "Original value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)original_value[1] << std::setw(2) << (int)original_value[0] << std::endl;
@@ -395,12 +397,12 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
 
         // Write back incremented value
         std::cout << "spi_write value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
-        tt_device->spi_write(spare_addr, new_value.data(), new_value.size());
+        spi_impl->write(spare_addr, new_value.data(), new_value.size());
 
         // Read back to verify
         std::vector<uint8_t> verify_value(2, 0);
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        tt_device->spi_read(spare_addr, verify_value.data(), verify_value.size());
+        spi_impl->read(spare_addr, verify_value.data(), verify_value.size());
 
         std::cout << "Updated value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)verify_value[1] << std::setw(2) << (int)verify_value[0] << std::endl;
@@ -417,18 +419,18 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         }
         // Performs write to the buffer, but doesn't commit it to SPI.
         std::cout << "spi_write (fake) value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
-        tt_device->spi_write(spare_addr, new_value.data(), new_value.size(), true);
+        spi_impl->write(spare_addr, new_value.data(), new_value.size(), true);
 
         // Read back to verify
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        tt_device->spi_read(spare_addr, verify_value.data(), verify_value.size());
+        spi_impl->read(spare_addr, verify_value.data(), verify_value.size());
         EXPECT_NE(new_value, verify_value) << "SPI buffer update on read failed for device " << chip_id;
 
         // Verify that the value fetched from different address was different.
         // Read wider area to check SPI handling of different sizes
         std::vector<uint8_t> wide_value(8, 0);
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        tt_device->spi_read(spare_addr, wide_value.data(), wide_value.size());
+        spi_impl->read(spare_addr, wide_value.data(), wide_value.size());
 
         uint64_t wide_value_u64 = 0;
         std::memcpy(&wide_value_u64, wide_value.data(), sizeof(wide_value_u64));

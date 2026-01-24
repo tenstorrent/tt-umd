@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "assembly_programs_for_tests.hpp"
 #include "umd/device/cluster.hpp"
 
@@ -31,38 +33,44 @@ inline void safe_test_cluster_start(Cluster* cluster) {
             return;
     }
 
-    for (auto& chip_id : cluster->get_target_device_ids()) {
-        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-        std::unordered_set<CoreCoord> all_tensix_cores_translated{tensix_cores.begin(), tensix_cores.end()};
+    static std::mutex mtx;
+    {
+        std::lock_guard<std::mutex> lock(mtx);
 
-        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
-            cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);
+        for (auto& chip_id : cluster->get_target_device_ids()) {
+            auto tensix_cores =
+                cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+            std::unordered_set<CoreCoord> all_tensix_cores_translated{tensix_cores.begin(), tensix_cores.end()};
+
+            for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+                cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);
+            }
+
+            cluster->l1_membar(chip_id, all_tensix_cores_translated);
+
+            for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+                cluster->write_to_device(
+                    brisc_program_default.data(),
+                    brisc_program_default.size() * sizeof(std::uint32_t),
+                    chip_id,
+                    tensix_core_translated,
+                    0);
+            }
+
+            cluster->l1_membar(chip_id, all_tensix_cores_translated);
+
+            for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+                cluster->deassert_risc_reset(chip_id, tensix_core_translated, RiscType::BRISC);
+            }
+
+            cluster->l1_membar(chip_id, all_tensix_cores_translated);
+
+            for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+                cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);
+            }
+
+            cluster->l1_membar(chip_id, all_tensix_cores_translated);
         }
-
-        cluster->l1_membar(chip_id, all_tensix_cores_translated);
-
-        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
-            cluster->write_to_device(
-                brisc_program_default.data(),
-                brisc_program_default.size() * sizeof(std::uint32_t),
-                chip_id,
-                tensix_core_translated,
-                0);
-        }
-
-        cluster->l1_membar(chip_id, all_tensix_cores_translated);
-
-        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
-            cluster->deassert_risc_reset(chip_id, tensix_core_translated, RiscType::BRISC);
-        }
-
-        cluster->l1_membar(chip_id, all_tensix_cores_translated);
-
-        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
-            cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);
-        }
-
-        cluster->l1_membar(chip_id, all_tensix_cores_translated);
     }
 
     cluster->start_device({});

@@ -32,27 +32,37 @@ inline void safe_test_cluster_start(Cluster* cluster) {
     }
 
     for (auto& chip_id : cluster->get_target_device_ids()) {
-        for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-            auto chip = cluster->get_chip(chip_id);
-            auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+        std::unordered_set<CoreCoord> all_tensix_cores_translated{tensix_cores.begin(), tensix_cores.end()};
 
-            cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
-
-            cluster->l1_membar(chip_id, {core});
-
-            cluster->write_to_device(
-                brisc_program_default.data(), brisc_program_default.size() * sizeof(std::uint32_t), chip_id, core, 0);
-
-            cluster->l1_membar(chip_id, {core});
-
-            cluster->deassert_risc_reset(chip_id, core, RiscType::BRISC);
-
-            cluster->l1_membar(chip_id, {core});
-
-            cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
-
-            cluster->l1_membar(chip_id, {core});
+        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+            cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);
         }
+
+        cluster->l1_membar(chip_id, all_tensix_cores_translated);
+
+        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+            cluster->write_to_device(
+                brisc_program_default.data(),
+                brisc_program_default.size() * sizeof(std::uint32_t),
+                chip_id,
+                tensix_core_translated,
+                0);
+        }
+
+        cluster->l1_membar(chip_id, all_tensix_cores_translated);
+
+        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+            cluster->deassert_risc_reset(chip_id, tensix_core_translated, RiscType::BRISC);
+        }
+
+        cluster->l1_membar(chip_id, all_tensix_cores_translated);
+
+        for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
+            cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);
+        }
+
+        cluster->l1_membar(chip_id, all_tensix_cores_translated);
     }
 
     cluster->start_device({});

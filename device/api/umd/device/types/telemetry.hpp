@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -49,13 +47,16 @@ enum TelemetryTag : uint8_t {
     ENABLED_GDDR = 36,
     ENABLED_L2CPU = 37,
     PCIE_USAGE = 38,
-    NUMBER_OF_TAGS = 39,
     NOC_TRANSLATION = 40,
+    FAN_RPM = 41,
     ASIC_LOCATION = 52,
+    TDC_LIMIT_MAX = 55,
     TT_FLASH_VERSION = 58,
     ASIC_ID_HIGH = 61,
     ASIC_ID_LOW = 62,
     AICLK_LIMIT_MAX = 63,
+    TDP_LIMIT_MAX = 64,
+    NUMBER_OF_TAGS = 65,
 };
 
 }  // namespace tt::umd

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -19,7 +17,7 @@ struct mailbox_type {
 
 struct address_map {
 
-  // Sizes
+  // Sizes.
   static constexpr uint32_t FIRMWARE_SIZE = 20 * 1024;          // 20KB = 7KB + 1KB zeros + 12KB perf buffers
   static constexpr uint32_t L1_BARRIER_SIZE = 0x20; // 32 bytes reserved for L1 Barrier
   static constexpr uint32_t BRISC_FIRMWARE_SIZE = 7*1024 + 512 + 768; // Taking an extra 768B from perf buffer space
@@ -40,7 +38,7 @@ struct address_map {
   static constexpr uint32_t NCRISC_L1_EPOCH_Q_SIZE = 32;
   static constexpr uint32_t FW_L1_BLOCK_SIZE = FIRMWARE_SIZE + NCRISC_FIRMWARE_SIZE + TRISC0_SIZE + TRISC1_SIZE + TRISC2_SIZE + OVERLAY_BLOB_SIZE + EPOCH_RUNTIME_CONFIG_SIZE + TILE_HEADER_BUF_SIZE;
 
-  // Base addresses
+  // Base addresses.
   static constexpr uint32_t FIRMWARE_BASE = 0;
   static constexpr uint32_t L1_BARRIER_BASE = 0x16dfc0;
   static constexpr uint32_t ZEROS_BASE = FIRMWARE_BASE + BRISC_FIRMWARE_SIZE;
@@ -68,7 +66,7 @@ struct address_map {
   static constexpr uint32_t OVERLAY_BLOB_BASE = EPOCH_RUNTIME_CONFIG_BASE + EPOCH_RUNTIME_CONFIG_SIZE;
   static constexpr uint32_t DATA_BUFFER_SPACE_BASE = EPOCH_RUNTIME_CONFIG_BASE + EPOCH_RUNTIME_CONFIG_SIZE + OVERLAY_BLOB_SIZE;
 
-  // Trisc Mailboxes
+  // Trisc Mailboxes.
   static constexpr uint32_t TRISC_L1_MAILBOX_OFFSET = 4;
   static constexpr uint32_t BRISC_L1_MAILBOX_OFFSET = 4;
   static constexpr uint32_t NRISC_L1_MAILBOX_OFFSET = 4;
@@ -83,14 +81,14 @@ struct address_map {
   static constexpr uint32_t FW_MAILBOX_BUF_SIZE     = 64;
   static constexpr uint32_t DEBUG_MAILBOX_BUF_SIZE  = 64; // For each T0/T1/T2/FW
 
-  // Used for TT_LOG
+  // Used for TT_LOG.
   static constexpr uint32_t TRISC_TT_LOG_MAILBOX_OFFSET = 28;
   static constexpr uint32_t TRISC_TT_LOG_MAILBOX_SIZE = 64;
   static constexpr uint32_t TRISC0_TT_LOG_MAILBOX_BASE = TRISC0_MAILBOX_BASE + TRISC_TT_LOG_MAILBOX_OFFSET;
   static constexpr uint32_t TRISC1_TT_LOG_MAILBOX_BASE = TRISC1_MAILBOX_BASE + TRISC_TT_LOG_MAILBOX_OFFSET;
   static constexpr uint32_t TRISC2_TT_LOG_MAILBOX_BASE = TRISC2_MAILBOX_BASE + TRISC_TT_LOG_MAILBOX_OFFSET;
 
-  // Upper 2KB of local space is used as debug buffer
+  // Upper 2KB of local space is used as debug buffer.
   static constexpr uint32_t DEBUG_BUFFER_SIZE  = 2 * 1024;
   static constexpr uint32_t TRISC0_DEBUG_BUFFER_BASE  = TRISC0_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
   static constexpr uint32_t TRISC1_DEBUG_BUFFER_BASE  = TRISC1_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
@@ -107,7 +105,7 @@ struct address_map {
   static constexpr uint32_t NCRISC_IRAM_MEM_BASE = 0xffc00000; // NCRISC instruction RAM base address
 
   // Perf buffer (FIXME - update once location of the perf data buffer is finalized)
-  // Parameter UNPACK_PACK_PERF_BUF_SIZE_LEVEL_1 assumes the following PERF_BUF_SIZE = 12KB - 768
+  // Parameter UNPACK_PACK_PERF_BUF_SIZE_LEVEL_1 assumes the following PERF_BUF_SIZE = 12KB - 768.
   static constexpr uint32_t PERF_BUF_SIZE = FIRMWARE_SIZE - BRISC_FIRMWARE_SIZE - ZEROS_SIZE;
 
   static constexpr uint32_t PERF_QUEUE_HEADER_SIZE = 16;

@@ -67,55 +67,13 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - log-level: ${{ inputs.log-level }}
 
-      - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
+      - name: Cleanup workspace directory from previous runs.
+        # If this is not a new VM, we might have some artefacts from previous runs that need to be cleaned up.
+        # This might include: .pytest_cache, .venv, artifact.tar, build, tests, tt-umd, tt_umd-*.whl
+        # Just nuke everything to be safe.
         run: |
-          rm -rf tt-umd
-          mkdir tt-umd
-          cd tt-umd
-
-      - name: Use build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
-
-      # This is needed to preserve file permissions
-      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-      - name: 'Untar build artifacts'
-        shell: bash
-        run: tar xvf artifact.tar
-
-      - name: Run baremetal tests
-        if: ${{ inputs.arch == 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
-
-      - name: Run API tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
-
-      - name: Run arch-specific UMD unit tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
-
-      - name: Run PCI tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
-
-      - name: Run MISC tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
-
-      - name: Run unified tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
-
-      - name: Clean up old wheel artifacts
-        run: |
-          echo "Cleaning up old wheel artifacts in case of previous downloads..."
-          rm -f tt_umd-*.whl
-          rm -rf tests/
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v4
@@ -140,3 +98,42 @@ jobs:
           echo "Installation complete."
           echo "Running tests..."
           .venv/bin/python -m pytest -s tests
+
+      - name: Use build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: 'Untar build artifacts'
+        shell: bash
+        run: tar xvf artifact.tar
+
+      - name: Run baremetal tests
+        if: ${{ inputs.arch == 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
+
+      - name: Run API tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+
+      - name: Run arch-specific UMD unit tests
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+
+      - name: Run PCI tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+
+      - name: Run MISC tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+
+      - name: Run unified tests
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

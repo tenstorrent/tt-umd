@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -22,7 +20,7 @@ public:
     // cannot have simple constructors as they require the base class to be constructed first.
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
-        std::string sdesc_path = "",
+        const std::string& sdesc_path = "",
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
@@ -54,6 +52,7 @@ public:
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
@@ -65,13 +64,13 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
 
     void deassert_risc_resets() override;
     int get_clock() override;
     int get_numa_node() override;
 
-    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
+    std::unique_lock<RobustMutex> acquire_mutex(const std::string& mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
@@ -107,16 +106,13 @@ private:
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
-    TlbWindow* get_cached_wc_tlb_window(tlb_data config);
-    TlbWindow* get_cached_uc_tlb_window(tlb_data config);
-    TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
+    TlbWindow* get_cached_wc_tlb_window();
+    TlbWindow* get_cached_uc_tlb_window();
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex wc_tlb_lock;
     std::mutex uc_tlb_lock;
-    std::mutex pcie_dma_lock;
 };
 }  // namespace tt::umd

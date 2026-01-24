@@ -1,11 +1,12 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/set.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/soc_descriptor.hpp"
@@ -18,7 +19,7 @@ using namespace tt;
 using namespace tt::umd;
 
 void bind_soc_descriptor(nb::module_ &m) {
-    // Bind CoreType enum
+    // Bind CoreType enum.
     nb::enum_<CoreType>(m, "CoreType")
         .value("ARC", CoreType::ARC)
         .value("DRAM", CoreType::DRAM)
@@ -35,7 +36,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def("__str__", [](CoreType ct) { return to_str(ct); })
         .def("__repr__", [](CoreType ct) { return "CoreType." + to_str(ct); });
 
-    // Bind CoordSystem enum
+    // Bind CoordSystem enum.
     nb::enum_<CoordSystem>(m, "CoordSystem")
         .value("LOGICAL", CoordSystem::LOGICAL)
         .value("NOC0", CoordSystem::NOC0)
@@ -44,7 +45,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def("__str__", [](CoordSystem cs) { return to_str(cs); })
         .def("__repr__", [](CoordSystem cs) { return "CoordSystem." + to_str(cs); });
 
-    // Bind CoreCoord struct
+    // Bind CoreCoord struct.
     nb::class_<CoreCoord>(m, "CoreCoord")
         .def(
             nb::init<size_t, size_t, CoreType, CoordSystem>(),
@@ -61,7 +62,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def("__eq__", &CoreCoord::operator==)
         .def("__lt__", &CoreCoord::operator<);
 
-    // Bind SocDescriptor class
+    // Bind SocDescriptor class.
     nb::class_<SocDescriptor>(m, "SocDescriptor")
         .def(
             "__init__",
@@ -92,5 +93,33 @@ void bind_soc_descriptor(nb::module_ &m) {
             "get_all_harvested_cores",
             &SocDescriptor::get_all_harvested_cores,
             nb::arg("coord_system") = CoordSystem::NOC0,
-            "Get all harvested cores in the specified coordinate system");
+            "Get all harvested cores in the specified coordinate system")
+        .def(
+            "serialize_to_file",
+            [](const SocDescriptor &self, const std::string &dest_file) -> std::string {
+                std::filesystem::path file_path = self.serialize_to_file(dest_file);
+                return file_path.string();
+            },
+            nb::arg("dest_file") = "",
+            "Serialize the soc descriptor to a YAML file")
+        .def(
+            "get_eth_cores_for_channels",
+            &SocDescriptor::get_eth_cores_for_channels,
+            nb::arg("eth_channels"),
+            nb::arg("coord_system") = CoordSystem::NOC0,
+            "Get ethernet cores for specified channels in the specified coordinate system")
+        .def(
+            "translate_coord_to",
+            nb::overload_cast<const CoreCoord, const CoordSystem>(&SocDescriptor::translate_coord_to, nb::const_),
+            nb::arg("core_coord"),
+            nb::arg("coord_system"),
+            "Translate a CoreCoord to the specified coordinate system")
+        .def(
+            "translate_coord_to",
+            nb::overload_cast<const tt_xy_pair, const CoordSystem, const CoordSystem>(
+                &SocDescriptor::translate_coord_to, nb::const_),
+            nb::arg("core_location"),
+            nb::arg("input_coord_system"),
+            nb::arg("target_coord_system"),
+            "Translate a tt_xy_pair from one coordinate system to another");
 }

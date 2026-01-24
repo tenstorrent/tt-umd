@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -59,7 +57,7 @@ enum class arc_message_type {
     DEASSERT_RISCV_RESET = 0xba
 };
 
-// DEVICE_DATA
+// DEVICE_DATA.
 inline constexpr tt_xy_pair GRID_SIZE = {12, 8};
 // Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
 // NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
@@ -147,13 +145,13 @@ static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
 // We are using P0 on the NOC for all L2CPU cores.
 static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 3}, {8, 5}, {8, 7}, {8, 9}};
 
-// Return to std::array instead of std::vector once we get std::span support in C++20
+// Return to std::array instead of std::vector once we get std::span support in C++20.
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;  // TODO: Copied from wormhole. Need to verify.
+inline constexpr uint32_t STATIC_TLB_SIZE = 2 * 1024 * 1024;  // TODO: Copied from blackhole. Need to verify.
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};  // TODO: Copied from wormhole. Need to verify.
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from wormhole. Need to verify.
@@ -182,7 +180,7 @@ inline constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.
-// Revisit for BH
+// Revisit for BH.
 inline constexpr unsigned int REG_TLB = TLB_BASE_INDEX_2M + 191;
 
 inline constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 180;
@@ -197,15 +195,15 @@ inline constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  /
 inline constexpr uint32_t GRID_SIZE_X = 17;
 inline constexpr uint32_t GRID_SIZE_Y = 12;
 
-// AXI Resets accessed through TLB
+// AXI Resets accessed through TLB.
 inline constexpr uint32_t TENSIX_SM_TLB_INDEX = 188;
 inline constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX * TLB_2M_SIZE;
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
-// Computed this value from AXI_RESET_OFFSET
+// Computed this value from AXI_RESET_OFFSET.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
-// MT: This is no longer valid for Blackhole. Review messages to ARC
+// MT: This is no longer valid for Blackhole. Review messages to ARC.
 inline constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET + 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET + 0x784C4;
@@ -303,7 +301,7 @@ inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
 
 }  // namespace grendel
 
@@ -394,10 +392,6 @@ public:
 
     uint32_t get_num_eth_channels() const override { return grendel::NUM_ETH_CHANNELS; }
 
-    uint32_t get_static_tlb_cfg_addr() const override { return grendel::STATIC_TLB_CFG_ADDR; }
-
-    uint32_t get_static_tlb_size() const override { return grendel::STATIC_TLB_SIZE; }
-
     uint32_t get_read_checking_offset() const override { return grendel::BH_NOC_NODE_ID_OFFSET; }
 
     uint32_t get_reg_tlb() const override { return grendel::REG_TLB; }
@@ -411,9 +405,9 @@ public:
 
     uint32_t get_debug_reg_addr() const override { return grendel::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
-    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+    uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
-    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+    RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override {
         return 0;
@@ -422,10 +416,6 @@ public:
     uint32_t get_grid_size_x() const override { return grendel::GRID_SIZE_X; }
 
     uint32_t get_grid_size_y() const override { return grendel::GRID_SIZE_Y; }
-
-    uint32_t get_tlb_cfg_reg_size_bytes() const override { return grendel::TLB_CFG_REG_SIZE_BYTES; }
-
-    uint32_t get_small_read_write_tlb() const override { return grendel::MEM_SMALL_READ_WRITE_TLB; }
 
     uint64_t get_arc_apb_noc_base_address() const override { return grendel::ARC_NOC_XBAR_ADDRESS_START; }
 
@@ -457,6 +447,13 @@ public:
         return {grendel::TLB_BASE_4G, grendel::TLB_COUNT_4G};
     }
 
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static constexpr size_t one_gb = 1024ULL * one_mb;
+        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
+        return tlb_sizes;
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
@@ -468,6 +465,10 @@ public:
     virtual uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
+
+    size_t get_cached_tlb_size() const override { return grendel::STATIC_TLB_SIZE; }
+
+    bool get_static_vc() const override { return true; }
 };
 
 }  // namespace tt::umd

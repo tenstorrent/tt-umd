@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -20,25 +18,11 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-
-// TODO: Should be moved to blackhole_architecture_implementation.h
-// See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
-static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
-
-// TODO: should be removed from tt_device.h, and put into blackhole_tt_device.h
-// TODO: this is a bit of a hack... something to revisit when we formalize an
-// abstraction for IO.
-// BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
-static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
-
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
 
 class ArcMessenger;
 class ArcTelemetryReader;
@@ -46,9 +30,6 @@ class RemoteCommunication;
 
 class TTDevice {
 public:
-    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
-    static void use_noc1(bool use_noc1);
-
     /**
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
@@ -62,7 +43,7 @@ public:
         uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
 
-    virtual ~TTDevice();
+    virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
@@ -72,23 +53,6 @@ public:
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
-
-    // Note: byte_addr is (mostly but not always) offset into BAR0.  This
-    // interface assumes the caller knows what they are doing - but it's unclear
-    // how to use this interface correctly without knowing details of the chip
-    // and its state.
-    // TODO: build a proper abstraction for IO.  At this level, that is access
-    // to registers in BAR0 (although possibly the right abstraction is to add
-    // methods that perform specific operations as opposed to generic register
-    // read/write methods) and access to segments of BAR0/4 that are mapped to
-    // NOC endpoints.  Probably worth waiting for the KMD to start owning the
-    // resource management aspect of these PCIe->NOC mappings (the "TLBs")
-    // before doing too much work here...
-    void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr);
-    void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr);
-    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
-    void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
-    void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
 
     /**
      * DMA transfer from device to host.
@@ -217,25 +181,7 @@ public:
      */
     virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
-    // TLB related functions.
-    // TODO: These are architecture specific, and will be moved out of the class.
-    void write_tlb_reg(
-        uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
-    dynamic_tlb set_dynamic_tlb(
-        unsigned int tlb_index,
-        tt_xy_pair start,
-        tt_xy_pair end,
-        std::uint64_t address,
-        bool multicast,
-        std::uint64_t ordering);
-    dynamic_tlb set_dynamic_tlb(
-        unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::uint64_t ordering = tlb_data::Relaxed);
-    dynamic_tlb set_dynamic_tlb_broadcast(
-        unsigned int tlb_index,
-        std::uint64_t address,
-        tt_xy_pair start,
-        tt_xy_pair end,
-        std::uint64_t ordering = tlb_data::Relaxed);
+    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
@@ -300,6 +246,8 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
+    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -343,10 +291,14 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+
+    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
-    IODeviceType communication_device_type_;
+    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
@@ -355,36 +307,23 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    template <typename T>
-    T *get_register_address(uint32_t register_offset);
-
-    // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).
-    // Both routines assume that misaligned accesses are permitted on host memory.
-    //
-    // 1. AARCH64 device memory does not allow unaligned accesses (including pair loads/stores),
-    // which glibc's memcpy may perform when unrolling. This affects from and to device.
-    // 2. syseng#3487 WH GDDR5 controller has a bug when 1-byte writes are temporarily adjacent
-    // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
-    void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
-    void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
-
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
-
-    ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
 
 private:
-    virtual void pre_init_hook(){};
+    void probe_arc();
 
-    virtual void post_init_hook(){};
+    TlbWindow *get_cached_tlb_window();
+
+    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
-    TlbWindow *get_cached_tlb_window(tlb_data config);
+    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex tt_device_io_lock;
 };

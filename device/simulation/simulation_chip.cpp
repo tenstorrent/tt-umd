@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/simulation/simulation_chip.hpp"
 
@@ -17,11 +15,16 @@
 namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id, size_t num_chips) {
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    size_t num_chips,
+    int num_host_mem_channels) {
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimChip>(simulator_directory, soc_descriptor, chip_id, num_chips > 1);
+        return std::make_unique<TTSimChip>(
+            simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
     } else {
-        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id);
+        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
     }
 }
 
@@ -31,11 +34,16 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 }
 
 SimulationChip::SimulationChip(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: ", simulator_directory_);
     }
+
+    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);
 }
 
 // Base class implementations (common simple methods).
@@ -71,6 +79,12 @@ void SimulationChip::noc_multicast_write(
     const tt_xy_pair translated_end = soc_descriptor_.translate_coord_to(core_end, CoordSystem::TRANSLATED);
     for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
         for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
+            // Since we are doing set of unicasts, we must skip cores that are not actual Tensix cores.
+            // These are in columns where x = 8 (ARC core, L2CPU) and x = 9 (GDDR).
+            // TODO: investigate proper multicast support for simulations so we can remove this workaround.
+            if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
+                continue;
+            }
             write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size);
         }
     }
@@ -101,18 +115,29 @@ int SimulationChip::arc_msg(
     return 0;
 }
 
-int SimulationChip::get_num_host_channels() { return 0; }
+int SimulationChip::get_num_host_channels() { return get_sysmem_manager()->get_num_host_mem_channels(); }
 
 int SimulationChip::get_host_channel_size(std::uint32_t channel) {
-    throw std::runtime_error("There are no host channels available.");
+    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // the program should still work. It removes the need for refactoring the whole code in case
+    // pcie device breaks or isn't present.
+    if (!sysmem_manager_) {
+        log_warning(LogUMD, "sysmem_manager was not initialized for simulation device");
+        return 0;
+    }
+
+    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    return hugepage_map.mapping_size;
 }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("SimulationChip::write_to_sysmem is not available for this chip.");
+    get_sysmem_manager()->write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("SimulationChip::read_from_sysmem is not available for this chip.");
+    get_sysmem_manager()->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 int SimulationChip::get_numa_node() {
@@ -123,9 +148,7 @@ TTDevice* SimulationChip::get_tt_device() {
     throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
 }
 
-SysmemManager* SimulationChip::get_sysmem_manager() {
-    throw std::runtime_error("SimulationChip::get_sysmem_manager is not available for this chip.");
-}
+SysmemManager* SimulationChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
 TLBManager* SimulationChip::get_tlb_manager() {
     throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");

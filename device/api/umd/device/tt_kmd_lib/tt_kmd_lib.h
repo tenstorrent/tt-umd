@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef TTKMD_H_
 #define TTKMD_H_
@@ -13,11 +11,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define TENSTORRENT_DRIVER_VERSION_MAJOR 2
-#define TENSTORRENT_DRIVER_VERSION_MINOR 3
-#define TENSTORRENT_DRIVER_VERSION_PATCH 0
-#define TENSTORRENT_DRIVER_VERSION_SUFFIX ""  // e.g. "-rc1"
 
 /**
  * @brief Opaque handle to a Tenstorrent PCIe device.
@@ -365,6 +358,8 @@ int tt_tlb_free(tt_device_t* dev, tt_tlb_t* tlb);
  * @return 0 on success, error code on failure
  */
 int tt_tlb_get_mmio(tt_tlb_t* tlb, void** out_mmio);
+
+int tt_tlb_get_id(tt_tlb_t* tlb, uint32_t* out_id);
 
 /**
  * @brief Maps a TLB window to a NOC endpoint.

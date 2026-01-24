@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -12,6 +10,7 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -24,9 +23,10 @@ public:
 
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
-        size_t num_chips);
+        size_t num_chips,
+        int num_host_mem_channels = 0);
 
     virtual ~SimulationChip() = default;
 
@@ -55,7 +55,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
 
     void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
@@ -86,7 +86,11 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
-    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+    SimulationChip(
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
 
     // Simulator directory.
     // Common state variables.
@@ -94,6 +98,8 @@ protected:
     tt::ARCH arch_name;
     ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
+
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

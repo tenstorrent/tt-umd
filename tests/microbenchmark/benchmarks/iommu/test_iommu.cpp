@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
@@ -82,7 +81,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
 
     const uint64_t mapping_size_limit = 1ULL << 30;  // 1 GB
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -141,7 +140,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
 
     const uint64_t mapping_size = 2 * (1ULL << 20);  // 2 MB
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -159,7 +158,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (21 << MAP_HUGE_SHIFT),
@@ -207,7 +206,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
 
     const uint64_t mapping_size = 1ULL << 30;  // 1 GB
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -225,7 +224,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT),

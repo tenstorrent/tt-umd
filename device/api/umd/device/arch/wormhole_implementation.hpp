@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -104,7 +102,7 @@ enum class arc_message_type {
     DEASSERT_RISCV_RESET = 0xba
 };
 
-// DEVICE_DATA
+// DEVICE_DATA.
 inline constexpr tt_xy_pair GRID_SIZE = {10, 12};
 // Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
 // NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
@@ -176,13 +174,13 @@ static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {{0, 2}, {0, 4}, {0, 8}
 static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {};
 static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {};
 
-// Return to std::array instead of std::vector once we get std::span support in C++20
+// Return to std::array instead of std::vector once we get std::span support in C++20.
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {1, 3, 5, 7, 9, 8, 6, 4, 2, 0};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
+inline constexpr uint32_t STATIC_TLB_SIZE = 1 * 1024 * 1024;  // 1MB
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;
@@ -318,7 +316,7 @@ inline constexpr size_t tensix_translated_coordinate_start_y = 18;
 inline constexpr size_t eth_translated_coordinate_start_x = 18;
 inline constexpr size_t eth_translated_coordinate_start_y = 16;
 
-// Constants related to bits in the soft reset register
+// Constants related to bits in the soft reset register.
 inline constexpr uint32_t SOFT_RESET_BRISC = 1 << 11;
 inline constexpr uint32_t SOFT_RESET_TRISC0 = 1 << 12;
 inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;
@@ -406,11 +404,7 @@ public:
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
-
     uint32_t get_read_checking_offset() const override { return wormhole::ARC_SCRATCH_6_OFFSET; }
-
-    uint32_t get_static_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     uint32_t get_reg_tlb() const override { return wormhole::REG_TLB; }
 
@@ -420,19 +414,15 @@ public:
 
     uint32_t get_debug_reg_addr() const override { return wormhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
-    uint32_t get_soft_reset_reg_value(tt::umd::RiscType risc_type) const override;
+    uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
-    tt::umd::RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
+    RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override { return wormhole::SOFT_RESET_STAGGERED_START; }
 
     uint32_t get_grid_size_x() const override { return wormhole::GRID_SIZE_X; }
 
     uint32_t get_grid_size_y() const override { return wormhole::GRID_SIZE_Y; }
-
-    uint32_t get_tlb_cfg_reg_size_bytes() const override { return wormhole::TLB_CFG_REG_SIZE_BYTES; }
-
-    uint32_t get_small_read_write_tlb() const override { return wormhole::MEM_SMALL_READ_WRITE_TLB; }
 
     uint64_t get_arc_apb_noc_base_address() const override {
         return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_APB_NOC_XBAR_OFFSET_START;
@@ -468,6 +458,12 @@ public:
 
     std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override { return {0, 0}; }
 
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static const std::vector<size_t> tlb_sizes = {1 * one_mb, 2 * one_mb, 16 * one_mb};
+        return tlb_sizes;
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
@@ -479,6 +475,10 @@ public:
     virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
+
+    size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
+
+    bool get_static_vc() const override { return true; }
 };
 
 }  // namespace tt::umd

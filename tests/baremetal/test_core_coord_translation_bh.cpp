@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -651,8 +650,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoc1Noc0Mapping) {
         tt::ARCH::BLACKHOLE, true, {.eth_harvesting_mask = example_eth_harvesting_mask});
 
     auto check_noc0_noc1_mapping = [coordinate_manager](
-                                       const std::vector<tt_xy_pair> noc0_cores,
-                                       const std::vector<tt_xy_pair> noc1_cores,
+                                       const std::vector<tt_xy_pair>& noc0_cores,
+                                       const std::vector<tt_xy_pair>& noc1_cores,
                                        const CoreType core_type) {
         for (uint32_t index = 0; index < noc0_cores.size(); index++) {
             const CoreCoord noc0_core =

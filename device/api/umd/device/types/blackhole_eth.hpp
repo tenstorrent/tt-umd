@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -79,13 +77,13 @@ struct serdes_rx_bist_results_t {
 };
 
 struct eth_status_t {
-    // Basic status
+    // Basic status.
     uint32_t postcode;                 // 0
     port_status_e port_status;         // 1
     link_train_status_e train_status;  // 2
     uint32_t train_speed;              // 3 - Actual resulting speed from training
     uint32_t spare[28 - 4];            // 4-27
-    // Heartbeat
+    // Heartbeat.
     uint32_t heartbeat[4];  // 28-31
 };
 
@@ -97,10 +95,10 @@ struct serdes_results_t {
     uint32_t data_rate;          // 4
     uint32_t data_width;         // 5
     uint32_t spare_main[8 - 6];  // 6-7
-    // Training retries
+    // Training retries.
     uint32_t anlt_retry_cnt;  // 8
     uint32_t spare[16 - 9];   // 9-15
-    // BIST
+    // BIST.
     uint32_t bist_mode;       // 16
     uint32_t bist_test_time;  // 17
     // test_time in cycles for bist mode 0 and ms for bist mode 1
@@ -110,7 +108,7 @@ struct serdes_results_t {
     uint32_t cdr_unlocked_cnt;                            // 42
     uint32_t cdr_unlock_transitions;                      // 43
     uint32_t spare2[48 - 44];                             // 44-47
-    // Training times
+    // Training times.
     uint32_t man_eq_cmn_pstate_time;      // 48
     uint32_t man_eq_tx_ack_time;          // 49
     uint32_t man_eq_rx_ack_time;          // 50
@@ -128,7 +126,7 @@ struct macpcs_results_t {
     uint32_t postcode;          // 0
     uint32_t macpcs_retry_cnt;  // 1
     uint32_t spare[24 - 2];     // 2-23
-    // Training times
+    // Training times.
     uint32_t link_up_time;         // 24
     uint32_t chip_info_time;       // 25
     uint32_t spare_time[32 - 26];  // 26-31
@@ -138,7 +136,7 @@ struct eth_live_status_t {
     uint32_t retrain_count;  // 0
     uint32_t rx_link_up;     // 1 - MAC/PCS RX Link Up
     uint32_t spare[8 - 2];   // 2-7
-    // Snapshot registers
+    // Snapshot registers.
     uint64_t frames_txd;          // 8,9 - Cumulative TX Packets Transmitted count
     uint64_t frames_txd_ok;       // 10,11 - Cumulative TX Packets Transmitted OK count
     uint64_t frames_txd_badfcs;   // 12,13 - Cumulative TX Packets Transmitted with BAD FCS count

@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.9.1] - 2026-01-23
+
+### Changed
+
+Started publishing to pypi.
+
+## [0.9.0] - 2026-01-23
+
+### Changed
+
+Warm reset notification and callback implementation.
+
+## [0.8.6] - 2026-01-20
+
+### Changed
+
+Make predicting ETH FW from CMFW optional in TopologyDiscovery.
+
+## [0.8.4] - 2026-01-16
+
+### Changed
+
+Use older manylinux image
+
+## [0.8.3] - 2026-01-15
+
+### Changed
+
+Reverted remote discovery issue
+
+## [0.8.2] - 2026-01-15
+
+### Changed
+
+Support warm reset without secondary bus reset.
+Expose subsystem vendor id.
+
+## [0.8.1] - 2026-01-15
+
+### Changed
+
+Support dma functions on TTDevice layer
+
+## [0.8.0] - 2026-01-14
+
+### Changed
+
+Many functional fixes and minor changes.
+Final fixes needed for integration into tt-smi.
+Also contains adjustments needed for integration into exalens.
+
+## [0.7.0] - 2025-11-29
+
+### Changed
+
+Changed to a more generic arc_msg API.
+
+## [0.6.0] - 2025-11-24
+
+### Changed
+
+Change the usage of TLBs such that KMD is in control of TLB allocation instead of UMD.
+TLBs are now allocated using KMD's dedicated API.
+
 ## [0.5.3] - 2025-11-14
 
 ### Changed

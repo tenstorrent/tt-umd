@@ -1,14 +1,14 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/pcie/tlb_window.hpp"
 
 #include <string.h>
 
 #include <stdexcept>
 
+#include "noc_access.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 
 namespace tt::umd {
@@ -30,12 +30,27 @@ uint32_t TlbWindow::read32(uint64_t offset) {
     return *reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 }
 
-void TlbWindow::write_register(uint64_t offset, uint32_t value) { write32(offset, value); }
+void TlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
+    size_t n = size / sizeof(uint32_t);
+    auto *src = static_cast<const uint32_t *>(data);
+    auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
-uint32_t TlbWindow::read_register(uint64_t offset) { return read32(offset); }
+    validate(offset, size);
+
+    write_regs(dst, src, n);
+}
+
+void TlbWindow::read_register(uint64_t offset, void *data, size_t size) {
+    size_t n = size / sizeof(uint32_t);
+    auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    auto *dst = static_cast<uint32_t *>(data);
+
+    validate(offset, size);
+
+    read_regs((void *)src, n, (void *)dst);
+}
 
 void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
     auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
@@ -49,7 +64,6 @@ void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
 }
 
 void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
     auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
     auto *dst = static_cast<uint32_t *>(data);
 
@@ -59,6 +73,89 @@ void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
         memcpy_from_device(dst, (void *)src, size);
     } else {
         memcpy((void *)dst, (void *)src, size);
+    }
+}
+
+void TlbWindow::read_block_reconfigure(
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+
+    while (size > 0) {
+        configure(config);
+        uint32_t tlb_size = get_size();
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        read_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+    }
+}
+
+void TlbWindow::write_block_reconfigure(
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+
+    while (size > 0) {
+        configure(config);
+        uint32_t tlb_size = get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        write_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+    }
+}
+
+void TlbWindow::noc_multicast_write_reconfigure(
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    uint8_t *buffer_addr = static_cast<uint8_t *>(dst);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_start = core_start.x;
+    config.y_start = core_start.y;
+    config.x_end = core_end.x;
+    config.y_end = core_end.y;
+    config.mcast = true;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+
+    while (size > 0) {
+        configure(config);
+        size_t tlb_size = get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        write_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
     }
 }
 
@@ -169,6 +266,22 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
 
 uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
+}
+
+void TlbWindow::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
+    while (word_len-- != 0) {
+        *dest++ = *src++;
+    }
+}
+
+void TlbWindow::read_regs(void *src_reg, uint32_t word_len, void *data) {
+    const volatile uint32_t *src = reinterpret_cast<uint32_t *>(src_reg);
+    uint32_t *dest = reinterpret_cast<uint32_t *>(data);
+
+    while (word_len-- != 0) {
+        uint32_t temp = *src++;
+        memcpy(dest++, &temp, sizeof(temp));
+    }
 }
 
 }  // namespace tt::umd

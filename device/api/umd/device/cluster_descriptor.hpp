@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -58,6 +56,13 @@ public:
     static std::unique_ptr<ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
 
     /**
+     * Creates a cluster descriptor from a YAML file content.
+     * @param cluster_descriptor_file_content Content of the YAML file containing the cluster descriptor.
+     */
+    static std::unique_ptr<ClusterDescriptor> create_from_yaml_content(
+        const std::string &cluster_descriptor_file_content);
+
+    /**
      * Creates a mock cluster descriptor with the given logical device IDs and architecture.
      * This function is used to create mock cluster descriptor yaml files, for example for simulation.
      * @param logical_device_ids Vector of logical device IDs to be included in the mock cluster.
@@ -105,7 +110,7 @@ public:
      * Function to help with sorting the passed set into a vector such that local chips are first, followed by remote
      * chips.
      */
-    const std::vector<ChipId> get_chips_local_first(std::unordered_set<ChipId> chips) const;
+    const std::vector<ChipId> get_chips_local_first(const std::unordered_set<ChipId> &chips) const;
 
     /**
      * Returns the architecture of the cluster. Throws an exception if the architecture is Invalid or there are no
@@ -205,13 +210,6 @@ public:
     const std::unordered_map<ChipId, std::unordered_set<ChipId>> &get_chips_grouped_by_closest_mmio() const;
 
     /**
-     * Return the distance between two chips in terms of ethernet hops.
-     * @param chip_a Logical chip id of the first chip.
-     * @param chip_b Logical chip id of the second chip.
-     */
-    int get_ethernet_link_distance(ChipId chip_a, ChipId chip_b) const;
-
-    /**
      * Returns wether the ethernet core has an active ethernet link.
      */
     bool ethernet_core_has_active_ethernet_link(ChipId local_chip, EthernetChannel local_ethernet_channel) const;
@@ -258,7 +256,7 @@ private:
     void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
 
-    // Centralize mock/simulator-only default values that are not coming from YAML
+    // Centralize mock/simulator-only default values that are not coming from YAML.
     void fill_mock_hardcoded_data(ChipId logical_id);
 
     // Verify for some common mistakes.
@@ -275,7 +273,7 @@ private:
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;
-    // TODO: unify uint64_t with ChipUID
+    // TODO: unify uint64_t with ChipUID.
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<uint64_t, EthernetChannel>>>
         ethernet_connections_to_remote_devices;
     std::unordered_map<ChipId, EthCoord> chip_locations;
@@ -315,7 +313,7 @@ private:
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 
-    // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays
+    // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays.
     std::unordered_map<ChipId, uint16_t> chip_to_bus_id = {};
 
     std::optional<semver_t> fw_bundle_version;

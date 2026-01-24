@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -35,7 +35,7 @@ std::string RiscTypeToString(RiscType value) {
         output += "NCRISC | ";
     }
 
-    // Check NEO Tensix TRISC cores
+    // Check NEO Tensix TRISC cores.
     if ((value & RiscType::NEO0_TRISC0) != RiscType::NONE) {
         output += "NEO0_TRISC0 | ";
     }
@@ -82,7 +82,7 @@ std::string RiscTypeToString(RiscType value) {
         output += "NEO3_TRISC2 | ";
     }
 
-    // Check NEO Tensix Data Movement cores
+    // Check NEO Tensix Data Movement cores.
     if ((value & RiscType::DM0) != RiscType::NONE) {
         output += "DM0 | ";
     }
@@ -111,7 +111,7 @@ std::string RiscTypeToString(RiscType value) {
     if (output.empty()) {
         output = "NONE";
     } else {
-        // Remove the trailing " | "
+        // Remove the trailing " | ".
         output.erase(output.end() - 3, output.end());
     }
 

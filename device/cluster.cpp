@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/cluster.hpp"
 
 #include <assert.h>
@@ -51,6 +52,7 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
@@ -65,8 +67,6 @@
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
-
-extern bool umd_use_noc1;
 
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
@@ -103,23 +103,6 @@ struct remote_update_ptr_t {
 
 const SocDescriptor& Cluster::get_soc_descriptor(ChipId chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
-}
-
-void Cluster::verify_sysmem_initialized() {
-    for (const ChipId& chip_id : local_chip_ids_) {
-        bool hugepages_initialized =
-            (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
-        // Large writes to remote chips require hugepages to be initialized.
-        // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-        // if using remote only for small transactions)
-        if (remote_chip_ids_.size()) {
-            TT_ASSERT(
-                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
-        }
-        if (!hugepages_initialized) {
-            log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);
-        }
-    }
 }
 
 void Cluster::log_device_summary() {
@@ -190,6 +173,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
+        pci_ids.reserve(local_chip_ids_.size());
         for (ChipId local_chip_id : local_chip_ids_) {
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
@@ -204,20 +188,16 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-            use_ethernet_broadcast &= eth_fw_version >= ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
+            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED;
             // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
             // Temporarily enable this feature for 6.7.241 as well for testing.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
-                    (eth_fw_version >= ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
+                    (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
                      eth_fw_version == semver_t(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
-        }
-
-        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
-            verify_sysmem_initialized();
         }
     }
 
@@ -241,7 +221,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
+        return SimulationChip::create(
+            simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -407,7 +388,7 @@ Cluster::Cluster(ClusterOptions options) {
     } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
         // Filter devices only when a cluster descriptor is passed for simulation.
         // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = tt::umd::utils::get_visible_devices(options.target_devices);
+        auto visible_devices = utils::get_visible_devices(options.target_devices);
         if (!visible_devices.empty()) {
             cluster_desc =
                 ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
@@ -425,7 +406,7 @@ Cluster::Cluster(ClusterOptions options) {
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        // Combine passed simulated_harvesting_masks
+        // Combine passed simulated_harvesting_masks.
         HarvestingMasks simulated_harvesting_masks =
             options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
                                                    options.simulated_harvesting_masks_per_chip.end())
@@ -504,7 +485,7 @@ void Cluster::deassert_risc_reset(
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
@@ -523,25 +504,26 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
-        tlb_index,
+        tlb_size,
         address,
         ordering);
 }
 
 void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
+    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
+    tt_xy_pair translated_core =
+        get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
@@ -597,12 +579,12 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         ChipId first_mmio_chip = *(get_target_mmio_device_ids().begin());
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
-                // Get shelf local physical chip id included in broadcast
+                // Get shelf local physical chip id included in broadcast.
                 ChipId physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
                 EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
-                // Rack word to be set in header
+                // Rack word to be set in header.
                 uint32_t rack_word = eth_coords.rack >> 2;
-                // Rack byte to be set in header
+                // Rack byte to be set in header.
                 uint32_t rack_byte = eth_coords.rack % 4;
                 // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
                 // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each
@@ -635,7 +617,7 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
                         .insert({physical_chip_id, broadcast_mask});
 
                 } else {
-                    // Target was seen before -> include curr rack and shelf in header
+                    // Target was seen before -> include curr rack and shelf in header.
                     broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip)
                         .at(physical_chip_id)
                         .at(rack_word) |= static_cast<uint32_t>(1 << eth_coords.shelf) << rack_byte;
@@ -646,19 +628,19 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         // number of groups after this step represent the final set of broadcast grids.
         for (auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
             for (auto& chip : mmio_group.second) {
-                // Generate a hash for this MMIO Chip + Rack + Shelf group
+                // Generate a hash for this MMIO Chip + Rack + Shelf group.
                 std::vector<int> header_hash = {
                     mmio_group.first, chip.second.at(0), chip.second.at(1), chip.second.at(2)};
                 if (broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
                     broadcast_header_union_per_group.insert(
                         {header_hash, std::make_tuple(mmio_group.first, chip.second)});
                 } else {
-                    // If group found, update chip header entry
+                    // If group found, update chip header entry.
                     std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
                 }
             }
         }
-        // Get all broadcast headers per MMIO group
+        // Get all broadcast headers per MMIO group.
         for (const auto& header : broadcast_header_union_per_group) {
             ChipId mmio_chip = std::get<0>(header.second);
             if (bcast_header_cache[chips_to_exclude].find(mmio_chip) == bcast_header_cache[chips_to_exclude].end()) {
@@ -666,7 +648,7 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
             }
             bcast_header_cache[chips_to_exclude].at(mmio_chip).push_back(std::get<1>(header.second));
         }
-        // Invert headers (FW convention)
+        // Invert headers (FW convention).
         for (auto& bcast_group : bcast_header_cache[chips_to_exclude]) {
             for (auto& header : bcast_group.second) {
                 int header_idx = 0;
@@ -715,7 +697,7 @@ void Cluster::ethernet_broadcast_write(
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
     if (use_ethernet_broadcast) {
-        // Broadcast through ERISC core supported
+        // Broadcast through ERISC core supported.
         std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
             get_ethernet_broadcast_headers(chips_to_exclude);
         // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
@@ -739,7 +721,7 @@ void Cluster::ethernet_broadcast_write(
             }
         }
     } else {
-        // Broadcast not supported. Implement this at the software level as a for loop
+        // Broadcast not supported. Implement this at the software level as a for loop.
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
@@ -768,7 +750,7 @@ void Cluster::broadcast_write_to_cluster(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
-                // When broadcast includes column zero do not exclude anything
+                // When broadcast includes column zero do not exclude anything.
                 std::set<uint32_t> unsafe_rows = {};
                 std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
                 std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
@@ -916,18 +898,6 @@ int Cluster::arc_msg(
     int logical_device_id,
     uint32_t msg_code,
     bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    const std::chrono::milliseconds timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, {arg0, arg1}, timeout_ms, return_3, return_4);
-}
-
-int Cluster::arc_msg(
-    int logical_device_id,
-    uint32_t msg_code,
-    bool wait_for_done,
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,
@@ -962,7 +932,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
     broadcast_write_to_cluster(
         &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
-    // Ensure that reset signal is globally visible
+    // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }
 
@@ -973,25 +943,26 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 }
 
 void Cluster::deassert_resets_and_set_power_state() {
-    // Assert tensix resets on all chips in cluster
+    // Assert tensix resets on all chips in cluster.
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();
     }
 
-    // MT Initial BH - ARC messages not supported in Blackhole
+    // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
             get_chip(chip)->enable_ethernet_queue();
         }
     }
 
-    // Set power state to busy
+    // Set power state to busy.
     set_power_state(DevicePowerState::BUSY);
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
+    log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -1002,7 +973,8 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
-    // Close remote device first because sending risc reset requires corresponding pcie device to be active
+    log_info(LogUMD, "Closing devices in cluster");
+    // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();
     }
@@ -1050,7 +1022,7 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, IODeviceType device_type) {
     TopologyDiscoveryOptions options;
-    options.soc_descriptor_path = sdesc_path;
+    options.soc_descriptor_path = std::move(sdesc_path);
     options.io_device_type = device_type;
     return TopologyDiscovery::discover(std::move(options)).first;
 }

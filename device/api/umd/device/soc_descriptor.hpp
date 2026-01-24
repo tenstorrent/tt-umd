@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -92,13 +90,12 @@ public:
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
+    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
     // Serialize the soc descriptor to a YAML string, or directly to a file.
     // A default file in /tmp directory will be used if no path is passed.
     std::string serialize() const;
     std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
-
-    static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<CoreCoord> get_cores(
         const CoreType core_type,
@@ -181,7 +178,7 @@ private:
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 
-    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter
+    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter.
     void write_coords(void *out, const CoreCoord &core) const;
     void write_core_locations(void *out, const CoreType &core_type) const;
     void serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const;

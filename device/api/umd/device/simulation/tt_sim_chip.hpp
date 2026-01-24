@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -12,6 +10,7 @@
 #include <filesystem>
 
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
 namespace tt::umd {
 
@@ -20,9 +19,10 @@ class TTSimChip : public SimulationChip {
 public:
     TTSimChip(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
-        bool copy_sim_binary = false);
+        bool copy_sim_binary = false,
+        int num_host_mem_channels = 0);
     ~TTSimChip() override;
 
     void start_device() override;
@@ -43,17 +43,8 @@ private:
     void secure_simulator_binary();
     void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path& path);
-    std::unique_ptr<architecture_implementation> architecture_impl_;
-    int copied_simulator_fd_ = -1;
 
-    void* libttsim_handle = nullptr;
-    uint32_t libttsim_pci_device_id = 0;
-    void (*pfn_libttsim_init)() = nullptr;
-    void (*pfn_libttsim_exit)() = nullptr;
-    uint32_t (*pfn_libttsim_pci_config_rd32)(uint32_t bus_device_function, uint32_t offset) = nullptr;
-    void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
+    std::unique_ptr<TTSimTTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

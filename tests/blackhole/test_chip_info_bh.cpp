@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
 #include "umd/device/tt_device/tt_device.hpp"
@@ -22,6 +23,6 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
             chip_info.board_type == BoardType::P300);
 
         // TODO: uncomment this when we can read asic location properly from telemetry.
-        // EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);
+        // EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);.
     }
 }

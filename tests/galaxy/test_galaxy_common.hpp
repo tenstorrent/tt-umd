@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -43,5 +41,5 @@ void move_data(
 void broadcast_data(
     Cluster& device,
     tt_multichip_core_addr sender_core,
-    std::vector<tt_multichip_core_addr> receiver_cores,
+    const std::vector<tt_multichip_core_addr>& receiver_cores,
     uint32_t size);

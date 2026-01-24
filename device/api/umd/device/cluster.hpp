@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 #include <fmt/core.h>
@@ -27,6 +25,7 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -59,7 +58,7 @@ struct ClusterOptions {
     /**
      * Number of host memory channels (hugepages) per MMIO device.
      */
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    uint32_t num_host_mem_ch_per_mmio_device = 0;
     /**
      * If set to false, harvesting will be skipped for constructed soc descriptors.
      */
@@ -186,14 +185,14 @@ public:
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
+     * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
      */
     void configure_tlb(
         ChipId logical_device_id,
         tt_xy_pair core,
-        int32_t tlb_index,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
 
@@ -203,14 +202,14 @@ public:
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
+     * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
      */
     void configure_tlb(
         ChipId logical_device_id,
         CoreCoord core,
-        int32_t tlb_index,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
 
@@ -447,7 +446,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -469,7 +468,7 @@ public:
      * @param chip Chip to target.
      * @param channels Channels being targeted.
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels = {});
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
 
     /**
      * DRAM memory barrier.
@@ -481,7 +480,7 @@ public:
      */
     void dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores = {});
 
-    // Runtime functions
+    // Runtime functions.
     /**
      * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding
@@ -563,17 +562,6 @@ public:
     std::uint64_t get_pcie_base_addr_from_device(const ChipId chip_id) const;
 
     //---------- Misc system functions
-
-    // TODO: Deprecated. To be removed once clients switch to the new arc_msg API.
-    int arc_msg(
-        int logical_device_id,
-        uint32_t msg_code,
-        bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
-        uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr);
 
     /**
      * Issue message to device, meant to be picked up by ARC firmware.
@@ -668,11 +656,11 @@ public:
 
 private:
     // Helper functions
-    // Broadcast
+    // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
 
-    // Communication Functions
+    // Communication Functions.
     void ethernet_broadcast_write(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -685,10 +673,9 @@ private:
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
 
-    // Test functions
+    // Test functions.
     void log_device_summary();
     void log_pci_device_summary();
-    void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
@@ -714,7 +701,7 @@ private:
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
-    // State variables
+    // State variables.
     std::set<ChipId> all_chip_ids_ = {};
     std::set<ChipId> remote_chip_ids_ = {};
     std::set<ChipId> local_chip_ids_ = {};

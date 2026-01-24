@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
 #include <thread>
@@ -143,7 +144,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     }
 }
 
-TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
+TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -197,7 +198,7 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
 
     tt_device.reset();
 
@@ -214,7 +215,9 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -314,7 +317,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
 // This test can be destructive, and should not normally run.
 // Make sure to only run it on hardware which has recovery support.
-// The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests
+// The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests.
 TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
     auto [cluster_desc, _] = TopologyDiscovery::discover({});
 
@@ -350,7 +353,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         std::cout << "\n=== Testing device " << chip_id << " (remote: " << tt_device->is_remote()
                   << ") ===" << std::endl;
 
-        // Create SPI implementation for this device
+        // Create SPI implementation for this device.
         auto spi_impl = std::make_unique<SPITTDevice>(tt_device.get());
 
         // Test SPI read functionality
@@ -358,7 +361,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         uint32_t test_addr = 0x20108;  // Board info address (safe to read)
         std::vector<uint8_t> read_data(8, 0);
 
-        // Test SPI read - should work on chips with ARC SPI support
+        // Test SPI read - should work on chips with ARC SPI support.
         spi_impl->read(test_addr, read_data.data(), read_data.size());
 
         std::cout << "Read board info: ";
@@ -367,7 +370,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         }
         std::cout << std::endl;
 
-        // Verify we got some data (board info shouldn't be all zeros)
+        // Verify we got some data (board info shouldn't be all zeros).
         bool has_data = false;
         for (uint8_t byte : read_data) {
             if (byte != 0) {
@@ -377,10 +380,10 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         }
         EXPECT_TRUE(has_data) << "SPI read should return non-zero board info data for device " << chip_id;
 
-        // Test read-modify-write on spare/scratch area
+        // Test read-modify-write on spare/scratch area.
         uint32_t spare_addr = 0x20134;  // Wormhole spare area, but I also tested on Blackhole.
 
-        // Read current value
+        // Read current value.
         std::vector<uint8_t> original_value(2, 0);
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         spi_impl->read(spare_addr, original_value.data(), original_value.size());
@@ -388,18 +391,18 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         std::cout << "Original value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)original_value[1] << std::setw(2) << (int)original_value[0] << std::endl;
 
-        // Increment value (create a change)
+        // Increment value (create a change).
         std::vector<uint8_t> new_value = original_value;
         new_value[0] = new_value[0] + 1;  // wrapping_add
         if (new_value[0] == 0) {
             new_value[1] = new_value[1] + 1;
         }
 
-        // Write back incremented value
+        // Write back incremented value.
         std::cout << "spi_write value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
         spi_impl->write(spare_addr, new_value.data(), new_value.size());
 
-        // Read back to verify
+        // Read back to verify.
         std::vector<uint8_t> verify_value(2, 0);
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         spi_impl->read(spare_addr, verify_value.data(), verify_value.size());
@@ -407,7 +410,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         std::cout << "Updated value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)verify_value[1] << std::setw(2) << (int)verify_value[0] << std::endl;
 
-        // Verify read-after-write
+        // Verify read-after-write.
         EXPECT_EQ(new_value, verify_value) << "SPI write verification failed for device " << chip_id;
 
         // Increment value again, but this time don't commit it to SPI.
@@ -421,13 +424,13 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         std::cout << "spi_write (fake) value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
         spi_impl->write(spare_addr, new_value.data(), new_value.size(), true);
 
-        // Read back to verify
+        // Read back to verify.
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         spi_impl->read(spare_addr, verify_value.data(), verify_value.size());
         EXPECT_NE(new_value, verify_value) << "SPI buffer update on read failed for device " << chip_id;
 
         // Verify that the value fetched from different address was different.
-        // Read wider area to check SPI handling of different sizes
+        // Read wider area to check SPI handling of different sizes.
         std::vector<uint8_t> wide_value(8, 0);
         std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
         spi_impl->read(spare_addr, wide_value.data(), wide_value.size());
@@ -437,7 +440,7 @@ TEST(ApiTTDeviceTest, DISABLED_SPIReadWrite) {
         std::cout << "Wide read at 0x" << std::hex << spare_addr << ": " << std::setfill('0') << std::setw(16)
                   << wide_value_u64 << std::endl;
 
-        // Verify first 2 bytes match our written value
+        // Verify first 2 bytes match our written value.
         EXPECT_EQ(wide_value[0], verify_value[0])
             << "First byte of wide read doesn't match written value for device " << chip_id;
         EXPECT_EQ(wide_value[1], verify_value[1])

@@ -19,6 +19,7 @@ target_include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
         "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
 )
+target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
@@ -31,6 +32,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)
 
 if(TT_UMD_BUILD_SIMULATION)
     message(STATUS "Building ${PROJECT_NAME} with Simulation Tests")
@@ -48,6 +50,7 @@ add_custom_target(
         baremetal_tests
         umd_misc_tests
         unified_tests
+        test_utils_tests
 )
 
 if(TT_UMD_BUILD_SIMULATION)

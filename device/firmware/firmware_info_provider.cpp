@@ -1,9 +1,11 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -12,8 +14,10 @@
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
 #include "umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -71,7 +75,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
 
 semver_t FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(19, 1, 0); }
+semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(19, 4, 0); }
 
 semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
@@ -101,8 +105,12 @@ std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const 
     if (!telemetry->is_entry_available(TelemetryTag::ETH_FW_VERSION)) {
         return std::nullopt;
     }
-    return get_eth_fw_version_from_telemetry(
-        telemetry->read_entry(TelemetryTag::ETH_FW_VERSION), tt_device->get_arch());
+    switch (tt_device->get_arch()) {
+        case tt::ARCH::WORMHOLE_B0:
+            return semver_t::from_wormhole_eth_firmware_tag(get_eth_fw_version());
+        default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
+            return std::nullopt;
+    }
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
@@ -254,7 +262,7 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 

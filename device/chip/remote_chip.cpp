@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip/remote_chip.hpp"
 
@@ -11,7 +9,6 @@
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
-#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -23,10 +20,13 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
-    std::set<uint32_t> remote_transfer_eth_channels,
-    std::string sdesc_path) {
+    const std::set<uint32_t>& remote_transfer_eth_channels,
+    const std::string& sdesc_path) {
+    auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
+        local_chip->get_tt_device(),
+        target_eth_coord,
+        sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
@@ -39,30 +39,33 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     } else {
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
-    return std::unique_ptr<tt::umd::RemoteChip>(
-        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
-    std::set<uint32_t> remote_transfer_eth_channels,
+    const std::set<uint32_t>& remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
+    auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device(), target_eth_coord, local_chip->get_sysmem_manager());
+        local_chip->get_tt_device(),
+        target_eth_coord,
+        sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
-    return std::unique_ptr<tt::umd::RemoteChip>(
-        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
 }
 
 RemoteChip::RemoteChip(
     SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
+    Chip(remote_tt_device->get_chip_info(), std::move(soc_descriptor)), local_chip_(local_chip) {
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
     // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
@@ -71,13 +74,12 @@ RemoteChip::RemoteChip(
     //   1. Adding get_remote_communication() to the TTDevice base interface (probably not)
     //   2. Restructuring the inheritance hierarchy to eliminate this dependency
     //   3. Using composition instead of inheritance for remote communication
-    // ToDo: Figure out a proper way to make an abstraction to redesign this
+    // ToDo: Figure out a proper way to make an abstraction to redesign this.
     if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
         remote_communication_ =
             dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
     } else {
-        remote_communication_ =
-            dynamic_cast<RemoteBlackholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
+        remote_communication_ = nullptr;
     }
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();
@@ -99,11 +101,11 @@ void RemoteChip::close_device() {
 }
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    tt_device_->write_to_device(src, translate_chip_coord_to_translated(core), l1_dest, size);
+    tt_device_->write_to_device(src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
 void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    tt_device_->read_from_device(dest, translate_chip_coord_to_translated(core), l1_src, size);
+    tt_device_->read_from_device(dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size);
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {

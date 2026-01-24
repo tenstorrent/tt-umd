@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "hugepage.hpp"
 
@@ -189,7 +187,7 @@ int open_hugepage_file(const std::string& dir, ChipId physical_device_id, uint16
             filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH);
     }
 
-    // Restore original mask
+    // Restore original mask.
     umask(old_umask);
 
     if (fd == -1) {

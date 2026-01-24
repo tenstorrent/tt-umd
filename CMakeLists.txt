@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Generate compile_commands.json for IDEs and tools
 
 if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
     message(STATUS "Setting C and C++ compiler from environment variables")
@@ -69,6 +69,16 @@ option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
 option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
+option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
+
+# Prevent installation when building static libraries
+# This check must be early to fail before third-party dependencies are installed
+if(TT_UMD_BUILD_STATIC)
+    install(
+        CODE
+            "message(FATAL_ERROR \"Installation not supported when TT_UMD_BUILD_STATIC=ON. Static libraries are meant for internal linking only, not for installation.\")"
+    )
+endif()
 
 # If BUILD_ALL is enabled, enable all individual build options
 if(TT_UMD_BUILD_ALL)
@@ -127,10 +137,11 @@ add_compile_options(
     -Wall
     -Werror
     -Wno-unused-variable
-    -Wno-unused-function
-    -Wno-unused-but-set-variable
     -Wno-sign-compare
 )
+
+# Fixed this warning on clang, but not yet gcc
+add_compile_options("$<$<NOT:$<CXX_COMPILER_ID:Clang>>:-Wno-unused-but-set-variable>")
 
 # Conditionally add -Wno-maybe-uninitialized for GCC
 # If this is left enabled it produces a hard to track down issue in stimulus_generators.hpp with ConstrainedTemplateTemplateGenerator
@@ -140,7 +151,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-nonnull)
 endif()
 
-add_subdirectory(common)
 if(TT_UMD_BUILD_SIMULATION)
     message(STATUS "Building ${PROJECT_NAME} with Simulation")
 endif()

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -25,7 +25,7 @@ namespace fs = std::filesystem;
 // Initialization Functions /////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-// Constructor for singleton class cpu id allocator
+// Constructor for singleton class cpu id allocator.
 cpuset_allocator::cpuset_allocator() {
     m_pid = getpid();
     m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") ? true : false;
@@ -64,7 +64,7 @@ cpuset_allocator::cpuset_allocator() {
     }
 }
 
-// Step 1 : Initialize and perform m_topology detection
+// Step 1 : Initialize and perform m_topology detection.
 bool cpuset_allocator::init_topology_init_and_load() {
     log_debug(LogUMD, "Inside cpuset_allocator::topology_init_and_load()");
 
@@ -98,7 +98,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
     log_debug(LogUMD, "Starting cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
     m_num_tt_device_by_pci_device_id_map.clear();
 
-    hwloc_obj_t pci_device_obj = NULL;
+    hwloc_obj_t pci_device_obj = nullptr;
     const std::regex tt_device_re("tenstorrent!([0-9]+)");
 
     while ((pci_device_obj = hwloc_get_next_pcidev(m_topology, pci_device_obj))) {
@@ -165,7 +165,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
                 auto numa_nodeset = get_numa_nodeset_from_device(pci_device_obj, physical_device_id);
                 m_physical_device_id_to_numa_nodeset_map.insert({physical_device_id, numa_nodeset});
 
-                if (numa_nodeset == 0x0) {
+                if (numa_nodeset == nullptr) {
                     log_warning(
                         LogUMD,
                         "Could not find NumaNodeSet for TT Device (physical_device_id: {} pci_bus_id: {})",
@@ -180,7 +180,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
         }
     }
 
-    if (m_all_tt_devices.size() == 0) {
+    if (m_all_tt_devices.empty()) {
         log_warning(
             LogUMD, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TENSTORRENT_VENDOR_ID);
         return false;
@@ -231,7 +231,7 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
     std::vector<std::string> supported_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
 
-    // CPU Models that have L3 per CCX and 2 CCX per CCD
+    // CPU Models that have L3 per CCX and 2 CCX per CCD.
     std::vector<std::string> opt_2ccx_per_ccd_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
     for (const auto &package : m_package_id_to_devices_map) {
@@ -415,7 +415,7 @@ bool cpuset_allocator::bind_area_memory_nodeset(ChipId physical_device_id, const
 
     auto target_nodeset = m_physical_device_id_to_numa_nodeset_map.at(physical_device_id);
 
-    if (target_nodeset != 0) {
+    if (target_nodeset != nullptr) {
         if (hwloc_set_area_membind(
                 m_topology,
                 addr,
@@ -523,7 +523,7 @@ int cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, Chi
 }
 
 hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id) {
-    hwloc_nodeset_t nodeset = 0x0;
+    hwloc_nodeset_t nodeset = nullptr;
 
     // Currently an issue in non-EPYC machines where PCI devices are directly under Machine, and not any NumaNodes.
     // As quick workaround, skip this if there is only single numanode since returning 1 seems fine.

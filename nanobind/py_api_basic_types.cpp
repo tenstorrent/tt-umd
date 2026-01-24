@@ -1,14 +1,15 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <fmt/format.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/string_view.h>
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -18,6 +19,15 @@ using namespace tt;
 using namespace tt::umd;
 
 void bind_basic_types(nb::module_ &m) {
+    nb::enum_<NocId>(m, "NocId")
+        .value("DEFAULT_NOC", NocId::DEFAULT_NOC)
+        .value("NOC0", NocId::NOC0)
+        .value("NOC1", NocId::NOC1)
+        .value("SYSTEM_NOC", NocId::SYSTEM_NOC)
+        .def("__int__", [](NocId noc_id) { return static_cast<int>(noc_id); });
+
+    m.def("set_thread_noc_id", &tt::umd::set_thread_noc_id, nb::arg("noc_id"));
+
     nb::class_<EthCoord>(m, "EthCoord")
         .def(nb::init<>())
         .def(
@@ -82,7 +92,23 @@ void bind_basic_types(nb::module_ &m) {
         .def("__eq__", &semver_t::operator==)
         .def("__ne__", &semver_t::operator!=);
 
-    // Utility functions for BoardType
+    nb::class_<ChipInfo>(m, "ChipInfo")
+        .def(nb::init<>())
+        .def_rw("noc_translation_enabled", &ChipInfo::noc_translation_enabled)
+        .def_rw("harvesting_masks", &ChipInfo::harvesting_masks)
+        .def_rw("board_type", &ChipInfo::board_type)
+        .def_rw("board_id", &ChipInfo::board_id)
+        .def_rw("asic_location", &ChipInfo::asic_location);
+
+    nb::class_<HarvestingMasks>(m, "HarvestingMasks")
+        .def(nb::init<>())
+        .def_rw("tensix_harvesting_mask", &HarvestingMasks::tensix_harvesting_mask)
+        .def_rw("dram_harvesting_mask", &HarvestingMasks::dram_harvesting_mask)
+        .def_rw("eth_harvesting_mask", &HarvestingMasks::eth_harvesting_mask)
+        .def_rw("pcie_harvesting_mask", &HarvestingMasks::pcie_harvesting_mask)
+        .def_rw("l2cpu_harvesting_mask", &HarvestingMasks::l2cpu_harvesting_mask);
+
+    // Utility functions for BoardType.
     m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
     m.def(
         "board_type_from_string",

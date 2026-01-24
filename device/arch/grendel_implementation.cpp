@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -30,7 +30,7 @@ std::tuple<xy_pair, xy_pair> grendel_implementation::multicast_workaround(xy_pai
 }
 
 tlb_configuration grendel_implementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
+    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= grendel::TLB_COUNT_2M && tlb_index < grendel::TLB_COUNT_2M + grendel::TLB_COUNT_4G) {
         return tlb_configuration{
             .size = grendel::DYNAMIC_TLB_4G_SIZE,
@@ -115,7 +115,7 @@ uint64_t grendel_implementation::get_noc_reg_base(
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
 
-uint32_t grendel_implementation::get_soft_reset_reg_value(tt::umd::RiscType risc_type) const {
+uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
         TT_THROW("TENSIX risc cores should not be used on Grendel architecture.");
@@ -227,11 +227,11 @@ RiscType grendel_implementation::get_soft_reset_risc_type(uint32_t soft_reset_re
 }
 
 namespace grendel {
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
-    return (noc_translation_enabled || !umd_use_noc1) ? grendel::ARC_CORES_NOC0[0]
-                                                      : tt_xy_pair(
-                                                            grendel::NOC0_X_TO_NOC1_X[grendel::ARC_CORES_NOC0[0].x],
-                                                            grendel::NOC0_Y_TO_NOC1_Y[grendel::ARC_CORES_NOC0[0].y]);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1) {
+    return (noc_translation_enabled || !use_noc1) ? grendel::ARC_CORES_NOC0[0]
+                                                  : tt_xy_pair(
+                                                        grendel::NOC0_X_TO_NOC1_X[grendel::ARC_CORES_NOC0[0].x],
+                                                        grendel::NOC0_Y_TO_NOC1_Y[grendel::ARC_CORES_NOC0[0].y]);
 }
 }  // namespace grendel
 

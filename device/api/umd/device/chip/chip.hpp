@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -64,7 +62,7 @@ public:
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
 
     // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);
@@ -115,16 +113,13 @@ public:
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
-    // TODO: To be moved to private implementation once methods are moved to chip
+    // TODO: To be moved to private implementation once methods are moved to chip.
     void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
     DeviceDramAddressParams dram_address_params;
     DeviceL1AddressParams l1_address_params;
-
-    // TODO: To be removed once we properly refactor usage of NOC1 coords.
-    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
 protected:
     void wait_chip_to_be_ready();

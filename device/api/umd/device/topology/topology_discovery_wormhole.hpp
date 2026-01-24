@@ -1,11 +1,12 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -33,46 +34,46 @@ protected:
 
     static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
 
-    uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core) override;
+    uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    uint64_t get_local_board_id(Chip* chip, tt_xy_pair eth_core) override;
+    uint64_t get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    uint64_t get_local_asic_id(Chip* chip, tt_xy_pair eth_core) override;
+    uint64_t get_local_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) override;
+    uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    uint64_t get_unconnected_chip_id(Chip* chip) override;
+    uint64_t get_unconnected_device_id(TTDevice* tt_device) override;
 
-    std::optional<EthCoord> get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
+    std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    std::optional<EthCoord> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) override;
+    std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) override;
+    tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint32_t read_training_status(Chip* chip, tt_xy_pair eth_core);
+    uint32_t read_training_status(TTDevice* tt_device, tt_xy_pair eth_core);
 
-    uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) override;
+    uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
+    uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint32_t get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
+    uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
+    uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    std::unique_ptr<RemoteChip> create_remote_chip(
-        std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+    std::unique_ptr<TTDevice> create_remote_device(
+        std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
 
     bool is_using_eth_coords() override;
 
     void init_topology_discovery() override;
 
-    bool is_eth_trained(Chip* chip, const tt_xy_pair eth_core) override;
+    bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
-    void validate_routing_firmware_state(const std::map<uint64_t, std::unique_ptr<Chip>>& chips) override;
+    bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
     EthAddresses eth_addresses;
 
-    bool verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) override;
+    bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;

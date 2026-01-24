@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 
 #include <tt-logger/tt-logger.hpp>
@@ -207,29 +206,27 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
 }
 
 void BlackholeCoordinateManager::translate_l2cpu_coords() {
-    size_t num_harvested_l2cpu_cores = CoordinateManager::get_num_harvested(harvesting_masks.l2cpu_harvesting_mask);
-    size_t harvested_l2cpu_start_index = l2cpu_cores.size() - num_harvested_l2cpu_cores;
     size_t unharvested_logical_l2cpu_index = 0;
     for (size_t l2cpu_core_index = 0; l2cpu_core_index < l2cpu_cores.size(); l2cpu_core_index++) {
         const tt_xy_pair& l2cpu_core = l2cpu_cores[l2cpu_core_index];
 
-        if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
-            harvested_l2cpu_start_index++;
-        } else {
-            unharvested_logical_l2cpu_index++;
-            CoreCoord logical_coord =
-                CoreCoord(0, unharvested_logical_l2cpu_index - 1, CoreType::L2CPU, CoordSystem::LOGICAL);
-            add_core_translation(logical_coord, l2cpu_core);
-        }
-
         CoreCoord translated_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
         add_core_translation(translated_coord, l2cpu_core);
+
+        if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
+            continue;  // Harvested core - skip logical mapping
+        }
+
+        unharvested_logical_l2cpu_index++;
+        CoreCoord logical_coord =
+            CoreCoord(0, unharvested_logical_l2cpu_index - 1, CoreType::L2CPU, CoordSystem::LOGICAL);
+        add_core_translation(logical_coord, l2cpu_core);
     }
 }
 
 void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
     size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
-    if (eth_cores.size() == 0) {
+    if (eth_cores.empty()) {
         num_harvested_channels = 0;
     }
     for (size_t eth_channel = 0; eth_channel < eth_cores.size() - num_harvested_channels; eth_channel++) {

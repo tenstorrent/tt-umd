@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -9,6 +10,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -35,9 +37,8 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() const {
 }
 
 std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    return get_eth_fw_version_from_telemetry(
-        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION),
-        tt_device->get_arch());
+    return semver_t::from_wormhole_eth_firmware_tag(
+        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 }
 
 double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
@@ -77,7 +78,7 @@ std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_tra
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() const {
-    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(tt::umd::wormhole::AICLK);
+    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
@@ -154,7 +155,7 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -25,12 +23,12 @@ public:
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         EthCoord target_eth_coord,
-        std::set<uint32_t> remote_transfer_eth_channels,
-        std::string sdesc_path = "");
+        const std::set<uint32_t>& remote_transfer_eth_channels,
+        const std::string& sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         EthCoord target_eth_coord,
-        std::set<uint32_t> remote_transfer_eth_channels,
+        const std::set<uint32_t>& remote_transfer_eth_channels,
         SocDescriptor soc_descriptor);
 
     bool is_mmio_capable() const override;
@@ -60,7 +58,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
 
     void deassert_risc_resets() override;
     int get_clock() override;

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -21,36 +19,61 @@ namespace tt::umd {
  */
 class semver_t {
 public:
-    uint64_t major = 0;
-    uint64_t minor = 0;
-    uint64_t patch = 0;
+    uint64_t major;
+    uint64_t minor;
+    uint64_t patch;
+    uint64_t pre_release;
 
-    constexpr semver_t() : major(0), minor(0), patch(0) {}
+    constexpr semver_t() : major(0), minor(0), patch(0), pre_release(0) {}
 
-    constexpr semver_t(uint64_t major, uint64_t minor, uint64_t patch) {
-        this->major = major;
-        this->minor = minor;
-        this->patch = patch;
+    constexpr semver_t(std::uint32_t version) :
+        major((version >> 16) & 0xff), minor((version >> 12) & 0xf), patch(version & 0xfff), pre_release(0) {}
+
+    constexpr semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) :
+        major(major), minor(minor), patch(patch), pre_release(pre_release) {}
+
+    static semver_t from_firmware_bundle_tag(std::uint32_t version) {
+        uint64_t major = (version >> 24) & 0xFF;
+        uint64_t minor = (version >> 16) & 0xFF;
+        uint64_t patch = (version >> 8) & 0xFF;
+        uint64_t pre_release = version & 0xFF;
+        return semver_t(major, minor, patch, pre_release);
     }
 
     /*
      * Create a semver_t from a 32-bit integer by unpacking the following bits:
      * 0x00AABCCC where A is major, B is minor and C is patch.
+     * Actual meaning of the tag is:
+     * 0xEERRCDDD where E is entity, R is release, C is customer and D is debug.
      */
-    static semver_t from_eth_fw_tag(uint32_t version) {
-        return semver_t((version >> 16) & 0xFF, (version >> 12) & 0xF, version & 0xFFF);
+    static semver_t from_wormhole_eth_firmware_tag(std::uint32_t version) {
+        uint64_t major = (version >> 16) & 0xFF;
+        uint64_t minor = (version >> 12) & 0xF;
+        uint64_t patch = version & 0xFFF;
+        return semver_t(major, minor, patch);
     }
+
+    // Alternative name used in tt-metal. TODO: Remove.
+    static semver_t from_eth_fw_tag(std::uint32_t version) { return from_wormhole_eth_firmware_tag(version); }
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
-    bool operator<(const semver_t& other) const {
-        return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);
+    std::string str() const {
+        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
+                             : fmt::format("{}.{}.{}", major, minor, patch);
+    }
+
+    bool operator<(const semver_t& other) const noexcept {
+        uint64_t pr1 = (pre_release == 0) ? 256 : pre_release;
+        uint64_t pr2 = (other.pre_release == 0) ? 256 : other.pre_release;
+        return std::tie(major, minor, patch, pr1) < std::tie(other.major, other.minor, other.patch, pr2);
     }
 
     bool operator>(const semver_t& other) const { return other < *this; }
 
     bool operator==(const semver_t& other) const {
-        return std::tie(major, minor, patch) == std::tie(other.major, other.minor, other.patch);
+        return std::tie(major, minor, patch, pre_release) ==
+               std::tie(other.major, other.minor, other.patch, other.pre_release);
     }
 
     bool operator!=(const semver_t& other) const { return !(*this == other); }
@@ -59,7 +82,10 @@ public:
 
     bool operator>=(const semver_t& other) const { return !(*this < other); }
 
-    std::string to_string() const { return fmt::format("{}.{}.{}", major, minor, patch); }
+    std::string to_string() const {
+        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
+                             : fmt::format("{}.{}.{}", major, minor, patch);
+    }
 
     /*
      * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,
@@ -72,9 +98,9 @@ public:
         auto normalize = [](const semver_t& v) {
             // Major version 80 is treated as legacy, so smaller than everything else.
             if (v.major >= 80) {
-                return std::tuple<uint64_t, uint64_t, uint64_t>(0, v.minor, v.patch);
+                return semver_t(0, v.minor, v.patch);
             }
-            return std::tuple<uint64_t, uint64_t, uint64_t>(v.major, v.minor, v.patch);
+            return semver_t(v.major, v.minor, v.patch);
         };
 
         auto v1_normalized = normalize(v1);
@@ -85,11 +111,20 @@ public:
 
 private:
     static semver_t parse(const std::string& version_str) {
-        std::istringstream iss(version_str);
+        std::string version = version_str;
+        size_t pos = version_str.find("-rc.");
+        size_t count = 3;  // -rc length
+        bool ispos = false;
+        if (pos != std::string::npos) {
+            version.erase(pos, count);
+            ispos = true;
+        }
+        std::istringstream iss(version);
         std::string token;
         uint64_t major = 0;
         uint64_t minor = 0;
         uint64_t patch = 0;
+        uint64_t pre_release = 0;
 
         if (std::getline(iss, token, '.')) {
             major = std::stoull(token);
@@ -99,11 +134,27 @@ private:
 
                 if (std::getline(iss, token, '.')) {
                     patch = std::stoull(token);
+
+                    if (std::getline(iss, token, '.') && ispos == true) {
+                        pre_release = std::stoull(token);
+                    }
                 }
             }
         }
-        return semver_t(major, minor, patch);
+        return semver_t(major, minor, patch, pre_release);
     }
 };
 
 }  // namespace tt::umd
+
+namespace std {
+template <>
+struct hash<tt::umd::semver_t> {
+    std::size_t operator()(const tt::umd::semver_t& v) const noexcept {
+        // Assumption: size_t is 64-bit.
+        // Layout: [ Major (16) | Minor (16) | Patch (32) ].
+        return (static_cast<size_t>(v.major) << 48) | (static_cast<size_t>(v.minor) << 32) |
+               static_cast<size_t>(v.patch);
+    }
+};
+}  // namespace std

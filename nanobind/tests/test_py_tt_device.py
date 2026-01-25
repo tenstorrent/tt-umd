@@ -135,13 +135,13 @@ class TestTTDevice(unittest.TestCase):
         print(f"  Patch: {kmd_version.patch}")
 
     def test_arc_msg(self):
-        dev_ids = tt_umd.PCIDevice.enumerate_devices()
-        print("Devices found: ", dev_ids)
-        if (len(dev_ids) == 0):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", pci_ids)
+        if (len(pci_ids) == 0):
             print("No PCI devices found.")
             return
 
-        for dev_id in dev_ids:
+        for dev_id in pci_ids:
             dev = tt_umd.TTDevice.create(dev_id)
             dev.init_tt_device()
             arch = dev.get_arch()

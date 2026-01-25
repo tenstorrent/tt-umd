@@ -15,6 +15,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -344,6 +345,47 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("arg1"),
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
+
+    nb::class_<SPITTDevice>(m, "SPITTDevice")
+        .def(
+            "__init__",
+            [](SPITTDevice *self, TTDevice &device) { new (self) SPITTDevice(&device); },
+            nb::arg("device"),
+            "Create an SPITTDevice for the given TTDevice")
+        .def(
+            "read",
+            [](SPITTDevice &self, uint32_t addr, nb::bytearray data) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.read(addr, data_ptr, data_size);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Read data from SPI flash memory")
+        .def(
+            "write",
+            [](SPITTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.")
+        .def(
+            "write",
+            [](SPITTDevice &self, uint32_t addr, nb::bytearray data, bool skip_write_to_spi = false) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.write(addr, data_ptr, data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

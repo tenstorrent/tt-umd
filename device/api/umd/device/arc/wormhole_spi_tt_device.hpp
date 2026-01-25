@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "umd/device/arc/spi.hpp"
+#include "umd/device/arc/spi_tt_device.hpp"
 
 namespace tt::umd {
 
@@ -16,16 +16,14 @@ class TTDevice;
  * Wormhole-specific SPI implementation.
  * Uses aligned chunk-based reading/writing with the ARC messenger.
  */
-class WormholeSPI : public SPI {
+class WormholeSPITTDevice : public SPITTDevice {
 public:
-    explicit WormholeSPI(TTDevice* tt_device);
+    explicit WormholeSPITTDevice(TTDevice* tt_device);
 
     void read(uint32_t addr, uint8_t* data, size_t size) override;
     void write(uint32_t addr, const uint8_t* data, size_t size, bool skip_write_to_spi = false) override;
 
 private:
-    TTDevice* tt_device_;
-
     /**
      * Helper function to calculate aligned parameters for SPI read/write operations.
      * SPI operations must be aligned to chunk boundaries.
@@ -45,7 +43,7 @@ private:
         uint32_t& num_chunks,
         uint32_t& start_offset);
 
-    // SPI hardware control functions (only used for write operations)
+    // SPI hardware control functions (only used for write operations).
     uint32_t get_clock();
     void init(uint32_t clock_div);
     void disable();

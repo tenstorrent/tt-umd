@@ -36,7 +36,7 @@ class TestSPITTDevice(unittest.TestCase):
             print(f"\n=== Testing SPI read on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
 
             # Create SPI implementation for this device
-            spi_impl = tt_umd.SPITTDevice(tt_device)
+            spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test SPI read - board info
             board_info_addr = 0x20108
@@ -58,7 +58,7 @@ class TestSPITTDevice(unittest.TestCase):
             print(f"\n=== Testing SPI read-modify-write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
 
             # Create SPI implementation for this device
-            spi_impl = tt_umd.SPITTDevice(tt_device)
+            spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test read-modify-write on spare area
             spare_addr = 0x20134
@@ -93,7 +93,7 @@ class TestSPITTDevice(unittest.TestCase):
             print(f"\n=== Testing SPI uncommitted write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
 
             # Create SPI implementation for this device
-            spi_impl = tt_umd.SPITTDevice(tt_device)
+            spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test uncommitted write on spare area
             spare_addr = 0x20134

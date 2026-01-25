@@ -3,30 +3,34 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/arc/spi_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <stdexcept>
 
+#include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+
+std::unique_ptr<SPITTDevice> SPITTDevice::create(TTDevice *device) {
+    if (device == nullptr) {
+        throw std::runtime_error("SPITTDevice: device pointer cannot be null");
+    }
+
+    switch (device->get_arch()) {
+        case tt::ARCH::WORMHOLE_B0:
+            return std::make_unique<WormholeSPITTDevice>(device);
+        default:
+            throw std::runtime_error(
+                fmt::format("SPI operations are not supported for {} architecture.", device->get_arch()));
+    }
+}
 
 SPITTDevice::SPITTDevice(TTDevice *device) : device_(device) {
     if (device_ == nullptr) {
         throw std::runtime_error("SPITTDevice: device pointer cannot be null");
     }
-    // TODO: Implement architecture-specific SPI operations based on device->get_arch()
-    // For now, SPI operations will throw runtime_error until implementations are added.
-}
-
-void SPITTDevice::read(uint32_t addr, uint8_t *data, size_t size) {
-    // TODO: Implement architecture-specific SPI read based on device_->get_arch().
-    throw std::runtime_error(
-        fmt::format("SPI read not yet implemented for this {} architecture.", device_->get_arch()));
-}
-
-void SPITTDevice::write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi) {
-    // TODO: Implement architecture-specific SPI write based on device_->get_arch().
-    throw std::runtime_error(
-        fmt::format("SPI write not yet implemented for this {} architecture.", device_->get_arch()));
 }
 
 }  // namespace tt::umd

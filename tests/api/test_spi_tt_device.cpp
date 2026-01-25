@@ -64,7 +64,7 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIRead) {
                   << ") ===" << std::endl;
 
         // Create SPI implementation for this device.
-        auto spi_impl = std::make_unique<SPITTDevice>(tt_device.get());
+        auto spi_impl = SPITTDevice::create(tt_device.get());
 
         // Test SPI read functionality
         // Note: SPI addresses are chip-specific. Using a safe area for testing.
@@ -103,7 +103,7 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
                   << " (remote: " << tt_device->is_remote() << ") ===" << std::endl;
 
         // Create SPI implementation for this device.
-        auto spi_impl = std::make_unique<SPITTDevice>(tt_device.get());
+        auto spi_impl = SPITTDevice::create(tt_device.get());
 
         // Test read-modify-write on spare/scratch area.
         uint32_t spare_addr = 0x20134;
@@ -151,7 +151,7 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIUncommittedWrite) {
                   << " (remote: " << tt_device->is_remote() << ") ===" << std::endl;
 
         // Create SPI implementation for this device.
-        auto spi_impl = std::make_unique<SPITTDevice>(tt_device.get());
+        auto spi_impl = SPITTDevice::create(tt_device.get());
 
         // Test uncommitted write on spare/scratch area.
         uint32_t spare_addr = 0x20134;

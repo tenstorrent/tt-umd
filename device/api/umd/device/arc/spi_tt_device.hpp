@@ -23,6 +23,14 @@ class TTDevice;
 class SPITTDevice {
 public:
     /**
+     * Factory method that creates the appropriate SPI implementation based on device architecture.
+     *
+     * @param device Pointer to the TTDevice to use for SPI operations
+     * @return Unique pointer to the appropriate SPITTDevice implementation
+     */
+    static std::unique_ptr<SPITTDevice> create(TTDevice *device);
+
+    /**
      * Constructor that takes a pointer to TTDevice.
      *
      * @param device Pointer to the TTDevice to use for SPI operations
@@ -38,7 +46,7 @@ public:
      * @param data Buffer to store the read data
      * @param size Number of bytes to read
      */
-    void read(uint32_t addr, uint8_t *data, size_t size);
+    virtual void read(uint32_t addr, uint8_t *data, size_t size) = 0;
 
     /**
      * Write data to SPI flash memory.
@@ -48,7 +56,7 @@ public:
      * @param size Number of bytes to write
      * @param skip_write_to_spi If true, the data will not be committed to SPI. This is useful for testing.
      */
-    void write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi = false);
+    virtual void write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi = false) = 0;
 
 protected:
     TTDevice *device_;

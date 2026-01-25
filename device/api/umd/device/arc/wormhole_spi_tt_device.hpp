@@ -29,7 +29,7 @@ private:
      * SPI operations must be aligned to chunk boundaries.
      *
      * @param addr Starting address for the SPI operation
-     * @param size Number of bytes to read/write
+     * @param num_bytes Number of bytes to read/write
      * @param chunk_size Size of each chunk (e.g., ARC_SPI_CHUNK_SIZE)
      * @param start_addr Output: aligned start address (rounded down to chunk boundary)
      * @param num_chunks Output: number of chunks to process
@@ -37,14 +37,17 @@ private:
      */
     static void get_aligned_params(
         uint32_t addr,
-        uint32_t size,
+        uint32_t num_bytes,
         uint32_t chunk_size,
         uint32_t& start_addr,
         uint32_t& num_chunks,
         uint32_t& start_offset);
 
     // SPI hardware control functions (only used for write operations).
+
+    // Get the clock frequency of the device in MHz.
     uint32_t get_clock();
+
     void init(uint32_t clock_div);
     void disable();
     void unlock();

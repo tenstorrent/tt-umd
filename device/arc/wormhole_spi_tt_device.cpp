@@ -59,6 +59,12 @@ static constexpr uint8_t SPI_WR_EN_CMD = 0x06;
 static constexpr uint8_t SPI_RD_STATUS_CMD = 0x05;
 static constexpr uint8_t SPI_WR_STATUS_CMD = 0x01;
 
+static constexpr uint32_t SPI_DUMP_ADDR_CORRECTION = 0x10000000;
+
+// SPI Address Constants.
+static constexpr uint32_t SPI_BOARD_INFO_ADDR = 0x20108;
+static constexpr uint32_t SPI_SPARE_AREA_ADDR = 0x20134;
+
 static inline uint32_t spi_ctrl0_spi_scph(uint32_t scph) { return (scph << 6) & 0x1; }
 
 static inline uint32_t spi_ctrl1_ndf(uint32_t frame_count) { return frame_count & 0xffff; }
@@ -73,7 +79,7 @@ WormholeSPITTDevice::WormholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_d
 
 void WormholeSPITTDevice::get_aligned_params(
     uint32_t addr,
-    uint32_t size,
+    uint32_t num_bytes,
     uint32_t chunk_size,
     uint32_t& start_addr,
     uint32_t& num_chunks,
@@ -82,7 +88,7 @@ void WormholeSPITTDevice::get_aligned_params(
     start_addr = (addr / chunk_size) * chunk_size;
 
     // Round up to the nearest chunk boundary.
-    uint32_t end_addr = ((addr + size + chunk_size - 1) / chunk_size) * chunk_size;
+    uint32_t end_addr = ((addr + num_bytes + chunk_size - 1) / chunk_size) * chunk_size;
 
     // Calculate number of chunks.
     num_chunks = (end_addr - start_addr) / chunk_size;
@@ -122,7 +128,6 @@ uint32_t WormholeSPITTDevice::get_clock() {
 }
 
 void WormholeSPITTDevice::init(uint32_t clock_div) {
-    // std::cout << "clock_div: " << clock_div << std::endl;
     uint32_t reg;
     device_->read_from_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
 
@@ -310,7 +315,7 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     }
 
     uint32_t spi_dump_addr_offset = ret[0];
-    uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - 0x10000000);
+    uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
     // Get aligned parameters.
     uint32_t start_addr, num_chunks, start_offset;
@@ -375,7 +380,7 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         }
 
         uint32_t spi_dump_addr_offset = ret[0];
-        uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - 0x10000000);
+        uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
         // Get aligned parameters.
         uint32_t start_addr, num_chunks, start_offset;

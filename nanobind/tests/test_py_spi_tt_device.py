@@ -4,6 +4,10 @@
 import unittest
 import tt_umd
 
+# SPI Address Constants.
+SPI_BOARD_INFO_ADDR = 0x20108
+SPI_SPARE_AREA_ADDR = 0x20134
+
 
 def setup_spi_test_devices():
     """Helper function to set up devices for SPI testing."""
@@ -39,9 +43,8 @@ class TestSPITTDevice(unittest.TestCase):
             spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test SPI read - board info
-            board_info_addr = 0x20108
             board_info = bytearray(8)
-            spi_impl.read(board_info_addr, board_info)
+            spi_impl.read(SPI_BOARD_INFO_ADDR, board_info)
             print(f"Board info: {' '.join([f'{b:02x}' for b in board_info])}")
 
             # Verify board info is not all zeros
@@ -61,10 +64,9 @@ class TestSPITTDevice(unittest.TestCase):
             spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test read-modify-write on spare area
-            spare_addr = 0x20134
             original = bytearray(2)
-            spi_impl.read(spare_addr, original)
-            print(f"Original value at 0x{spare_addr:x}: {original[1]:02x}{original[0]:02x}")
+            spi_impl.read(SPI_SPARE_AREA_ADDR, original)
+            print(f"Original value at 0x{SPI_SPARE_AREA_ADDR:x}: {original[1]:02x}{original[0]:02x}")
 
             # Increment the value
             new_val = bytearray(original)
@@ -73,12 +75,12 @@ class TestSPITTDevice(unittest.TestCase):
                 new_val[1] = (new_val[1] + 1) % 256
 
             # Write back incremented value
-            spi_impl.write(spare_addr, bytes(new_val))
+            spi_impl.write(SPI_SPARE_AREA_ADDR, bytes(new_val))
 
             # Verify the write
             verify = bytearray(2)
-            spi_impl.read(spare_addr, verify)
-            print(f"Updated value at 0x{spare_addr:x}: {verify[1]:02x}{verify[0]:02x}")
+            spi_impl.read(SPI_SPARE_AREA_ADDR, verify)
+            print(f"Updated value at 0x{SPI_SPARE_AREA_ADDR:x}: {verify[1]:02x}{verify[0]:02x}")
 
             self.assertEqual(list(new_val), list(verify), 
                            f"SPI write verification failed for device {chip_id}")
@@ -96,10 +98,9 @@ class TestSPITTDevice(unittest.TestCase):
             spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test uncommitted write on spare area
-            spare_addr = 0x20134
             original = bytearray(2)
-            spi_impl.read(spare_addr, original)
-            print(f"Original value at 0x{spare_addr:x}: {original[1]:02x}{original[0]:02x}")
+            spi_impl.read(SPI_SPARE_AREA_ADDR, original)
+            print(f"Original value at 0x{SPI_SPARE_AREA_ADDR:x}: {original[1]:02x}{original[0]:02x}")
 
             # Increment value again, but this time don't commit it to SPI.
             # This is to verify that the values from SPI are truly fetched.
@@ -109,13 +110,13 @@ class TestSPITTDevice(unittest.TestCase):
                 new_val[1] = (new_val[1] + 1) % 256
 
             # Performs write to the buffer, but doesn't commit it to SPI (skip_write_to_spi=True)
-            print(f"SPI write (uncommitted) to 0x{spare_addr:x}")
-            spi_impl.write(spare_addr, bytes(new_val), True)
+            print(f"SPI write (uncommitted) to 0x{SPI_SPARE_AREA_ADDR:x}")
+            spi_impl.write(SPI_SPARE_AREA_ADDR, bytes(new_val), True)
 
             # Read back to verify - should NOT match new_val since we didn't actually write to SPI
             verify2 = bytearray(2)
-            spi_impl.read(spare_addr, verify2)
-            print(f"Value after uncommitted write at 0x{spare_addr:x}: {verify2[1]:02x}{verify2[0]:02x}")
+            spi_impl.read(SPI_SPARE_AREA_ADDR, verify2)
+            print(f"Value after uncommitted write at 0x{SPI_SPARE_AREA_ADDR:x}: {verify2[1]:02x}{verify2[0]:02x}")
 
             self.assertNotEqual(list(new_val), list(verify2),
                               f"SPI buffer update on read failed for device {chip_id} - uncommitted write should not change SPI value")
@@ -124,9 +125,9 @@ class TestSPITTDevice(unittest.TestCase):
 
             # Read wider area
             wide_read = bytearray(8)
-            spi_impl.read(spare_addr, wide_read)
+            spi_impl.read(SPI_SPARE_AREA_ADDR, wide_read)
             wide_value = int.from_bytes(wide_read, byteorder='little')
-            print(f"Wide read at 0x{spare_addr:x}: {wide_value:016x}")
+            print(f"Wide read at 0x{SPI_SPARE_AREA_ADDR:x}: {wide_value:016x}")
 
             # Verify first 2 bytes match the verify2 value (not new_val)
             self.assertEqual(wide_read[0], verify2[0], 

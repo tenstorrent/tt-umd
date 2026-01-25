@@ -19,6 +19,10 @@
 
 using namespace tt::umd;
 
+// SPI Address Constants.
+static constexpr uint32_t SPI_BOARD_INFO_ADDR = 0x20108;
+static constexpr uint32_t SPI_SPARE_AREA_ADDR = 0x20134;
+
 // Helper function to set up devices for SPI testing.
 std::unordered_map<ChipId, std::unique_ptr<TTDevice>> setup_spi_test_devices() {
     auto [cluster_desc, _] = TopologyDiscovery::discover({});
@@ -68,11 +72,10 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIRead) {
 
         // Test SPI read functionality
         // Note: SPI addresses are chip-specific. Using a safe area for testing.
-        uint32_t test_addr = 0x20108;  // Board info address (safe to read)
         std::vector<uint8_t> read_data(8, 0);
 
         // Test SPI read - should work on chips with ARC SPI support.
-        spi_impl->read(test_addr, read_data.data(), read_data.size());
+        spi_impl->read(SPI_BOARD_INFO_ADDR, read_data.data(), read_data.size());
 
         std::cout << "Read board info: ";
         for (uint8_t byte : read_data) {
@@ -106,14 +109,12 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
         auto spi_impl = SPITTDevice::create(tt_device.get());
 
         // Test read-modify-write on spare/scratch area.
-        uint32_t spare_addr = 0x20134;
-
         // Read current value.
         std::vector<uint8_t> original_value(2, 0);
-        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        spi_impl->read(spare_addr, original_value.data(), original_value.size());
+        std::cout << "spi_read from 0x" << std::hex << SPI_SPARE_AREA_ADDR << std::dec << std::endl;
+        spi_impl->read(SPI_SPARE_AREA_ADDR, original_value.data(), original_value.size());
 
-        std::cout << "Original value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
+        std::cout << "Original value at 0x" << std::hex << SPI_SPARE_AREA_ADDR << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)original_value[1] << std::setw(2) << (int)original_value[0] << std::endl;
 
         // Increment value (create a change).
@@ -124,15 +125,15 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
         }
 
         // Write back incremented value.
-        std::cout << "spi_write value to spare area at 0x" << std::hex << spare_addr << std::dec << std::endl;
-        spi_impl->write(spare_addr, new_value.data(), new_value.size());
+        std::cout << "spi_write value to spare area at 0x" << std::hex << SPI_SPARE_AREA_ADDR << std::dec << std::endl;
+        spi_impl->write(SPI_SPARE_AREA_ADDR, new_value.data(), new_value.size());
 
         // Read back to verify.
         std::vector<uint8_t> verify_value(2, 0);
-        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        spi_impl->read(spare_addr, verify_value.data(), verify_value.size());
+        std::cout << "spi_read from 0x" << std::hex << SPI_SPARE_AREA_ADDR << std::dec << std::endl;
+        spi_impl->read(SPI_SPARE_AREA_ADDR, verify_value.data(), verify_value.size());
 
-        std::cout << "Updated value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
+        std::cout << "Updated value at 0x" << std::hex << SPI_SPARE_AREA_ADDR << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)verify_value[1] << std::setw(2) << (int)verify_value[0] << std::endl;
 
         // Verify read-after-write.
@@ -154,12 +155,10 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIUncommittedWrite) {
         auto spi_impl = SPITTDevice::create(tt_device.get());
 
         // Test uncommitted write on spare/scratch area.
-        uint32_t spare_addr = 0x20134;
-
         // Read current value first.
         std::vector<uint8_t> original_value(2, 0);
-        spi_impl->read(spare_addr, original_value.data(), original_value.size());
-        std::cout << "Original value at 0x" << std::hex << spare_addr << ": " << std::hex << std::setfill('0')
+        spi_impl->read(SPI_SPARE_AREA_ADDR, original_value.data(), original_value.size());
+        std::cout << "Original value at 0x" << std::hex << SPI_SPARE_AREA_ADDR << ": " << std::hex << std::setfill('0')
                   << std::setw(2) << (int)original_value[1] << std::setw(2) << (int)original_value[0] << std::endl;
 
         // Increment value, but don't commit it to SPI.
@@ -172,15 +171,15 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIUncommittedWrite) {
         }
 
         // Performs write to the buffer, but doesn't commit it to SPI.
-        std::cout << "spi_write (uncommitted) value to spare area at 0x" << std::hex << spare_addr << std::dec
+        std::cout << "spi_write (uncommitted) value to spare area at 0x" << std::hex << SPI_SPARE_AREA_ADDR << std::dec
                   << std::endl;
-        spi_impl->write(spare_addr, new_value.data(), new_value.size(), true);
+        spi_impl->write(SPI_SPARE_AREA_ADDR, new_value.data(), new_value.size(), true);
 
         // Read back to verify - should match original, not new_value.
         std::vector<uint8_t> verify_value(2, 0);
-        std::cout << "spi_read from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        spi_impl->read(spare_addr, verify_value.data(), verify_value.size());
-        std::cout << "Value after uncommitted write at 0x" << std::hex << spare_addr << ": " << std::hex
+        std::cout << "spi_read from 0x" << std::hex << SPI_SPARE_AREA_ADDR << std::dec << std::endl;
+        spi_impl->read(SPI_SPARE_AREA_ADDR, verify_value.data(), verify_value.size());
+        std::cout << "Value after uncommitted write at 0x" << std::hex << SPI_SPARE_AREA_ADDR << ": " << std::hex
                   << std::setfill('0') << std::setw(2) << (int)verify_value[1] << std::setw(2) << (int)verify_value[0]
                   << std::endl;
 
@@ -192,12 +191,12 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIUncommittedWrite) {
         // Verify that the value fetched from different address was different.
         // Read wider area to check SPI handling of different sizes.
         std::vector<uint8_t> wide_value(8, 0);
-        std::cout << "spi_read (wide) from 0x" << std::hex << spare_addr << std::dec << std::endl;
-        spi_impl->read(spare_addr, wide_value.data(), wide_value.size());
+        std::cout << "spi_read (wide) from 0x" << std::hex << SPI_SPARE_AREA_ADDR << std::dec << std::endl;
+        spi_impl->read(SPI_SPARE_AREA_ADDR, wide_value.data(), wide_value.size());
 
         uint64_t wide_value_u64 = 0;
         std::memcpy(&wide_value_u64, wide_value.data(), sizeof(wide_value_u64));
-        std::cout << "Wide read at 0x" << std::hex << spare_addr << ": " << std::setfill('0') << std::setw(16)
+        std::cout << "Wide read at 0x" << std::hex << SPI_SPARE_AREA_ADDR << ": " << std::setfill('0') << std::setw(16)
                   << wide_value_u64 << std::endl;
 
         // Verify first 2 bytes match our original value (not new_value).

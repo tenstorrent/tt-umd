@@ -330,7 +330,7 @@ inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
-// Constants related to SPI
+// Constants related to SPI.
 inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;

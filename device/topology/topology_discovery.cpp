@@ -19,6 +19,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -65,7 +66,6 @@ TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : 
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
-    init_topology_discovery();
     get_connected_devices();
     discover_remote_devices();
     log_debug(LogUMD, "Completed topology discovery.");
@@ -82,8 +82,6 @@ TopologyDiscovery::discover(const TopologyDiscoveryOptions& options) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     return std::make_pair(std::move(cluster_desc), std::move(td->devices));
 }
-
-void TopologyDiscovery::init_topology_discovery() {}
 
 void TopologyDiscovery::get_connected_devices() {
     std::vector<int> local_device_ids;
@@ -104,7 +102,13 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-        tt_device->init_tt_device();
+        // When coming out of reset, devices can take on the order of minutes to become ready.
+        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+
+        // Check some things on first discovered MMIO device.
+        if (devices_to_discover.empty()) {
+            init_first_device(tt_device.get());
+        }
 
         if (!options.no_wait_for_eth_training) {
             wait_eth_cores_training(tt_device.get());

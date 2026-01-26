@@ -16,8 +16,6 @@
 
 using namespace tt::umd;
 
-constexpr uint32_t DRAM_BARRIER_BASE = 0;
-
 TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     const uint64_t address0 = 0x1000;
     const uint64_t address1 = 0x2000;

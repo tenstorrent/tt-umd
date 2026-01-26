@@ -171,7 +171,6 @@ void CoordinateManager::translate_tensix_coords() {
     if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.y) {
         harvesting_masks.tensix_harvesting_mask = 0;
     }
-    size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
@@ -196,8 +195,6 @@ void CoordinateManager::translate_tensix_coords() {
 }
 
 void CoordinateManager::fill_tensix_default_noc0_translated_mapping() {
-    tt_xy_pair tensix_grid_unharvested = get_grid_size(CoreType::TENSIX);
-
     for (tt_xy_pair noc0_core : tensix_cores) {
         CoreCoord translated_coord = CoreCoord(noc0_core, CoreType::TENSIX, CoordSystem::TRANSLATED);
         add_core_translation(translated_coord, noc0_core);

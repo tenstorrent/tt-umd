@@ -130,14 +130,12 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
 endif()
 
 # Enable all warnings and treat them as errors
-# Ignore unused variables and functions since there is no harm.
-# TODO: Re-enable sign-compare
 add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
-    -Wno-unused-variable
     -Wno-sign-compare
+    -Wno-unused-function
 )
 
 # Fixed this warning on clang, but not yet gcc

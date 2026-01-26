@@ -209,8 +209,6 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     std::unique_ptr<Cluster> umd_cluster =
         std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
 
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
     // Initialize random data.
     size_t data_size = 10;
     std::vector<uint8_t> data(data_size, 0);

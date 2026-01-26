@@ -388,7 +388,6 @@ int bytes_to_words(int num_bytes) {
 
 static inline void dispatch_remote_transfer_command(
     Cluster& driver, remote_transfer_sample_t const& command, std::vector<uint32_t>& payload) {
-    RemoteTransferType transfer_type = std::get<0>(command);
     auto resize_payload = [](std::vector<uint32_t>& payload, int size_in_bytes) {
         payload.resize(bytes_to_words<uint32_t>(size_in_bytes));
     };
@@ -524,7 +523,6 @@ void RunMixedTransfers(
             command_history->push_back(sample);
         }
 
-        RemoteTransferType transfer_type = std::get<0>(sample);
         if (record_command_history) {
             print_command_executable_code(sample);
         } else {

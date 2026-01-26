@@ -53,7 +53,7 @@ TEST(MicrobenchmarkTLB, DRAM) {
         });
     }
     // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, dram_core, 16 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
+    cluster->configure_tlb(CHIP_ID, dram_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
         bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {

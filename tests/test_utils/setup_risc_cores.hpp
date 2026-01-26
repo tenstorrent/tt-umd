@@ -17,6 +17,8 @@ namespace test_utils {
 inline void safe_test_cluster_start(Cluster* cluster) {
     static std::mutex mtx;
     {
+        std::lock_guard<std::mutex> lock(mtx);
+
         auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
         std::array<uint32_t, 12> brisc_program_default{};
         std::copy(
@@ -34,8 +36,6 @@ inline void safe_test_cluster_start(Cluster* cluster) {
             default:
                 return;
         }
-
-        std::lock_guard<std::mutex> lock(mtx);
 
         for (auto& chip_id : cluster->get_target_device_ids()) {
             auto tensix_cores =
@@ -71,9 +71,9 @@ inline void safe_test_cluster_start(Cluster* cluster) {
 
             cluster->l1_membar(chip_id, all_tensix_cores_translated);
         }
-    }
 
-    cluster->start_device({});
+        cluster->start_device({});
+    }
 }
 
 }  // namespace test_utils

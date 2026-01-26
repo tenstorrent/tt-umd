@@ -61,10 +61,6 @@ static constexpr uint8_t SPI_WR_STATUS_CMD = 0x01;
 
 static constexpr uint32_t SPI_DUMP_ADDR_CORRECTION = 0x10000000;
 
-// SPI Address Constants.
-static constexpr uint32_t SPI_BOARD_INFO_ADDR = 0x20108;
-static constexpr uint32_t SPI_SPARE_AREA_ADDR = 0x20134;
-
 static inline uint32_t spi_ctrl0_spi_scph(uint32_t scph) { return (scph << 6) & 0x1; }
 
 static inline uint32_t spi_ctrl1_ndf(uint32_t frame_count) { return frame_count & 0xffff; }
@@ -283,9 +279,6 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
 
     // Wait for lock operation to complete.
     uint8_t status_val;
-    uint8_t prev_status = 0;
-    uint32_t status_count = 0;
-    bool first_status = true;
     while (((status_val = read_status(SPI_RD_STATUS_CMD)) & 0x1) == 0x1) {
     }
 }

@@ -1,9 +1,9 @@
 <div align="center">
-<h1> TT-UMD :tm: </h1>
+<h1> TT-UMD </h1>
 
 User Mode Driver
 
-<img src="./docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
+<img src="https://raw.githubusercontent.com/tenstorrent/tt-umd/main/docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
 
 </div>
 <br/>

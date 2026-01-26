@@ -15,6 +15,7 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::MEM_BARRIER, "MEM_BARRIER"},
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
     {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
+    {MutexType::PCIE_DMA, "PCIE_DMA"},
 };
 
 const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToString = {
@@ -51,18 +52,18 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex(
     return acquire_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+void LockManager::initialize_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     initialize_mutex_internal(mutex_name);
 }
 
-void LockManager::clear_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+void LockManager::clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     clear_mutex_internal(mutex_name);
 }
 
 std::unique_lock<RobustMutex> LockManager::acquire_mutex(
-    std::string mutex_prefix, int device_id, IODeviceType device_type) {
+    const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     return acquire_mutex_internal(mutex_name);
 }

@@ -36,7 +36,7 @@ uint32_t WormholeArcMessenger::send_message(
     uint16_t arg0 = 0;
     uint16_t arg1 = 0;
 
-    if (args.size() >= 1) {
+    if (!args.empty()) {
         if (args[0] > 0xFFFF) {
             throw std::runtime_error(
                 fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
@@ -95,16 +95,10 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t status = 0xbadbad;
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if ((duration.count() > timeout_ms.count()) && (timeout_ms != std::chrono::milliseconds(0))) {
-            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
-        }
-
         tt_device->read_from_arc_apb(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
-            if (return_values.size() >= 1) {
+            if (!return_values.empty()) {
                 tt_device->read_from_arc_apb(
                     &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
             }

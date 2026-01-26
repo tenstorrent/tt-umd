@@ -25,19 +25,15 @@ static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
-    TTDevice(pci_device, std::make_unique<wormhole_implementation>(), use_safe_api) {
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
 }
 
-void WormholeTTDevice::post_init_hook() {
-    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
-}
-
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
+    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>()) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
@@ -462,54 +458,7 @@ uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
     return training_status;
 }
 
-WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_t eth_fw_version) {
-    uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
-
-    uint64_t node_info;
-    uint64_t eth_conn_info;
-    uint64_t results_buf;
-    uint64_t erisc_remote_board_type_offset;
-    uint64_t erisc_local_board_type_offset;
-    uint64_t erisc_local_board_id_lo_offset;
-    uint64_t erisc_remote_board_id_lo_offset;
-    uint64_t erisc_remote_eth_id_offset;
-
-    if (masked_version >= 0x060000) {
-        node_info = 0x1100;
-        eth_conn_info = 0x1200;
-        results_buf = 0x1ec0;
-    } else {
-        throw std::runtime_error(
-            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
-    }
-
-    if (masked_version >= 0x06C000) {
-        erisc_remote_board_type_offset = 77;
-        erisc_local_board_type_offset = 69;
-        erisc_remote_board_id_lo_offset = 72;
-        erisc_local_board_id_lo_offset = 64;
-        erisc_remote_eth_id_offset = 76;
-    } else {
-        erisc_remote_board_type_offset = 72;
-        erisc_local_board_type_offset = 64;
-        erisc_remote_board_id_lo_offset = 73;
-        erisc_local_board_id_lo_offset = 65;
-        erisc_remote_eth_id_offset = 77;
-    }
-
-    return WormholeTTDevice::EthAddresses{
-        masked_version,
-        node_info,
-        eth_conn_info,
-        results_buf,
-        erisc_remote_board_type_offset,
-        erisc_local_board_type_offset,
-        erisc_local_board_id_lo_offset,
-        erisc_remote_board_id_lo_offset,
-        erisc_remote_eth_id_offset};
-}
-
-bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -535,13 +484,6 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-        if (timeout_ms.count() != 0 && elapsed_ms > timeout_ms.count()) {
-            log_debug(LogUMD, "Post reset wait for ARC timed out after: {}", timeout_ms.count());
-            return false;
-        }
-
         uint32_t bar_read_arc_reset_scratch_status;
 
         read_from_arc_apb(
@@ -563,25 +505,18 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
             sizeof(bar_read_arc_csm_pcie_dma_request));
 
-        // Handle known error/status codes.
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_debug(LogUMD, "NoAccess error");
+                log_error(LogUMD, "NoAccess error");
                 return false;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_debug(LogUMD, "WatchdogTriggered error");
+                log_error(LogUMD, "WatchdogTriggered error");
                 return false;
-            case STATUS_BOOT_INCOMPLETE_1:
-            case STATUS_BOOT_INCOMPLETE_2:
-                log_debug(LogUMD, "BootIncomplete error");
-                continue;
-            case STATUS_ASLEEP_1:
-            case STATUS_ASLEEP_2:
-                log_debug(LogUMD, "Asleep error");
-                continue;
+
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
                 return true;
+
             case STATUS_OLD_POST_CODE: {
                 bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
@@ -589,32 +524,53 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
                 if (pc_idle) {
                     return true;
                 }
-                log_debug(LogUMD, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
-                continue;
+                break;
             }
+            case STATUS_BOOT_INCOMPLETE_1:
+            case STATUS_BOOT_INCOMPLETE_2:
+            case STATUS_ASLEEP_1:
+            case STATUS_ASLEEP_2:
+            default:
+                break;
         }
 
-        // Check for outstanding DMA request.
-        if (bar_read_arc_csm_pcie_dma_request != 0) {
-            log_debug(LogUMD, "OutstandingPcieDMA error");
-            continue;
-        }
-        // Check for queued message.
-        if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL) {
-            uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
-            log_debug(LogUMD, "MessageQueued error, message_id: {}", message_id);
-            continue;
-        }
-        // Check for message being handled.
-        if ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL) {
-            uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
-            log_debug(LogUMD, "HandlingMessage error, message_id: {}", message_id);
-            continue;
-        }
-        // Message complete, response written into bar_read_arc_reset_scratch_status.
-        if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
+        uint32_t message_id = 0;
+        bool is_queued =
+            ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL);
+        bool is_handling =
+            ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL);
+        bool is_complete =
+            ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN);
+        bool dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
+
+        if (is_queued) {
+            message_id = bar_read_arc_reset_scratch_status & 0xFF;
+        } else if (is_handling) {
+            message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
+        } else if (is_complete && !dma_request) {
+            // We only return true if the message says complete and DMA is idle.
             return true;
         }
+
+        if (utils::check_timeout(
+                start,
+                timeout_ms,
+                fmt::format(
+                    "Wait for ARC core to start timed out after: {}. Status: 0x{:x}, PostCode: 0x{:x}, MessageId "
+                    "0x{:x}",
+                    timeout_ms.count(),
+                    arc_core.x,
+                    arc_core.y,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code,
+                    message_id),
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+
+        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
+        // polling hardware state that changes on the order of milliseconds.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
@@ -629,4 +585,5 @@ bool WormholeTTDevice::is_hardware_hung() {
 
     return (scratch_data == HANG_READ_VALUE);
 }
+
 }  // namespace tt::umd

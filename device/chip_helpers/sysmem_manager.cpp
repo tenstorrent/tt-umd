@@ -52,13 +52,14 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 
-    log_debug(
-        LogUMD,
-        "Cluster::read_buffer (pci device num: {}, ch: {}) from {:p}",
-        tt_device_->get_pci_device()->get_device_num(),
-        channel,
-        user_scratchspace);
-
+    if (tt_device_) {
+        log_debug(
+            LogUMD,
+            "Cluster::read_buffer (comm. device ID: {}, ch: {}) from {:p}",
+            tt_device_->get_communication_device_id(),
+            channel,
+            user_scratchspace);
+    }
     memcpy(dest, user_scratchspace, size);
 }
 

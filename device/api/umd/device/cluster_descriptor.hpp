@@ -292,6 +292,7 @@ private:
     std::map<uint64_t, std::unordered_set<ChipId>> board_to_chips = {};
     std::map<ChipId, uint8_t> asic_locations = {};
     std::unordered_map<ChipId, uint64_t> chip_to_board_id = {};
+    std::unordered_map<ChipId, std::string> chip_pci_bdfs = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {

@@ -432,6 +432,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->eth_fw_version = full_cluster_desc->eth_fw_version;
     desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
 
+    desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, target_chip_ids);
+
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
         if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
@@ -893,6 +895,20 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             asic_locations.insert({chip, asic_location});
         }
     }
+
+    if (yaml["chip_pci_bdfs"]) {
+        for (const auto &chip_pci_bdf : yaml["chip_pci_bdfs"].as<std::map<int, std::string>>()) {
+            auto &chip = chip_pci_bdf.first;
+            const std::string &bdf_str = chip_pci_bdf.second;
+
+            // make sure chip is mmio mapped
+            if (chips_with_mmio.find(chip) == chips_with_mmio.end()) {
+                throw std::runtime_error(fmt::format("Chip {} has PCI BDF specified but is not mmio mapped.", chip));
+            }
+
+            chip_pci_bdfs.insert({chip, bdf_str});
+        }
+    }
 }
 
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
@@ -1174,6 +1190,14 @@ std::string ClusterDescriptor::serialize() const {
         std::map<ChipId, uint8_t>(asic_locations.begin(), asic_locations.end());
     for (const auto &[chip_id, asic_location] : asic_locations_map) {
         out << YAML::Key << chip_id << YAML::Value << static_cast<int>(asic_location);
+    }
+    out << YAML::EndMap;
+
+    out << YAML::Key << "chip_pci_bdfs" << YAML::Value << YAML::BeginMap;
+    std::map<ChipId, std::string> pci_bdfs_map =
+        std::map<ChipId, std::string>(chip_pci_bdfs.begin(), chip_pci_bdfs.end());
+    for (const auto &[chip_id, bdf] : pci_bdfs_map) {
+        out << YAML::Key << chip_id << YAML::Value << bdf;
     }
     out << YAML::EndMap;
 

@@ -62,6 +62,7 @@ Checks: >
     -performance-inefficient-vector-operation,
     -performance-move-const-arg,
     -performance-no-int-to-ptr,
+    -performance-unnecessary-value-param,
     -readability-avoid-nested-conditional-operator,
     -readability-const-return-type,
     -readability-container-data-pointer,

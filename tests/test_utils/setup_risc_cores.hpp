@@ -15,11 +15,8 @@ namespace test_utils {
 
 inline void safe_test_cluster_start(Cluster* cluster) {
     static RobustMutex mtx("safe_test_cluster_start");
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        mtx.initialize();
-    }
+    static std::once_flag init_flag;
+    std::call_once(init_flag, [&]() { mtx.initialize(); });
 
     std::lock_guard<RobustMutex> lock(mtx);
 

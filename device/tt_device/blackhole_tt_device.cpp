@@ -25,13 +25,13 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), is_selected_noc1());
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
+    arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    TTDevice(jtag_device, jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(get_noc_translation_enabled(), is_selected_noc1());
+    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>()) {
+    arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -160,9 +160,9 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    auto start = std::chrono::steady_clock::now();
+bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     uint32_t arc_boot_status;
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
@@ -171,14 +171,21 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return true;
         }
 
-        utils::check_timeout(
-            start,
-            timeout_ms,
-            fmt::format(
-                "Timed out after waiting {} ms for arc core ({}, {}) to start",
-                timeout_ms.count(),
-                arc_core.x,
-                arc_core.y));
+        if (utils::check_timeout(
+                start,
+                timeout_ms,
+                fmt::format(
+                    "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                    timeout_ms.count(),
+                    arc_core.x,
+                    arc_core.y),
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+
+        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
+        // polling hardware state that changes on the order of milliseconds.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 

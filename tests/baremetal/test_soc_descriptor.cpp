@@ -611,7 +611,7 @@ TEST(SocDescriptor, BlackholeNOC1Cores) {
 }
 
 TEST(SocDescriptor, AllSocDescriptors) {
-    for (std::string soc_desc_yaml : test_utils::GetAllSocDescs()) {
+    for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {
         std::cout << "Testing " << soc_desc_yaml << std::endl;
 
         auto arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_yaml);

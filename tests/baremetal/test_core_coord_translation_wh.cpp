@@ -157,10 +157,6 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
 
-        tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
-
-        size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
-
         CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
         CoreCoord noc0_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::NOC0);
 
@@ -387,8 +383,8 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoc1Noc0Mapping) {
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
     auto check_noc0_noc1_mapping = [coordinate_manager](
-                                       const std::vector<tt_xy_pair> noc0_cores,
-                                       const std::vector<tt_xy_pair> noc1_cores,
+                                       const std::vector<tt_xy_pair>& noc0_cores,
+                                       const std::vector<tt_xy_pair>& noc1_cores,
                                        const CoreType core_type) {
         for (uint32_t index = 0; index < noc0_cores.size(); index++) {
             const CoreCoord noc0_core =

@@ -57,7 +57,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
             void* mapping =
                 mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
             auto now = std::chrono::high_resolution_clock::now();
-            uint64_t iova = pci_device->map_for_dma(mapping, size);
+            pci_device->map_for_dma(mapping, size);
             auto end = std::chrono::high_resolution_clock::now();
             map_result.add(end - now, 1, pc);
 
@@ -106,7 +106,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
     for (int i = 0; i < NUM_EPOCHS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             MAPPING_SIZE,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
@@ -164,7 +164,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
     for (int i = 0; i < NUM_EPOCHS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             MAPPING_SIZE,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
@@ -175,7 +175,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
             GTEST_SKIP() << "Mapping 1GiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
-        uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        pci_device->map_for_dma(mapping, MAPPING_SIZE);
         auto end = std::chrono::high_resolution_clock::now();
         map_result.add(end - now, 1, pc);
 

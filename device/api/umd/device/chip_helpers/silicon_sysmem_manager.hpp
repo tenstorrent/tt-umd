@@ -17,7 +17,7 @@ static constexpr size_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
 class SiliconSysmemManager : public SysmemManager {
 public:
     SiliconSysmemManager(TLBManager* tlb_manager, uint32_t num_host_mem_channels);
-    virtual ~SiliconSysmemManager();
+    ~SiliconSysmemManager() override;
 
     bool pin_or_map_sysmem_to_device() override;
 
@@ -40,7 +40,7 @@ private:
     bool pin_or_map_hugepages();
     bool pin_or_map_iommu();
 
-    void print_file_contents(std::string filename, std::string hint = "");
+    void print_file_contents(const std::string& filename, const std::string& hint = "");
 };
 
 }  // namespace tt::umd

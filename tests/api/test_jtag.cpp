@@ -35,7 +35,7 @@ protected:
         }
 
         auto potential_jlink_devices = Jtag(JtagDevice::jtag_library_path.c_str()).enumerate_jlink();
-        if (!potential_jlink_devices.size()) {
+        if (potential_jlink_devices.empty()) {
             log_warning(tt::LogUMD, "There are no Jlink devices connected..");
             return;
         }
@@ -208,8 +208,6 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
 
     std::unique_ptr<Cluster> umd_cluster =
         std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
-
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 10;

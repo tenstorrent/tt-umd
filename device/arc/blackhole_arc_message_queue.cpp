@@ -43,8 +43,7 @@ void BlackholeArcMessageQueue::push_request(
             break;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     // Offset in words.
@@ -69,8 +68,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
             break;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     uint32_t response_entry_offset =
@@ -135,7 +133,6 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
 
     uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
     uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
-    uint32_t num_queues = (queue_control_block >> 40) & 0xFF;
 
     uint32_t msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
     uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;

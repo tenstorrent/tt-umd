@@ -90,6 +90,9 @@ inline constexpr auto TLB_16M_OFFSET = tlb_offsets{
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
+    GET_SPI_DUMP_ADDR = 0x29,
+    SPI_READ = 0x2A,
+    SPI_WRITE = 0x2B,
     GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
@@ -180,7 +183,7 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {1, 3, 5, 7, 9, 8, 6, 4, 2, 0};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
+inline constexpr uint32_t STATIC_TLB_SIZE = 1 * 1024 * 1024;  // 1MB
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;
@@ -249,6 +252,9 @@ inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 // ARC APB absolute addresses in BAR0 memory space.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
+
+inline constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
+inline constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
 
 // ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_START = 0x80000000;
@@ -323,6 +329,11 @@ inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
+
+// Constants related to SPI.
+inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
+inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
+inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
 }  // namespace wormhole
 
@@ -404,11 +415,7 @@ public:
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
-
     uint32_t get_read_checking_offset() const override { return wormhole::ARC_SCRATCH_6_OFFSET; }
-
-    uint32_t get_static_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     uint32_t get_reg_tlb() const override { return wormhole::REG_TLB; }
 
@@ -480,7 +487,7 @@ public:
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
-    size_t get_cached_tlb_size() const override { return 1 << 20; }  // 1MB
+    size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return true; }
 };

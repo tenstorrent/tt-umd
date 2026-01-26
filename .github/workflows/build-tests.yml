@@ -60,7 +60,7 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    runs-on: ubuntu-22.04
+    runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 
@@ -113,7 +113,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
-    runs-on: ubuntu-22.04
+    runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 

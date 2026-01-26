@@ -130,17 +130,16 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
 endif()
 
 # Enable all warnings and treat them as errors
-# Ignore unused variables and functions since there is no harm.
-# TODO: Re-enable sign-compare
 add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
-    -Wno-unused-variable
-    -Wno-unused-function
-    -Wno-unused-but-set-variable
     -Wno-sign-compare
+    -Wno-unused-function
 )
+
+# Fixed this warning on clang, but not yet gcc
+add_compile_options("$<$<NOT:$<CXX_COMPILER_ID:Clang>>:-Wno-unused-but-set-variable>")
 
 # Conditionally add -Wno-maybe-uninitialized for GCC
 # If this is left enabled it produces a hard to track down issue in stimulus_generators.hpp with ConstrainedTemplateTemplateGenerator

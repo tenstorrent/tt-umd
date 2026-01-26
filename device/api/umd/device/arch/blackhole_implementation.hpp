@@ -157,7 +157,7 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;  // TODO: Copied from wormhole. Need to verify.
+inline constexpr uint32_t STATIC_TLB_SIZE = 2 * 1024 * 1024;  // 2MB
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};  // TODO: Copied from wormhole. Need to verify.
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from wormhole. Need to verify.
@@ -247,6 +247,7 @@ constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
+inline constexpr uint32_t SCRATCH_RAM_0 = ARC_RESET_UNIT_OFFSET + 0x400;
 inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
@@ -395,10 +396,6 @@ public:
 
     uint32_t get_num_eth_channels() const override { return blackhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
-
-    uint32_t get_static_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
-
     uint32_t get_read_checking_offset() const override { return blackhole::BH_NOC_NODE_ID_OFFSET; }
 
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
@@ -471,7 +468,7 @@ public:
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
-    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 2MB
+    size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return false; }  // False due to a known HW issue.
 };

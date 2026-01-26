@@ -26,6 +26,8 @@ enum class MutexType {
     CREATE_ETH_MAP,
     // Used for guarding against multiple users initializing the same chip.
     CHIP_IN_USE,
+    // Used for guarding PCIe DMA operations against concurrent access from multiple processes.
+    PCIE_DMA,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying
@@ -47,10 +49,11 @@ public:
         MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
     // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
-    void initialize_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    void clear_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    void initialize_mutex(
+        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    void clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
     std::unique_lock<RobustMutex> acquire_mutex(
-        std::string mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
 private:
     void initialize_mutex_internal(const std::string& mutex_name);

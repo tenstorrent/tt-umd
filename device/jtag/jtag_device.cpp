@@ -15,8 +15,6 @@
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 
-constexpr uint32_t ROW_LEN = 12;
-constexpr uint32_t WORMHOLE_ID = 0x138a5;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 

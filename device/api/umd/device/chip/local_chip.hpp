@@ -20,7 +20,7 @@ public:
     // cannot have simple constructors as they require the base class to be constructed first.
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
-        std::string sdesc_path = "",
+        const std::string& sdesc_path = "",
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
@@ -70,7 +70,7 @@ public:
     int get_clock() override;
     int get_numa_node() override;
 
-    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
+    std::unique_lock<RobustMutex> acquire_mutex(const std::string& mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
@@ -108,14 +108,11 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
-    TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex wc_tlb_lock;
     std::mutex uc_tlb_lock;
-    std::mutex pcie_dma_lock;
 };
 }  // namespace tt::umd

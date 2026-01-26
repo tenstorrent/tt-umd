@@ -36,20 +36,22 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04, compiler: clang},
-          {runs-on: ubuntu-22.04, container-distro: ubuntu-22.04,
+          {container-distro: ubuntu-22.04, compiler: clang},
+          {container-distro: ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04, compiler: clang},
-          {runs-on: ubuntu-24.04, container-distro: ubuntu-24.04,
+          {container-distro: ubuntu-24.04, compiler: clang},
+          {container-distro: ubuntu-24.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {runs-on: ubuntu-22.04, container-distro: fedora-39,
+          {container-distro: fedora-39,
            compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
         ]
 
     name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
-    runs-on: ${{ matrix.image.runs-on }}
+    runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.container-distro }}:latest
+      image: >-
+        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        matrix.image.container-distro }}:latest
     env:
       ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
       ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
@@ -88,7 +90,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-compile-commands-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+            clang-tidy-compile-commands-${{ matrix.image.container-distro }}-${{ matrix.image.compiler }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
       - name: Prepare clang-tidy config file for upload
@@ -104,7 +106,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-config-${{ matrix.image.runs-on }}-${{ matrix.image.compiler }}
+            clang-tidy-config-${{ matrix.image.container-distro }}-${{ matrix.image.compiler }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package
@@ -239,7 +241,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
 
     name: Build umd manylinux wheel
-    runs-on: ubuntu-22.04
+    runs-on: tt-ubuntu-2204-large-stable
 
     steps:
       - uses: actions/checkout@v4
@@ -268,6 +270,13 @@ jobs:
           echo "Building manylinux wheel..."
           python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Build complete."
+
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: manylinux-wheel-artifact
+          path: |
+            ${{ env.WHEEL_OUTPUT_DIR }}
 
   test-packages:
     needs: build
@@ -395,3 +404,90 @@ jobs:
             echo "ERROR: Python package not found! Test skipped improperly."
             exit 1  # Force CI failure
           fi
+
+  build-exalens-kernels:
+    name: Build tt-exalens kernels for tests
+    timeout-minutes: 5
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-exalens
+          ref: main
+          submodules: recursive
+
+      - name: Build test kernels
+        run: |
+          make
+
+      - name: Remove SFPI from build artifacts
+        run: |
+          mv build/sfpi build/sfpi_backup
+          mkdir -p build/sfpi/compiler/bin/
+          cp build/sfpi_backup/compiler/bin/riscv-tt-elf-gdb build/sfpi/compiler/bin/riscv-tt-elf-gdb
+          rm -rf build/sfpi_backup
+          rm -f build/sfpi_*
+
+      - name: Upload kernels as artifacts
+        uses: pyTooling/upload-artifact@v4
+        with:
+          name: ttexalens-build
+          path: |
+            build
+
+  run-exalens-tests:
+    name: Run tt-exalens tests
+    needs:
+      - build-manylinux-wheels
+      - build-exalens-kernels
+    strategy:
+      matrix:
+        runner-info: [
+          {arch: "blackhole", board: "p150b", runs-on: "tt-ubuntu-2204-p150b-stable"},
+          {arch: "wormhole_b0", board: "n150", runs-on: "tt-ubuntu-2204-n150-stable"},
+          {arch: "wormhole_b0", board: "n300", runs-on: "tt-ubuntu-2204-n300-stable"},
+        ]
+    runs-on: ${{ matrix.runner-info.runs-on }}
+    container:
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
+      options: --device /dev/tenstorrent/0
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-exalens
+          ref: main
+          submodules: recursive
+
+      - name: Get tt-exalens kernels artifact
+        uses: pyTooling/download-artifact@v4
+        with:
+          name: ttexalens-build
+
+      - name: Get tt-umd wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manylinux-wheel-artifact
+
+      - name: Install tt-umd wheel
+        run: |
+          echo "Listing content of current directory before installing the wheel:"
+          ls -lAR
+          echo "Installing tt-umd wheel..."
+          pip install tt_umd-*-cp310*.whl --force-reinstall
+
+      - name: Run Python tests for tt-exalens library
+        run: |
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+
+      - name: Run Python tests for tt-exalens app
+        run: |
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py

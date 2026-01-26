@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include <mutex>
-
 #include "assembly_programs_for_tests.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/utils/robust_mutex.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -15,9 +14,14 @@ using namespace tt::umd;
 namespace test_utils {
 
 inline void safe_test_cluster_start(Cluster* cluster) {
-    static std::mutex mtx;
+    static RobustMutex mtx("safe_test_cluster_start");
+    static bool initialized = false;
+    if (!initialized) {
+        mtx.initialize();
+        initialized = true;
+    }
     {
-        std::lock_guard<std::mutex> lock(mtx);
+        std::lock_guard<RobustMutex> lock(mtx);
 
         auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
         std::array<uint32_t, 12> brisc_program_default{};

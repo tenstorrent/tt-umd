@@ -238,10 +238,35 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
     std::map<uint64_t, ChipId> asic_id_to_chip_id;
     ChipId chip_id = 0;
+
+    // sort based on pci_bdf inside PCIDevice
+    std::vector<std::pair<std::string, uint64_t>> sorted_device_bdfs;
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         if (!tt_device->is_remote()) {
-            asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
-            cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+            sorted_device_bdfs.emplace_back(
+                tt_device->get_pci_device()->get_device_info().pci_bdf, current_device_asic_id);
+        }
+    }
+
+    sort(sorted_device_bdfs.begin(), sorted_device_bdfs.end());
+
+    for (const auto& [current_device_asic_id, tt_device] : devices) {
+        if (!tt_device->is_remote()) {
+            std::pair<std::string, uint64_t> bdf_pair = {
+                tt_device->get_pci_device()->get_device_info().pci_bdf, current_device_asic_id};
+            // find bdf_pair index in sorted_device_bdfs
+            int chip_id_assign = std::distance(
+                sorted_device_bdfs.begin(), std::find(sorted_device_bdfs.begin(), sorted_device_bdfs.end(), bdf_pair));
+
+            std::cout << "Chip id assign " << chip_id_assign << std::endl;
+
+            if (cluster_desc->chip_unique_ids.find(chip_id_assign) != cluster_desc->chip_unique_ids.end()) {
+                throw std::runtime_error(
+                    fmt::format("Duplicate chip ID {} assigned, topology discovery failed.", chip_id_assign));
+            }
+
+            asic_id_to_chip_id.emplace(current_device_asic_id, chip_id_assign);
+            cluster_desc->chip_unique_ids.emplace(chip_id_assign, current_device_asic_id);
             chip_id++;
         }
     }

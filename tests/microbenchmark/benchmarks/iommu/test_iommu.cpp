@@ -90,7 +90,6 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
                      << OUTPUT_ENV_VAR;
     }
 
-    static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t HUGEPAGE_SHIFT = 21;
     const uint64_t MAPPING_SIZE = 1 << HUGEPAGE_SHIFT;  // 2 MiB
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -117,7 +116,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
             GTEST_SKIP() << "Mapping 2MiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
-        uint64_t iova = pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        pci_device->map_for_dma(mapping, MAPPING_SIZE);
         auto end = std::chrono::high_resolution_clock::now();
         map_result.add(end - now, 1, pc);
 
@@ -148,7 +147,6 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
                      << OUTPUT_ENV_VAR;
     }
 
-    static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t HUGEPAGE_SHIFT = 30;
     const uint64_t MAPPING_SIZE = 1 << HUGEPAGE_SHIFT;  // 1 GiB
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{

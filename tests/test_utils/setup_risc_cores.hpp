@@ -17,8 +17,8 @@ inline void safe_test_cluster_start(Cluster* cluster) {
     static RobustMutex mtx("safe_test_cluster_start");
     static bool initialized = false;
     if (!initialized) {
-        mtx.initialize();
         initialized = true;
+        mtx.initialize();
     }
     {
         std::lock_guard<RobustMutex> lock(mtx);

@@ -147,6 +147,7 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
 
     // Extract BDF addresses.
     std::vector<std::string> pci_bdf_addresses;
+    pci_bdf_addresses.reserve(device_info_map.size());
     for (const auto& [device_id, info] : device_info_map) {
         pci_bdf_addresses.push_back(info.pci_bdf);
     }
@@ -161,6 +162,7 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
 
     for (uint32_t combination = 1; combination < total_combinations; combination++) {  // Skip empty combination
         std::vector<std::string> target_bdf_addresses;
+        target_bdf_addresses.reserve(pci_bdf_addresses.size());
         for (int i = 0; i < pci_bdf_addresses.size(); i++) {
             if (combination & (1 << i)) {
                 target_bdf_addresses.push_back(pci_bdf_addresses[i]);

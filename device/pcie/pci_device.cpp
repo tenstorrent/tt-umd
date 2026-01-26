@@ -235,17 +235,49 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
         return device_ids;
     }
 
-    std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
+    // Check if BDF_VISIBLE_DEVICES is set - if so, use BDF filtering instead of device ID filtering.
+    std::unordered_set<std::string> visible_bdfs = utils::get_visible_bdfs();
 
-    for (const auto &entry : std::filesystem::directory_iterator(path)) {
-        std::string filename = entry.path().filename().string();
+    if (!visible_bdfs.empty()) {
+        // BDF filtering: need to read device info to get BDF, then filter.
+        for (const auto &entry : std::filesystem::directory_iterator(path)) {
+            std::string filename = entry.path().filename().string();
 
-        // TODO: this will skip any device that has a non-numeric name, which
-        // is probably what we want longer-term (i.e. a UUID or something).
-        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
-            int pci_device_id = std::stoi(filename);
-            if (visible_devices.empty() || visible_devices.find(pci_device_id) != visible_devices.end()) {
-                device_ids.push_back(pci_device_id);
+            if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
+                int pci_device_id = std::stoi(filename);
+
+                // Read device info to get BDF.
+                int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_id).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
+                if (fd == -1) {
+                    continue;
+                }
+
+                try {
+                    PciDeviceInfo device_info = read_device_info(fd);
+                    if (visible_bdfs.find(device_info.pci_bdf) != visible_bdfs.end()) {
+                        device_ids.push_back(pci_device_id);
+                    }
+                } catch (...) {
+                    // Skip devices we can't read info from.
+                }
+
+                close(fd);
+            }
+        }
+    } else {
+        // Fall back to original TT_VISIBLE_DEVICES logic.
+        std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
+
+        for (const auto &entry : std::filesystem::directory_iterator(path)) {
+            std::string filename = entry.path().filename().string();
+
+            // TODO: this will skip any device that has a non-numeric name, which
+            // is probably what we want longer-term (i.e. a UUID or something).
+            if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
+                int pci_device_id = std::stoi(filename);
+                if (visible_devices.empty() || visible_devices.find(pci_device_id) != visible_devices.end()) {
+                    device_ids.push_back(pci_device_id);
+                }
             }
         }
     }

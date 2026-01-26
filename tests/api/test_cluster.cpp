@@ -137,6 +137,70 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
     }
 }
 
+TEST(ApiClusterTest, OpenChipsByBDF) {
+    // Get all available PCI devices and their BDF addresses.
+    auto device_info_map = PCIDevice::enumerate_devices_info();
+
+    if (device_info_map.empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing BDF_VISIBLE_DEVICES";
+    }
+
+    // Extract BDF addresses.
+    std::vector<std::string> pci_bdf_addresses;
+    for (const auto& [device_id, info] : device_info_map) {
+        pci_bdf_addresses.push_back(info.pci_bdf);
+    }
+
+    // Limit combinations like the original test.
+    if (pci_bdf_addresses.size() > 4) {
+        GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
+                        "This test is intended to be run on all systems apart from 6U.";
+    }
+
+    int total_combinations = 1 << pci_bdf_addresses.size();
+
+    for (uint32_t combination = 1; combination < total_combinations; combination++) {  // Skip empty combination
+        std::vector<std::string> target_bdf_addresses;
+        for (int i = 0; i < pci_bdf_addresses.size(); i++) {
+            if (combination & (1 << i)) {
+                target_bdf_addresses.push_back(pci_bdf_addresses[i]);
+            }
+        }
+
+        std::cout << "Creating Cluster with target BDF addresses: ";
+        for (const auto& bdf : target_bdf_addresses) {
+            std::cout << bdf << " ";
+        }
+        std::cout << std::endl;
+
+        // Convert BDF addresses to comma-separated string.
+        std::string bdf_value;
+        for (size_t i = 0; i < target_bdf_addresses.size(); ++i) {
+            if (i > 0) {
+                bdf_value += ",";
+            }
+            bdf_value += target_bdf_addresses[i];
+        }
+
+        if (setenv(utils::BDF_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to set BDF_VISIBLE_DEVICES environment variable.";
+        }
+
+        // Make sure that Cluster construction is without exceptions.
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+        // Check that the cluster has the expected number of chips.
+        auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+        EXPECT_EQ(actual_pci_device_ids.size(), target_bdf_addresses.size());
+        // Always expect logical id 0 to exist, that's the way filtering by bdf addresses work.
+        EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+
+        if (unsetenv(utils::BDF_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset BDF_VISIBLE_DEVICES environment variable.";
+        }
+    }
+}
+
 TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // First, pregenerate a cluster descriptor and save it to a file.
     // This will run topology discovery and touch all the devices.

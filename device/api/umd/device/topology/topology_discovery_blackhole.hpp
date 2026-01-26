@@ -56,7 +56,7 @@ protected:
 
     void patch_eth_connections() override;
 
-    void init_topology_discovery() override;
+    void init_first_device(TTDevice* tt_device) override;
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
 };

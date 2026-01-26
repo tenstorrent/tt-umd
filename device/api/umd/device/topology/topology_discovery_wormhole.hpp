@@ -65,7 +65,7 @@ protected:
 
     bool is_using_eth_coords() override;
 
-    void init_topology_discovery() override;
+    void init_first_device(TTDevice* tt_device) override;
 
     bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 

@@ -215,34 +215,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
     }
 }
 
-void TopologyDiscoveryBlackhole::init_topology_discovery() {
-    int device_id = 0;
-    switch (options.io_device_type) {
-        case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                return;
-            }
-            // JTAG devices (j-links) are referred to with their index within a vector
-            // that's stored inside of a JtagDevice object.
-            // That index is completely different from the actual JTAG device id.
-            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
-            break;
-        }
-        case IODeviceType::PCIe: {
-            std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-            if (pci_device_ids.empty()) {
-                return;
-            }
-            device_id = pci_device_ids[0];
-            break;
-        }
-        default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
-    }
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-    tt_device->init_tt_device();
+void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 

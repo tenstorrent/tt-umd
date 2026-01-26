@@ -4,7 +4,7 @@
     },
     "C_Cpp.clang_format_fallbackStyle": "Google",
     "C_Cpp.clang_format_style": "file",
-    "clangd.path": "clangd-17",
+    "clangd.path": "clangd-20",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
         "--header-insertion=never",

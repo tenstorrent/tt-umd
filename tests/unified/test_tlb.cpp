@@ -119,7 +119,6 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
@@ -167,7 +166,6 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
@@ -212,7 +210,6 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
@@ -276,7 +273,6 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;

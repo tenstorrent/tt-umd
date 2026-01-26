@@ -19,9 +19,6 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-// TLB size for DRAM on blackhole - 4GB.
-const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
-
 std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
@@ -281,8 +278,6 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         return;
     }
 
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
-
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
@@ -301,8 +296,6 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         core.str(),
         l1_src,
         size);
-
-    uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 

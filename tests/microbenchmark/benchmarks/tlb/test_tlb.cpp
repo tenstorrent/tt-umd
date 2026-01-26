@@ -12,10 +12,7 @@ using namespace tt::umd;
 constexpr ChipId chip = 0;
 constexpr size_t one_kb = 1 << 10;
 constexpr size_t one_mb = 1 << 20;
-constexpr size_t one_gb = 1ULL << 30;
 constexpr uint32_t NUM_ITERATIONS = 10;
-constexpr uint32_t tlb_1m_index = 0;
-constexpr uint32_t tlb_16m_index = 166;
 
 /**
  * Measure BW of IO to DRAM core using dynamically configured TLB.

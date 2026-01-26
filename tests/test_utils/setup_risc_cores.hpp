@@ -33,7 +33,6 @@ inline void safe_test_cluster_start(Cluster* cluster) {
 
     for (auto& chip_id : cluster->get_target_device_ids()) {
         for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-            auto chip = cluster->get_chip(chip_id);
             auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
             cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);

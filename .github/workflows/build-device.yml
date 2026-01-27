@@ -36,14 +36,11 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {container-distro: ubuntu-22.04, compiler: clang},
-          {container-distro: ubuntu-22.04,
-           compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {container-distro: ubuntu-24.04, compiler: clang},
-          {container-distro: ubuntu-24.04,
-           compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
-          {container-distro: fedora-39,
-           compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
+          {container-distro: ubuntu-22.04, compiler: clang, c: clang-20, cpp: clang++-20},
+          {container-distro: ubuntu-22.04, compiler: gcc, c: gcc-12, cpp: g++-12},
+          {container-distro: ubuntu-24.04, compiler: clang, c: clang-20, cpp: clang++-20},
+          {container-distro: ubuntu-24.04, compiler: gcc, c: gcc-12, cpp: g++-12},
+          {container-distro: fedora-39, compiler: gcc, c: gcc, cpp: g++},
         ]
 
     name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
@@ -63,12 +60,10 @@ jobs:
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
 
-      - name: Set GCC compiler
-        # In case clang is selected, don't set these variables, cmake will find it by default.
-        if: ${{ matrix.image.compiler != 'clang' }}
+      - name: Select Compiler
         run: |
-          echo "CMAKE_C_COMPILER=${{ matrix.image.c }}" >> $GITHUB_ENV
-          echo "CMAKE_CXX_COMPILER=${{ matrix.image.cpp }}" >> $GITHUB_ENV
+          echo "CC=${{ matrix.image.c }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.image.cpp }}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
       - name: Build All

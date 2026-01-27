@@ -74,8 +74,8 @@ cmake --build build
 
 To build with GCC, set these environment variables before invoking `cmake`:
 ```
-export CMAKE_C_COMPILER=/usr/bin/gcc
-export CMAKE_CXX_COMPILER=/usr/bin/g++
+export CC=gcc
+export CXX=g++
 ```
 
 #### Build debian dev package

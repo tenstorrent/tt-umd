@@ -9,6 +9,8 @@ on:
       - 'VERSION'
 
 env:
+  CC: clang-20
+  CXX: clang++-20
   RELEASE_BUILD_TYPE: Release
   BUILD_OUTPUT_DIR: ./build
   INSTALL_OUTPUT_DIR: ./build/install

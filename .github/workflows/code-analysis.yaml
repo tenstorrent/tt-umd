@@ -232,7 +232,7 @@ jobs:
           LIMIT="${LIMIT:-1}"  # Default: 1 issue per run
 
           {
-            echo "Fix these CodeChecker issues (Clang Static Analyzer and clang-tidy):"
+            echo "Fix these Clang Static Analyzer issues:"
             echo ""
             jq -r --argjson limit "$LIMIT" \
               '.reports[:$limit][] |

@@ -250,40 +250,7 @@ uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_
 
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
-void TopologyDiscoveryWormhole::init_topology_discovery() {
-    std::vector<int> device_ids;
-    switch (options.io_device_type) {
-        case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                TT_THROW("Topology discovery initialisation failed, no JTAG devices were found..");
-            }
-            // JTAG devices (j-links) are referred to with their index within a vector
-            // that's stored inside of a JtagDevice object.
-            // That index is completely different from the actual JTAG device id.
-            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
-            break;
-        }
-        case IODeviceType::PCIe: {
-            auto pci_device_ids = PCIDevice::enumerate_devices();
-            if (pci_device_ids.empty()) {
-                return;
-            }
-            device_ids = pci_device_ids;
-            break;
-        }
-        default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
-    }
-
-    for (auto& device_id : device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-        // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-    }
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
-    tt_device->init_tt_device();
+void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =
         TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());

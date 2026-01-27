@@ -67,7 +67,7 @@ protected:
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     virtual void wait_eth_cores_training(
-        TTDevice* tt_device, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+        TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -126,7 +126,8 @@ protected:
 
     TTDevice* get_tt_device(const uint64_t asic_id);
 
-    virtual void init_topology_discovery();
+    // Configure some TopologyDiscovery paramaters from first discovered device.
+    virtual void init_first_device(TTDevice* tt_device) = 0;
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 

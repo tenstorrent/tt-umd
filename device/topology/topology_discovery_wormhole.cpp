@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
@@ -359,7 +360,10 @@ bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(
     uint32_t eth_connection_info;
     static uint32_t constexpr ETH_UNCONNECTED = 1;
 
-    tt_device->wait_eth_core_training(eth_core, std::chrono::milliseconds(5000));
+    tt_device->wait_eth_core_training(
+        chip->get_soc_descriptor().translate_coord_to(
+            eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::NOC0),
+        std::chrono::milliseconds(5000));
 
     while (true) {
         tt_device->read_from_device(

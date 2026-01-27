@@ -71,23 +71,22 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
-          # {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
           # TODO: To be added when available.
           # {arch: blackhole, card: tt-ubuntu-2204-p100a-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
-          # {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
-          # {arch: wormhole_b0, card: 6u},
-          # # bh-gh-07 is a P300 runner.
-          # {arch: blackhole, card: bh-gh-07},
-          # {arch: baremetal, card: ubuntu-22.04},
+          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
+          {arch: wormhole_b0, card: 6u},
+          # bh-gh-07 is a P300 runner.
+          {arch: blackhole, card: bh-gh-07},
+          {arch: baremetal, card: ubuntu-22.04},
         ]
-        repeat: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
         ubuntu-docker-version: [
           'ubuntu-22.04',
         ]

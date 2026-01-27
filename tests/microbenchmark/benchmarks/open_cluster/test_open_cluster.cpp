@@ -10,6 +10,8 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/warm_reset.hpp"
 
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
@@ -25,5 +27,20 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
                          std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
                          ankerl::nanobench::doNotOptimizeAway(cluster);
                      });
+    test::utils::export_results(bench);
+}
+
+TEST(MicrobenchmarkOpenCluster, TopologyDiscovery) {
+    auto bench =
+        ankerl::nanobench::Bench().maxEpochTime(std::chrono::seconds(30)).title("TopologyDiscovery").unit("discovery");
+    bench.name("default").run([&] {
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({});
+        ankerl::nanobench::doNotOptimizeAway(devices);
+    });
+    bench.name("local only").run([&] {
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({.no_remote_discovery = true});
+        ankerl::nanobench::doNotOptimizeAway(devices);
+    });
+
     test::utils::export_results(bench);
 }

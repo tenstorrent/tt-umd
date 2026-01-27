@@ -394,24 +394,21 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const 
 }
 
 bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) {
-    uint64_t addr = 0x1200 + (channel * 4);
     uint32_t eth_connection_info;
-
     TTDevice* tt_device = chip->get_tt_device();
+    static uint32_t constexpr ETH_UNCONNECTED = 1;
 
     tt_device->wait_eth_core_training(eth_core, std::chrono::milliseconds(5000));
 
     while (true) {
-        tt_device->read_from_device(&eth_connection_info, eth_core, addr, sizeof(uint32_t));
+        tt_device->read_from_device(
+            &eth_connection_info, eth_core, eth_addresses.eth_conn_info + 4 * channel, sizeof(uint32_t));
 
-        // std::cout << "eth core " << eth_core.x << "," << eth_core.y << " channel " << channel
-        //           << " eth_connection_info: " << eth_connection_info << std::endl;
-
-        if (eth_connection_info > 1) {
+        if (eth_connection_info > ETH_UNCONNECTED) {
             return true;
         }
 
-        if (eth_connection_info == 1) {
+        if (eth_connection_info == ETH_UNCONNECTED) {
             return false;
         }
     }

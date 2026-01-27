@@ -157,7 +157,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     uint32_t offset = 0;
     uint32_t block_size;
-    uint32_t buffer_id = 0;
 
     auto start = std::chrono::steady_clock::now();
     while (offset < size_in_bytes) {
@@ -363,7 +362,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     routing_cmd_t* new_cmd;
 
-    uint32_t buffer_id = 0;
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
 
     // Broadcast requires block writes to host dram

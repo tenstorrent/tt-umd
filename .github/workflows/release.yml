@@ -364,30 +364,29 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
 
-  # TODO: Uncomment this when PyPI is ready to accept tt-umd.
-  # publish-to-pypi:
-  #   name: Publish Python 🐍 distribution 📦 to PyPI
-  #   needs: [prepare-release, build-python-wheels, publish-to-testpypi]
-  #   runs-on: ubuntu-22.04
+  publish-to-pypi:
+    name: Publish Python 🐍 distribution 📦 to PyPI
+    needs: [prepare-release, build-python-wheels, publish-to-testpypi]
+    runs-on: ubuntu-22.04
 
-  #   environment:
-  #     name: pypi-release
-  #     url: https://pypi.org/p/tt-umd
+    environment:
+      name: pypi-release
+      url: https://pypi.org/p/tt-umd
 
-  #   permissions:
-  #     id-token: write  # IMPORTANT: mandatory for trusted publishing
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
 
-  #   steps:
-  #     - name: Download all the wheels
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
-  #         path: dist/
+    steps:
+      - name: Download all the wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          path: dist/
 
-  #     - name: Publish distribution 📦 to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-  #       with:
-  #         verbose: true
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
 
   create-release:
     name: Create GitHub Release
@@ -448,7 +447,7 @@ jobs:
             - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64)
             - Compatible with Ubuntu 20.04+, RHEL 8+, and other modern Linux distributions
             - Includes Python bindings for tt-umd
-            - TestPyPI: https://test.pypi.org/project/tt-umd/
+            - PyPI: https://pypi.org/project/tt-umd/
 
             ---
 

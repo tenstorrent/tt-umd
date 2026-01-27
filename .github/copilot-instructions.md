@@ -10,7 +10,7 @@ The environment is pre-configured with dependencies via `copilot-setup-steps.yml
 To rebuild after making changes:
 
 ```bash
-# Use GCC (set these env vars before cmake, or use clang-17 if available)
+# Use GCC (set these env vars before cmake)
 export CMAKE_C_COMPILER=/usr/bin/gcc
 export CMAKE_CXX_COMPILER=/usr/bin/g++
 

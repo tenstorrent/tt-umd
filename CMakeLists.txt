@@ -21,8 +21,8 @@ if(CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
     message(STATUS "Using specifed C++ compiler: ${CMAKE_CXX_COMPILER}")
     message(STATUS "Using specifed C compiler: ${CMAKE_C_COMPILER}")
 else()
-    message(STATUS "No C or C++ compiler specified, defaulting to Clang-17")
-    FIND_AND_SET_CLANG17()
+    message(STATUS "No C or C++ compiler specified, defaulting to Clang-20")
+    FIND_AND_SET_CLANG20()
 endif()
 
 # Read version from VERSION file
@@ -112,7 +112,7 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
         CLANG_TIDY_EXE
         NAMES
             clang-tidy
-            clang-tidy-17
+            clang-tidy-20
     )
     # These flags are needed because clang-tidy might reference warning options in
     # .clang-tidy config file that aren't supported by your actual compiler

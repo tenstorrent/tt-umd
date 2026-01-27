@@ -54,10 +54,10 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, tt
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
-    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
+    tt_device->read_from_device_wc(&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
 
     uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
+    tt_device->read_from_device_wc(&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
 
     return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
@@ -75,10 +75,10 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, tt_
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
-    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
+    tt_device->read_from_device_wc(&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
 
     uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
+    tt_device->read_from_device_wc(&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
 
     return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
@@ -89,17 +89,17 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, tt_x
 
     if (is_running_on_6u) {
         uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFD4, sizeof(asic_id_hi));
+        tt_device->read_from_device_wc(&asic_id_hi, translated_eth_core, 0x7CFD4, sizeof(asic_id_hi));
 
         uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFD8, sizeof(asic_id_lo));
+        tt_device->read_from_device_wc(&asic_id_lo, translated_eth_core, 0x7CFD8, sizeof(asic_id_lo));
 
         return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
     }
 
     uint64_t board_id = get_local_board_id(tt_device, eth_core);
     uint8_t asic_location;
-    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
+    tt_device->read_from_device_wc(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
 
     return mangle_asic_id(board_id, asic_location);
 }
@@ -110,17 +110,17 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
 
     if (is_running_on_6u) {
         uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, translated_eth_core, 0x7CFF4, sizeof(asic_id_hi));
+        tt_device->read_from_device_wc(&asic_id_hi, translated_eth_core, 0x7CFF4, sizeof(asic_id_hi));
 
         uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, translated_eth_core, 0x7CFF8, sizeof(asic_id_lo));
+        tt_device->read_from_device_wc(&asic_id_lo, translated_eth_core, 0x7CFF8, sizeof(asic_id_lo));
 
         return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
     }
 
     uint64_t board_id = get_remote_board_id(tt_device, eth_core);
     uint8_t asic_location;
-    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
+    tt_device->read_from_device_wc(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
 
     return mangle_asic_id(board_id, asic_location);
 }
@@ -135,7 +135,7 @@ uint32_t TopologyDiscoveryBlackhole::read_port_status(TTDevice* tt_device, tt_xy
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t port_status;
-    tt_device->read_from_device(&port_status, translated_eth_core, 0x7CC04, sizeof(port_status));
+    tt_device->read_from_device_wc(&port_status, translated_eth_core, 0x7CC04, sizeof(port_status));
     return port_status;
 }
 
@@ -143,7 +143,7 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_x
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t remote_eth_id;
-    tt_device->read_from_device(&remote_eth_id, translated_eth_core, 0x7CFE2, sizeof(remote_eth_id));
+    tt_device->read_from_device_wc(&remote_eth_id, translated_eth_core, 0x7CFE2, sizeof(remote_eth_id));
     return remote_eth_id;
 }
 
@@ -160,7 +160,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
     auto translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t remote_logical_eth_id;
-    tt_device->read_from_device(&remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
+    tt_device->read_from_device_wc(&remote_logical_eth_id, translated_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
 
     // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
     // for P150 Board Types (with a  SW workaround).
@@ -229,9 +229,9 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     uint8_t minor = 0;
     uint8_t patch = 0;
 
-    tt_device->read_from_device(&major, translated_eth_core, eth_fw_major_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
+    tt_device->read_from_device_wc(&major, translated_eth_core, eth_fw_major_addr, sizeof(uint8_t));
+    tt_device->read_from_device_wc(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
+    tt_device->read_from_device_wc(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
     semver_t eth_fw_version = semver_t(major, minor, patch);
 
     bool eth_fw_problem = false;

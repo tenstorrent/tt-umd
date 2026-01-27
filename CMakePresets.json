@@ -29,7 +29,7 @@
                     "value": "OFF"
                 },
                 "CMAKE_CXX_CLANG_TIDY": {
-                    "value": "clang-tidy-17;--config-file=${sourceDir}/.clang-tidy;--warnings-as-errors=*"
+                    "value": "clang-tidy-20;--config-file=${sourceDir}/.clang-tidy;--warnings-as-errors=*"
                 },
                 "CMAKE_EXPORT_COMPILE_COMMANDS": {
                     "value": "TRUE"
@@ -46,7 +46,7 @@
             "binaryDir": "${sourceDir}/.build/clang-tidy-fix",
             "cacheVariables": {
                 "CMAKE_CXX_CLANG_TIDY": {
-                    "value": "clang-tidy-17;--config-file=${sourceDir}/.clang-tidy;--fix"
+                    "value": "clang-tidy-20;--config-file=${sourceDir}/.clang-tidy;--fix"
                 }
             }
         },

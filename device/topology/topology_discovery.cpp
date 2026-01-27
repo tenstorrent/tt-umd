@@ -190,9 +190,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!is_eth_trained_and_connected(tt_device, eth_core, channel)) {
-                channel++;
-                continue;
+            if (!options.no_wait_for_eth_training) {
+                if (!is_eth_trained_and_connected(tt_device, eth_core, channel)) {
+                    channel++;
+                    continue;
+                }
             }
 
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);

@@ -248,7 +248,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         }
     }
 
-    sort(sorted_device_bdfs.begin(), sorted_device_bdfs.end());
+    std::sort(sorted_device_bdfs.begin(), sorted_device_bdfs.end());
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         if (!tt_device->is_remote()) {

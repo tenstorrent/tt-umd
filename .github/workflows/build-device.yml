@@ -280,8 +280,8 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {os: ubuntu-22.04, compiler: gcc-12},
-          {os: ubuntu-24.04, compiler: gcc-12}
+          {os: ubuntu-22.04, compiler: gcc},
+          {os: ubuntu-24.04, compiler: gcc}
         ]
         pkg: [
           {package: deb, distro: ubuntu},

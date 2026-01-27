@@ -6,6 +6,7 @@
 #include <nanobench.h>
 
 #include <chrono>
+#include <vector>
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
@@ -157,67 +158,50 @@ TEST(MicrobenchmarkTLB, Ethernet) {
 // of BW as unicast writes. The benefit of multicast is in saving time by writing to multiple endpoints in one go.
 // However, it is interesting to see the time taken for unicast vs multicast writes to multiple endpoints.
 // That is why this test is disabled by default. It's meant for someone to run it manually if needed.
-// TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
-//     const std::vector<size_t> sizes = {
-//         1,
-//         2,
-//         4,
-//         8,
-//         1 * one_kb,
-//         2 * one_kb,
-//         4 * one_kb,
-//         8 * one_kb,
-//         16 * one_kb,
-//         32 * one_kb,
-//         64 * one_kb,
-//         128 * one_kb,
-//         256 * one_kb,
-//         512 * one_kb,
-//         1 * one_mb,
-//     };
+TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
+    const uint64_t ADDRESS = 0x0;
+    const std::vector<size_t> BATCH_SIZES = {
+        1,
+        2,
+        4,
+        8,
+        1 * ONE_KIB,
+        2 * ONE_KIB,
+        4 * ONE_KIB,
+        8 * ONE_KIB,
+        16 * ONE_KIB,
+        32 * ONE_KIB,
+        64 * ONE_KIB,
+        128 * ONE_KIB,
+        256 * ONE_KIB,
+        512 * ONE_KIB,
+        1 * ONE_MIB};
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (cluster->get_cluster_description()->get_number_of_chips() == 0) {
+        GTEST_SKIP() << "No chips found on system.";
+    }
+    std::vector<Result> results;
+    auto tensix_cores = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX);
+    for (size_t batch_size : BATCH_SIZES) {
+        auto bench = ankerl::nanobench::Bench().title("TLB_Tensix_Unicast_v_Multicast").unit("byte");
+        std::vector<uint8_t> pattern(batch_size);
+        bench.batch(batch_size)
+            .name(fmt::format("Unicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
+            .relative(true)
+            .run([&]() {
+                for (auto &tensix_core : tensix_cores) {
+                    cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
+                }
+            });
+        bench.batch(batch_size)
+            .name(fmt::format("Multicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
+            .run([&]() {
+                cluster->noc_multicast_write(
+                    pattern.data(), pattern.size(), CHIP_ID, tensix_cores.front(), tensix_cores.back(), ADDRESS);
+            });
 
-//     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-//     auto tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
-
-//     for (size_t buf_size : sizes) {
-//         std::cout << "Comparing multicast and unicast for size: " << buf_size << " bytes." << std::endl;
-
-//         std::vector<uint8_t> buffer(buf_size, 0);
-
-//         double result_ns_unicast = 0;
-//         double result_ns_multicast = 0;
-
-//         {
-//             double total_ns = 0;
-//             for (auto &tensix_core : tensix_cores) {
-//                 auto start = std::chrono::steady_clock::now();
-//                 cluster->write_to_device(buffer.data(), buf_size, chip, tensix_core, 0);
-//                 auto end = std::chrono::steady_clock::now();
-//                 auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-//                 total_ns += ns;
-//             }
-//             result_ns_unicast = total_ns;
-//             std::cout << "Unicast write time to all tensix cores: " << result_ns_unicast / (1e9) << " s." <<
-//             std::endl;
-//         }
-
-//         {
-//             double total_ns = 0;
-//             for (int i = 0; i < NUM_ITERATIONS; i++) {
-//                 auto start = std::chrono::steady_clock::now();
-//                 cluster->noc_multicast_write(
-//                     buffer.data(), buf_size, chip, tensix_cores[0], tensix_cores[tensix_cores.size() - 1], 0);
-//                 auto end = std::chrono::steady_clock::now();
-//                 auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-//                 total_ns += ns;
-//             }
-//             result_ns_multicast = total_ns / NUM_ITERATIONS;
-//             std::cout << "Multicast write time to all tensix cores: " << result_ns_multicast / (1e9) << " s."
-//                       << std::endl;
-//         }
-
-//         std::cout << "Speedup (Unicast / Multicast): "
-//                   << static_cast<double>(result_ns_unicast) / static_cast<double>(result_ns_multicast) << "x"
-//                   << std::endl;
-//     }
-// }
+        results.reserve(results.size() + bench.results().size());
+        results.insert(results.end(), bench.results().begin(), bench.results().end());
+    }
+    export_results("TLB_Tensix_Unicast_v_Multicast", results);
+}

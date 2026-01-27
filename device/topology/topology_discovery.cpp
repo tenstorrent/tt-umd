@@ -258,8 +258,6 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             int chip_id_assign = std::distance(
                 sorted_device_bdfs.begin(), std::find(sorted_device_bdfs.begin(), sorted_device_bdfs.end(), bdf_pair));
 
-            std::cout << "Chip id assign " << chip_id_assign << std::endl;
-
             if (cluster_desc->chip_unique_ids.find(chip_id_assign) != cluster_desc->chip_unique_ids.end()) {
                 throw std::runtime_error(
                     fmt::format("Duplicate chip ID {} assigned, topology discovery failed.", chip_id_assign));

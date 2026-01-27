@@ -176,8 +176,6 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
 
     std::string pci_bdf = get_pci_bdf(info.out.pci_domain, bus, dev, fn);
 
-    std::cout << "pci bdf " << pci_bdf << std::endl;
-
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,

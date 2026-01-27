@@ -36,10 +36,12 @@ jobs:
       fail-fast: false
       matrix:
         image: [
+          {container-distro: ubuntu-22.04, compiler: clang, c: clang-13, cpp: clang++-13},
           {container-distro: ubuntu-22.04, compiler: clang, c: clang-20, cpp: clang++-20},
-          {container-distro: ubuntu-22.04, compiler: gcc, c: gcc-12, cpp: g++-12},
+          {container-distro: ubuntu-22.04, compiler: gcc, c: gcc-11, cpp: g++-11},
+          {container-distro: ubuntu-24.04, compiler: clang, c: clang-13, cpp: clang++-13},
           {container-distro: ubuntu-24.04, compiler: clang, c: clang-20, cpp: clang++-20},
-          {container-distro: ubuntu-24.04, compiler: gcc, c: gcc-12, cpp: g++-12},
+          {container-distro: ubuntu-24.04, compiler: gcc, c: gcc-11, cpp: g++-11},
           {container-distro: fedora-39, compiler: gcc, c: gcc, cpp: g++},
         ]
 

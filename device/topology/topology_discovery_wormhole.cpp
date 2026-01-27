@@ -361,7 +361,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(
     static uint32_t constexpr ETH_UNCONNECTED = 1;
 
     tt_device->wait_eth_core_training(
-        chip->get_soc_descriptor().translate_coord_to(
+        get_soc_descriptor(tt_device).translate_coord_to(
             eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::NOC0),
         std::chrono::milliseconds(5000));
 

@@ -258,7 +258,6 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
                         device_ids.push_back(pci_device_id);
                     }
                 } catch (...) {
-                    // Skip devices we can't read info from.
                 }
 
                 close(fd);

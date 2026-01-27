@@ -160,7 +160,7 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
 
     int total_combinations = 1 << pci_bdf_addresses.size();
 
-    for (uint32_t combination = 1; combination < total_combinations; combination++) {  // Skip empty combination
+    for (uint32_t combination = 0; combination < total_combinations; combination++) {
         std::vector<std::string> target_bdf_addresses;
         target_bdf_addresses.reserve(pci_bdf_addresses.size());
         for (int i = 0; i < pci_bdf_addresses.size(); i++) {

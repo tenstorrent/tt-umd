@@ -475,7 +475,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    auto start = std::chrono::steady_clock::now();
+    const auto start = std::chrono::steady_clock::now();
+    constexpr auto spin_limit = std::chrono::microseconds(1000);
     while (true) {
         uint32_t bar_read_arc_reset_scratch_status;
 
@@ -545,6 +546,18 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             return true;
         }
 
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        // If we are within the first 200us, busy-wait (continue).
+        // This burns CPU, but guarantees we catch the status change instantly in this interval.
+        if (elapsed < spin_limit) {
+            // Optional: For 0ms timeouts, check manually here without strings.
+            if (elapsed > timeout_ms) {
+                return false;
+            }
+            continue;
+        }
+
         if (utils::check_timeout(
                 start,
                 timeout_ms,
@@ -561,9 +574,10 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             return false;
         }
 
-        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
-        // polling hardware state that changes on the order of milliseconds.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
+        // actual duration will be longer due to OS scheduling and jitter.
+        // This prevents 100% CPU usage during longer hardware initialization.
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 }
 

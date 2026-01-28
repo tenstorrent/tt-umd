@@ -166,24 +166,6 @@ jobs:
             echo "pr-created=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Auto-approve workflow runs for Copilot PR
-        if: steps.copilot-fix.outputs.pr-created == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ steps.copilot-fix.outputs.pr-number }}"
-          echo "Waiting for workflow runs to be created for PR #$PR_NUMBER..."
-          sleep 30
-
-          # Get pending workflow runs for this PR and approve them
-          gh api repos/${{ github.repository }}/actions/runs \
-            --jq '.workflow_runs[] | select(.status == "waiting_for_approval") | .id' \
-            | while read -r run_id; do
-              echo "Approving workflow run $run_id"
-              gh api repos/${{ github.repository }}/actions/runs/$run_id/approve \
-                -X POST || echo "Failed to approve run $run_id (may lack permissions)"
-            done
-
       - name: Output job summary
         if: always()
         run: |

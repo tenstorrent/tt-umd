@@ -238,11 +238,32 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
     std::map<uint64_t, ChipId> asic_id_to_chip_id;
     ChipId chip_id = 0;
-    for (const auto& [current_device_asic_id, tt_device] : devices) {
-        if (!tt_device->is_remote()) {
-            asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
-            cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+
+    if (!devices.empty() && devices.begin()->second->get_communication_device_type() == IODeviceType::PCIe) {
+        std::vector<std::pair<std::string, uint64_t>> sorted_device_bdfs;
+        for (const auto& [current_device_asic_id, tt_device] : devices) {
+            if (!tt_device->is_remote()) {
+                sorted_device_bdfs.emplace_back(
+                    tt_device->get_pci_device()->get_device_info().pci_bdf, current_device_asic_id);
+            }
+        }
+
+        std::sort(sorted_device_bdfs.begin(), sorted_device_bdfs.end());
+
+        for (const auto& [bdf, asic_id] : sorted_device_bdfs) {
+            log_debug(LogUMD, "Sorted device PCI BDF: {}, ASIC ID: {}", bdf, asic_id);
+
+            asic_id_to_chip_id.emplace(asic_id, chip_id);
+            cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
             chip_id++;
+        }
+    } else {
+        for (const auto& [current_device_asic_id, tt_device] : devices) {
+            if (!tt_device->is_remote()) {
+                asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
+                cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+                chip_id++;
+            }
         }
     }
 

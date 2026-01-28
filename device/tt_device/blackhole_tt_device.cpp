@@ -162,7 +162,8 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
 bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     uint32_t arc_boot_status;
-    auto start = std::chrono::steady_clock::now();
+    const auto start = std::chrono::steady_clock::now();
+    constexpr auto spin_limit = std::chrono::microseconds(200);
     while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
@@ -183,9 +184,16 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return false;
         }
 
-        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
-        // polling hardware state that changes on the order of milliseconds.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // If we are within the first 200us, busy-wait (continue).
+        // This burns CPU, but guarantees we catch the status change instantly in this interval.
+        if ((std::chrono::steady_clock::now() - start) < spin_limit) {
+            continue;
+        }
+
+        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
+        // actual duration will be longer due to OS scheduling and jitter.
+        // This prevents 100% CPU usage during longer hardware initialization.
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 }
 

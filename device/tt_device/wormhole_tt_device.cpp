@@ -54,14 +54,6 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
     constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
     constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
     read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof niu_cfg);
-
-    uint32_t niu_cfg_2 = 0x0;
-    const tt_xy_pair dram_core = is_selected_noc1()
-                                     ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0])
-                                     : tt_xy_pair(0, 0);
-    const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
-    read_from_device(&niu_cfg_2, dram_core, niu_cfg_addr, sizeof(uint32_t));
-    TT_ASSERT(niu_cfg_2 == niu_cfg, "NIU_CFG!");
     return (niu_cfg & (1 << 14)) != 0;
 }
 

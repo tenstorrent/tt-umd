@@ -64,7 +64,7 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.x) {
         harvesting_masks.tensix_harvesting_mask = 0;
     }
-    size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
+
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
@@ -92,7 +92,7 @@ void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
     if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.x) {
         harvesting_masks.tensix_harvesting_mask = 0;
     }
-    size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
+
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
@@ -137,8 +137,6 @@ void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
 }
 
 void BlackholeCoordinateManager::translate_dram_coords() {
-    size_t num_harvested_banks = CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask);
-
     size_t logical_x = 0;
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         if (!(harvesting_masks.dram_harvesting_mask & (1 << x))) {
@@ -161,9 +159,6 @@ void BlackholeCoordinateManager::translate_dram_coords() {
 }
 
 void BlackholeCoordinateManager::translate_eth_coords() {
-    size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
-
-    size_t harvested_eth_channel_start = eth_cores.size() - num_harvested_channels;
     size_t unharvested_logical_eth_channel = 0;
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
         if (!(harvesting_masks.eth_harvesting_mask & (1 << eth_channel))) {
@@ -206,29 +201,27 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
 }
 
 void BlackholeCoordinateManager::translate_l2cpu_coords() {
-    size_t num_harvested_l2cpu_cores = CoordinateManager::get_num_harvested(harvesting_masks.l2cpu_harvesting_mask);
-    size_t harvested_l2cpu_start_index = l2cpu_cores.size() - num_harvested_l2cpu_cores;
     size_t unharvested_logical_l2cpu_index = 0;
     for (size_t l2cpu_core_index = 0; l2cpu_core_index < l2cpu_cores.size(); l2cpu_core_index++) {
         const tt_xy_pair& l2cpu_core = l2cpu_cores[l2cpu_core_index];
 
-        if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
-            harvested_l2cpu_start_index++;
-        } else {
-            unharvested_logical_l2cpu_index++;
-            CoreCoord logical_coord =
-                CoreCoord(0, unharvested_logical_l2cpu_index - 1, CoreType::L2CPU, CoordSystem::LOGICAL);
-            add_core_translation(logical_coord, l2cpu_core);
-        }
-
         CoreCoord translated_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
         add_core_translation(translated_coord, l2cpu_core);
+
+        if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
+            continue;  // Harvested core - skip logical mapping
+        }
+
+        unharvested_logical_l2cpu_index++;
+        CoreCoord logical_coord =
+            CoreCoord(0, unharvested_logical_l2cpu_index - 1, CoreType::L2CPU, CoordSystem::LOGICAL);
+        add_core_translation(logical_coord, l2cpu_core);
     }
 }
 
 void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
     size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
-    if (eth_cores.size() == 0) {
+    if (eth_cores.empty()) {
         num_harvested_channels = 0;
     }
     for (size_t eth_channel = 0; eth_channel < eth_cores.size() - num_harvested_channels; eth_channel++) {
@@ -393,7 +386,6 @@ void BlackholeCoordinateManager::fill_dram_noc0_translated_mapping() {
             blackhole::dram_translated_coordinate_start_x + 1);
     }
 
-    const size_t virtual_index = (dram_grid_size.x - 1) * dram_grid_size.y;
     const size_t noc0_index = harvested_bank * dram_grid_size.y;
 
     const size_t harvested_bank_translated_x = blackhole::dram_translated_coordinate_start_x + 1;

@@ -15,7 +15,7 @@
 namespace tt::umd {
 class RtlSimulationTTDevice : public TTDevice {
 public:
-    RtlSimulationTTDevice(const std::filesystem::path &simulator_directory, SocDescriptor soc_descriptor);
+    RtlSimulationTTDevice(const std::filesystem::path &simulator_directory, const SocDescriptor &soc_descriptor);
     ~RtlSimulationTTDevice();
 
     static std::unique_ptr<RtlSimulationTTDevice> create(const std::filesystem::path &simulator_directory);
@@ -42,6 +42,9 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
+
+    void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
 private:
     void start_host_communication();

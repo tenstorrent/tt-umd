@@ -82,8 +82,6 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 }
 
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);

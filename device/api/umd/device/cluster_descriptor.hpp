@@ -110,7 +110,7 @@ public:
      * Function to help with sorting the passed set into a vector such that local chips are first, followed by remote
      * chips.
      */
-    const std::vector<ChipId> get_chips_local_first(std::unordered_set<ChipId> chips) const;
+    const std::vector<ChipId> get_chips_local_first(const std::unordered_set<ChipId> &chips) const;
 
     /**
      * Returns the architecture of the cluster. Throws an exception if the architecture is Invalid or there are no
@@ -208,13 +208,6 @@ public:
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<uint64_t, EthernetChannel>>> &
     get_ethernet_connections_to_remote_devices() const;
     const std::unordered_map<ChipId, std::unordered_set<ChipId>> &get_chips_grouped_by_closest_mmio() const;
-
-    /**
-     * Return the distance between two chips in terms of ethernet hops.
-     * @param chip_a Logical chip id of the first chip.
-     * @param chip_b Logical chip id of the second chip.
-     */
-    int get_ethernet_link_distance(ChipId chip_a, ChipId chip_b) const;
 
     /**
      * Returns wether the ethernet core has an active ethernet link.

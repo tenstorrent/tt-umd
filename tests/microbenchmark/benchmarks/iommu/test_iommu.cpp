@@ -29,15 +29,8 @@ std::tuple<double, double, double, double> get_results(
     sort(map_times.begin(), map_times.end());
     sort(unmap_times.begin(), unmap_times.end());
 
-    uint64_t map_time_median = map_times[NUM_ITERATIONS / 2];
-    uint64_t unmap_time_median = unmap_times[NUM_ITERATIONS / 2];
-
     uint64_t map_time_average = std::accumulate(map_times.begin(), map_times.end(), 0ULL) / NUM_ITERATIONS;
     uint64_t unmap_time_average = std::accumulate(unmap_times.begin(), unmap_times.end(), 0ULL) / NUM_ITERATIONS;
-
-    const uint64_t num_pages = mapping_size / sysconf(_SC_PAGESIZE);
-    double bw_map_mbs = (double)mapping_size / map_time_average;
-    double bw_unmap_mbs = (double)mapping_size / unmap_time_average;
 
     return std::make_tuple(
         (double)map_time_average,
@@ -105,7 +98,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
             void* mapping =
                 mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
             auto now = std::chrono::steady_clock::now();
-            uint64_t iova = pci_device->map_for_dma(mapping, size);
+            pci_device->map_for_dma(mapping, size);
             auto end = std::chrono::steady_clock::now();
             map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
 
@@ -158,7 +151,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (21 << MAP_HUGE_SHIFT),
@@ -170,7 +163,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
         }
 
         auto now = std::chrono::steady_clock::now();
-        uint64_t iova = pci_device->map_for_dma(mapping, mapping_size);
+        pci_device->map_for_dma(mapping, mapping_size);
         auto end = std::chrono::steady_clock::now();
         map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
 
@@ -224,7 +217,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
-            0,
+            nullptr,
             mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT),
@@ -234,7 +227,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
             GTEST_SKIP() << "Mapping 1GB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::steady_clock::now();
-        uint64_t iova = pci_device->map_for_dma(mapping, mapping_size);
+        pci_device->map_for_dma(mapping, mapping_size);
         auto end = std::chrono::steady_clock::now();
         map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
 

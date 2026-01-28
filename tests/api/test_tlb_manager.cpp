@@ -35,7 +35,6 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
         auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-        tlb_configuration tlb_description = tlb_manager->get_tlb_configuration(any_worker_translated_core);
 
         // TODO: Maybe accept tlb_index only?
         uint64_t address_l1_to_write = 0;

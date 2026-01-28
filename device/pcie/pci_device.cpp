@@ -29,16 +29,8 @@
 
 namespace tt::umd {
 
-static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
-
-// TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
-// TLB windows and there is no longer a pre-defined WC/UC split.
-static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
-
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
-static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -170,7 +162,7 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
     return std::nullopt;
 }
 
-static PciDeviceInfo read_device_info(int fd) {
+PciDeviceInfo PCIDevice::read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
 
@@ -187,6 +179,8 @@ static PciDeviceInfo read_device_info(int fd) {
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,
+        info.out.subsystem_vendor_id,
+        info.out.subsystem_id,
         info.out.pci_domain,
         bus,
         dev,
@@ -195,9 +189,10 @@ static PciDeviceInfo read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint32_t flags) {
+static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
         }
@@ -213,7 +208,10 @@ static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, uint3
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
                 TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
+        } catch (const std::exception &e) {
+            log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());
         } catch (...) {
+            log_error(tt::LogUMD, "Reset IOCTL failed with unknown error");
         }
 
         close(fd);
@@ -229,7 +227,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
+std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -256,10 +254,10 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
     return device_ids;
 }
 
-std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(std::unordered_set<int> pci_target_devices) {
+std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unordered_set<int> &pci_target_devices) {
     std::map<int, PciDeviceInfo> infos;
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
         }
@@ -385,7 +383,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     bar0 = mmap(
-        NULL,
+        nullptr,
         PCIDevice::bar0_size,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
@@ -403,7 +401,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
-            NULL,
+            nullptr,
             bar2_uc_mapping.mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
@@ -421,7 +419,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.mapping_size;
         bar2_uc = mmap(
-            NULL,
+            nullptr,
             bar2_uc_mapping.mapping_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
@@ -690,7 +688,7 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     }
 }
 
-void PCIDevice::reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag) {
+void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
     umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
 }
 

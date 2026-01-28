@@ -204,13 +204,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTensixTranslatedMappingHarvest
         true,
         {.tensix_harvesting_mask = tensix_harvesting_mask, .eth_harvesting_mask = example_eth_harvesting_mask});
 
-    const tt_xy_pair tensix_grid_size = blackhole::TENSIX_GRID_SIZE;
     const std::vector<tt_xy_pair> tensix_cores = blackhole::TENSIX_CORES_NOC0;
-
-    size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
-
-    size_t index = 0;
-    size_t virtual_index = tensix_grid_size.x - num_harvested_x;
 
     const CoreCoord tensix_column0 = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::NOC0);
     const CoreCoord translated_column0 =
@@ -370,8 +364,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalTranslatedMapping) 
 // Test that we cannot create a coordinate manager with more than one DRAM bank harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeDRAMMoreThanOneDRAMBankHarvested) {
     const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
-    const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
-    const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
 
     for (size_t dram_harvesting_mask = 0; dram_harvesting_mask < (1 << max_num_banks_harvested);
          dram_harvesting_mask++) {
@@ -650,8 +642,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoc1Noc0Mapping) {
         tt::ARCH::BLACKHOLE, true, {.eth_harvesting_mask = example_eth_harvesting_mask});
 
     auto check_noc0_noc1_mapping = [coordinate_manager](
-                                       const std::vector<tt_xy_pair> noc0_cores,
-                                       const std::vector<tt_xy_pair> noc1_cores,
+                                       const std::vector<tt_xy_pair>& noc0_cores,
+                                       const std::vector<tt_xy_pair>& noc1_cores,
                                        const CoreType core_type) {
         for (uint32_t index = 0; index < noc0_cores.size(); index++) {
             const CoreCoord noc0_core =

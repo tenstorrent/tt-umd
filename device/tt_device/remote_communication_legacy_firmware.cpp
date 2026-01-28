@@ -157,7 +157,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     uint32_t offset = 0;
     uint32_t block_size;
-    uint32_t buffer_id = 0;
 
     auto start = std::chrono::steady_clock::now();
     while (offset < size_in_bytes) {
@@ -363,7 +362,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     routing_cmd_t* new_cmd;
 
-    uint32_t buffer_id = 0;
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
 
     // Broadcast requires block writes to host dram
@@ -435,9 +433,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE))
                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_req | timestamp)
                                  : eth_interface_params.cmd_wr_req;
-        uint32_t resp_flags = block_size > DATA_WORD_SIZE
-                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_ack)
-                                  : eth_interface_params.cmd_wr_ack;
         timestamp = 0;
 
         if (broadcast) {
@@ -453,7 +448,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             // Copy data to sysmem or device DRAM for Block mode.
             if (use_host_dram) {
                 req_flags |= eth_interface_params.cmd_data_block_dram;
-                resp_flags |= eth_interface_params.cmd_data_block_dram;
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
                 if (broadcast) {

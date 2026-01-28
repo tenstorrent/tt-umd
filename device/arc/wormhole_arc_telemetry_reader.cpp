@@ -15,7 +15,7 @@ WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) : Ar
                                    : tt_xy_pair(
                                          wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                          wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
-    get_telemetry_address();
+    WormholeArcTelemetryReader::get_telemetry_address();
     initialize_telemetry();
 }
 

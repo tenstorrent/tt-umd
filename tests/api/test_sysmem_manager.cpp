@@ -110,8 +110,6 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 }
 
 TEST(ApiSysmemManager, SysmemBufferUnaligned) {
-    const auto page_size = sysconf(_SC_PAGESIZE);
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

@@ -163,7 +163,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     uint32_t arc_boot_status;
     const auto start = std::chrono::steady_clock::now();
-    constexpr auto spin_limit = std::chrono::microseconds(200);
+    constexpr auto spin_limit = std::chrono::microseconds(1000);
     while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 

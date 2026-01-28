@@ -482,7 +482,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
     const auto start = std::chrono::steady_clock::now();
-    constexpr auto spin_limit = std::chrono::microseconds(200);
+    constexpr auto spin_limit = std::chrono::microseconds(1000);
     while (true) {
         uint32_t bar_read_arc_reset_scratch_status;
 

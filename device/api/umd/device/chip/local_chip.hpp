@@ -96,8 +96,6 @@ private:
     void initialize_default_chip_mutexes();
     void initialize_membars();
 
-    void check_pcie_device_initialized();
-    int test_setup_interface();
     void init_pcie_iatus();
 
     void set_membar_flag(

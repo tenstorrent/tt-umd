@@ -10,13 +10,14 @@ The environment is pre-configured with dependencies via `copilot-setup-steps.yml
 To rebuild after making changes:
 
 ```bash
-# Use GCC (set these env vars before cmake, or use clang-17 if available)
-export CMAKE_C_COMPILER=/usr/bin/gcc
-export CMAKE_CXX_COMPILER=/usr/bin/g++
-
-cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
+cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_ENABLE_CLANG_TIDY=OFF
 cmake --build build
 ```
+
+**Important**:
+- Always use cmake/ninja to build. Do NOT compile files directly with g++ (dependencies like fmt are managed by CPM and require cmake).
+- Do NOT modify `CMakeLists.txt`.
+- Do NOT run security scans (CodeQL, etc.) - CI handles this separately.
 
 ## Code Style Guidelines
 
@@ -28,6 +29,13 @@ Follow the existing style in the file you're modifying.
 
 ## When Fixing Static Analysis Issues
 
+**Workflow** (do exactly these steps, nothing more):
+1. Read the file containing the issue
+2. Apply the minimal fix
+3. Build with cmake/ninja to verify it compiles
+4. Create the PR
+
+**Guidelines**:
 1. Make minimal, targeted changes to fix the specific issue
 2. Follow existing code patterns in the surrounding code
 3. If a fix requires architectural changes, skip it

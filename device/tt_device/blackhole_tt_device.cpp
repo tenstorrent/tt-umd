@@ -172,6 +172,18 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return true;
         }
 
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        // If we are within the first 200us, busy-wait (continue).
+        // This burns CPU, but guarantees we catch the status change instantly in this interval.
+        if (elapsed < spin_limit) {
+            // Optional: For 0ms timeouts, check manually here without strings.
+            if (elapsed > timeout_ms) {
+                return false;
+            }
+            continue;
+        }
+
         if (utils::check_timeout(
                 start,
                 timeout_ms,
@@ -182,12 +194,6 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
                     arc_core.y),
                 utils::TimeoutAction::Return)) {
             return false;
-        }
-
-        // If we are within the first 200us, busy-wait (continue).
-        // This burns CPU, but guarantees we catch the status change instantly in this interval.
-        if ((std::chrono::steady_clock::now() - start) < spin_limit) {
-            continue;
         }
 
         // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -

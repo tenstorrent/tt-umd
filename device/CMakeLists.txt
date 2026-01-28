@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
+option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling" OFF)
+
 set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
 
@@ -242,6 +244,13 @@ target_link_libraries(
 )
 
 target_link_libraries(device PRIVATE umd_asio_lib)
+
+# Enable Tracy profiling if requested
+if(TT_UMD_ENABLE_TRACY)
+    target_link_libraries(device PRIVATE TracyClient)
+    target_compile_definitions(device PUBLIC TRACY_ENABLE)
+    message(STATUS "Tracy profiling enabled for device library")
+endif()
 
 check_function_exists(
     backtrace

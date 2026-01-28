@@ -1411,6 +1411,8 @@ uint8_t ClusterDescriptor::get_asic_location(ChipId chip_id) const {
     return it->second;
 }
 
+const std::unordered_map<ChipId, std::string> &ClusterDescriptor::get_chip_pci_bdfs() const { return chip_pci_bdfs; }
+
 IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
 
 uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {

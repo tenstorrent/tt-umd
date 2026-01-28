@@ -242,6 +242,8 @@ public:
 
     const std::unordered_map<ChipId, uint16_t> &get_chip_to_bus_id() const;
 
+    const std::unordered_map<ChipId, std::string> &get_chip_pci_bdfs() const;
+
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 

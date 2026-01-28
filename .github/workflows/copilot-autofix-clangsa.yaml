@@ -5,12 +5,6 @@ on:
     # Run daily at 8 PM PST (4 AM UTC next day) - 2 hours after analysis
     - cron: "0 4 * * *"
   workflow_dispatch:
-    inputs:
-      max-fixes:
-        description: "Maximum number of issues to fix in this run"
-        required: false
-        type: string
-        default: "1"
 
 jobs:
   copilot-autofix:
@@ -74,9 +68,10 @@ jobs:
 
           # Find first issue whose hash is not in attempted list
           ISSUE=$(jq -c --arg attempted "$ATTEMPTED" '
-            .reports[] |
-            select(.report_hash as $h | $attempted | split("\n") | index($h) | not)
-          ' "$JSON_FILE" | head -1)
+            [.reports[] |
+            select(.report_hash as $h | $attempted | split("\n") | index($h) | not)] |
+            first // empty
+          ' "$JSON_FILE")
 
           if [ -z "$ISSUE" ]; then
             echo "All issues have been attempted"
@@ -162,6 +157,7 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then
             echo "pr-url=https://github.com/${{ github.repository }}/pull/${PR_NUMBER}" >> "$GITHUB_OUTPUT"
             echo "pr-created=true" >> "$GITHUB_OUTPUT"
+            echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
             # Add label to track Copilot PRs and prevent duplicates
             gh pr edit "$PR_NUMBER" -R "${{ github.repository }}" --add-label "copilot-autofix" || true
             # Mark PR as ready for review (not draft) so CI runs automatically

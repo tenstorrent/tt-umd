@@ -74,9 +74,10 @@ jobs:
 
           # Find first issue whose hash is not in attempted list
           ISSUE=$(jq -c --arg attempted "$ATTEMPTED" '
-            .reports[] |
-            select(.report_hash as $h | $attempted | split("\n") | index($h) | not)
-          ' "$JSON_FILE" | head -1)
+            [.reports[] |
+            select(.report_hash as $h | $attempted | split("\n") | index($h) | not)] |
+            first // empty
+          ' "$JSON_FILE")
 
           if [ -z "$ISSUE" ]; then
             echo "All issues have been attempted"

@@ -8,7 +8,7 @@
 
 namespace tt::umd {
 
-class SimulationSysmemManager : public SysmemManager {
+class SimulationSysmemManager final : public SysmemManager {
 public:
     SimulationSysmemManager(uint32_t num_host_mem_channels);
     ~SimulationSysmemManager() override;

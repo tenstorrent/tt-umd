@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  clang-static-analyzer:
-    name: 🔬 Clang Static Analyzer
+  code-analysis:
+    name: 🔬 Code Analysis
     runs-on: tt-ubuntu-2204-xlarge-stable
     container:
       image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
@@ -52,7 +52,6 @@ jobs:
 
           echo "=== Starting CodeChecker analysis ==="
 
-          # Build command
           CodeChecker analyze \
             /work/.build/clang-static-analyzer/compile_commands.json \
             --output $OUTPUT_DIR \
@@ -110,10 +109,10 @@ jobs:
           name: CodeChecker-HTML-Report
           path: /work/.build/codechecker_html
 
-  publish-clangsa-results:
-    name: 📄 Publish CSA Results
-    needs: [clang-static-analyzer]
-    if: always() && needs.clang-static-analyzer.result == 'success'
+  publish-analysis-results:
+    name: 📄 Publish Analysis Results
+    needs: [code-analysis]
+    if: always() && needs.code-analysis.result == 'success'
     runs-on: ubuntu-latest
 
     steps:

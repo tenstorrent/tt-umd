@@ -12,6 +12,8 @@
         "--disable",
         "checker:modernize-use-trailing-return-type",
         "--disable",
-        "prefix:altera"
+        "prefix:altera",
+        "--disable",
+        "prefix:boost"
     ]
 }

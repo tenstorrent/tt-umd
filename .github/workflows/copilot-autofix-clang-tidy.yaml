@@ -29,13 +29,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install CodeChecker
-        run: pip install codechecker==6.27.1
-
-      - name: Setup clang tools symlinks
+      - name: Install CodeChecker and clang tools
         run: |
-          update-alternatives --install /usr/bin/clang-apply-replacements \
-            clang-apply-replacements /usr/bin/clang-apply-replacements-20 100 || true
+          # Install clang-tools for clang-apply-replacements
+          sudo apt-get update
+          sudo apt-get install -y clang-tools
+          pip install codechecker==6.27.1
 
       - name: Download analysis results
         id: download

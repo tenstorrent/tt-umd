@@ -38,24 +38,47 @@ jobs:
       - name: Create benchmark results directory
         run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/{base,compare}
 
+      - name: Get latest main run ID for "Build and run all benchmarks"
+        id: get-main-run
+        continue-on-error: true
+        run: |
+          MAIN_RUN_ID=$(gh run list --branch main --workflow "Build and run all benchmarks" \
+            --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "run-id=$MAIN_RUN_ID" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download baseline JSON benchmark results
+        id: download-baseline
+        if: steps.get-main-run.outcome == 'success'
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          run-id: 20960766246
+          run-id: ${{ steps.get-main-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 
       - name: Download comparison JSON benchmark results
+        id: download-comparison
         uses: actions/download-artifact@v4
+        continue-on-error: false
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
 
-      - name: Run analysis of benchmark data
+      - name: Run analysis of benchmark data (with baseline)
+        if: steps.download-baseline.outcome == 'success' && steps.download-comparison.outcome == 'success'
         run: |
           python3 tests/microbenchmark/tools/analyze_results.py \
           ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare -c ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 
+      - name: Run analysis of benchmark data (comparison only)
+        if: steps.download-baseline.outcome == 'failure' && steps.download-comparison.outcome == 'success'
+        run: |
+          python3 tests/microbenchmark/tools/analyze_results.py \
+          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
+
       - name: Cleanup benchmark results directory
+        if: always()
         run: rm -rf ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}

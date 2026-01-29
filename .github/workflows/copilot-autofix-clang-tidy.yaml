@@ -335,7 +335,10 @@ jobs:
             echo "2. If not fixed, apply the appropriate fix"
             echo "3. Follow the existing code style"
             echo ""
-            echo "After fixing all violations, delete violations_to_fix.txt"
+            echo "After fixing all violations:"
+            echo "1. Delete violations_to_fix.txt"
+            echo "2. If .clang-tidy disables this checker (e.g., -$CHECKER),"
+            echo "   remove that disablement to enable the check for regressions"
           } > /tmp/prompt.txt
 
           echo "=== Copilot Prompt ==="

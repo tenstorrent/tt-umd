@@ -13,6 +13,10 @@ on:
       card:
         required: true
         type: string
+      baseline-run-id:
+        required: false
+        type: string
+
 
 env:
   UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results
@@ -35,11 +39,17 @@ jobs:
       - name: Install python dependencies
         run: python3 -m pip install --no-cache-dir pandas psutil tabulate
 
+      - name: Install dependencies for API calls
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends curl jq
+
       - name: Create benchmark results directory
         run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/{base,compare}
 
       - name: Get latest main run ID for "Build and run all benchmarks"
         id: get-main-run
+        if: inputs.baseline-run-id == ''
         continue-on-error: true
         run: |
           MAIN_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -55,7 +65,7 @@ jobs:
         continue-on-error: true
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          run-id: ${{ steps.get-main-run.outputs.run-id }}
+          run-id: ${{ inputs.baseline-run-id != '' && inputs.baseline-run-id || steps.get-main-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 

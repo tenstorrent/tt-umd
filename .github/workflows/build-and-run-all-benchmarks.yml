@@ -5,15 +5,18 @@ on:
   workflow_dispatch:
     inputs:
       build-type:
+      required: false
+      default: Release
+      type: choice
+      options:
+        - Release
+        - RelWithDebInfo
+        - Debug
+        - ASan
+        - TSan
+      baseline-run-id:
         required: false
-        default: Release
-        type: choice
-        options:
-          - Release
-          - RelWithDebInfo
-          - Debug
-          - ASan
-          - TSan
+        type: string
 
 jobs:
   build-tests:
@@ -71,3 +74,4 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
+      baseline-run-id: ${{ inputs.baseline-run-id }}

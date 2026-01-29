@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  clang-static-analyzer:
-    name: 🔬 Clang Static Analyzer
+  code-analysis:
+    name: 🔬 Code Analysis
     runs-on: tt-ubuntu-2204-xlarge-stable
     container:
       image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
@@ -35,6 +35,7 @@ jobs:
         run: |
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
+          update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100 || true
 
       - name: Install CodeChecker
         run: |
@@ -52,7 +53,6 @@ jobs:
 
           echo "=== Starting CodeChecker analysis ==="
 
-          # Build command
           CodeChecker analyze \
             /work/.build/clang-static-analyzer/compile_commands.json \
             --output $OUTPUT_DIR \
@@ -110,10 +110,18 @@ jobs:
           name: CodeChecker-HTML-Report
           path: /work/.build/codechecker_html
 
-  publish-clangsa-results:
-    name: 📄 Publish CSA Results
-    needs: [clang-static-analyzer]
-    if: always() && needs.clang-static-analyzer.result == 'success'
+      - name: Upload raw analysis results (for fixit)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-Analysis-Results
+          path: /work/.build/codechecker-reports
+          retention-days: 7
+
+  publish-analysis-results:
+    name: 📄 Publish Analysis Results
+    needs: [code-analysis]
+    if: always() && needs.code-analysis.result == 'success'
     runs-on: ubuntu-latest
 
     steps:

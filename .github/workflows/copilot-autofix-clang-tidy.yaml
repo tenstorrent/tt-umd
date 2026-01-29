@@ -89,10 +89,10 @@ jobs:
           echo "Downloading artifacts from run $RUN_ID..."
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
 
-          # Download plist files for fixit
+          # Download plist files for fixit (to /tmp to avoid committing)
           gh run download "$RUN_ID" \
             --name CodeChecker-Analysis-Results \
-            --dir analysis-results || {
+            --dir /tmp/analysis-results || {
             echo "::error::Failed to download analysis results"
             exit 1
           }
@@ -100,12 +100,12 @@ jobs:
           # Download JSON report for violation details
           gh run download "$RUN_ID" \
             --name CodeChecker-JSON-Report \
-            --dir json-report || {
+            --dir /tmp/json-report || {
             echo "::error::Failed to download JSON report"
             exit 1
           }
 
-          PLIST_COUNT=$(find analysis-results -name "*.plist" 2>/dev/null | wc -l)
+          PLIST_COUNT=$(find /tmp/analysis-results -name "*.plist" 2>/dev/null | wc -l)
           echo "Found $PLIST_COUNT plist files"
 
       - name: Check for existing PR
@@ -132,7 +132,7 @@ jobs:
           set -euo pipefail
 
           CHECKER="${{ inputs.checker }}"
-          JSON_FILE="json-report/codechecker_issues.json"
+          JSON_FILE="/tmp/json-report/codechecker_issues.json"
 
           if [ ! -f "$JSON_FILE" ]; then
             echo "::error::JSON report not found"
@@ -188,7 +188,7 @@ jobs:
           echo "=== Applying auto-fixes for $CHECKER ==="
 
           # Use script to create pseudo-TTY (CodeChecker reads stdin as JSON when not tty)
-          script -q -c "CodeChecker fixit analysis-results --apply \
+          script -q -c "CodeChecker fixit /tmp/analysis-results --apply \
             --checker-name '$CHECKER'" /dev/null
 
           echo "✅ Auto-fix step completed"
@@ -207,9 +207,9 @@ jobs:
 
           git checkout -b "$BRANCH"
 
-          # Commit auto-fixes if any changes were made (exclude downloaded artifacts)
+          # Commit auto-fixes if any changes were made
           if ! git diff --quiet; then
-            git add -A -- ':!analysis-results' ':!json-report'
+            git add -A
             git commit -m "fix($CHECKER): apply clang-tidy auto-fixes"
             echo "committed_fixes=true" >> "$GITHUB_OUTPUT"
           else

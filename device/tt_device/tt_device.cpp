@@ -152,6 +152,15 @@ TlbWindow *TTDevice::get_cached_tlb_window() {
     return cached_tlb_window.get();
 }
 
+TlbWindow *TTDevice::get_cached_wc_tlb_window() {
+    if (cached_wc_tlb_window == nullptr) {
+        cached_wc_tlb_window = std::make_unique<TlbWindow>(
+            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::WC));
+        return cached_wc_tlb_window.get();
+    }
+    return cached_wc_tlb_window.get();
+}
+
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
@@ -170,6 +179,16 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
     get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
+}
+
+void TTDevice::read_from_device_wc(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    get_cached_wc_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+}
+
+void TTDevice::write_to_device_wc(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    get_cached_wc_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

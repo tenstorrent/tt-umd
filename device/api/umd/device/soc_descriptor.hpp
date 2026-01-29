@@ -70,10 +70,13 @@ class SocDescriptor {
 public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.
-    SocDescriptor(const std::string &device_descriptor_path, const ChipInfo chip_info = {});
 
     SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
+
+    // Static factory method to create SocDescriptor from device descriptor file.
+    static SocDescriptor create_from_yaml(const std::string &soc_descriptor_yaml_path, ChipInfo chip_info = {});
+    static SocDescriptor create_from_yaml(
+        const std::filesystem::path &soc_descriptor_yaml_path, ChipInfo chip_info = {});
 
     // Helpers for extracting info from soc descriptor file.
     static tt::ARCH get_arch_from_soc_descriptor_path(const std::string &soc_descriptor_path);
@@ -135,7 +138,6 @@ public:
     tt::ARCH arch;
     tt_xy_pair grid_size;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
-    std::string device_descriptor_file_path = std::string("");
 
     int overlay_version;
     int unpacker_version;

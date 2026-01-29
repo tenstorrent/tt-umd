@@ -284,7 +284,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
         return SocDescriptor(arch, chip_info);
 
     } else {
-        SocDescriptor soc_desc = SocDescriptor(soc_desc_path, chip_info);
+        SocDescriptor soc_desc = SocDescriptor::create_from_yaml(soc_desc_path, chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.

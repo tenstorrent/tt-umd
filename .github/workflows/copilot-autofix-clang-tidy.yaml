@@ -207,9 +207,9 @@ jobs:
 
           git checkout -b "$BRANCH"
 
-          # Commit auto-fixes if any changes were made
+          # Commit auto-fixes if any changes were made (exclude downloaded artifacts)
           if ! git diff --quiet; then
-            git add -A
+            git add -A -- ':!analysis-results' ':!json-report'
             git commit -m "fix($CHECKER): apply clang-tidy auto-fixes"
             echo "committed_fixes=true" >> "$GITHUB_OUTPUT"
           else

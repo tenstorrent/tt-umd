@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
@@ -84,7 +85,7 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, tt_
     }
 
     uint32_t board_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &board_id,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
@@ -109,7 +110,7 @@ uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, tt_x
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t board_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &board_id,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_type_offset),
@@ -119,13 +120,13 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_type(TTDevice* tt_device, t
 
 uint64_t TopologyDiscoveryWormhole::get_local_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t asic_id_lo;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_lo,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
         sizeof(uint32_t));
     uint32_t asic_id_hi;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_hi,
         eth_core,
         eth_addresses.results_buf + (4 * (eth_addresses.erisc_local_board_id_lo_offset + 1)),
@@ -135,13 +136,13 @@ uint64_t TopologyDiscoveryWormhole::get_local_asic_id(TTDevice* tt_device, tt_xy
 
 uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t asic_id_lo;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_lo,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
         sizeof(uint32_t));
     uint32_t asic_id_hi;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &asic_id_hi,
         eth_core,
         eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_id_lo_offset + 1)),
@@ -152,7 +153,7 @@ uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, tt_x
 tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     const uint32_t shelf_offset = 9;
     uint32_t remote_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_id,
         {local_eth_core.x, local_eth_core.y},
         eth_addresses.node_info + (4 * shelf_offset),
@@ -163,7 +164,7 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, t
 
 uint32_t TopologyDiscoveryWormhole::read_training_status(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t training_status;
-    tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
+    tt_device->read_from_device_wc(&training_status, eth_core, 0x1104, sizeof(uint32_t));
     return training_status;
 }
 
@@ -173,7 +174,7 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy
             "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
     }
     uint32_t remote_eth_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_eth_id,
         local_eth_core,
         eth_addresses.results_buf + 4 * eth_addresses.erisc_remote_eth_id_offset,
@@ -183,7 +184,7 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy
 
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t current_device_eth_coord_info;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &current_device_eth_coord_info, eth_core, eth_addresses.node_info + 8, sizeof(uint32_t));
 
     EthCoord eth_coord;
@@ -202,13 +203,13 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * rack_offset), sizeof(uint32_t));
 
     eth_coord.rack = remote_id & 0xFF;
     eth_coord.shelf = (remote_id >> 8) & 0xFF;
 
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * shelf_offset), sizeof(uint32_t));
 
     eth_coord.x = (remote_id >> 16) & 0x3F;
@@ -328,7 +329,7 @@ uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_devic
 
 bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
     uint32_t routing_firmware_disabled;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
     if (is_running_on_6u && routing_firmware_disabled == 0) {
         auto message = fmt::format(
@@ -352,6 +353,32 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
         TT_THROW(message);
     }
     return true;
+}
+
+bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(
+    TTDevice* tt_device, const tt_xy_pair eth_core, uint32_t channel) {
+    uint32_t eth_connection_info;
+    static uint32_t constexpr ETH_UNCONNECTED = 1;
+
+    tt_device->wait_eth_core_training(
+        get_soc_descriptor(tt_device).translate_coord_to(
+            eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::NOC0),
+        std::chrono::milliseconds(5000));
+
+    while (true) {
+        tt_device->read_from_device(
+            &eth_connection_info, eth_core, eth_addresses.eth_conn_info + 4 * channel, sizeof(uint32_t));
+
+        if (eth_connection_info > ETH_UNCONNECTED) {
+            return true;
+        }
+
+        if (eth_connection_info == ETH_UNCONNECTED) {
+            return false;
+        }
+    }
+
+    return false;
 }
 
 }  // namespace tt::umd

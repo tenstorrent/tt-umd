@@ -7,7 +7,7 @@
 #include <chrono>
 
 namespace tt::umd::timeout {
-inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
+inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(20'000);
 
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);

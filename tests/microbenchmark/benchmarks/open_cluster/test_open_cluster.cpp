@@ -3,28 +3,44 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <nanobench.h>
 #include <sys/mman.h>
+
+#include <chrono>
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/warm_reset.hpp"
 
 using namespace tt::umd;
+using namespace tt::umd::test::utils;
 
-/**
- * Measure the time it takes to open/construct a Cluster object with default ClusterOptions.
- */
+// Measure the time it takes to open/construct a Cluster object with default ClusterOptions.
 TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
-    const std::vector<std::string> headers = {"Opening cluster of devices (ms)"};
+    auto bench = ankerl::nanobench::Bench()
+                     .maxEpochTime(std::chrono::seconds(30))
+                     .title("ClusterConstructor")
+                     .unit("cluster")
+                     .name("default")
+                     .run([&] {
+                         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+                         ankerl::nanobench::doNotOptimizeAway(cluster);
+                     });
+    test::utils::export_results(bench);
+}
 
-    auto now = std::chrono::steady_clock::now();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    auto end = std::chrono::steady_clock::now();
+TEST(MicrobenchmarkOpenCluster, TopologyDiscovery) {
+    auto bench =
+        ankerl::nanobench::Bench().maxEpochTime(std::chrono::seconds(30)).title("TopologyDiscovery").unit("discovery");
+    bench.name("default").run([&] {
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({});
+        ankerl::nanobench::doNotOptimizeAway(devices);
+    });
+    bench.name("local only").run([&] {
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({.no_remote_discovery = true});
+        ankerl::nanobench::doNotOptimizeAway(devices);
+    });
 
-    std::vector<std::vector<std::string>> rows;
-    std::vector<std::string> row;
-    row.push_back(test::utils::convert_double_to_string(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count() / (double)1e6));
-    rows.push_back(row);
-
-    test::utils::print_markdown_table_format(headers, rows);
+    test::utils::export_results(bench);
 }

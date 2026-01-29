@@ -46,7 +46,7 @@ on:
 env:
   CC: clang-20
   CXX: clang++-20
-  BUILD_TARGETS: "umd_tests ubench"
+  BUILD_TARGETS: "umd_tests umd_microbenchmark"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps

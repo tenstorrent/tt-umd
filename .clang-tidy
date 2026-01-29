@@ -91,7 +91,6 @@ Checks: >
     -readability-redundant-string-init,
     -readability-simplify-boolean-expr,
     -readability-static-accessed-through-instance,
-    -readability-string-compare,
     -readability-uppercase-literal-suffix,
     -abseil-*,
     -altera-*,

@@ -18,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      volumes:
+        - ${{ github.workspace }}:/work
+    defaults:
+      run:
+        shell: bash
+        working-directory: /work
     permissions:
       contents: write
       pull-requests: write
@@ -34,7 +40,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          path: work
 
       - name: Setup clang symlinks
         run: |
@@ -49,7 +54,6 @@ jobs:
 
       - name: Download analysis results
         id: download
-        working-directory: work
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -92,7 +96,6 @@ jobs:
 
       - name: Check for existing PR
         id: check-pr
-        working-directory: work
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -111,7 +114,6 @@ jobs:
 
       - name: Extract violations for checker
         id: violations
-        working-directory: work
         run: |
           set -euo pipefail
 
@@ -164,7 +166,6 @@ jobs:
 
       - name: Apply auto-fixes
         if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
-        working-directory: work
         run: |
           set -euo pipefail
 
@@ -181,7 +182,6 @@ jobs:
       - name: Create PR branch
         if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
         id: create-branch
-        working-directory: work
         run: |
           set -euo pipefail
 
@@ -213,7 +213,6 @@ jobs:
       - name: Create initial PR
         if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
         id: create-pr
-        working-directory: work
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -256,7 +255,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: violations-to-fix
-          path: work/violations_to_fix.txt
+          path: /work/violations_to_fix.txt
           retention-days: 1
 
   copilot-review:

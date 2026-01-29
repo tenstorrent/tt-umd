@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install CodeChecker
-        run: pip install codechecker
+        run: pip install codechecker==6.27.1
 
       - name: Setup clang tools symlinks
         run: |

@@ -44,7 +44,9 @@ jobs:
     runs-on:
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: >-
+        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        inputs.ubuntu-docker-version }}:latest
       # Set dummy var for baremetal, as options has to have some value
       options: ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
       volumes:

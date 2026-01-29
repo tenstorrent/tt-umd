@@ -15,6 +15,17 @@
 
 namespace tt::umd {
 
+// Vector of DM RiscType values for iteration.
+static const std::vector<RiscType> RISC_TYPES_DMS = {
+    RiscType::DM0,
+    RiscType::DM1,
+    RiscType::DM2,
+    RiscType::DM3,
+    RiscType::DM4,
+    RiscType::DM5,
+    RiscType::DM6,
+    RiscType::DM7};
+
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
@@ -70,7 +81,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
 
-static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
+static inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, const std::vector<uint32_t>& vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
@@ -81,11 +92,11 @@ static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
     return builder;
 }
 
-static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
-    return _create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
+static inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy_pair core) {
+    return create_flatbuffer(rw, std::vector<uint32_t>(1, 0), core, 0);
 }
 
-static inline void _print_flatbuffer(const DeviceRequestResponse* buf) {
+static inline void print_flatbuffer(const DeviceRequestResponse* buf) {
 #ifdef DEBUG
     std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
     uint64_t addr = buf->address();
@@ -107,11 +118,11 @@ static inline void _print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-static inline void _send_command_to_simulation_host(
+static inline void send_command_to_simulation_host(
     SimulationHost& host, const flatbuffers::FlatBufferBuilder& flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
-    _print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
+    print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
@@ -131,7 +142,7 @@ void RtlSimulationTTDevice::start_host_communication() {
 
 void RtlSimulationTTDevice::close_device() {
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
+    send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -139,7 +150,7 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     log_debug(LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     std::vector<std::uint32_t> data(
         static_cast<const uint32_t*>(mem_ptr), static_cast<const uint32_t*>(mem_ptr) + size / sizeof(uint32_t));
-    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
+    send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
 }
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -147,7 +158,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     void* rd_resp;
 
     // Send read request.
-    _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
+    send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
 
     // Get read response.
     size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
@@ -156,7 +167,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
 
     // Debug level polling as Metal will constantly poll the device, spamming the logs.
     log_debug(LogUMD, "Device reading vec");
-    _print_flatbuffer(rd_resp_buf);
+    print_flatbuffer(rd_resp_buf);
 
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
@@ -166,12 +177,12 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, b
     std::lock_guard<std::mutex> lock(device_lock);
     if (!deassert) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-        _send_command_to_simulation_host(
-            host, _create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
     } else {
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        _send_command_to_simulation_host(
-            host, _create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
     }
 }
 
@@ -236,6 +247,80 @@ void RtlSimulationTTDevice::dma_write_to_device(const void* src, size_t size, tt
 
 void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
     throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::send_tensix_risc_reset_options(
+    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
+        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, translated_core));
+    } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
+        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
+        send_command_to_simulation_host(
+            host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, translated_core));
+    } else {
+        TT_THROW("Invalid soft reset option.");
+    }
+}
+
+void RtlSimulationTTDevice::send_tensix_risc_reset_options(const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset_options({0, 0}, soft_resets);
+}
+
+void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
+    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
+    if (soc_descriptor_.arch == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL_NEO_DMS) {
+            // Reset all DM cores.
+            send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, core));
+            return;
+        }
+        // Check if this is a request per individual DM core reset.
+        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
+            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
+                send_command_to_simulation_host(
+                    host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, core, i));
+            }
+        }
+    }
+
+    if (soc_descriptor_.arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+        // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
+        // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
+        // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
+        // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
+        // always call this command as if reset for all was requested.
+        send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, core));
+    }
+}
+
+void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
+    // See the comment in assert_risc_reset for more details.
+    if (soc_descriptor_.arch == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL_NEO_DMS) {
+            // Reset all DM cores.
+            send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, core));
+            return;
+        }
+        // Check if this is a request per individual DM core reset.
+        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
+            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
+                send_command_to_simulation_host(
+                    host, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, core, i));
+            }
+        }
+    }
+
+    if (soc_descriptor_.arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+        // See the comment in assert_risc_reset for more details.
+        send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, core));
+    }
 }
 
 }  // namespace tt::umd

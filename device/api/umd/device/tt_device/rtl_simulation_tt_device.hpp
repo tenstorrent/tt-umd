@@ -11,6 +11,7 @@
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
 class RtlSimulationTTDevice : public TTDevice {
@@ -46,9 +47,16 @@ public:
     void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) override;
     void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
+    void close_device();
+    void start_device();
+
+    void send_tensix_risc_reset_options(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
+    void send_tensix_risc_reset_options(const TensixSoftResetOptions &soft_resets);
+    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
 private:
     void start_host_communication();
-    void close_device();
 
     std::mutex device_lock;
     SimulationHost host;

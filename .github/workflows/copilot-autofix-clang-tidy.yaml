@@ -32,7 +32,6 @@ jobs:
       pr_number: ${{ steps.create-pr.outputs.pr_number || steps.check-pr.outputs.pr_number }}
       pr_exists: ${{ steps.check-pr.outputs.pr_exists }}
       violation_count: ${{ steps.violations.outputs.count }}
-      branch: ${{ steps.create-branch.outputs.branch }}
 
     steps:
       - name: Check out repo
@@ -284,7 +283,7 @@ jobs:
           CHECKER="${{ inputs.checker }}"
           VIOLATION_COUNT="${{ needs.autofix.outputs.violation_count }}"
           PR_NUMBER="${{ needs.autofix.outputs.pr_number }}"
-          BRANCH="${{ needs.autofix.outputs.branch }}"
+          BRANCH="fix/clang-tidy-${CHECKER}"
 
           if [ -z "$COPILOT_OAUTH_TOKEN" ]; then
             echo "::warning::COPILOT_OAUTH_TOKEN not set - skipping Copilot review"

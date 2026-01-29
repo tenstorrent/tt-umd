@@ -175,7 +175,15 @@ jobs:
           git config user.name "blozano-tt"
           git config user.email "blozano@tenstorrent.com"
 
-          git checkout -b "$BRANCH"
+          # Stash any auto-fix changes
+          git stash --include-untracked || true
+
+          # Create branch from latest main
+          git fetch origin main
+          git checkout -b "$BRANCH" origin/main
+
+          # Restore auto-fix changes
+          git stash pop || true
 
           # Commit auto-fixes if any changes were made
           if ! git diff --quiet; then

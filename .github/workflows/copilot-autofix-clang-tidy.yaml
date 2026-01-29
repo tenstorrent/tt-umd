@@ -15,11 +15,9 @@ on:
 jobs:
   autofix:
     name: 🔧 Apply fixes for ${{ inputs.checker }}
-    runs-on: tt-ubuntu-2204-xlarge-stable
+    runs-on: ubuntu-latest
     container:
-      image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
-      volumes:
-        - /home/ubuntu/.config/gh:/root/.config/gh
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
     permissions:
       contents: write
       pull-requests: write

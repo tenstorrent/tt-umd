@@ -139,6 +139,21 @@ jobs:
             exit 1
           fi
 
+          # Debug: show available checkers and counts
+          echo "=== Available checkers in report ==="
+          jq -r '
+            [.reports[].checker_name] | group_by(.) |
+            map({checker: .[0], count: length}) |
+            sort_by(-.count) | .[:20] | .[] |
+            "\(.count)\t\(.checker)"
+          ' "$JSON_FILE"
+
+          echo ""
+          echo "=== Looking for checker: $CHECKER ==="
+          jq -r --arg checker "$CHECKER" '
+            [.reports[] | select(.checker_name == $checker)] | length
+          ' "$JSON_FILE"
+
           # Filter violations for this checker (exclude third-party)
           VIOLATIONS=$(jq -r --arg checker "$CHECKER" '
             [.reports[] |

@@ -30,6 +30,12 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Create /work symlink
+        run: |
+          # Analysis ran in container with code at /work
+          # Create symlink so fixit can find files at their original paths
+          sudo ln -sfn "$GITHUB_WORKSPACE" /work
+
       - name: Install CodeChecker and clang tools
         run: |
           # Install clang-tools for clang-apply-replacements

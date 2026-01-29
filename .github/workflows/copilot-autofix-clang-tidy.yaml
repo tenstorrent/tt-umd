@@ -45,11 +45,9 @@ jobs:
 
       - name: Setup clang tools symlinks
         run: |
-          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
-          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
-          update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100 || true
-          update-alternatives --install /usr/bin/clang-apply-replacements \
-            clang-apply-replacements /usr/bin/clang-apply-replacements-20 100 || true
+          for tool in clang clang++ clang-tidy clang-apply-replacements; do
+            update-alternatives --install /usr/bin/$tool $tool /usr/bin/${tool}-20 100 || true
+          done
 
       - name: Install gh CLI
         run: |

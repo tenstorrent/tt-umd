@@ -1,0 +1,152 @@
+name: "Code Analysis"
+
+on:
+  schedule:
+    # Run daily at 6 PM PST (2 AM UTC next day)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  code-analysis:
+    name: 🔬 Code Analysis
+    runs-on: tt-ubuntu-2204-xlarge-stable
+    container:
+      image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      volumes:
+        - ${{ github.workspace }}:/work
+    defaults:
+      run:
+        shell: bash
+        working-directory: /work
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Configure git safe.directory
+        run: git config --global --add safe.directory /work
+
+      - name: 🔧 CMake configure
+        run: cmake --preset clang-static-analyzer
+
+      - name: Setup clang symlinks for CodeChecker
+        run: |
+          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
+          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
+          update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100 || true
+
+      - name: Install CodeChecker
+        run: |
+          # Pre-install CodeChecker in the container's venv using uv.
+          # Pin to a specific version for reproducibility.
+          uv pip install codechecker==6.27.1
+
+      - name: 🔬 Analyze with CodeChecker
+        id: codechecker
+        run: |
+          set -euo pipefail
+
+          OUTPUT_DIR=/work/.build/codechecker-reports
+          mkdir -p "$OUTPUT_DIR"
+
+          echo "=== Starting CodeChecker analysis ==="
+
+          CodeChecker analyze \
+            /work/.build/clang-static-analyzer/compile_commands.json \
+            --output $OUTPUT_DIR \
+            --jobs $(nproc) \
+            --config /work/.codechecker.json \
+            || echo "⚠️ Analysis completed with warnings"
+
+          # Show summary
+          PLIST_COUNT=$(find "$OUTPUT_DIR" -name "*.plist" 2>/dev/null | wc -l)
+          echo "✅ Generated $PLIST_COUNT plist files"
+
+      - name: Generate JSON and HTML reports from analysis results
+        run: |
+          set -euo pipefail
+
+          OUTPUT_DIR="/work/.build/codechecker-reports"
+          JSON_OUTPUT="/work/.build/codechecker_issues.json"
+          HTML_OUTPUT="/work/.build/codechecker_html"
+
+          echo "=== Generating JSON report ==="
+          # CodeChecker parse can fail if no issues found or plist files corrupted - that's OK
+          CodeChecker parse "$OUTPUT_DIR" --export json --output "$JSON_OUTPUT" || true
+
+          if [ -f "$JSON_OUTPUT" ] && [ -s "$JSON_OUTPUT" ]; then
+            ISSUE_COUNT=$(jq '.reports | length' "$JSON_OUTPUT" || echo "0")
+            echo "✅ JSON report contains $ISSUE_COUNT issues"
+          else
+            echo "⚠️ No JSON output, creating empty report"
+            echo '{"version": 1, "reports": []}' > "$JSON_OUTPUT"
+          fi
+
+          echo ""
+          echo "=== Generating HTML report ==="
+          mkdir -p "$HTML_OUTPUT"
+          # Same as above - parse can fail for non-fatal reasons
+          CodeChecker parse "$OUTPUT_DIR" --export html --output "$HTML_OUTPUT" || true
+
+          if [ -d "$HTML_OUTPUT" ] && [ -n "$(ls -A "$HTML_OUTPUT")" ]; then
+            echo "✅ HTML report generated"
+          else
+            echo "⚠️ HTML report is empty or missing"
+          fi
+
+      - name: Upload JSON report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-JSON-Report
+          path: /work/.build/codechecker_issues.json
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-HTML-Report
+          path: /work/.build/codechecker_html
+
+      - name: Upload raw analysis results (for fixit)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-Analysis-Results
+          path: /work/.build/codechecker-reports
+          retention-days: 7
+
+  publish-analysis-results:
+    name: 📄 Publish Analysis Results
+    needs: [code-analysis]
+    if: always() && needs.code-analysis.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download CodeChecker HTML report
+        uses: actions/download-artifact@v4
+        with:
+          name: CodeChecker-HTML-Report
+          path: site
+
+      - name: Download CodeChecker JSON report
+        uses: actions/download-artifact@v4
+        with:
+          name: CodeChecker-JSON-Report
+          path: site
+
+      - name: Add .nojekyll
+        run: touch site/.nojekyll
+
+      - name: Publish to GitHub Pages (requires PAT secret)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.CLANGSA_RESULTS_PAT }}
+          external_repository: blozano-tt/umd-clangsa-results
+          publish_branch: gh-pages
+          publish_dir: site
+          force_orphan: true
+          commit_message: >-
+            Update CSA reports from ${{ github.repository }} @ ${{ github.sha }}

@@ -114,6 +114,7 @@ jobs:
         if: ${{ inputs.arch == 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
 
       - name: Run API tests
         run: |

@@ -17,7 +17,8 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    bool wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) noexcept override;
 
     uint32_t get_clock() override;
 
@@ -46,10 +47,11 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    ~WormholeTTDevice() override{};
 
 protected:
+    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
     /*
      * Create a device without an underlying communication device.
      * Used for remote devices that depend on remote_communication.
@@ -59,32 +61,13 @@ protected:
      */
     WormholeTTDevice();
 
-    uint64_t get_arc_apb_noc_base_address() const;
-
-    uint64_t get_arc_csm_noc_base_address() const;
-
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
 
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
-    void post_init_hook() override;
-
     bool is_hardware_hung() override;
-
-    struct EthAddresses {
-        uint32_t masked_version;
-
-        uint64_t node_info;
-        uint64_t eth_conn_info;
-        uint64_t results_buf;
-        uint64_t erisc_remote_board_type_offset;
-        uint64_t erisc_local_board_type_offset;
-        uint64_t erisc_local_board_id_lo_offset;
-        uint64_t erisc_remote_board_id_lo_offset;
-        uint64_t erisc_remote_eth_id_offset;
-    };
 
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 

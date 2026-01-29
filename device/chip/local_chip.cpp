@@ -19,9 +19,6 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-// TLB size for DRAM on blackhole - 4GB.
-const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
-
 std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
@@ -177,7 +174,6 @@ void LocalChip::start_device() {
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
     chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
-    check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
@@ -281,8 +277,6 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         return;
     }
 
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
-
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
@@ -301,8 +295,6 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         core.str(),
         l1_src,
         size);
-
-    uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
@@ -423,29 +415,6 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(const std::string& mutex_
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
-}
-
-void LocalChip::check_pcie_device_initialized() {
-    if (test_setup_interface()) {
-        throw std::runtime_error(
-            "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
-            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
-    }
-}
-
-int LocalChip::test_setup_interface() {
-    int ret_val = 0;
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t regval = 0;
-        read_from_device_reg(CoreCoord(1, 0, CoreType::ETH, CoordSystem::NOC0), &regval, 0xffb20108, sizeof(uint32_t));
-        ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
-        return ret_val;
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        // TODO #768 figure out BH implementation.
-        return 0;
-    } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
-    }
 }
 
 void LocalChip::init_pcie_iatus() {

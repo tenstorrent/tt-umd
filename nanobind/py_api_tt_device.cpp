@@ -15,6 +15,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -80,6 +81,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_device_info", &PCIDevice::get_device_info)
         .def("get_device_num", &PCIDevice::get_device_num)
         .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")
+        .def_static("read_device_info", &PCIDevice::read_device_info, nb::arg("fd"), "Read PCI device information.")
         .def_static(
             "is_arch_agnostic_reset_supported",
             &PCIDevice::is_arch_agnostic_reset_supported,
@@ -343,6 +345,49 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("arg1"),
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
+
+    nb::class_<SPITTDevice>(m, "SPITTDevice")
+        .def_static(
+            "create",
+            [](TTDevice &device) { return SPITTDevice::create(&device); },
+            nb::arg("device"),
+            nb::rv_policy::take_ownership,
+            "Create an SPITTDevice for the given TTDevice (factory method that returns architecture-specific "
+            "implementation)")
+        .def(
+            "read",
+            [](SPITTDevice &self, uint32_t addr, nb::bytearray data) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.read(addr, data_ptr, data_size);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Read data from SPI flash memory")
+        .def(
+            "write",
+            [](SPITTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.")
+        .def(
+            "write",
+            [](SPITTDevice &self, uint32_t addr, nb::bytearray data, bool skip_write_to_spi = false) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.write(addr, data_ptr, data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.");
 
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 

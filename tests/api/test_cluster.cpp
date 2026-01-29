@@ -240,8 +240,6 @@ TEST(ApiClusterTest, DifferentConstructors) {
 TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
     // Initialize random data.
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
@@ -331,8 +329,6 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {0},
     });
-
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -641,12 +637,9 @@ TEST(TestCluster, WarmReset) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
-
             RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
             // Set all riscs to reset state.
@@ -689,12 +682,9 @@ TEST(TestCluster, DeassertResetBrisc) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
-
             RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
@@ -752,12 +742,9 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
-
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
 
             cluster->l1_membar(chip_id, {tensix_core});
@@ -931,15 +918,11 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
             GTEST_SKIP() << "Unsupported architecture for deassert test.";
         }
 
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         RiscType risc_cores{RiscType::NONE};
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
-
             cluster->assert_risc_reset(chip_id, tensix_core, RiscType::ALL_TENSIX);
 
             cluster->l1_membar(chip_id, {tensix_core});
@@ -1073,8 +1056,6 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     std::vector<uint8_t> readback_data(tensix_l1_size, 1);
 
     for (auto chip_id : cluster->get_target_device_ids()) {
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-
         const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
 
         // Zero out L1.
@@ -1236,8 +1217,6 @@ TEST(TestCluster, SysmemReadWrite) {
         // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
         for (uint64_t test_offset : test_offsets) {
             uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
             uint32_t value = 0xffffffff;
             std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
             EXPECT_EQ(value, 0);

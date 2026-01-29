@@ -33,7 +33,10 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()) {
+    // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
+    lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+}
 
 TTDevice::TTDevice(
     std::shared_ptr<JtagDevice> jtag_device,
@@ -56,16 +59,13 @@ void TTDevice::probe_arc() {
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
-    pre_init_hook();
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
-        throw std::runtime_error(fmt::format(
-            "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
+        throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
     }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    post_init_hook();
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
@@ -312,7 +312,8 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         return;
     }
 
-    std::lock_guard<std::mutex> lock(pcie_dma_lock);
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     const uint8_t *buffer = static_cast<const uint8_t *>(src);
     PCIDevice *pci_device = get_pci_device().get();
@@ -364,7 +365,8 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         return;
     }
 
-    std::lock_guard<std::mutex> lock(pcie_dma_lock);
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     uint8_t *buffer = static_cast<uint8_t *>(dst);
     PCIDevice *pci_device = get_pci_device().get();

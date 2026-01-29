@@ -77,8 +77,6 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         if (cluster_desc->is_chip_remote(chip_id)) {
             remote_chips.insert(chip_id);
         }
-
-        auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
     bool is_baremetal = all_chips.empty();

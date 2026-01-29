@@ -8,6 +8,12 @@
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/.build/default",
             "cacheVariables": {
+                "CMAKE_C_COMPILER": {
+                    "value": "clang-20"
+                },
+                "CMAKE_CXX_COMPILER": {
+                    "value": "clang++-20"
+                },
                 "TT_UMD_BUILD_TESTS": {
                     "value": "TRUE"
                 },
@@ -29,7 +35,7 @@
                     "value": "OFF"
                 },
                 "CMAKE_CXX_CLANG_TIDY": {
-                    "value": "clang-tidy-17;--config-file=${sourceDir}/.clang-tidy;--warnings-as-errors=*"
+                    "value": "clang-tidy-20;--config-file=${sourceDir}/.clang-tidy;--warnings-as-errors=*"
                 },
                 "CMAKE_EXPORT_COMPILE_COMMANDS": {
                     "value": "TRUE"
@@ -46,7 +52,7 @@
             "binaryDir": "${sourceDir}/.build/clang-tidy-fix",
             "cacheVariables": {
                 "CMAKE_CXX_CLANG_TIDY": {
-                    "value": "clang-tidy-17;--config-file=${sourceDir}/.clang-tidy;--fix"
+                    "value": "clang-tidy-20;--config-file=${sourceDir}/.clang-tidy;--fix"
                 }
             }
         },
@@ -60,6 +66,21 @@
                 "CMAKE_CXX_CLANG_TIDY": {
                     "value":
                         "${sourceDir}/cmake/clang-tidy-export-fixes-wrapper.sh;${sourceDir}/.build/clang-tidy-fix-parallel/fixes;--config-file=${sourceDir}/.clang-tidy"
+                }
+            }
+        },
+        {
+            "name": "clang-static-analyzer",
+            "inherits": "default",
+            "description": "Run Clang Static Analyzer",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/.build/clang-static-analyzer",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "value": "Debug"
+                },
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "FALSE"
                 }
             }
         }

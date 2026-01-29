@@ -68,8 +68,6 @@
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
-static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
-
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
@@ -173,6 +171,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
+        pci_ids.reserve(local_chip_ids_.size());
         for (ChipId local_chip_id : local_chip_ids_) {
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }

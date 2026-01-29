@@ -1,0 +1,325 @@
+name: "Clang-Tidy Autofix"
+
+# This workflow applies clang-tidy fixes for a specific checker:
+# 1. Downloads latest analysis results
+# 2. Applies auto-fixes where available (CodeChecker fixit)
+# 3. Creates a PR branch
+# 4. Has Copilot review and fix any remaining violations
+
+on:
+  workflow_dispatch:
+    inputs:
+      checker:
+        description: 'Checker to fix (e.g., performance-avoid-endl)'
+        required: true
+        type: string
+
+jobs:
+  copilot-autofix:
+    name: 🔧 Autofix ${{ inputs.checker }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install CodeChecker
+        run: pip install codechecker
+
+      - name: Download analysis results
+        id: download
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          echo "Finding latest successful analysis run..."
+          RUN_ID=$(gh run list \
+            --workflow "Code Analysis" \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')
+
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::No successful analysis runs found"
+            exit 1
+          fi
+
+          echo "Downloading artifacts from run $RUN_ID..."
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+          # Download plist files for fixit
+          gh run download "$RUN_ID" \
+            --name CodeChecker-Analysis-Results \
+            --dir analysis-results || {
+            echo "::error::Failed to download analysis results"
+            exit 1
+          }
+
+          # Download JSON report for violation details
+          gh run download "$RUN_ID" \
+            --name CodeChecker-JSON-Report \
+            --dir json-report || {
+            echo "::error::Failed to download JSON report"
+            exit 1
+          }
+
+          PLIST_COUNT=$(find analysis-results -name "*.plist" 2>/dev/null | wc -l)
+          echo "Found $PLIST_COUNT plist files"
+
+      - name: Check for existing PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHECKER="${{ inputs.checker }}"
+          BRANCH="fix/clang-tidy-${CHECKER}"
+
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' || true)
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "::warning::PR #$EXISTING_PR already exists for $CHECKER"
+            echo "pr_exists=true" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$EXISTING_PR" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract violations for checker
+        id: violations
+        run: |
+          set -euo pipefail
+
+          CHECKER="${{ inputs.checker }}"
+          JSON_FILE="json-report/codechecker_issues.json"
+
+          if [ ! -f "$JSON_FILE" ]; then
+            echo "::error::JSON report not found"
+            exit 1
+          fi
+
+          # Filter violations for this checker (exclude third-party)
+          VIOLATIONS=$(jq -r --arg checker "$CHECKER" '
+            [.reports[] |
+             select(.checker_name == $checker) |
+             select(.file.path | test(".cpmcache|_deps") | not) |
+             {
+               file: (.file.path | sub("^/work/"; "")),
+               line: .line,
+               message: .message
+             }]
+          ' "$JSON_FILE")
+
+          VIOLATION_COUNT=$(echo "$VIOLATIONS" | jq 'length')
+          echo "Found $VIOLATION_COUNT violations for $CHECKER"
+          echo "count=$VIOLATION_COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$VIOLATION_COUNT" -eq 0 ]; then
+            echo "::warning::No violations found for $CHECKER"
+            exit 0
+          fi
+
+          # Save violations to file (will be committed for Copilot to reference)
+          echo "$VIOLATIONS" > /tmp/violations.json
+
+          # Create violations summary file
+          {
+            echo "# Clang-Tidy Violations: $CHECKER"
+            echo ""
+            echo "Total: $VIOLATION_COUNT violations"
+            echo ""
+            jq -r '.[] | "- \(.file):\(.line) — \(.message)"' /tmp/violations.json
+          } > violations_to_fix.txt
+
+          echo "=== Violations ==="
+          head -50 violations_to_fix.txt
+          if [ "$VIOLATION_COUNT" -gt 50 ]; then
+            echo "... (showing first 50 of $VIOLATION_COUNT)"
+          fi
+
+      - name: Apply auto-fixes
+        if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
+        id: fixit
+        run: |
+          set -euo pipefail
+
+          CHECKER="${{ inputs.checker }}"
+
+          echo "=== Applying auto-fixes for $CHECKER ==="
+
+          # List what's available
+          FIX_OUTPUT=$(CodeChecker fixit analysis-results \
+            --list \
+            --checker-name "$CHECKER" 2>&1 || true)
+
+          FIX_COUNT=$(echo "$FIX_OUTPUT" | grep -c "Fixits for" || echo "0")
+          echo "fixit_count=$FIX_COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$FIX_COUNT" -gt 0 ]; then
+            echo "Applying $FIX_COUNT auto-fixes..."
+            CodeChecker fixit analysis-results --checker-name "$CHECKER" || true
+            echo "✅ Auto-fixes applied"
+          else
+            echo "No auto-fixes available for this checker"
+          fi
+
+      - name: Create PR branch
+        if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
+        id: create-branch
+        run: |
+          set -euo pipefail
+
+          CHECKER="${{ inputs.checker }}"
+          BRANCH="fix/clang-tidy-${CHECKER}"
+
+          git config user.name "blozano-tt"
+          git config user.email "blozano@tenstorrent.com"
+
+          git checkout -b "$BRANCH"
+
+          # Commit auto-fixes if any changes were made
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "fix($CHECKER): apply clang-tidy auto-fixes"
+            echo "committed_fixes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No auto-fix changes to commit"
+            echo "committed_fixes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Commit violations file for Copilot to reference
+          git add violations_to_fix.txt
+          git commit -m "tmp: add violations list for Copilot reference"
+
+          git push -f origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Create initial PR
+        if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          CHECKER="${{ inputs.checker }}"
+          BRANCH="fix/clang-tidy-${CHECKER}"
+          VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
+          FIXIT_COUNT="${{ steps.fixit.outputs.fixit_count }}"
+
+          # Create PR
+          PR_URL=$(gh pr create \
+            --title "fix($CHECKER): fix clang-tidy violations" \
+            --body "## Summary
+
+          Fixing clang-tidy checker: \`$CHECKER\`
+
+          - **Total violations:** $VIOLATION_COUNT
+          - **Auto-fixes applied:** $FIXIT_COUNT files
+
+          Analysis run: [#${{ steps.download.outputs.run_id }}](\
+          https://github.com/${{ github.repository }}/actions/runs/\
+          ${{ steps.download.outputs.run_id }})
+
+          ## Status
+
+          🔄 Copilot is reviewing remaining violations...
+
+          ---
+          *Generated by clang-tidy autofix workflow*" \
+            --head "$BRANCH" \
+            --label "clang-tidy-autofix" \
+            --label "automated")
+
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+          echo "Created PR #$PR_NUMBER: $PR_URL"
+
+      - name: Run Copilot to fix remaining violations
+        if: >-
+          steps.violations.outputs.count != '0' &&
+          (steps.create-pr.outputs.pr_number != '' ||
+           steps.check-pr.outputs.pr_number != '')
+        env:
+          COPILOT_OAUTH_TOKEN: ${{ secrets.COPILOT_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          CHECKER="${{ inputs.checker }}"
+          VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
+          FIXIT_COUNT="${{ steps.fixit.outputs.fixit_count || '0' }}"
+
+          # Use existing PR number or newly created one
+          PR_NUMBER="${{ steps.create-pr.outputs.pr_number || steps.check-pr.outputs.pr_number }}"
+
+          if [ -z "$COPILOT_OAUTH_TOKEN" ]; then
+            echo "::warning::COPILOT_OAUTH_TOKEN not set - skipping Copilot review"
+            exit 0
+          fi
+
+          echo "$COPILOT_OAUTH_TOKEN" | gh auth login --with-token
+
+          # Build prompt
+          {
+            echo "Fix all clang-tidy violations for checker: $CHECKER"
+            echo ""
+            echo "The full list of violations is in: violations_to_fix.txt"
+            echo ""
+            if [ "$FIXIT_COUNT" -gt 0 ]; then
+              echo "Auto-fixes have already been applied to $FIXIT_COUNT files."
+              echo "Review those fixes and fix any remaining violations."
+            fi
+            echo ""
+            echo "Total violations: $VIOLATION_COUNT"
+            echo ""
+            echo "For each violation in violations_to_fix.txt:"
+            echo "1. If already fixed by auto-fix, verify it's correct"
+            echo "2. If not fixed, apply the appropriate fix"
+            echo "3. Follow the existing code style"
+            echo ""
+            echo "After fixing all violations, delete violations_to_fix.txt"
+          } > /tmp/prompt.txt
+
+          echo "=== Copilot Prompt ==="
+          cat /tmp/prompt.txt
+
+          # Run Copilot on the PR branch
+          BRANCH="fix/clang-tidy-${CHECKER}"
+
+          gh agent-task create -F /tmp/prompt.txt \
+            --base "$BRANCH" \
+            --repo "${{ github.repository }}" \
+            --follow || echo "::warning::Copilot task may have failed"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## 🔧 Clang-Tidy Autofix"
+            echo ""
+            echo "**Checker:** \`${{ inputs.checker }}\`"
+            echo ""
+
+            if [ "${{ steps.check-pr.outputs.pr_exists }}" = "true" ]; then
+              echo "📌 Using existing PR #${{ steps.check-pr.outputs.pr_number }}"
+            elif [ "${{ steps.violations.outputs.count }}" = "0" ]; then
+              echo "✅ No violations found for this checker"
+            else
+              echo "### Results"
+              echo ""
+              echo "- **Violations found:** ${{ steps.violations.outputs.count }}"
+              echo "- **Auto-fixes applied:** ${{ steps.fixit.outputs.fixit_count || '0' }} files"
+              echo "- **PR created:** #${{ steps.create-pr.outputs.pr_number }}"
+              echo ""
+              echo "Copilot has been asked to review and fix remaining violations."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -35,6 +35,7 @@ jobs:
         run: |
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
+          update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100 || true
 
       - name: Install CodeChecker
         run: |

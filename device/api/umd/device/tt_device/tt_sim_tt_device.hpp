@@ -48,6 +48,8 @@ public:
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
 
+    void l1_membar(const std::unordered_set<tt_xy_pair> &cores = {}) override;
+
     void close_device();
     void start_device();
 

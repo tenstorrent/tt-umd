@@ -288,4 +288,8 @@ void TTSimTTDevice::close_simulator_binary() {
     }
 }
 
+void TTSimTTDevice::l1_membar(const std::unordered_set<tt_xy_pair>& cores) {
+    // No-op for simulation device.
+}
+
 }  // namespace tt::umd

@@ -295,6 +295,8 @@ public:
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
 
+    virtual void l1_membar(const std::unordered_set<tt_xy_pair> &cores = {}) = 0;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

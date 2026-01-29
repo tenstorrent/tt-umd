@@ -1,0 +1,5 @@
+# Clang-Tidy Violations: readability-string-compare
+
+Total: 1 violations
+
+- device/firmware/firmware_utils.cpp:109 — do not use 'compare' to test equality of strings; use the string equality operator instead

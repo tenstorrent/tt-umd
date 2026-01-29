@@ -292,6 +292,8 @@ jobs:
             exit 0
           fi
 
+          # Unset GH_TOKEN to allow gh auth login to work
+          unset GH_TOKEN
           echo "$COPILOT_OAUTH_TOKEN" | gh auth login --with-token
 
           # Build prompt

@@ -134,10 +134,17 @@ jobs:
           CHECKER="${{ inputs.checker }}"
           JSON_FILE="/tmp/json-report/codechecker_issues.json"
 
+          echo "=== JSON file check ==="
+          echo "Looking for: $JSON_FILE"
+          ls -la /tmp/json-report/ || echo "Directory not found!"
+
           if [ ! -f "$JSON_FILE" ]; then
             echo "::error::JSON report not found"
             exit 1
           fi
+
+          echo "File size: $(wc -c < "$JSON_FILE") bytes"
+          echo "Total reports: $(jq '.reports | length' "$JSON_FILE")"
 
           # Debug: show available checkers and counts
           echo "=== Available checkers in report ==="

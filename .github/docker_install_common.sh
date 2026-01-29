@@ -34,15 +34,21 @@ apt-get update && apt-get install -y \
 # Install Python dependencies
 python3 -m pip install --no-cache-dir pytest
 
-# gcc-12 should be available only for ubuntu 22 and not 20
-if apt-cache show gcc-12 > /dev/null 2>&1; then
-    echo "gcc-12 is available. Installing..."
-    apt-get install -y gcc-12 g++-12
+# gcc-11 should be available only for ubuntu 22 and not 20
+if apt-cache show gcc-11 > /dev/null 2>&1; then
+    echo "gcc-11 is available. Installing..."
+    apt-get install -y gcc-11 g++-11
 else
-    echo "gcc-12 is not available in the repository."
+    echo "gcc-11 is not available in the repository."
 fi
 
-# Install clang 20
+# Install clang 13 so we can use it to test if the code builds with it.
+wget https://apt.llvm.org/llvm.sh && \
+    chmod u+x llvm.sh && \
+    ./llvm.sh 13 && \
+    apt install -y libc++-13-dev libc++abi-13-dev
+
+# Install clang 20 as the default compiler.
 wget https://apt.llvm.org/llvm.sh && \
     chmod u+x llvm.sh && \
     ./llvm.sh 20 && \

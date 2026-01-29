@@ -158,10 +158,8 @@ jobs:
 
           echo "=== Applying auto-fixes for $CHECKER ==="
 
-          # Pipe empty JSON array - CodeChecker reads stdin when not a tty
-          echo '[]' | CodeChecker fixit analysis-results \
-            --apply \
-            --checker-name "$CHECKER"
+          # Use script to create pseudo-TTY (CodeChecker reads stdin as JSON when not tty)
+          script -q -c "CodeChecker fixit analysis-results --apply --checker-name '$CHECKER'" /dev/null
 
           echo "✅ Auto-fix step completed"
 

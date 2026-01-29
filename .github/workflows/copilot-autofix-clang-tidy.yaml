@@ -32,6 +32,11 @@ jobs:
       - name: Install CodeChecker
         run: pip install codechecker
 
+      - name: Setup clang tools symlinks
+        run: |
+          update-alternatives --install /usr/bin/clang-apply-replacements \
+            clang-apply-replacements /usr/bin/clang-apply-replacements-20 100 || true
+
       - name: Download analysis results
         id: download
         env:
@@ -146,7 +151,6 @@ jobs:
 
       - name: Apply auto-fixes
         if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
-        id: fixit
         run: |
           set -euo pipefail
 
@@ -154,21 +158,11 @@ jobs:
 
           echo "=== Applying auto-fixes for $CHECKER ==="
 
-          # List what's available
-          FIX_OUTPUT=$(CodeChecker fixit analysis-results \
-            --list \
-            --checker-name "$CHECKER" 2>&1 || true)
+          CodeChecker fixit analysis-results \
+            --apply \
+            --checker-name "$CHECKER"
 
-          FIX_COUNT=$(echo "$FIX_OUTPUT" | grep -c "Fixits for" || echo "0")
-          echo "fixit_count=$FIX_COUNT" >> "$GITHUB_OUTPUT"
-
-          if [ "$FIX_COUNT" -gt 0 ]; then
-            echo "Applying $FIX_COUNT auto-fixes..."
-            CodeChecker fixit analysis-results --checker-name "$CHECKER" || true
-            echo "✅ Auto-fixes applied"
-          else
-            echo "No auto-fixes available for this checker"
-          fi
+          echo "✅ Auto-fix step completed"
 
       - name: Create PR branch
         if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'
@@ -212,7 +206,6 @@ jobs:
           CHECKER="${{ inputs.checker }}"
           BRANCH="fix/clang-tidy-${CHECKER}"
           VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
-          FIXIT_COUNT="${{ steps.fixit.outputs.fixit_count }}"
 
           # Create PR
           PR_URL=$(gh pr create \
@@ -222,7 +215,6 @@ jobs:
           Fixing clang-tidy checker: \`$CHECKER\`
 
           - **Total violations:** $VIOLATION_COUNT
-          - **Auto-fixes applied:** $FIXIT_COUNT files
 
           Analysis run: [#${{ steps.download.outputs.run_id }}](\
           https://github.com/${{ github.repository }}/actions/runs/\
@@ -256,7 +248,6 @@ jobs:
 
           CHECKER="${{ inputs.checker }}"
           VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
-          FIXIT_COUNT="${{ steps.fixit.outputs.fixit_count || '0' }}"
 
           # Use existing PR number or newly created one
           PR_NUMBER="${{ steps.create-pr.outputs.pr_number || steps.check-pr.outputs.pr_number }}"
@@ -274,10 +265,8 @@ jobs:
             echo ""
             echo "The full list of violations is in: violations_to_fix.txt"
             echo ""
-            if [ "$FIXIT_COUNT" -gt 0 ]; then
-              echo "Auto-fixes have already been applied to $FIXIT_COUNT files."
-              echo "Review those fixes and fix any remaining violations."
-            fi
+            echo "Some violations may have been auto-fixed by CodeChecker."
+            echo "Review those fixes and fix any remaining violations."
             echo ""
             echo "Total violations: $VIOLATION_COUNT"
             echo ""
@@ -317,7 +306,7 @@ jobs:
               echo "### Results"
               echo ""
               echo "- **Violations found:** ${{ steps.violations.outputs.count }}"
-              echo "- **Auto-fixes applied:** ${{ steps.fixit.outputs.fixit_count || '0' }} files"
+              echo "- **Auto-fixes:** Applied where available"
               echo "- **PR created:** #${{ steps.create-pr.outputs.pr_number }}"
               echo ""
               echo "Copilot has been asked to review and fix remaining violations."

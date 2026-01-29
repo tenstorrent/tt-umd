@@ -131,8 +131,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          CHECKER="${{ inputs.checker }}"
+          # Trim whitespace from checker input
+          CHECKER=$(echo "${{ inputs.checker }}" | tr -d '[:space:]')
           JSON_FILE="/tmp/json-report/codechecker_issues.json"
+
+          echo "Checker (raw): '${{ inputs.checker }}'"
+          echo "Checker (trimmed): '$CHECKER'"
 
           echo "=== JSON file check ==="
           echo "Looking for: $JSON_FILE"

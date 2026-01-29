@@ -255,6 +255,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
             asic_id_to_chip_id.emplace(asic_id, chip_id);
             cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
+            cluster_desc->chip_pci_bdfs.emplace(chip_id, bdf);
             chip_id++;
         }
     } else {

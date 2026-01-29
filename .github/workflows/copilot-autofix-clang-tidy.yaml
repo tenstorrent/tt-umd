@@ -207,9 +207,9 @@ jobs:
 
           git checkout -b "$BRANCH"
 
-          # Commit auto-fixes if any changes were made
-          if ! git diff --quiet; then
-            git add -A
+          # Commit auto-fixes if any changes were made (exclude violations file)
+          if ! git diff --quiet -- ':!violations_to_fix.txt'; then
+            git add -A -- ':!violations_to_fix.txt'
             git commit -m "fix($CHECKER): apply clang-tidy auto-fixes"
             echo "committed_fixes=true" >> "$GITHUB_OUTPUT"
           else

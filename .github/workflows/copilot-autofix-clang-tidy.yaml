@@ -1,7 +1,7 @@
 name: "Clang-Tidy Autofix"
 
 # This workflow applies clang-tidy fixes for a specific checker:
-# Job 1 (autofix): Applies auto-fixes using CodeChecker on TT runner
+# Job 1 (autofix): Applies auto-fixes using CodeChecker
 # Job 2 (copilot): Has Copilot review and fix remaining violations
 
 on:
@@ -41,7 +41,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Setup clang symlinks
+      - name: Setup clang tools symlinks
         run: |
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
@@ -175,7 +175,7 @@ jobs:
 
           CodeChecker fixit analysis-results \
             --apply \
-            --checker-name "$CHECKER" || echo "No auto-fixes available"
+            --checker-name "$CHECKER"
 
           echo "✅ Auto-fix step completed"
 
@@ -222,6 +222,7 @@ jobs:
           BRANCH="fix/clang-tidy-${CHECKER}"
           VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
 
+          # Create PR
           PR_URL=$(gh pr create \
             --title "fix($CHECKER): fix clang-tidy violations" \
             --body "## Summary
@@ -250,14 +251,6 @@ jobs:
 
           echo "Created PR #$PR_NUMBER: $PR_URL"
 
-      - name: Upload violations file
-        if: steps.violations.outputs.count != '0'
-        uses: actions/upload-artifact@v4
-        with:
-          name: violations-to-fix
-          path: /work/violations_to_fix.txt
-          retention-days: 1
-
   copilot-review:
     name: 🤖 Copilot review
     runs-on: ubuntu-latest
@@ -268,11 +261,6 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Download violations file
-        uses: actions/download-artifact@v4
-        with:
-          name: violations-to-fix
-
       - name: Run Copilot to fix remaining violations
         env:
           COPILOT_OAUTH_TOKEN: ${{ secrets.COPILOT_OAUTH_TOKEN }}

@@ -80,12 +80,95 @@ static std::optional<std::unordered_set<std::string>> get_unordered_set_from_bdf
 
 // This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
 // active.
-inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
-
 // This ENV variable is used to specify visible devices by PCI BDF (Bus:Device.Function) addresses.
 // Format: comma-separated BDF addresses like "0000:02:00.0,0000:03:00.0"
-// When set, BDF_VISIBLE_DEVICES takes precedence over TT_VISIBLE_DEVICES for PCIe devices.
-inline constexpr std::string_view BDF_VISIBLE_DEVICES_ENV = "BDF_VISIBLE_DEVICES";
+// When set, TT_VISIBLE_DEVICES takes precedence over TT_VISIBLE_DEVICES for PCIe devices.
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
+
+enum class TT_VISIBLE_DEVICES_Format {
+    Integer,  // Format contains comma-separated integers (e.g., "0,1,2")
+    BDF,      // Format contains comma-separated PCI BDF addresses (e.g., "0000:01:00.0,0000:02:00.0")
+    NotSet,   // Environment variable is not set
+    Empty,    // Environment variable is set but empty
+    Invalid   // Format is neither valid integers nor valid BDF addresses
+};
+
+/**
+ * Check the format of TT_VISIBLE_DEVICES environment variable.
+ * @return TT_VISIBLE_DEVICES_Format indicating the detected format.
+ */
+static inline TT_VISIBLE_DEVICES_Format check_tt_visible_devices_format() {
+    const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+
+    if (!env_var_value.has_value()) {
+        return TT_VISIBLE_DEVICES_Format::NotSet;
+    }
+
+    if (env_var_value.value().empty()) {
+        return TT_VISIBLE_DEVICES_Format::Empty;
+    }
+
+    const std::string& input = env_var_value.value();
+    std::stringstream ss(input);
+    std::string token;
+    bool has_tokens = false;
+    bool could_be_integer = true;
+    bool could_be_bdf = true;
+
+    while (std::getline(ss, token, ',')) {
+        // Trim whitespace from the token.
+        token.erase(token.find_last_not_of(" \n\r\t") + 1);
+        token.erase(0, token.find_first_not_of(" \n\r\t"));
+
+        if (token.empty()) {
+            continue;
+        }
+
+        has_tokens = true;
+
+        // Check if token could be an integer.
+        if (could_be_integer) {
+            try {
+                std::stoi(token);
+            } catch (const std::exception&) {
+                could_be_integer = false;
+            }
+        }
+
+        // Check if token could be a BDF address.
+        if (could_be_bdf) {
+            // Basic BDF format validation: should be like "0000:02:00.0".
+            if (token.length() < 8 || token.find(':') == std::string::npos || token.find('.') == std::string::npos) {
+                could_be_bdf = false;
+            }
+        }
+
+        // If neither format is possible, we can return early.
+        if (!could_be_integer && !could_be_bdf) {
+            return TT_VISIBLE_DEVICES_Format::Invalid;
+        }
+    }
+
+    if (!has_tokens) {
+        return TT_VISIBLE_DEVICES_Format::Empty;
+    }
+
+    // If both formats are still possible, prefer integer format for backwards compatibility
+    // In practice, this should be rare since BDF and integer formats are quite distinct.
+    if (could_be_integer && could_be_bdf) {
+        return TT_VISIBLE_DEVICES_Format::Integer;
+    }
+
+    if (could_be_integer) {
+        return TT_VISIBLE_DEVICES_Format::Integer;
+    }
+
+    if (could_be_bdf) {
+        return TT_VISIBLE_DEVICES_Format::BDF;
+    }
+
+    return TT_VISIBLE_DEVICES_Format::Invalid;
+}
 
 static inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
     const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
@@ -95,7 +178,7 @@ static inline std::unordered_set<int> get_visible_devices(const std::unordered_s
 }
 
 static inline std::unordered_set<std::string> get_visible_bdfs() {
-    const std::optional<std::string> env_var_value = get_env_var_value(BDF_VISIBLE_DEVICES_ENV.data());
+    const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
     return env_var_value.has_value()
                ? get_unordered_set_from_bdf_string(env_var_value.value()).value_or(std::unordered_set<std::string>{})
                : std::unordered_set<std::string>{};

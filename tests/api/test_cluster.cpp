@@ -142,7 +142,7 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
     auto device_info_map = PCIDevice::enumerate_devices_info();
 
     if (device_info_map.empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing BDF_VISIBLE_DEVICES";
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
     }
 
     // Extract BDF addresses.
@@ -184,8 +184,8 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
             bdf_value += target_bdf_addresses[i];
         }
 
-        if (setenv(utils::BDF_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
-            ASSERT_TRUE(false) << "Failed to set BDF_VISIBLE_DEVICES environment variable.";
+        if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
         }
 
         // Make sure that Cluster construction is without exceptions.
@@ -193,16 +193,13 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
 
         // Check that the cluster has the expected number of chips.
         auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
-        if (combination != 0) {
-            EXPECT_EQ(actual_pci_device_ids.size(), target_bdf_addresses.size());
-        } else {
-            EXPECT_EQ(actual_pci_device_ids.size(), device_info_map.size());
-        }
+        EXPECT_EQ(actual_pci_device_ids.size(), target_bdf_addresses.size());
+
         // Always expect logical id 0 to exist, that's the way filtering by bdf addresses work.
         EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
 
-        if (unsetenv(utils::BDF_VISIBLE_DEVICES_ENV.data()) != 0) {
-            ASSERT_TRUE(false) << "Failed to unset BDF_VISIBLE_DEVICES environment variable.";
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
         }
     }
 }

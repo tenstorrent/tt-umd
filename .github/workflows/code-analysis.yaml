@@ -5,28 +5,15 @@ on:
     # Run daily at 6 PM PST (2 AM UTC next day)
     - cron: "0 2 * * *"
   workflow_dispatch:
-    inputs:
-      enable-static-analysis:
-        description: "Enable Clang Static Analyzer (CSA) via CodeChecker"
-        required: false
-        type: boolean
-        default: false
-      debug-file-filter:
-        description: "Analyze only specific file(s) for fast debugging (e.g., 'device/**/*.hpp' or 'path/to/file.cpp')"
-        required: false
-        type: string
-        default: ""
 
 jobs:
-  clang-static-analyzer:
-    name: 🔬 Clang Static Analyzer
-    if: ${{ inputs.enable-static-analysis == true || github.event_name == 'schedule' }}
+  code-analysis:
+    name: 🔬 Code Analysis
     runs-on: tt-ubuntu-2204-xlarge-stable
     container:
       image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       volumes:
         - ${{ github.workspace }}:/work
-      options: --tmpfs /tmp
     defaults:
       run:
         shell: bash
@@ -48,6 +35,7 @@ jobs:
         run: |
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
+          update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100 || true
 
       - name: Install CodeChecker
         run: |
@@ -65,23 +53,12 @@ jobs:
 
           echo "=== Starting CodeChecker analysis ==="
 
-          # Build command with optional file filter
-          ANALYZE_CMD="CodeChecker analyze \
+          CodeChecker analyze \
             /work/.build/clang-static-analyzer/compile_commands.json \
             --output $OUTPUT_DIR \
             --jobs $(nproc) \
-            --config /work/.codechecker.json"
-
-          if [ -n "${{ inputs.debug-file-filter }}" ]; then
-            echo "🐛 DEBUG MODE: Analyzing only: ${{ inputs.debug-file-filter }}"
-            ANALYZE_CMD="$ANALYZE_CMD --file '${{ inputs.debug-file-filter }}'"
-          fi
-
-          # Run analysis (don't fail on analyzer crashes - common with static analysis)
-          eval "$ANALYZE_CMD" || echo "⚠️ Analysis completed with warnings"
-
-          # Set output for downstream steps
-          echo "analyze-output=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+            --config /work/.codechecker.json \
+            || echo "⚠️ Analysis completed with warnings"
 
           # Show summary
           PLIST_COUNT=$(find "$OUTPUT_DIR" -name "*.plist" 2>/dev/null | wc -l)
@@ -91,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          OUTPUT_DIR="${{ steps.codechecker.outputs.analyze-output }}"
+          OUTPUT_DIR="/work/.build/codechecker-reports"
           JSON_OUTPUT="/work/.build/codechecker_issues.json"
           HTML_OUTPUT="/work/.build/codechecker_html"
 
@@ -133,14 +110,18 @@ jobs:
           name: CodeChecker-HTML-Report
           path: /work/.build/codechecker_html
 
-  publish-clangsa-results:
-    name: 📄 Publish CSA Results
-    needs: [clang-static-analyzer]
-    # Only publish on full scans (skip when debug-file-filter is used)
-    if: >-
-      ${{ always() &&
-      needs.clang-static-analyzer.result == 'success' &&
-      inputs.debug-file-filter == '' }}
+      - name: Upload raw analysis results (for fixit)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-Analysis-Results
+          path: /work/.build/codechecker-reports
+          retention-days: 7
+
+  publish-analysis-results:
+    name: 📄 Publish Analysis Results
+    needs: [code-analysis]
+    if: always() && needs.code-analysis.result == 'success'
     runs-on: ubuntu-latest
 
     steps:

@@ -110,6 +110,14 @@ jobs:
           name: CodeChecker-HTML-Report
           path: /work/.build/codechecker_html
 
+      - name: Upload raw analysis results (for fixit)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-Analysis-Results
+          path: /work/.build/codechecker-reports
+          retention-days: 7
+
   publish-analysis-results:
     name: 📄 Publish Analysis Results
     needs: [code-analysis]

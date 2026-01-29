@@ -46,6 +46,9 @@ public:
 
     void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
+    void dma_multicast_write(
+        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+
 private:
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 

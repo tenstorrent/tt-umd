@@ -124,6 +124,10 @@ void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, ui
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
+void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_multicast_write is not available for this chip.");
+}
+
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }

@@ -238,4 +238,9 @@ void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_p
     throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
 }
 
+void RtlSimulationTTDevice::dma_multicast_write(
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for RTL simulation device.");
+}
+
 }  // namespace tt::umd

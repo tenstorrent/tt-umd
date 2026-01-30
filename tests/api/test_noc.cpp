@@ -17,17 +17,6 @@ class TestNoc : public ::testing::Test {
 public:
     void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
 
-    tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
-        const uint64_t noc_node_id_reg_addr =
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, noc_index) +
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
-        uint32_t noc_node_id_val;
-        cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-        return tt_xy_pair(x, y);
-    }
-
     void check_noc_id_cores(ChipId chip, CoreType core_type, uint8_t noc_index) {
         CoordSystem coord_system = (noc_index == 0) ? CoordSystem::NOC0 : CoordSystem::NOC1;
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, coord_system);
@@ -55,6 +44,17 @@ public:
 
 private:
     std::unique_ptr<Cluster> cluster_;
+
+    tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
+        const uint64_t noc_node_id_reg_addr =
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, noc_index) +
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
+        uint32_t noc_node_id_val;
+        cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        uint32_t x = noc_node_id_val & 0x3F;
+        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        return tt_xy_pair(x, y);
+    }
 };
 
 TEST_F(TestNoc, TestNoc0NodeId) {

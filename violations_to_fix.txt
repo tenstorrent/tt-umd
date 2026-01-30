@@ -1,0 +1,6 @@
+# Clang-Tidy Violations: readability-duplicate-include
+Total: 3 violations
+
+- device/soc_descriptor.cpp:24 — duplicate include
+- device/cluster.cpp:75 — duplicate include
+- device/cpuset_lib.cpp:17 — duplicate include

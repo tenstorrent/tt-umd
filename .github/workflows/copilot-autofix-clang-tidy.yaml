@@ -218,12 +218,17 @@ jobs:
           BRANCH="fix/clang-tidy-${CHECKER}"
           VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
 
+          # Build clang-tidy docs URL (e.g., readability-string-compare -> readability/string-compare)
+          CATEGORY="${CHECKER%%-*}"
+          CHECK_NAME="${CHECKER#*-}"
+          DOCS_URL="https://clang.llvm.org/extra/clang-tidy/checks/${CATEGORY}/${CHECK_NAME}.html"
+
           # Create PR
           PR_URL=$(gh pr create \
             --title "fix($CHECKER): fix clang-tidy violations" \
             --body "## Summary
 
-          Fixing clang-tidy checker: \`$CHECKER\`
+          Fixing clang-tidy checker: [\`$CHECKER\`]($DOCS_URL)
 
           - **Total violations:** $VIOLATION_COUNT
 

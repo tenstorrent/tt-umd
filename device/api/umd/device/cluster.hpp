@@ -411,6 +411,19 @@ public:
      */
     void dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
 
+    /**
+     * Use PCIe DMA to write the same data to multiple device cores simultaneously.
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core_start Starting core coordinates (x,y) of the multicast write.
+     * @param core_end Ending core coordinates (x,y) of the multicast write.
+     * @param addr Address to write to.
+     */
+    void dma_multicast_write(
+        void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+
     void noc_multicast_write(
         void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 

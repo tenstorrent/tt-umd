@@ -878,6 +878,11 @@ void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoor
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
+void Cluster::dma_multicast_write(
+    void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
+}
+
 void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }

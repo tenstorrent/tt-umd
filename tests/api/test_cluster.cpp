@@ -868,6 +868,56 @@ TEST(TestCluster, TestMulticastWrite) {
     }
 }
 
+TEST(TestCluster, TestDmaMulticastWrite) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
+    }
+
+    const tt_xy_pair grid_size = {8, 8};
+
+    const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+    const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    const uint64_t address = 0;
+    const size_t data_size = 256;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (std::size_t i = 0; i < data_size; i++) {
+        write_data[i] = (uint8_t)i;
+    }
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> zeros(data_size, 0);
+            cluster->write_to_device(
+                zeros.data(), zeros.size(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address);
+
+            std::vector<uint8_t> readback(data_size, 1);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(zeros, readback);
+        }
+    }
+
+    cluster->dma_multicast_write(write_data.data(), write_data.size(), 0, start_tensix, end_tensix, address);
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> readback(data_size, 0);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(write_data, readback);
+        }
+    }
+}
+
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
     std::unique_ptr<Cluster> cluster =

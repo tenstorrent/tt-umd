@@ -19,6 +19,7 @@ on:
         type: string
   push:
     branches: ["main"]
+  pull_request:
 
 jobs:
   build-tests:

@@ -188,6 +188,8 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     auto timeout_duration = timeout::BH_WARM_RESET_TIMEOUT;
 
     while (std::chrono::steady_clock::now() - start < timeout_duration) {
+        all_reset_bits_set = true;
+        
         for (const auto& pci_device_id : pci_device_ids) {
             auto command_byte = PCIDevice::read_command_byte(pci_device_id);
             bool reset_bit = (command_byte >> 1) & 1;

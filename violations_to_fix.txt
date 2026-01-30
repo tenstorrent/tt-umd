@@ -1,6 +1,0 @@
-# Clang-Tidy Violations: bugprone-branch-clone
-Total: 3 violations
-
-- device/api/umd/device/types/cluster_descriptor_types.hpp:195 — switch has 2 consecutive identical branches
-- tools/system_health.cpp:122 — switch has 3 consecutive identical branches
-- device/hugepage.cpp:115 — switch has 4 consecutive identical branches

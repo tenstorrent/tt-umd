@@ -373,7 +373,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
     }
 
-    TT_ASSERT(!(broadcast && !system_mem_available), "Broadcasts not available without system memory.");
+    TT_ASSERT(!broadcast || system_mem_available, "Broadcasts not available without system memory.");
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 

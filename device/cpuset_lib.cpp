@@ -27,10 +27,10 @@ namespace fs = std::filesystem;
 // Constructor for singleton class cpu id allocator.
 cpuset_allocator::cpuset_allocator() {
     m_pid = getpid();
-    m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") ? true : false;
+    m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") != nullptr;
 
     // Chicken bit to disable this entire feature for debug/comparison.
-    bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") ? true : false;
+    bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") != nullptr;
 
     auto system_tid = std::this_thread::get_id();
     log_debug(LogUMD, "Starting cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
@@ -222,7 +222,7 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
         return false;
     }
 
-    bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") ? true : false;
+    bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") != nullptr;
 
     log_debug(LogUMD, "Inside cpuset_allocator::check_if_cpu_model_supported()");
 
@@ -243,7 +243,7 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
         std::string pkg_cpu_model = hwloc_obj_get_info_by_name(package_obj, "CPUModel");
 
         // First find out if this CPU is supported by CPUSET Allocator at all.
-        bool has_supported_cpu = use_any_cpu ? true : false;
+        bool has_supported_cpu = use_any_cpu;
 
         for (auto &supported_cpu_model : supported_cpu_models) {
             has_supported_cpu |= (pkg_cpu_model.find(supported_cpu_model) != std::string::npos);

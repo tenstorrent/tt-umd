@@ -85,7 +85,7 @@ void TlbWindow::read_block_reconfigure(
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);
@@ -111,7 +111,7 @@ void TlbWindow::write_block_reconfigure(
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);
@@ -141,7 +141,7 @@ void TlbWindow::noc_multicast_write_reconfigure(
     config.mcast = true;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) ? false : true;
+    config.static_vc = PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);

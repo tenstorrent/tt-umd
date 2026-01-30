@@ -46,6 +46,8 @@ public:
 
     void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
+    void l1_membar(const std::unordered_set<tt_xy_pair>& cores = {}) override;
+
 private:
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 

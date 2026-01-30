@@ -39,6 +39,12 @@ jobs:
       - name: 🔧 CMake configure
         run: cmake --preset code-analysis
 
+      - name: 🔨 Generate simulation sources
+        run: |
+          # Generate FlatBuffers header files needed for simulation code analysis
+          # Build just the generated header file using ninja
+          ninja -C "$BUILD_DIR/code-analysis" device/simulation_device_generated.h
+
       - name: Install CodeChecker
         run: |
           # Pre-install CodeChecker in the container's venv using uv.

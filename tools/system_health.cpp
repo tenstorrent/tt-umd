@@ -123,10 +123,10 @@ std::string get_connector_str(
             str << "LK1 trace";
             break;
         case ConnectorType::LK2:
-            str << "LK1 trace";
+            str << "LK2 trace";
             break;
         case ConnectorType::LK3:
-            str << "LK1 trace";
+            str << "LK3 trace";
             break;
     }
     str << ")";
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::string cluster_descriptor_path = "";
+    std::string cluster_descriptor_path;
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }

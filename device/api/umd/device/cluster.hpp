@@ -74,7 +74,7 @@ struct ClusterOptions {
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
      * descriptor based on architecture will be used.
      */
-    std::string sdesc_path = "";
+    std::string sdesc_path;
     /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
@@ -135,7 +135,7 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = "", IODeviceType device_type = IODeviceType::PCIe);
+        std::string sdesc_path = {}, IODeviceType device_type = IODeviceType::PCIe);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.

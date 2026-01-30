@@ -111,7 +111,7 @@ This coordinate system is mostly used to reference tensix cores on the chip, sin
 
 ![Tensix logical coordinates](images/tensix_logical_coordinates.png)
 
-Logical coordinates are used in a same way for Grayskull, Wormhole and Blackhole, only difference being in grid size of cores.
+Logical coordinates are used in the same way for Wormhole and Blackhole, with the only difference being in grid size of cores.
 
 ### Logical coordinates for different core types
 

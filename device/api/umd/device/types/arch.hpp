@@ -19,11 +19,10 @@ namespace tt {
  * Enums for different architectures.
  */
 enum class ARCH {
-    GRAYSKULL = 1,
-    WORMHOLE_B0 = 2,
-    BLACKHOLE = 3,
-    QUASAR = 4,
-    Invalid = 0xFF,
+    WORMHOLE_B0,
+    BLACKHOLE,
+    QUASAR,
+    Invalid
 };
 
 static inline tt::ARCH arch_from_str(const std::string &arch_str) {

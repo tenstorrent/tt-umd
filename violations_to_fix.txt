@@ -1,0 +1,8 @@
+# Clang-Tidy Violations: readability-redundant-string-init
+Total: 5 violations
+
+- device/api/umd/device/cluster.hpp:77 — redundant string initialization
+- device/api/umd/device/topology/topology_discovery.hpp:25 — redundant string initialization
+- tools/topology.cpp:37 — redundant string initialization
+- tools/system_health.cpp:148 — redundant string initialization
+- device/cpuset_lib.cpp:469 — redundant string initialization

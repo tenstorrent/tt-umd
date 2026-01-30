@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::string cluster_descriptor_path = "";
+    std::string cluster_descriptor_path;
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }

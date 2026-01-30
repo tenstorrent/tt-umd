@@ -14,7 +14,6 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "cpuset_lib.hpp"
 #include "umd/device/cluster.hpp"
 
 namespace tt::cpuset {

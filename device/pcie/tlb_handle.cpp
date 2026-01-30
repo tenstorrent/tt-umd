@@ -58,7 +58,7 @@ size_t TlbHandle::get_size() const { return tlb_size; }
 
 const tlb_data& TlbHandle::get_config() const { return tlb_config; }
 
-const TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
+TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
 
 void TlbHandle::free_tlb() noexcept { tt_tlb_free(tt_device_, tlb_handle_); }
 

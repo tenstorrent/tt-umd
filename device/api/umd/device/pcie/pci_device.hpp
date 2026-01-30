@@ -164,7 +164,7 @@ public:
     /**
      * @return PCI device info
      */
-    const PciDeviceInfo get_device_info() const { return info; }
+    PciDeviceInfo get_device_info() const { return info; }
 
     /**
      * @return which NUMA node this device is associated with, or -1 if non-NUMA

@@ -144,8 +144,9 @@ void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    std::vector<std::uint32_t> data(
-        static_cast<const uint32_t*>(src), static_cast<const uint32_t*>(src) + size / sizeof(uint32_t));
+    const uint32_t num_elements = size / sizeof(uint32_t);
+    const auto* data_ptr = static_cast<const uint32_t*>(src);
+    std::vector<uint32_t> data(data_ptr, data_ptr + num_elements);
     send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest));
 }
 

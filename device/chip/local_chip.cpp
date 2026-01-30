@@ -152,7 +152,7 @@ void LocalChip::initialize_membars() {
 
     std::vector<CoreCoord> dram_cores_vector = {};
     dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
-for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
+    for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
         dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
@@ -518,7 +518,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
         dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
-for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
+    for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(
                 soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
         }

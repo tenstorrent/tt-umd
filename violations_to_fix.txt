@@ -1,0 +1,7 @@
+# Clang-Tidy Violations: performance-inefficient-vector-operation
+Total: 4 violations
+
+- tests/wormhole/test_cluster_wh.cpp:652 — 'push_back' is called inside a loop; consider pre-allocating the container capacity before the loop
+- tests/wormhole/test_cluster_wh.cpp:700 — 'push_back' is called inside a loop; consider pre-allocating the container capacity before the loop
+- device/chip/local_chip.cpp:155 — 'push_back' is called inside a loop; consider pre-allocating the container capacity before the loop
+- device/chip/local_chip.cpp:520 — 'push_back' is called inside a loop; consider pre-allocating the container capacity before the loop

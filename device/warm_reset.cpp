@@ -195,7 +195,7 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
         }
 
         for (auto& [pci_device_id, reset_bit] : reset_bits) {
-            if (reset_bit != true) {
+            if (!reset_bit) {
                 all_reset_bits_set = false;
                 break;
             }

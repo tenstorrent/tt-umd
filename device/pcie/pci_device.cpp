@@ -832,10 +832,7 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() {
-    if (PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET) {
-        return true;
-    }
-    return false;
+    return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET;
 }
 
 }  // namespace tt::umd

@@ -135,7 +135,7 @@ private:
                 if (std::getline(iss, token, '.')) {
                     patch = std::stoull(token);
 
-                    if (std::getline(iss, token, '.') && ispos == true) {
+                    if (std::getline(iss, token, '.') && ispos) {
                         pre_release = std::stoull(token);
                     }
                 }

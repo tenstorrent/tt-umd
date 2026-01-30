@@ -1,4 +1,0 @@
-# Clang-Tidy Violations: bugprone-unused-local-non-trivial-variable
-Total: 1 violations
-
-- tests/api/test_cluster.cpp:223 — unused local variable 'cluster_path2' of type 'std::filesystem::path'

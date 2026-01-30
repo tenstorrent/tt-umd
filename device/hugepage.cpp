@@ -114,10 +114,13 @@ std::string find_hugepage_dir(std::size_t pagesize) {
                 switch (pagesize_match[2].str()[0]) {
                     case 'T':
                         mount_page_size <<= 10;
+                        [[fallthrough]];
                     case 'G':
                         mount_page_size <<= 10;
+                        [[fallthrough]];
                     case 'M':
                         mount_page_size <<= 10;
+                        [[fallthrough]];
                     case 'K':
                         mount_page_size <<= 10;
                 }

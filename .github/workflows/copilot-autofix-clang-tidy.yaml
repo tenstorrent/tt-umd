@@ -219,8 +219,14 @@ jobs:
           VIOLATION_COUNT="${{ steps.violations.outputs.count }}"
 
           # Build clang-tidy docs URL (e.g., readability-string-compare -> readability/string-compare)
-          CATEGORY="${CHECKER%%-*}"
-          CHECK_NAME="${CHECKER#*-}"
+          # Handle clang-analyzer-* specially (category has a hyphen)
+          if [[ "$CHECKER" == clang-analyzer-* ]]; then
+            CATEGORY="clang-analyzer"
+            CHECK_NAME="${CHECKER#clang-analyzer-}"
+          else
+            CATEGORY="${CHECKER%%-*}"
+            CHECK_NAME="${CHECKER#*-}"
+          fi
           DOCS_URL="https://clang.llvm.org/extra/clang-tidy/checks/${CATEGORY}/${CHECK_NAME}.html"
 
           # Create PR

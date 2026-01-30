@@ -240,7 +240,8 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
     switch (tt_visible_devices_format) {
         case utils::TT_VISIBLE_DEVICES_Format::Invalid:
             TT_THROW("Environment variable {} has an invalid format.", utils::TT_VISIBLE_DEVICES_ENV);
-        case utils::TT_VISIBLE_DEVICES_Format::Integer: {
+        case utils::TT_VISIBLE_DEVICES_Format::Integer:
+        case utils::TT_VISIBLE_DEVICES_Format::NotSet: {
             // Fall back to original TT_VISIBLE_DEVICES logic.
             std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
 
@@ -291,10 +292,6 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
             break;
         }
         case utils::TT_VISIBLE_DEVICES_Format::Empty: {
-            break;
-        }
-        case utils::TT_VISIBLE_DEVICES_Format::NotSet: {
-            device_ids = PCIDevice::enumerate_devices();
             break;
         }
     }

@@ -146,7 +146,7 @@ void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     const uint32_t num_elements = size / sizeof(uint32_t);
     const auto* data_ptr = static_cast<const uint32_t*>(src);
-    std::vector<std::uint32_t> data(data_ptr, data_ptr + num_elements);
+    std::vector<uint32_t> data(data_ptr, data_ptr + num_elements);
     send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest));
 }
 

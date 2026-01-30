@@ -336,7 +336,8 @@ jobs:
     name: 📢 Notify Slack
     runs-on: ubuntu-latest
     needs: [autofix, copilot-review]
-    if: always() && needs.autofix.outputs.pr_number != '' && needs.autofix.outputs.pr_exists != 'true'
+    # TODO: Enable after discussing with team
+    if: false && always() && needs.autofix.outputs.pr_number != '' && needs.autofix.outputs.pr_exists != 'true'
 
     steps:
       - name: Send Slack notification

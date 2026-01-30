@@ -1,7 +1,0 @@
-# Clang-Tidy Violations: readability-const-return-type
-Total: 4 violations
-
-- device/api/umd/device/pcie/pci_device.hpp:167 — return type 'const PciDeviceInfo' is 'const'-qualified at the top level, which may reduce code readability without improving const correctness
-- device/pcie/tlb_handle.cpp:61 — return type 'const TlbMapping' is 'const'-qualified at the top level, which may reduce code readability without improving const correctness
-- device/cluster_descriptor.cpp:972 — return type 'const EthCoord' is 'const'-qualified at the top level, which may reduce code readability without improving const correctness
-- device/cluster_descriptor.cpp:1002 — return type 'const std::vector<ChipId>' (aka 'const vector<int>') is 'const'-qualified at the top level, which may reduce code readability without improving const correctness

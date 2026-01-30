@@ -39,6 +39,31 @@ on:
         description: 'The timeout for the test run in minutes'
         type: number
         default: 30
+      # Individual test suite timeouts (in seconds)
+      api-test-timeout:
+        required: false
+        type: number
+        default: 70  # 1 minute + 10% tolerance
+      baremetal-test-timeout:
+        required: false
+        type: number
+        default: 300  # 5 minutes
+      umd-unit-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      pci-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      misc-test-timeout:
+        required: false
+        type: number
+        default: 180  # 3 minutes
+      unified-test-timeout:
+        required: false
+        type: number
+        default: 300  # 5 minutes
 
 
 jobs:
@@ -98,6 +123,13 @@ jobs:
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
+      # Pass through individual test suite timeouts
+      api-test-timeout: ${{ inputs.api-test-timeout }}
+      baremetal-test-timeout: ${{ inputs.baremetal-test-timeout }}
+      umd-unit-test-timeout: ${{ inputs.umd-unit-test-timeout }}
+      pci-test-timeout: ${{ inputs.pci-test-timeout }}
+      misc-test-timeout: ${{ inputs.misc-test-timeout }}
+      unified-test-timeout: ${{ inputs.unified-test-timeout }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}

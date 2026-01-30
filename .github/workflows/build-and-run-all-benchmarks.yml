@@ -17,6 +17,8 @@ on:
       baseline-run-id:
         required: false
         type: string
+  push:
+    branches: ["main"]
 
 jobs:
   build-tests:

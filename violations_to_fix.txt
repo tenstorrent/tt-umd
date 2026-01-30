@@ -1,4 +1,0 @@
-# Clang-Tidy Violations: bugprone-sizeof-expression
-Total: 1 violations
-
-- tools/system_health.cpp:189 — suspicious usage of 'sizeof(...)/sizeof(...)'; both expressions have the same type

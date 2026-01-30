@@ -49,7 +49,7 @@ public:
 
             // Read other NOC x, y.
             const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
-            CoreCoord other_noc_coord(other_x, other_x, core_type, other_noc);
+            CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
 
             // Get other UMD NOC x, y.
             auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
@@ -75,7 +75,11 @@ public:
         for (const CoreCoord& core : cores) {
             // Read other NOC.
             const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
-            CoreCoord other_noc_coord(other_x, other_x, core_type, other_noc);
+            CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
+            if (core_type == CoreType::ROUTER_ONLY) {
+                std::cout << "Other for NOC" << static_cast<uint32_t>(get_noc_index(other_noc)) << " x: " << other_x
+                          << ", y: " << other_y << "\n";
+            }
 
             // Get other UMD NOC x, y.
             auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
@@ -101,6 +105,10 @@ private:
         const uint64_t noc_node_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, noc_index) +
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
+        if (core.core_type == CoreType::ROUTER_ONLY) {
+            std::cout << "On NOC" << std::hex << static_cast<uint32_t>(noc_index)
+                      << " reg addr: " << noc_node_id_reg_addr << "\n";
+        }
         uint32_t noc_node_id_val;
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
@@ -176,9 +184,13 @@ TEST_F(TestNoc, TestNoc1NodeId) {
 }
 
 TEST_F(TestNoc, TestNocValidity) {
-    NocIdSwitcher noc1_switcher(NocId::NOC0);
+    // for (ChipId chip : get_cluster()->get_target_device_ids()) {
+    // verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC0);
+    verify_noc_id_cores_via_other_noc_2(0, CoreType::TENSIX, CoordSystem::NOC0);
+    verify_noc_id_cores_via_other_noc_2(0, CoreType::TENSIX, CoordSystem::NOC1);
 
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC0);
-    }
+    // verify_noc_id_cores_via_other_noc(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
+    verify_noc_id_cores_via_other_noc_2(0, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
+    verify_noc_id_cores_via_other_noc_2(0, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
+    // }
 }

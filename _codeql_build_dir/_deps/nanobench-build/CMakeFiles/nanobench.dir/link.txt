@@ -1,2 +1,0 @@
-/usr/bin/ar qc libnanobench.a CMakeFiles/nanobench.dir/src/test/app/nanobench.cpp.o
-/usr/bin/ranlib libnanobench.a

@@ -1,1 +1,0 @@
-/home/runner/work/tt-umd/.codeql-scratch/dbs/cpp/working/autobuild/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/warm_reset.dir/link.d CMakeFiles/warm_reset.dir/warm_reset.cpp.o -o umd/warm_reset  -Wl,-rpath,/home/runner/work/tt-umd/tt-umd/_codeql_build_dir/device ../device/libdevice.so

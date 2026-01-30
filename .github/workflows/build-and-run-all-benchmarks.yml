@@ -56,7 +56,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
       timeout: ${{ matrix.test-group.timeout}}
-      build-type: ${{ inputs.build-type }}
+      build-type: ${{ inputs.build-type || 'Release' }}
 
   analyze-results:
     secrets: inherit

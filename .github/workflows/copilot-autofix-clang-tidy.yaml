@@ -53,11 +53,10 @@ jobs:
         run: |
           KEYRING=/usr/share/keyrings/githubcli-archive-keyring.gpg
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-            | dd of=$KEYRING
-          ARCH=$(dpkg --print-architecture)
-          echo "deb [arch=$ARCH signed-by=$KEYRING] \
+            | gpg --dearmor -o $KEYRING
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=$KEYRING] \
             https://cli.github.com/packages stable main" \
-            | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            > /etc/apt/sources.list.d/github-cli.list
           apt-get update && apt-get install -y gh
 
       - name: Install CodeChecker
@@ -129,50 +128,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Trim whitespace from checker input
-          CHECKER=$(echo "${{ inputs.checker }}" | tr -d '[:space:]')
+          CHECKER="${{ inputs.checker }}"
           JSON_FILE="/tmp/json-report/codechecker_issues.json"
 
-          echo "Checker (raw): '${{ inputs.checker }}'"
-          echo "Checker (trimmed): '$CHECKER'"
-
-          echo "=== JSON file check ==="
-          echo "Looking for: $JSON_FILE"
-          ls -la /tmp/json-report/ || echo "Directory not found!"
-
-          if [ ! -f "$JSON_FILE" ]; then
-            echo "::error::JSON report not found"
-            exit 1
-          fi
-
-          echo "File size: $(wc -c < "$JSON_FILE") bytes"
-          echo "Total reports: $(jq '.reports | length' "$JSON_FILE")"
-
-          # Debug: show available checkers and counts
-          echo "=== Available checkers in report ==="
-          jq -r '
-            [.reports[].checker_name] | group_by(.) |
-            map({checker: .[0], count: length}) |
-            sort_by(-.count) | .[:20] | .[] |
-            "\(.count)\t\(.checker)"
-          ' "$JSON_FILE"
-
-          echo ""
-          echo "=== Looking for checker: $CHECKER ==="
-          jq -r --arg checker "$CHECKER" '
-            [.reports[] | select(.checker_name == $checker)] | length
-          ' "$JSON_FILE"
+          [ -f "$JSON_FILE" ] || { echo "::error::JSON report not found"; exit 1; }
 
           # Filter violations for this checker (exclude third-party)
           VIOLATIONS=$(jq -r --arg checker "$CHECKER" '
             [.reports[] |
              select(.checker_name == $checker) |
              select(.file.path | test(".cpmcache|_deps") | not) |
-             {
-               file: (.file.path | sub("^/work/"; "")),
-               line: .line,
-               message: .message
-             }]
+             {file: (.file.path | sub("^/work/"; "")), line, message}]
           ' "$JSON_FILE")
 
           VIOLATION_COUNT=$(echo "$VIOLATIONS" | jq 'length')
@@ -184,23 +150,15 @@ jobs:
             exit 0
           fi
 
-          # Save violations to file
           echo "$VIOLATIONS" > /tmp/violations.json
 
-          # Create violations summary file
+          # Create violations summary file for Copilot
           {
             echo "# Clang-Tidy Violations: $CHECKER"
-            echo ""
             echo "Total: $VIOLATION_COUNT violations"
             echo ""
             jq -r '.[] | "- \(.file):\(.line) — \(.message)"' /tmp/violations.json
           } > violations_to_fix.txt
-
-          echo "=== Violations ==="
-          head -50 violations_to_fix.txt
-          if [ "$VIOLATION_COUNT" -gt 50 ]; then
-            echo "... (showing first 50 of $VIOLATION_COUNT)"
-          fi
 
       - name: Apply auto-fixes
         if: steps.check-pr.outputs.pr_exists == 'false' && steps.violations.outputs.count != '0'

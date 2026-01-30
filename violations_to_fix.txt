@@ -1,0 +1,6 @@
+# Clang-Tidy Violations: readability-container-size-empty
+Total: 3 violations
+
+- tests/test_utils/stimulus_generators.hpp:516 — the 'empty' method should be used to check for emptiness instead of 'size'
+- tests/test_utils/test_api_common.hpp:89 — the 'empty' method should be used to check for emptiness instead of 'size'
+- tests/test_utils/test_api_common.hpp:96 — the 'empty' method should be used to check for emptiness instead of 'size'

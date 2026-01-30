@@ -513,7 +513,7 @@ void RunMixedTransfers(
 
     if (record_command_history) {
         assert(command_history != nullptr);
-        assert(command_history->size() == 0);  // only support passing in empty command histories
+        assert(command_history->empty());  // only support passing in empty command histories
         command_history->reserve(num_samples);
     }
     std::vector<uint32_t> payload = {};

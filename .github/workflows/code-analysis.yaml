@@ -37,7 +37,7 @@ jobs:
           done
 
       - name: 🔧 CMake configure
-        run: cmake --preset clang-static-analyzer
+        run: cmake --preset code-analysis
 
       - name: Install CodeChecker
         run: |
@@ -51,7 +51,7 @@ jobs:
           mkdir -p "$BUILD_DIR/codechecker-reports"
 
           CodeChecker analyze \
-            "$BUILD_DIR/clang-static-analyzer/compile_commands.json" \
+            "$BUILD_DIR/code-analysis/compile_commands.json" \
             --output "$BUILD_DIR/codechecker-reports" \
             --jobs $(nproc) \
             --config /work/.codechecker.json \

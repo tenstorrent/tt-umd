@@ -220,7 +220,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // created Cluster class.
     std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
     umd_cluster = std::make_unique<Cluster>();
-    std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
+    umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);

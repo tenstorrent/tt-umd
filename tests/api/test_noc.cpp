@@ -13,131 +13,110 @@
 using namespace tt;
 using namespace tt::umd;
 
-TEST(TestNoc, TestNoc0NodeId) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+class TestNoc : public ::testing::Test {
+public:
+    void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
 
-    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
+    tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
         const uint64_t noc_node_id_reg_addr =
-            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
-            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, noc_index) +
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
-        cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         return tt_xy_pair(x, y);
-    };
+    }
 
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type);
+    void check_noc_id_cores(ChipId chip, CoreType core_type, uint8_t noc_index) {
+        CoordSystem coord_system = (noc_index == 0) ? CoordSystem::NOC0 : CoordSystem::NOC1;
+        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, coord_system);
         for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
+            const auto [x, y] = read_noc_id_reg(chip, core, noc_index);
             EXPECT_EQ(core.x, x);
             EXPECT_EQ(core.y, y);
         }
-    };
+    }
 
-    auto check_noc_id_harvested_cores = [read_noc_id_reg](
-                                            std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
+    void check_noc_id_harvested_cores(ChipId chip, CoreType core_type, uint8_t noc_index) {
+        CoordSystem coord_system = (noc_index == 0) ? CoordSystem::NOC0 : CoordSystem::NOC1;
+        const std::vector<CoreCoord>& cores =
+            cluster_->get_soc_descriptor(chip).get_harvested_cores(core_type, coord_system);
         for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
+            const auto [x, y] = read_noc_id_reg(chip, core, noc_index);
             EXPECT_EQ(core.x, x);
             EXPECT_EQ(core.y, y);
         }
-    };
+    }
 
-    for (ChipId chip : cluster->get_target_device_ids()) {
-        check_noc_id_cores(cluster, chip, CoreType::TENSIX);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
+    tt::ARCH get_chip_arch(ChipId chip) { return cluster_->get_cluster_description()->get_arch(chip); }
 
-        check_noc_id_cores(cluster, chip, CoreType::ETH);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+    Cluster* get_cluster() { return cluster_.get(); };
 
-        if (cluster->get_cluster_description()->get_arch(chip) == tt::ARCH::BLACKHOLE) {
-            check_noc_id_cores(cluster, chip, CoreType::DRAM);
-            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
+private:
+    std::unique_ptr<Cluster> cluster_;
+};
+
+TEST_F(TestNoc, TestNoc0NodeId) {
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        check_noc_id_cores(chip, CoreType::TENSIX, 0);
+        check_noc_id_harvested_cores(chip, CoreType::TENSIX, 0);
+
+        check_noc_id_cores(chip, CoreType::ETH, 0);
+        check_noc_id_harvested_cores(chip, CoreType::ETH, 0);
+
+        if (get_chip_arch(chip) == tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(chip, CoreType::DRAM, 0);
+            check_noc_id_harvested_cores(chip, CoreType::DRAM, 0);
         }
 
-        check_noc_id_cores(cluster, chip, CoreType::ARC);
+        check_noc_id_cores(chip, CoreType::ARC, 0);
 
-        check_noc_id_cores(cluster, chip, CoreType::PCIE);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
+        check_noc_id_cores(chip, CoreType::PCIE, 0);
+        check_noc_id_harvested_cores(chip, CoreType::PCIE, 0);
 
-        check_noc_id_cores(cluster, chip, CoreType::SECURITY);
+        check_noc_id_cores(chip, CoreType::SECURITY, 0);
 
-        check_noc_id_cores(cluster, chip, CoreType::L2CPU);
+        check_noc_id_cores(chip, CoreType::L2CPU, 0);
 
-        check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
+        check_noc_id_cores(chip, CoreType::ROUTER_ONLY, 0);
     }
 }
 
-TEST(TestNoc, TestNoc1NodeId) {
+TEST_F(TestNoc, TestNoc1NodeId) {
     NocIdSwitcher noc1_switcher(NocId::NOC1);
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        check_noc_id_cores(chip, CoreType::TENSIX, 1);
+        check_noc_id_harvested_cores(chip, CoreType::TENSIX, 1);
 
-    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
-        const uint64_t noc_node_id_reg_addr =
-            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 1) +
-            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
-        uint32_t noc_node_id_val;
-        cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-        return tt_xy_pair(x, y);
-    };
-
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC1);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            EXPECT_EQ(core.x, x);
-            EXPECT_EQ(core.y, y);
-        }
-    };
-
-    auto check_noc_id_harvested_cores = [read_noc_id_reg](
-                                            std::unique_ptr<Cluster>& cluster, ChipId chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores =
-            cluster->get_soc_descriptor(chip).get_harvested_cores(core_type, CoordSystem::NOC1);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            EXPECT_EQ(core.x, x);
-            EXPECT_EQ(core.y, y);
-        }
-    };
-
-    for (ChipId chip : cluster->get_target_device_ids()) {
-        check_noc_id_cores(cluster, chip, CoreType::TENSIX);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
-
-        check_noc_id_cores(cluster, chip, CoreType::ETH);
-        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
-            check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+        check_noc_id_cores(chip, CoreType::ETH, 1);
+        if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_harvested_cores(chip, CoreType::ETH, 1);
         }
 
-        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::WORMHOLE_B0) {
-            check_noc_id_cores(cluster, chip, CoreType::DRAM);
-            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
+        if (get_chip_arch(chip) != tt::ARCH::WORMHOLE_B0) {
+            check_noc_id_cores(chip, CoreType::DRAM, 1);
+            check_noc_id_harvested_cores(chip, CoreType::DRAM, 1);
         }
 
-        check_noc_id_cores(cluster, chip, CoreType::ARC);
+        check_noc_id_cores(chip, CoreType::ARC, 1);
 
-        check_noc_id_cores(cluster, chip, CoreType::PCIE);
+        check_noc_id_cores(chip, CoreType::PCIE, 1);
 
         // TODO: translated coordinate for harvested PCIE is not same on NOC0 and NOC1.
         // This needs to be fixed in some way in order for this to work on Blackhole
         // with enabled translation.
-        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
-            check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
+        if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_harvested_cores(chip, CoreType::PCIE, 1);
         }
 
-        check_noc_id_cores(cluster, chip, CoreType::SECURITY);
+        check_noc_id_cores(chip, CoreType::SECURITY, 1);
 
-        check_noc_id_cores(cluster, chip, CoreType::L2CPU);
+        check_noc_id_cores(chip, CoreType::L2CPU, 1);
 
-        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
-            check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
+        if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(chip, CoreType::ROUTER_ONLY, 1);
         }
     }
 }

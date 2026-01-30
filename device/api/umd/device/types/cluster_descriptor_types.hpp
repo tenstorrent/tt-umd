@@ -193,7 +193,6 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         case BoardType::N300:
             return 2;
         case BoardType::P100:
-            return 1;
         case BoardType::P150:
             return 1;
         case BoardType::P300:

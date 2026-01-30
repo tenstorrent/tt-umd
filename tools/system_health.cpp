@@ -123,10 +123,10 @@ std::string get_connector_str(
             str << "LK1 trace";
             break;
         case ConnectorType::LK2:
-            str << "LK1 trace";
+            str << "LK2 trace";
             break;
         case ConnectorType::LK3:
-            str << "LK1 trace";
+            str << "LK3 trace";
             break;
     }
     str << ")";

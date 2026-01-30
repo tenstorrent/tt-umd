@@ -649,7 +649,7 @@ TEST(SiliconDriverWH, DMA1) {
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
-for (size_t i = 0; i < dram_count; ++i) {
+    for (size_t i = 0; i < dram_count; ++i) {
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }
 
@@ -698,7 +698,7 @@ TEST(SiliconDriverWH, DMA2) {
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
-for (size_t i = 0; i < dram_count; ++i) {
+    for (size_t i = 0; i < dram_count; ++i) {
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }
 

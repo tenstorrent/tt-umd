@@ -22,7 +22,7 @@ class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
     // Path to custom SoC descriptor when creating devices. See ClusterOptions.
-    std::string soc_descriptor_path = "";
+    std::string soc_descriptor_path;
 
     // I/O device type to use when discovering. See ClusterOptions.
     IODeviceType io_device_type = IODeviceType::PCIe;

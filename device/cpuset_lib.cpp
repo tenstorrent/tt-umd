@@ -466,7 +466,7 @@ int cpuset_allocator::_get_num_tt_pci_devices() {
 /////////////////////////////////////////////////////////////////////////
 
 std::string cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj) {
-    std::string pci_bus_id_str = "";
+    std::string pci_bus_id_str;
 
     if (hwloc_obj_type_is_io(pci_device_obj->type)) {
         auto attrs = pci_device_obj->attr->pcidev;

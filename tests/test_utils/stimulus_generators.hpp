@@ -10,6 +10,7 @@
 #include <iostream>
 #include <map>
 #include <random>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -54,7 +55,7 @@ public:
         int seed,
         DISTRIBUTION_T<UNCONSTRAINED_SAMPLE_T> const& distribution,
         std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
-        generator(seed), distribution(distribution), constrain(constrain) {}
+        generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
         auto sample = distribution(generator);
@@ -72,7 +73,7 @@ class ConstrainedTemplateGenerator {
 public:
     ConstrainedTemplateGenerator(
         int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
-        generator(seed), distribution(distribution), constrain(constrain) {}
+        generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
         auto sample = distribution(generator);

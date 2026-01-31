@@ -135,6 +135,8 @@ void TopologyDiscovery::get_connected_devices() {
             device_id,
             asic_id);
     }
+
+    retrain_eth_cores();
 }
 
 void TopologyDiscovery::discover_remote_devices() {

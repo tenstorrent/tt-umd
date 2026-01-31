@@ -52,6 +52,8 @@ public:
 
     wormhole::EthTrainStatus read_training_status(tt_xy_pair eth_core);
 
+    void retrain_eth_core(tt_xy_pair eth_core);
+
     ~WormholeTTDevice() override{};
 
 protected:

@@ -273,4 +273,8 @@ bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_devi
     return true;
 }
 
+void TopologyDiscoveryBlackhole::retrain_eth_cores() {
+    log_debug(LogUMD, "Retraining ETH cores skipped for Blackhole.");
+}
+
 }  // namespace tt::umd

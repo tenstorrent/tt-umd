@@ -73,6 +73,8 @@ protected:
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
+    void retrain_eth_cores() override;
+
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 };

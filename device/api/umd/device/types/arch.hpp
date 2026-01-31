@@ -22,7 +22,7 @@ enum class ARCH {
     WORMHOLE_B0 = 2,
     BLACKHOLE = 3,
     QUASAR = 4,
-    Invalid = 0xFF
+    Invalid = 0xFF,
 };
 
 static inline tt::ARCH arch_from_str(const std::string &arch_str) {

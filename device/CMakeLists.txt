@@ -25,7 +25,7 @@ if(TT_UMD_BUILD_SIMULATION)
 
     # Create a target that generates all required files for code analysis
     add_custom_target(
-        all_generated_files
+        umd_all_generated_files
         DEPENDS
             ${FBS_GENERATED_HEADER}
     )

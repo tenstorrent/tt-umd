@@ -93,7 +93,7 @@ uint32_t WormholeArcMessenger::send_message(
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (!return_values.empty()) {
                 tt_device->read_from_arc_apb(
-                    &return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
+                    return_values.data(), wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
             }
 
             if (return_values.size() >= 2) {

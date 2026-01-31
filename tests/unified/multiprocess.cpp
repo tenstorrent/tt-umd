@@ -25,6 +25,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include <sys/types.h>
 
 using namespace tt::umd;
 

@@ -27,6 +27,7 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

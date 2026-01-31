@@ -37,6 +37,8 @@
 #include "yaml-cpp/emittermanip.h"
 #include "yaml-cpp/node/detail/iterator_fwd.h"
 #include "yaml-cpp/node/parse.h"
+#include <cmath>
+#include <yaml-cpp/yaml.h>
 
 namespace tt::umd {
 

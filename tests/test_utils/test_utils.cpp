@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "pipe_communication.hpp"
+#include <sys/types.h>
 
 using namespace tt::umd::test_utils;
 

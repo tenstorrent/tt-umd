@@ -18,6 +18,7 @@
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
+#include "umd/device/arch/architecture_implementation.hpp"
 
 namespace tt::umd {
 

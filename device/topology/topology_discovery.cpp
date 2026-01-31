@@ -34,6 +34,8 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include <fmt/format.h>
+#include "jtag.hpp"
 
 namespace tt::umd {
 

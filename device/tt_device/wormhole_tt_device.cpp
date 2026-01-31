@@ -30,6 +30,9 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
+#include <fmt/format.h>
+#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/types/dma_buffer.hpp"
 
 namespace tt::umd {
 

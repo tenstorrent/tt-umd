@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include "device/wormhole/wormhole_coordinate_manager.h"
 
 namespace tt::umd {
 

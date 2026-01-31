@@ -16,6 +16,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include <utility>
 #include <vector>
+#include "device/blackhole/blackhole_coordinate_manager.h"
 
 namespace tt::umd {
 

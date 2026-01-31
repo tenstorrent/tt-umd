@@ -7,6 +7,7 @@
 #include <fmt/core.h>
 #include "fmt/format.h"
 #include <string>
+#include <fmt/format.h>
 
 namespace tt {
 

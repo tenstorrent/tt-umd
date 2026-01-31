@@ -34,6 +34,9 @@
 #include "yaml-cpp/emitter.h"
 #include "yaml-cpp/emittermanip.h"
 #include "yaml-cpp/node/parse.h"
+#include <cstdlib>
+#include <fmt/format.h>
+#include <yaml-cpp/yaml.h>
 
 // #include "l1_address_map.h"
 

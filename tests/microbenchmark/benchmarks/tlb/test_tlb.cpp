@@ -16,6 +16,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include <fmt/format.h>
 
 using namespace tt;
 using namespace tt::umd;

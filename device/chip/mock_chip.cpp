@@ -18,6 +18,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 namespace tt::umd {
 

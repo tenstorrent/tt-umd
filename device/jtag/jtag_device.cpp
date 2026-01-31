@@ -23,6 +23,7 @@
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/types/arch.hpp"
 #include "utils.hpp"
+#include <limits.h>
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);

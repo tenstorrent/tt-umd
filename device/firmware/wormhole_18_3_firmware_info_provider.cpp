@@ -15,6 +15,7 @@
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/types/firmware_status.hpp"
 
 namespace tt::umd {
 

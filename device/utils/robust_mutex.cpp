@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/utils/robust_mutex.hpp"
 
-#include <bits/pthreadtypes.h>
 #include <bits/time.h>
 #include <sched.h>
 #include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
@@ -14,7 +12,6 @@
 // PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED.
 #include <errno.h>        // errno, ENOENT
 #include <fcntl.h>        // O_RDWR, O_CREATE
-#include <pthread.h>      // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
 #include <sys/file.h>     // flock
 #include <sys/stat.h>     // for fstat
 #include <sys/syscall.h>  // SYS_gettid
@@ -25,6 +22,9 @@
 #include <string>
 #include <string_view>
 #include <tt-logger/tt-logger.hpp>
+#include <fmt/format.h>
+#include <sys/types.h>
+#include <pthread.h>
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.

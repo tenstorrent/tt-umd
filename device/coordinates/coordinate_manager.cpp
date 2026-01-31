@@ -23,6 +23,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

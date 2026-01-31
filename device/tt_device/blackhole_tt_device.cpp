@@ -29,6 +29,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
+#include "jtag.hpp"
 
 namespace tt::umd {
 

@@ -22,6 +22,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
+#include "umd/device/types/pci_device_info.hpp"
 
 using namespace tt::umd;
 

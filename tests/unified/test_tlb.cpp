@@ -17,6 +17,8 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "common/semver.hpp"
+#include "umd/device/types/dma_buffer.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -19,6 +19,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "wormhole/l1_address_map.h"
+#include "test_utils/test_utils.hpp"
 
 using namespace tt::umd;
 

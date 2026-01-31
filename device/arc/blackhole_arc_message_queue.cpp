@@ -20,6 +20,8 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
+#include <fmt/format.h>
+#include "device/blackhole/blackhole_arc_if.h"
 
 namespace tt::umd {
 

@@ -38,6 +38,7 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

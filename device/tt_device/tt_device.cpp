@@ -34,6 +34,8 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
+#include <fmt/format.h>
+#include "umd/device/types/firmware_status.hpp"
 
 namespace tt::umd {
 

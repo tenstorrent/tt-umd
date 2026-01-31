@@ -46,6 +46,10 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
+#include <asio/write.hpp>
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+#include <sys/wait.h>
 
 namespace tt::umd {
 

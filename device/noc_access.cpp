@@ -4,6 +4,7 @@
 
 #include "noc_access.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/noc.hpp"
 
 namespace tt::umd {
 

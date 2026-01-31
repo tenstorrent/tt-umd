@@ -38,6 +38,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

@@ -16,6 +16,8 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
+#include <fmt/format.h>
+#include "umd/device/arc/arc_messenger.hpp"
 
 namespace tt::umd {
 

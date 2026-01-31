@@ -12,10 +12,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include "pcie/ioctl.h"
+#include <cerrno>
+#include <cstdint>
 
 #define BLACKHOLE_PCI_DEVICE_ID 0xb140
 #define WORMHOLE_PCI_DEVICE_ID 0x401e

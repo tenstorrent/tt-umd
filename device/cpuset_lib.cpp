@@ -7,7 +7,6 @@
 #include <fmt/format.h>
 #include <hwloc.h>
 #include <hwloc/bitmap.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -26,6 +25,7 @@
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include <unistd.h>
 
 namespace tt::cpuset {
 

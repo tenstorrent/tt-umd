@@ -19,6 +19,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
+#include "common/utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

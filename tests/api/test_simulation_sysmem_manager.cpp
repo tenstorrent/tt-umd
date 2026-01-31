@@ -7,8 +7,6 @@
 #include <memory>
 #include <vector>
 
-#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/types/cluster_types.hpp"
 
 using namespace tt::umd;

@@ -19,6 +19,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include <fmt/format.h>
 
 using namespace tt;
 using namespace tt::umd;

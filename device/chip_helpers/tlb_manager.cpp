@@ -21,6 +21,7 @@
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

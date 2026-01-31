@@ -13,6 +13,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

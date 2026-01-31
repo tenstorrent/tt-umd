@@ -20,6 +20,7 @@
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "test_utils/pipe_communication.hpp"
+#include <sys/types.h>
 
 using namespace tt;
 using namespace tt::umd;

@@ -17,6 +17,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/semver.hpp"
+#include <fmt/format.h>
 
 static const tt::umd::semver_t new_telemetry_fw_bundle = tt::umd::semver_t(18, 4, 0);
 

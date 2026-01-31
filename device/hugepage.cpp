@@ -23,6 +23,7 @@
 #include "cpuset_lib.hpp"
 #include "fmt/format.h"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include <fmt/format.h>
 
 namespace tt::umd {
 

@@ -357,7 +357,17 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                 auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
                 for (const CoreCoord& eth_core : get_soc_descriptor(tt_device.get()).get_cores(CoreType::ETH)) {
+                    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
                     if (wormhole_tt_device->read_training_status(eth_core) == wormhole::EthTrainStatus::Fail) {
+                        if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
+                            log_warning(
+                                LogUMD,
+                                "ETH FW version {} is older than minimum version needed for retraining {}",
+                                eth_fw_version.to_string(),
+                                wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN.to_string());
+                            return;
+                        }
+
                         log_info(
                             LogUMD,
                             "Retraining ETH core {} on device {}, iteration {}.",
@@ -372,6 +382,9 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
 
             if (all_eth_cores_trained) {
                 break;
+            } else {
+                // Give eth cores some time to accept the retrain command.
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
 
             for (const auto& [asic_id, tt_device] : devices_to_discover) {

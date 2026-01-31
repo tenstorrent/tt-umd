@@ -1,0 +1,7 @@
+# Clang-Tidy Violations: performance-inefficient-algorithm
+Total: 4 violations
+
+- tests/galaxy/test_umd_remote_api.cpp:116 — this STL algorithm call should be replaced with a container method
+- tests/galaxy/test_umd_remote_api.cpp:120 — this STL algorithm call should be replaced with a container method
+- tests/galaxy/test_umd_remote_api.cpp:227 — this STL algorithm call should be replaced with a container method
+- tests/galaxy/test_umd_remote_api.cpp:232 — this STL algorithm call should be replaced with a container method

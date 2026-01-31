@@ -1,0 +1,5 @@
+# Clang-Tidy Violations: readability-redundant-control-flow
+Total: 2 violations
+
+- tests/galaxy/test_galaxy_common.cpp:27 — redundant return statement at the end of a function with a void return type
+- tests/galaxy/test_galaxy_common.cpp:54 — redundant return statement at the end of a function with a void return type

@@ -329,7 +329,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
 
     const uint32_t num_eth_channels = get_soc_descriptor(devices.begin()->second.get()).get_cores(CoreType::ETH).size();
-    for (auto [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
+    for (const auto& [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);

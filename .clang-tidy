@@ -58,7 +58,6 @@ Checks: >
     -modernize-use-using,
     -performance-avoid-endl,
     -performance-enum-size,
-    -performance-for-range-copy,
     -performance-inefficient-algorithm,
     -performance-move-const-arg,
     -performance-no-int-to-ptr,

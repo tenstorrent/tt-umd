@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-
-#include <memory>
-#include <thread>
-#include <cstdint>
-
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
+#include <memory>
+#include <thread>
 
 using namespace tt::umd;
 

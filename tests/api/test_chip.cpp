@@ -4,23 +4,21 @@
 
 // This file holds Chip specific API examples.
 
+#include "tests/test_utils/fetch_local_files.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+
 #include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <filesystem>
-#include <string>
-#include <vector>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <stdexcept>
-
-#include "tests/test_utils/fetch_local_files.hpp"
-
-// TODO: change to tt_cluster.
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
+#include <string>
+#include <vector>
 
 using namespace tt;
 using namespace tt::umd;

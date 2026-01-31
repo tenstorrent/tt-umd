@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "umd/device/chip/mock_chip.hpp"
+
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -10,7 +12,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include "umd/device/chip/mock_chip.hpp"
 
 namespace tt::umd {
 

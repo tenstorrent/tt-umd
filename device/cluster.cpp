@@ -2,43 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "api/umd/device/cluster.hpp"
 #include "umd/device/cluster.hpp"
 
-#include <assert.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <yaml-cpp/yaml.h>
-
-#include <algorithm>
-#include <cerrno>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <limits>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <ratio>
-#include <regex>
-#include <stdexcept>
-#include <string>
-#include <tt-logger/tt-logger.hpp>
-#include <utility>
-#include <vector>
-
-#include "api/umd/device/cluster.hpp"
 #include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
 #include "hugepage.hpp"
@@ -63,25 +29,53 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
-// --------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------
+#include <assert.h>
+#include <dirent.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <tt-logger/tt-logger.hpp>
+#include <yaml-cpp/yaml.h>
 
+#include <algorithm>
+#include <cerrno>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <fstream>
 #include <iomanip>
-#include <thread>
+#include <iterator>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <ratio>
+#include <regex>
 #include <set>
+#include <stdexcept>
+#include <string.h>
+#include <string>
+#include <thread>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
-
-#include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include <utility>
+#include <vector>
 
 namespace tt::umd {
 

@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include <sys/mman.h>
-#include <cstdint>
-#include <memory>
-#include <vector>
-
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/types/cluster_types.hpp"
+
+#include <gtest/gtest.h>
+#include <sys/mman.h>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 using namespace tt::umd;
 

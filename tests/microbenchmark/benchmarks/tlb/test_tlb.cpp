@@ -2,17 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "common/microbenchmark_utils.hpp"
+#include "umd/device/cluster.hpp"
+
 #include <gtest/gtest.h>
 #include <nanobench.h>
 
 #include <chrono>
-#include <vector>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-
-#include "common/microbenchmark_utils.hpp"
-#include "umd/device/cluster.hpp"
+#include <vector>
 
 using namespace tt;
 using namespace tt::umd;

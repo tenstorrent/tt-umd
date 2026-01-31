@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "device/api/umd/device/warm_reset.hpp"
+#include "test_utils/pipe_communication.hpp"
+
 #include <gtest/gtest.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -9,15 +12,12 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <future>
-#include <thread>
-#include <vector>
 #include <functional>
+#include <future>
 #include <string>
 #include <system_error>
-
-#include "device/api/umd/device/warm_reset.hpp"
-#include "test_utils/pipe_communication.hpp"
+#include <thread>
+#include <vector>
 
 using namespace tt;
 using namespace tt::umd;

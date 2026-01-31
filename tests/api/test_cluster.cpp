@@ -4,29 +4,6 @@
 
 // This file holds Cluster specific API examples.
 
-#include <fmt/format.h>
-#include <fmt/xchar.h>
-#include <gtest/gtest.h>
-#include <sys/types.h>
-#include <unistd.h>  // For access()
-
-#include <algorithm>
-#include <cstdint>
-#include <cstdlib>  // for std::getenv
-#include <filesystem>
-#include <iostream>
-#include <optional>
-#include <sstream>
-#include <string>
-#include <unordered_set>
-#include <vector>
-#include <array>
-#include <cstring>
-#include <memory>
-#include <random>
-#include <stdexcept>
-#include <unordered_map>
-
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
@@ -48,6 +25,29 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/warm_reset.hpp"
 #include "utils.hpp"
+
+#include <fmt/xchar.h>
+#include <gtest/gtest.h>
+#include <sys/types.h>
+#include <unistd.h>  // For access()
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdlib>  // for std::getenv
+#include <cstring>
+#include <filesystem>
+#include <fmt/format.h>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <random>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 using namespace tt::umd;
 

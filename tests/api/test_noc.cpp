@@ -4,14 +4,15 @@
 
 // This file holds Cluster specific API examples.
 
-#include <gtest/gtest.h>
-#include <cstdint>
-#include <memory>
-#include <vector>
-
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/noc_id.hpp"
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 using namespace tt;
 using namespace tt::umd;

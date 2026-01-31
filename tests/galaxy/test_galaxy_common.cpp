@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstdint>
-#include <vector>
 #include "test_galaxy_common.hpp"
 
 #include "tests/test_utils/device_test_utils.hpp"
+
+#include <cstdint>
+#include <vector>
 
 void move_data(
     Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size) {

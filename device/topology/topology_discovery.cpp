@@ -2,22 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "api/umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 
-#include <memory>
-#include <numeric>
-#include <optional>
-#include <tt-logger/tt-logger.hpp>
-#include <utility>
-#include <algorithm>
-#include <cstdint>
-#include <map>
-#include <set>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-#include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
@@ -27,6 +14,20 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+
+#include <tt-logger/tt-logger.hpp>
+
+#include <algorithm>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace tt::umd {
 

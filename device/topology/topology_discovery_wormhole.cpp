@@ -4,16 +4,6 @@
 
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 
-#include <fmt/format.h>
-
-#include <optional>
-#include <tt-logger/tt-logger.hpp>
-#include <cstdint>
-#include <memory>
-#include <set>
-#include <stdexcept>
-#include <utility>
-
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
@@ -23,6 +13,16 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"
+
+#include <tt-logger/tt-logger.hpp>
+
+#include <cstdint>
+#include <fmt/format.h>
+#include <memory>
+#include <optional>
+#include <set>
+#include <stdexcept>
+#include <utility>
 
 namespace tt::umd {
 

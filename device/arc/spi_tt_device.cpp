@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/arc/spi_tt_device.hpp"
 
-#include <fmt/format.h>
-
-#include <stdexcept>
-#include <memory>
-
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+
+#include <fmt/format.h>
+#include <memory>
+#include <stdexcept>
 
 namespace tt::umd {
 

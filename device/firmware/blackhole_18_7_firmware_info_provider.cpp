@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstdint>
 #include "umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp"
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+
+#include <cstdint>
 
 namespace tt::umd {
 

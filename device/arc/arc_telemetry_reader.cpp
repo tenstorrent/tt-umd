@@ -2,10 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstdint>
-#include <memory>
-#include <stdexcept>
-#include <vector>
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
 #include "tt-logger/tt-logger.hpp"
@@ -15,6 +11,11 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
+
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 
 static const tt::umd::semver_t new_telemetry_fw_bundle = tt::umd::semver_t(18, 4, 0);
 

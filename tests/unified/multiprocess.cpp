@@ -2,23 +2,23 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-
-#include <array>
-#include <cstdint>
-#include <iterator>
-#include <thread>
-#include <algorithm>
-#include <cstddef>
-#include <exception>
-#include <iostream>
-#include <memory>
-#include <ostream>
-#include <vector>
-
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/cluster.hpp"
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <iostream>
+#include <iterator>
+#include <memory>
+#include <ostream>
+#include <thread>
+#include <vector>
 
 using namespace tt::umd;
 

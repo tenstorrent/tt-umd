@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-
-#include <tt-logger/tt-logger.hpp>
-#include <cstdint>
-#include <memory>
-#include <vector>
-
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/types/telemetry.hpp"
+
+#include <gtest/gtest.h>
+#include <tt-logger/tt-logger.hpp>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 using namespace tt;
 using namespace tt::umd;

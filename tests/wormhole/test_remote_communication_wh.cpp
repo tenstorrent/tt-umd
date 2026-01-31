@@ -2,15 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include <cstddef>
-#include <cstdint>
-#include <ios>
-#include <memory>
-#include <optional>
-#include <utility>
-#include <vector>
-
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -20,6 +11,16 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <ios>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
 
 using namespace tt::umd;
 

@@ -4,16 +4,12 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 
-#include <cstdint>
 #include <stdexcept>
+#include <cstdint>
 #include <tuple>
 
 #include "assert.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/cluster.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"

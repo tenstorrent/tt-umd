@@ -4,16 +4,12 @@
 
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 
+#include <tt-logger/tt-logger.hpp>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include <utility>
 #include <vector>
 

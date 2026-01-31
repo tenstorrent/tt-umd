@@ -5,9 +5,9 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <memory>
 #include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"

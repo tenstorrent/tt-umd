@@ -5,28 +5,26 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
+#include <iostream>
+#include <tt-logger/tt-logger.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <thread>
-#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
 

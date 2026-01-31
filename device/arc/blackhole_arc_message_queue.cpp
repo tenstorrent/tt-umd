@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -11,14 +10,10 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
-#include "fmt/format.h"
 #include "noc_access.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

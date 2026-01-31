@@ -4,10 +4,10 @@
 
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 
-#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdint.h>
+#include <linux/mman.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

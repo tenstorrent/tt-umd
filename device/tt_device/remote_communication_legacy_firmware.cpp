@@ -4,22 +4,19 @@
 
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
 
+#include <tt-logger/tt-logger.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "umd/device/chip/local_chip.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 

@@ -5,16 +5,15 @@
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 
 #include <chrono>
+#include <tt-logger/tt-logger.hpp>
 #include <cstdint>
 #include <stdexcept>
-#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "fmt/format.h"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

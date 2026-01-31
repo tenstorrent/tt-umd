@@ -4,34 +4,27 @@
 
 #include "umd/device/topology/topology_discovery.hpp"
 
-#include <algorithm>
-#include <cstdint>
-#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <algorithm>
+#include <cstdint>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
-#include <utility>
 #include <vector>
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
-#include "fmt/format.h"
 #include "noc_access.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 

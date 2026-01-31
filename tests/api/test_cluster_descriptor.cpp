@@ -4,9 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
 #include <cstddef>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -18,11 +18,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include "disjoint_set.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;

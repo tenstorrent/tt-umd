@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/types/risc_type.hpp"
 #include <cstdint>
 #include <string>
+#include "umd/device/types/risc_type.hpp"
 
 namespace tt::umd {
 

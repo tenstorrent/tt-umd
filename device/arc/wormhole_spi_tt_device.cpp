@@ -8,15 +8,14 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <cstring>
-#include <exception>
 #include <stdexcept>
 #include <vector>
+#include <cstdint>
+#include <exception>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/telemetry.hpp"

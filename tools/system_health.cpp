@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cxxopts.hpp>
+#include <tt-logger/tt-logger.hpp>
 #include <algorithm>
 #include <cstdint>
-#include <cxxopts.hpp>
 #include <ios>
 #include <iostream>
 #include <memory>
@@ -19,7 +20,6 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 

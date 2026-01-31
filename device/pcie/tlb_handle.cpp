@@ -4,13 +4,16 @@
 
 #include "umd/device/pcie/tlb_handle.hpp"
 
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 
+#include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <cstddef>
 #include <cstdint>
 
 #include "assert.hpp"
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
-#include "umd/device/types/tlb.hpp"
+#include "ioctl.h"
 
 namespace tt::umd {
 

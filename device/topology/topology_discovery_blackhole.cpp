@@ -4,14 +4,15 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <optional>
+#include <tt-logger/tt-logger.hpp>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <set>
 #include <stdexcept>
-#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -20,11 +21,7 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {

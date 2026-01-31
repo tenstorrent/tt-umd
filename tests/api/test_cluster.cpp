@@ -460,9 +460,9 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
-    for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
+    for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
         const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
-        for (auto [channel, remote_chip_and_channel] : connections) {
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
             auto [remote_chip, remote_channel] = remote_chip_and_channel;
 
             const uint32_t num_channels_remote_chip =

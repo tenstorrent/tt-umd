@@ -347,12 +347,12 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             seed,
             std::uniform_int_distribution<transfer_size_t>(1000000, 30000000),
             [](transfer_size_t x) -> transfer_size_t {
-                return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4));
+                return size_aligner_32B(((x >= 4) ? x : 4));
             });
     auto read_size_generator =
         ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
             seed, std::uniform_int_distribution<transfer_size_t>(16, 4096), [](transfer_size_t x) -> transfer_size_t {
-                return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4));
+                return size_aligner_32B(((x >= 4) ? x : 4));
             });
 
     auto dest_generator = get_default_full_dram_dest_generator(seed, cluster.get());

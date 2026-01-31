@@ -64,7 +64,7 @@ public:
 
     struct Monitor {
         static bool start_monitoring(
-            std::function<void()>&& pre_event_callback, std::function<void()>&& post_event_callback);
+            std::function<void()>&& on_cleanup_request, std::function<void()>&& post_cleanup_request);
 
         static void stop_monitoring();
     };

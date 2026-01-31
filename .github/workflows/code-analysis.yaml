@@ -40,7 +40,7 @@ jobs:
         run: cmake --preset code-analysis
 
       - name: 🔨 Generate simulation sources
-        run: cmake --build "$BUILD_DIR/code-analysis" --target all_generated_files
+        run: cmake --build "$BUILD_DIR/code-analysis" --target umd_all_generated_files
 
       - name: Install CodeChecker
         run: |

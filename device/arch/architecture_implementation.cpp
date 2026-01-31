@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include <memory>
+#include "umd/device/arch/architecture_implementation.hpp"
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 

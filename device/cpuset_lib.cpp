@@ -5,27 +5,26 @@
 #include "cpuset_lib.hpp"
 
 #include <fmt/format.h>
-#include <hwloc.h>
-#include <hwloc/bitmap.h>
-#include <unistd.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <fmt/std.h>     // Needed to format thread_id
 
 #include <algorithm>
+#include <filesystem>
+#include <regex>
+#include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <iostream>
-#include <regex>
 #include <string>
-#include <thread>
-#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/cluster.hpp"
 
 namespace tt::cpuset {
 

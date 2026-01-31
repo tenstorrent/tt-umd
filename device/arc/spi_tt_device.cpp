@@ -5,8 +5,8 @@
 
 #include <fmt/format.h>
 
-#include <memory>
 #include <stdexcept>
+#include <memory>
 
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

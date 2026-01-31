@@ -5,17 +5,14 @@
 #include <gtest/gtest.h>
 #include <nanobench.h>
 
+#include <chrono>
+#include <vector>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "fmt/format.h"
 #include "umd/device/cluster.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tlb.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -5,7 +5,6 @@
 #include "umd/device/types/xy_pair.hpp"
 
 #include <fmt/core.h>
-#include "fmt/format.h"
 #include <string>
 
 namespace tt {

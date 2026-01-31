@@ -2,15 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 
 namespace tt::umd {
 

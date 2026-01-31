@@ -4,12 +4,10 @@
 
 #include "umd/device/utils/lock_manager.hpp"
 
+#include <tt-logger/tt-logger.hpp>
 #include <mutex>
 #include <stdexcept>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
 #include <unordered_map>
 
 namespace tt::umd {

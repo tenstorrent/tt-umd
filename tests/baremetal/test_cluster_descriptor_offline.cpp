@@ -4,15 +4,15 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
+#include <tt-logger/tt-logger.hpp>
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,8 +22,6 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

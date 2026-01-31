@@ -7,29 +7,28 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-#include <algorithm>
 #include <chrono>
-#include <cstdint>
-#include <ctime>
 #include <cxxopts.hpp>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <memory>
 #include <ostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <utility>
 #include <vector>
+#include <algorithm>
+#include <cstdint>
+#include <ctime>
+#include <memory>
+#include <stdexcept>
+#include <utility>
 
 #include "common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/types/arch.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 

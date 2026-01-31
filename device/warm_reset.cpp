@@ -4,44 +4,37 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
+#include <fmt/color.h>
 #include <glob.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
-#include <algorithm>
-#include <asio/buffer.hpp>
-#include <asio/impl/write.hpp>
-#include <asio/io_context.hpp>
-#include <asio/local/stream_protocol.hpp>
-#include <asio/socket_base.hpp>
-#include <asio/steady_timer.hpp>
-#include <atomic>
-#include <cerrno>
+#include <asio.hpp>
 #include <charconv>  // for std::from_chars
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
-#include <cstring>
-#include <exception>
 #include <filesystem>
-#include <functional>
-#include <map>
 #include <memory>
-#include <optional>
-#include <string>
 #include <string_view>
-#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <algorithm>
+#include <atomic>
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <functional>
+#include <map>
+#include <optional>
+#include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/arch/blackhole_implementation.hpp"
+#include "api/umd/device/arch/grendel_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
-#include "fmt/format.h"
-#include "fmt/ranges.h"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/timeouts.hpp"

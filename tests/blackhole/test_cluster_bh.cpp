@@ -4,22 +4,22 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <thread>
 #include <cstdint>
 #include <cstdio>
-#include <memory>
 #include <set>
-#include <thread>
 #include <vector>
 
 #include "blackhole/eth_l1_address_map.h"
+#include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;

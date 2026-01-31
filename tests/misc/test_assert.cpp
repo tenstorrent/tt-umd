@@ -4,10 +4,10 @@
 
 #include <gtest/gtest.h>
 
-#include <functional>
-#include <ostream>
 #include <sstream>
 #include <stdexcept>
+#include <functional>
+#include <ostream>
 #include <string>
 #include <vector>
 

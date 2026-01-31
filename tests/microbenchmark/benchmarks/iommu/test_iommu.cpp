@@ -5,20 +5,16 @@
 #include <gtest/gtest.h>
 #include <nanobench.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
+#include <vector>
+#include <cstdint>
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "fmt/format.h"
 #include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;

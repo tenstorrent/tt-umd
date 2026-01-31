@@ -4,6 +4,8 @@
 
 #include <cxxopts.hpp>
 #include <iomanip>
+#include <sstream>
+#include <tt-logger/tt-logger.hpp>
 #include <ios>
 #include <iostream>
 #include <memory>
@@ -12,9 +14,6 @@
 #include <vector>
 
 #include "umd/device/cluster.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

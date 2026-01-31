@@ -11,14 +11,7 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "fmt/format.h"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

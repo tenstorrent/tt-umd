@@ -1,0 +1,9 @@
+# Clang-Tidy Violations: performance-unnecessary-value-param
+Total: 6 violations
+
+- tests/test_utils/fetch_local_files.hpp:28 — the parameter 'soc_desc_name' is copied for each invocation but only used as a const reference; consider making it a const reference
+- tests/test_utils/fetch_local_files.hpp:30 — the parameter 'cluster_desc_name' is copied for each invocation but only used as a const reference; consider making it a const reference
+- tests/test_utils/stimulus_generators.hpp:57 — parameter 'constrain' is passed by value and only copied once; consider moving it to avoid unnecessary copies
+- tests/test_utils/stimulus_generators.hpp:75 — parameter 'constrain' is passed by value and only copied once; consider moving it to avoid unnecessary copies
+- device/cluster_descriptor.cpp:356 — the const qualified parameter 'chips' is copied for each invocation; consider making it a reference
+- device/cluster_descriptor.cpp:369 — the const qualified parameter 'chips' is copied for each invocation; consider making it a reference

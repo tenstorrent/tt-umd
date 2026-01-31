@@ -1,0 +1,21 @@
+# ninja log v5
+0	16	1769639175847183937	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-mkdir	d4aae6259f590785
+0	16	1769639175847183937	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-mkdir	d4aae6259f590785
+16	934	1769639176767173682	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-download	25c6941a0143b86c
+16	934	1769639176767173682	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-download	25c6941a0143b86c
+934	954	0	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-update	d7e9ece9b19ecf99
+934	954	0	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-update	d7e9ece9b19ecf99
+954	966	1769639176799173326	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-patch	3399508f036d43fb
+954	966	1769639176799173326	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-patch	3399508f036d43fb
+966	979	1769639176811173192	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-configure	e41c915eb6c735e8
+966	979	1769639176811173192	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-configure	e41c915eb6c735e8
+979	990	1769639176823173058	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-build	897ffc8b4c2242c0
+979	990	1769639176823173058	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-build	897ffc8b4c2242c0
+990	1002	1769639176835172925	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-install	b209c5e3e3b7d360
+990	1002	1769639176835172925	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-install	b209c5e3e3b7d360
+1002	1013	1769639176843172835	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-test	1ce8bbffa22a0fc6
+1002	1013	1769639176843172835	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-test	1ce8bbffa22a0fc6
+1013	1029	1769639176859172657	CMakeFiles/nanobench-populate-complete	17442355bb9c1fc8
+1013	1029	1769639176859172657	nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-done	17442355bb9c1fc8
+1013	1029	1769639176859172657	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/CMakeFiles/nanobench-populate-complete	17442355bb9c1fc8
+1013	1029	1769639176859172657	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-done	17442355bb9c1fc8

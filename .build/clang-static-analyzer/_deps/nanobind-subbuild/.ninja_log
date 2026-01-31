@@ -1,0 +1,21 @@
+# ninja log v5
+0	16	1769639179795139930	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-mkdir	abe3e3e42564e06a
+0	16	1769639179795139930	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-mkdir	abe3e3e42564e06a
+17	1471	1769639181251123701	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-download	dabba8be5fef14d0
+17	1471	1769639181251123701	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-download	dabba8be5fef14d0
+1471	1492	0	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-update	e6040ea87e4b55e9
+1471	1492	0	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-update	e6040ea87e4b55e9
+1492	1503	1769639181283123344	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-patch	b3d6fe79795337d3
+1492	1503	1769639181283123344	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-patch	b3d6fe79795337d3
+1503	1516	1769639181295123210	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-configure	29ce5a713bbd42c7
+1503	1516	1769639181295123210	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-configure	29ce5a713bbd42c7
+1516	1527	1769639181307123076	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-build	91d26db98c0cecd8
+1516	1527	1769639181307123076	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-build	91d26db98c0cecd8
+1527	1538	1769639181315122987	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-install	6db38899f9bcd9c6
+1527	1538	1769639181315122987	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-install	6db38899f9bcd9c6
+1538	1550	1769639181327122854	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-test	ba45b91af14e6ed8
+1538	1550	1769639181327122854	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-test	ba45b91af14e6ed8
+1550	1566	1769639181343122676	CMakeFiles/nanobind-populate-complete	85fa27d1b694ccff
+1550	1566	1769639181343122676	nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-done	85fa27d1b694ccff
+1550	1566	1769639181343122676	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate-complete	85fa27d1b694ccff
+1550	1566	1769639181343122676	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-done	85fa27d1b694ccff

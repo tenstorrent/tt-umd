@@ -1,0 +1,14 @@
+# Target labels
+ nanobind-populate
+# Source files and their labels
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate-complete.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-build.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-configure.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-download.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-install.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-mkdir.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-patch.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-test.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-update.rule

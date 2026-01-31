@@ -1,0 +1,2958 @@
+
+---
+events:
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineSystem.cmake:12 (find_program)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_UNAME"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "uname"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/opt/venv/bin/uname"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/uname"
+      - "/usr/local/cargo/bin/uname"
+      - "/usr/local/sbin/uname"
+      - "/usr/local/bin/uname"
+      - "/usr/sbin/uname"
+    found: "/usr/bin/uname"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineSystem.cmake:212 (message)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      The system is: Linux - 5.15.0-161-generic - x86_64
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeNinjaFindMake.cmake:5 (find_program)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_MAKE_PROGRAM"
+    description: "Program used to build from build.ninja files."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "ninja-build"
+      - "ninja"
+      - "samu"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/opt/venv/bin/ninja-build"
+      - "/opt/venv/bin/ninja"
+      - "/opt/venv/bin/samu"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ninja-build"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ninja"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/samu"
+      - "/usr/local/cargo/bin/ninja-build"
+      - "/usr/local/cargo/bin/ninja"
+      - "/usr/local/cargo/bin/samu"
+      - "/usr/local/sbin/ninja-build"
+      - "/usr/local/sbin/ninja"
+      - "/usr/local/sbin/samu"
+      - "/usr/local/bin/ninja-build"
+      - "/usr/local/bin/ninja"
+      - "/usr/local/bin/samu"
+      - "/usr/sbin/ninja-build"
+      - "/usr/sbin/ninja"
+      - "/usr/sbin/samu"
+      - "/usr/bin/ninja-build"
+    found: "/usr/bin/ninja"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompiler.cmake:115 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:67 (_cmake_find_compiler_path)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER_WITH_PATH"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "clang-20"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/opt/venv/bin/clang-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/clang-20"
+      - "/usr/local/cargo/bin/clang-20"
+      - "/usr/local/sbin/clang-20"
+      - "/usr/local/bin/clang-20"
+      - "/usr/sbin/clang-20"
+    found: "/usr/bin/clang-20"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:462 (find_file)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:500 (CMAKE_DETERMINE_COMPILER_ID_WRITE)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:8 (CMAKE_DETERMINE_COMPILER_ID_BUILD)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:122 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "file"
+    variable: "src_in"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "CMakeCCompilerId.c.in"
+    candidate_directories:
+      - "/usr/share/cmake-4.1/Modules/"
+    found: "/usr/share/cmake-4.1/Modules/CMakeCCompilerId.c.in"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:122 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler: /usr/bin/clang-20 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+      
+      The C compiler identification is Clang, found in:
+        /workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/4.1.2/CompilerIdC/a.out
+      
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_AR"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-ar-20"
+      - "llvm-ar"
+      - "ar-20"
+      - "ar"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-ar-20"
+      - "/opt/venv/bin/llvm-ar-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar-20"
+      - "/usr/local/cargo/bin/llvm-ar-20"
+      - "/usr/local/sbin/llvm-ar-20"
+      - "/usr/local/bin/llvm-ar-20"
+      - "/usr/sbin/llvm-ar-20"
+      - "/sbin/llvm-ar-20"
+      - "/bin/llvm-ar-20"
+      - "/usr/bin/llvm-ar"
+      - "/opt/venv/bin/llvm-ar"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar"
+      - "/usr/local/cargo/bin/llvm-ar"
+      - "/usr/local/sbin/llvm-ar"
+      - "/usr/local/bin/llvm-ar"
+      - "/usr/sbin/llvm-ar"
+      - "/sbin/llvm-ar"
+      - "/bin/llvm-ar"
+      - "/usr/bin/ar-20"
+      - "/opt/venv/bin/ar-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ar-20"
+      - "/usr/local/cargo/bin/ar-20"
+      - "/usr/local/sbin/ar-20"
+      - "/usr/local/bin/ar-20"
+      - "/usr/sbin/ar-20"
+      - "/sbin/ar-20"
+      - "/bin/ar-20"
+    found: "/usr/bin/ar"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_RANLIB"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-ranlib-20"
+      - "llvm-ranlib"
+      - "ranlib-20"
+      - "ranlib"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-ranlib-20"
+      - "/opt/venv/bin/llvm-ranlib-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib-20"
+      - "/usr/local/cargo/bin/llvm-ranlib-20"
+      - "/usr/local/sbin/llvm-ranlib-20"
+      - "/usr/local/bin/llvm-ranlib-20"
+      - "/usr/sbin/llvm-ranlib-20"
+      - "/sbin/llvm-ranlib-20"
+      - "/bin/llvm-ranlib-20"
+      - "/usr/bin/llvm-ranlib"
+      - "/opt/venv/bin/llvm-ranlib"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib"
+      - "/usr/local/cargo/bin/llvm-ranlib"
+      - "/usr/local/sbin/llvm-ranlib"
+      - "/usr/local/bin/llvm-ranlib"
+      - "/usr/sbin/llvm-ranlib"
+      - "/sbin/llvm-ranlib"
+      - "/bin/llvm-ranlib"
+      - "/usr/bin/ranlib-20"
+      - "/opt/venv/bin/ranlib-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ranlib-20"
+      - "/usr/local/cargo/bin/ranlib-20"
+      - "/usr/local/sbin/ranlib-20"
+      - "/usr/local/bin/ranlib-20"
+      - "/usr/sbin/ranlib-20"
+      - "/sbin/ranlib-20"
+      - "/bin/ranlib-20"
+    found: "/usr/bin/ranlib"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_STRIP"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-strip-20"
+      - "llvm-strip"
+      - "strip-20"
+      - "strip"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-strip-20"
+      - "/opt/venv/bin/llvm-strip-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-strip-20"
+      - "/usr/local/cargo/bin/llvm-strip-20"
+      - "/usr/local/sbin/llvm-strip-20"
+      - "/usr/local/bin/llvm-strip-20"
+      - "/usr/sbin/llvm-strip-20"
+      - "/sbin/llvm-strip-20"
+      - "/bin/llvm-strip-20"
+      - "/usr/bin/llvm-strip"
+      - "/opt/venv/bin/llvm-strip"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-strip"
+      - "/usr/local/cargo/bin/llvm-strip"
+      - "/usr/local/sbin/llvm-strip"
+      - "/usr/local/bin/llvm-strip"
+      - "/usr/sbin/llvm-strip"
+      - "/sbin/llvm-strip"
+      - "/bin/llvm-strip"
+      - "/usr/bin/strip-20"
+      - "/opt/venv/bin/strip-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/strip-20"
+      - "/usr/local/cargo/bin/strip-20"
+      - "/usr/local/sbin/strip-20"
+      - "/usr/local/bin/strip-20"
+      - "/usr/sbin/strip-20"
+      - "/sbin/strip-20"
+      - "/bin/strip-20"
+    found: "/usr/bin/strip"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_LINKER"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "ld.lld-20"
+      - "ld.lld"
+      - "ld-20"
+      - "ld"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/ld.lld-20"
+      - "/opt/venv/bin/ld.lld-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ld.lld-20"
+      - "/usr/local/cargo/bin/ld.lld-20"
+      - "/usr/local/sbin/ld.lld-20"
+      - "/usr/local/bin/ld.lld-20"
+      - "/usr/sbin/ld.lld-20"
+      - "/sbin/ld.lld-20"
+      - "/bin/ld.lld-20"
+      - "/usr/bin/ld.lld"
+      - "/opt/venv/bin/ld.lld"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ld.lld"
+      - "/usr/local/cargo/bin/ld.lld"
+      - "/usr/local/sbin/ld.lld"
+      - "/usr/local/bin/ld.lld"
+      - "/usr/sbin/ld.lld"
+      - "/sbin/ld.lld"
+      - "/bin/ld.lld"
+      - "/usr/bin/ld-20"
+      - "/opt/venv/bin/ld-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/ld-20"
+      - "/usr/local/cargo/bin/ld-20"
+      - "/usr/local/sbin/ld-20"
+      - "/usr/local/bin/ld-20"
+      - "/usr/sbin/ld-20"
+      - "/sbin/ld-20"
+      - "/bin/ld-20"
+    found: "/usr/bin/ld"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_NM"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-nm-20"
+      - "llvm-nm"
+      - "nm-20"
+      - "nm"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-nm-20"
+      - "/opt/venv/bin/llvm-nm-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-nm-20"
+      - "/usr/local/cargo/bin/llvm-nm-20"
+      - "/usr/local/sbin/llvm-nm-20"
+      - "/usr/local/bin/llvm-nm-20"
+      - "/usr/sbin/llvm-nm-20"
+      - "/sbin/llvm-nm-20"
+      - "/bin/llvm-nm-20"
+      - "/usr/bin/llvm-nm"
+      - "/opt/venv/bin/llvm-nm"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-nm"
+      - "/usr/local/cargo/bin/llvm-nm"
+      - "/usr/local/sbin/llvm-nm"
+      - "/usr/local/bin/llvm-nm"
+      - "/usr/sbin/llvm-nm"
+      - "/sbin/llvm-nm"
+      - "/bin/llvm-nm"
+      - "/usr/bin/nm-20"
+      - "/opt/venv/bin/nm-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/nm-20"
+      - "/usr/local/cargo/bin/nm-20"
+      - "/usr/local/sbin/nm-20"
+      - "/usr/local/bin/nm-20"
+      - "/usr/sbin/nm-20"
+      - "/sbin/nm-20"
+      - "/bin/nm-20"
+    found: "/usr/bin/nm"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_OBJDUMP"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-objdump-20"
+      - "llvm-objdump"
+      - "objdump-20"
+      - "objdump"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-objdump-20"
+      - "/opt/venv/bin/llvm-objdump-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-objdump-20"
+      - "/usr/local/cargo/bin/llvm-objdump-20"
+      - "/usr/local/sbin/llvm-objdump-20"
+      - "/usr/local/bin/llvm-objdump-20"
+      - "/usr/sbin/llvm-objdump-20"
+      - "/sbin/llvm-objdump-20"
+      - "/bin/llvm-objdump-20"
+      - "/usr/bin/llvm-objdump"
+      - "/opt/venv/bin/llvm-objdump"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-objdump"
+      - "/usr/local/cargo/bin/llvm-objdump"
+      - "/usr/local/sbin/llvm-objdump"
+      - "/usr/local/bin/llvm-objdump"
+      - "/usr/sbin/llvm-objdump"
+      - "/sbin/llvm-objdump"
+      - "/bin/llvm-objdump"
+      - "/usr/bin/objdump-20"
+      - "/opt/venv/bin/objdump-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/objdump-20"
+      - "/usr/local/cargo/bin/objdump-20"
+      - "/usr/local/sbin/objdump-20"
+      - "/usr/local/bin/objdump-20"
+      - "/usr/sbin/objdump-20"
+      - "/sbin/objdump-20"
+      - "/bin/objdump-20"
+    found: "/usr/bin/objdump"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_OBJCOPY"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-objcopy-20"
+      - "llvm-objcopy"
+      - "objcopy-20"
+      - "objcopy"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-objcopy-20"
+      - "/opt/venv/bin/llvm-objcopy-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-objcopy-20"
+      - "/usr/local/cargo/bin/llvm-objcopy-20"
+      - "/usr/local/sbin/llvm-objcopy-20"
+      - "/usr/local/bin/llvm-objcopy-20"
+      - "/usr/sbin/llvm-objcopy-20"
+      - "/sbin/llvm-objcopy-20"
+      - "/bin/llvm-objcopy-20"
+      - "/usr/bin/llvm-objcopy"
+      - "/opt/venv/bin/llvm-objcopy"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-objcopy"
+      - "/usr/local/cargo/bin/llvm-objcopy"
+      - "/usr/local/sbin/llvm-objcopy"
+      - "/usr/local/bin/llvm-objcopy"
+      - "/usr/sbin/llvm-objcopy"
+      - "/sbin/llvm-objcopy"
+      - "/bin/llvm-objcopy"
+      - "/usr/bin/objcopy-20"
+      - "/opt/venv/bin/objcopy-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/objcopy-20"
+      - "/usr/local/cargo/bin/objcopy-20"
+      - "/usr/local/sbin/objcopy-20"
+      - "/usr/local/bin/objcopy-20"
+      - "/usr/sbin/objcopy-20"
+      - "/sbin/objcopy-20"
+      - "/bin/objcopy-20"
+    found: "/usr/bin/objcopy"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_READELF"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-readelf-20"
+      - "llvm-readelf"
+      - "readelf-20"
+      - "readelf"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-readelf-20"
+      - "/opt/venv/bin/llvm-readelf-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-readelf-20"
+      - "/usr/local/cargo/bin/llvm-readelf-20"
+      - "/usr/local/sbin/llvm-readelf-20"
+      - "/usr/local/bin/llvm-readelf-20"
+      - "/usr/sbin/llvm-readelf-20"
+      - "/sbin/llvm-readelf-20"
+      - "/bin/llvm-readelf-20"
+      - "/usr/bin/llvm-readelf"
+      - "/opt/venv/bin/llvm-readelf"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-readelf"
+      - "/usr/local/cargo/bin/llvm-readelf"
+      - "/usr/local/sbin/llvm-readelf"
+      - "/usr/local/bin/llvm-readelf"
+      - "/usr/sbin/llvm-readelf"
+      - "/sbin/llvm-readelf"
+      - "/bin/llvm-readelf"
+      - "/usr/bin/readelf-20"
+      - "/opt/venv/bin/readelf-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/readelf-20"
+      - "/usr/local/cargo/bin/readelf-20"
+      - "/usr/local/sbin/readelf-20"
+      - "/usr/local/bin/readelf-20"
+      - "/usr/sbin/readelf-20"
+      - "/sbin/readelf-20"
+      - "/bin/readelf-20"
+    found: "/usr/bin/readelf"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_DLLTOOL"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-dlltool-20"
+      - "llvm-dlltool"
+      - "dlltool-20"
+      - "dlltool"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-dlltool-20"
+      - "/opt/venv/bin/llvm-dlltool-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-dlltool-20"
+      - "/usr/local/cargo/bin/llvm-dlltool-20"
+      - "/usr/local/sbin/llvm-dlltool-20"
+      - "/usr/local/bin/llvm-dlltool-20"
+      - "/usr/sbin/llvm-dlltool-20"
+      - "/sbin/llvm-dlltool-20"
+      - "/bin/llvm-dlltool-20"
+      - "/usr/bin/llvm-dlltool"
+      - "/opt/venv/bin/llvm-dlltool"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-dlltool"
+      - "/usr/local/cargo/bin/llvm-dlltool"
+      - "/usr/local/sbin/llvm-dlltool"
+      - "/usr/local/bin/llvm-dlltool"
+      - "/usr/sbin/llvm-dlltool"
+      - "/sbin/llvm-dlltool"
+      - "/bin/llvm-dlltool"
+      - "/usr/bin/dlltool-20"
+      - "/opt/venv/bin/dlltool-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/dlltool-20"
+      - "/usr/local/cargo/bin/dlltool-20"
+      - "/usr/local/sbin/dlltool-20"
+      - "/usr/local/bin/dlltool-20"
+      - "/usr/sbin/dlltool-20"
+      - "/sbin/dlltool-20"
+      - "/bin/dlltool-20"
+      - "/usr/bin/dlltool"
+      - "/opt/venv/bin/dlltool"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/dlltool"
+      - "/usr/local/cargo/bin/dlltool"
+      - "/usr/local/sbin/dlltool"
+      - "/usr/local/bin/dlltool"
+      - "/usr/sbin/dlltool"
+      - "/sbin/dlltool"
+      - "/bin/dlltool"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_ADDR2LINE"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-addr2line-20"
+      - "llvm-addr2line"
+      - "addr2line-20"
+      - "addr2line"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/llvm-addr2line-20"
+      - "/opt/venv/bin/llvm-addr2line-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-addr2line-20"
+      - "/usr/local/cargo/bin/llvm-addr2line-20"
+      - "/usr/local/sbin/llvm-addr2line-20"
+      - "/usr/local/bin/llvm-addr2line-20"
+      - "/usr/sbin/llvm-addr2line-20"
+      - "/sbin/llvm-addr2line-20"
+      - "/bin/llvm-addr2line-20"
+      - "/usr/bin/llvm-addr2line"
+      - "/opt/venv/bin/llvm-addr2line"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-addr2line"
+      - "/usr/local/cargo/bin/llvm-addr2line"
+      - "/usr/local/sbin/llvm-addr2line"
+      - "/usr/local/bin/llvm-addr2line"
+      - "/usr/sbin/llvm-addr2line"
+      - "/sbin/llvm-addr2line"
+      - "/bin/llvm-addr2line"
+      - "/usr/bin/addr2line-20"
+      - "/opt/venv/bin/addr2line-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/addr2line-20"
+      - "/usr/local/cargo/bin/addr2line-20"
+      - "/usr/local/sbin/addr2line-20"
+      - "/usr/local/bin/addr2line-20"
+      - "/usr/sbin/addr2line-20"
+      - "/sbin/addr2line-20"
+      - "/bin/addr2line-20"
+    found: "/usr/bin/addr2line"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_TAPI"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "tapi-20"
+      - "tapi"
+    candidate_directories:
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/bin/tapi-20"
+      - "/opt/venv/bin/tapi-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/tapi-20"
+      - "/usr/local/cargo/bin/tapi-20"
+      - "/usr/local/sbin/tapi-20"
+      - "/usr/local/bin/tapi-20"
+      - "/usr/sbin/tapi-20"
+      - "/sbin/tapi-20"
+      - "/bin/tapi-20"
+      - "/usr/bin/tapi"
+      - "/opt/venv/bin/tapi"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/tapi"
+      - "/usr/local/cargo/bin/tapi"
+      - "/usr/local/sbin/tapi"
+      - "/usr/local/bin/tapi"
+      - "/usr/sbin/tapi"
+      - "/sbin/tapi"
+      - "/bin/tapi"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Compiler/Clang-FindBinUtils.cmake:26 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:201 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER_AR"
+    description: "LLVM archiver"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-ar-20.1"
+      - "llvm-ar-20"
+      - "llvm-ar20"
+      - "llvm-ar"
+    candidate_directories:
+      - "/usr/lib/llvm-20/bin/"
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/lib/llvm-20/bin/llvm-ar-20.1"
+      - "/usr/bin/llvm-ar-20.1"
+      - "/opt/venv/bin/llvm-ar-20.1"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar-20.1"
+      - "/usr/local/cargo/bin/llvm-ar-20.1"
+      - "/usr/local/sbin/llvm-ar-20.1"
+      - "/usr/local/bin/llvm-ar-20.1"
+      - "/usr/sbin/llvm-ar-20.1"
+      - "/sbin/llvm-ar-20.1"
+      - "/bin/llvm-ar-20.1"
+      - "/usr/lib/llvm-20/bin/llvm-ar-20"
+      - "/usr/bin/llvm-ar-20"
+      - "/opt/venv/bin/llvm-ar-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar-20"
+      - "/usr/local/cargo/bin/llvm-ar-20"
+      - "/usr/local/sbin/llvm-ar-20"
+      - "/usr/local/bin/llvm-ar-20"
+      - "/usr/sbin/llvm-ar-20"
+      - "/sbin/llvm-ar-20"
+      - "/bin/llvm-ar-20"
+      - "/usr/lib/llvm-20/bin/llvm-ar20"
+      - "/usr/bin/llvm-ar20"
+      - "/opt/venv/bin/llvm-ar20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar20"
+      - "/usr/local/cargo/bin/llvm-ar20"
+      - "/usr/local/sbin/llvm-ar20"
+      - "/usr/local/bin/llvm-ar20"
+      - "/usr/sbin/llvm-ar20"
+      - "/sbin/llvm-ar20"
+      - "/bin/llvm-ar20"
+      - "/usr/lib/llvm-20/bin/llvm-ar"
+      - "/usr/bin/llvm-ar"
+      - "/opt/venv/bin/llvm-ar"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar"
+      - "/usr/local/cargo/bin/llvm-ar"
+      - "/usr/local/sbin/llvm-ar"
+      - "/usr/local/bin/llvm-ar"
+      - "/usr/sbin/llvm-ar"
+      - "/sbin/llvm-ar"
+      - "/bin/llvm-ar"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Compiler/Clang-FindBinUtils.cmake:38 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:201 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER_RANLIB"
+    description: "Generate index for LLVM archive"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-ranlib-20.1"
+      - "llvm-ranlib-20"
+      - "llvm-ranlib20"
+      - "llvm-ranlib"
+    candidate_directories:
+      - "/usr/lib/llvm-20/bin/"
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/lib/llvm-20/bin/llvm-ranlib-20.1"
+      - "/usr/bin/llvm-ranlib-20.1"
+      - "/opt/venv/bin/llvm-ranlib-20.1"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib-20.1"
+      - "/usr/local/cargo/bin/llvm-ranlib-20.1"
+      - "/usr/local/sbin/llvm-ranlib-20.1"
+      - "/usr/local/bin/llvm-ranlib-20.1"
+      - "/usr/sbin/llvm-ranlib-20.1"
+      - "/sbin/llvm-ranlib-20.1"
+      - "/bin/llvm-ranlib-20.1"
+      - "/usr/lib/llvm-20/bin/llvm-ranlib-20"
+      - "/usr/bin/llvm-ranlib-20"
+      - "/opt/venv/bin/llvm-ranlib-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib-20"
+      - "/usr/local/cargo/bin/llvm-ranlib-20"
+      - "/usr/local/sbin/llvm-ranlib-20"
+      - "/usr/local/bin/llvm-ranlib-20"
+      - "/usr/sbin/llvm-ranlib-20"
+      - "/sbin/llvm-ranlib-20"
+      - "/bin/llvm-ranlib-20"
+      - "/usr/lib/llvm-20/bin/llvm-ranlib20"
+      - "/usr/bin/llvm-ranlib20"
+      - "/opt/venv/bin/llvm-ranlib20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib20"
+      - "/usr/local/cargo/bin/llvm-ranlib20"
+      - "/usr/local/sbin/llvm-ranlib20"
+      - "/usr/local/bin/llvm-ranlib20"
+      - "/usr/sbin/llvm-ranlib20"
+      - "/sbin/llvm-ranlib20"
+      - "/bin/llvm-ranlib20"
+      - "/usr/lib/llvm-20/bin/llvm-ranlib"
+      - "/usr/bin/llvm-ranlib"
+      - "/opt/venv/bin/llvm-ranlib"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib"
+      - "/usr/local/cargo/bin/llvm-ranlib"
+      - "/usr/local/sbin/llvm-ranlib"
+      - "/usr/local/bin/llvm-ranlib"
+      - "/usr/sbin/llvm-ranlib"
+      - "/sbin/llvm-ranlib"
+      - "/bin/llvm-ranlib"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Compiler/Clang-FindBinUtils.cmake:50 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:201 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER_CLANG_SCAN_DEPS"
+    description: "`clang-scan-deps` dependency scanner"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "clang-scan-deps-20.1"
+      - "clang-scan-deps-20"
+      - "clang-scan-deps20"
+      - "clang-scan-deps"
+    candidate_directories:
+      - "/usr/lib/llvm-20/bin/"
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/lib/llvm-20/bin/clang-scan-deps-20.1"
+      - "/usr/bin/clang-scan-deps-20.1"
+      - "/opt/venv/bin/clang-scan-deps-20.1"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/clang-scan-deps-20.1"
+      - "/usr/local/cargo/bin/clang-scan-deps-20.1"
+      - "/usr/local/sbin/clang-scan-deps-20.1"
+      - "/usr/local/bin/clang-scan-deps-20.1"
+      - "/usr/sbin/clang-scan-deps-20.1"
+      - "/sbin/clang-scan-deps-20.1"
+      - "/bin/clang-scan-deps-20.1"
+      - "/usr/lib/llvm-20/bin/clang-scan-deps-20"
+    found: "/usr/bin/clang-scan-deps-20"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompiler.cmake:115 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:71 (_cmake_find_compiler_path)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_CXX_COMPILER_WITH_PATH"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "clang++-20"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/opt/venv/bin/clang++-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/clang++-20"
+      - "/usr/local/cargo/bin/clang++-20"
+      - "/usr/local/sbin/clang++-20"
+      - "/usr/local/bin/clang++-20"
+      - "/usr/sbin/clang++-20"
+    found: "/usr/bin/clang++-20"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:462 (find_file)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:500 (CMAKE_DETERMINE_COMPILER_ID_WRITE)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:8 (CMAKE_DETERMINE_COMPILER_ID_BUILD)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:125 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "file"
+    variable: "src_in"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "CMakeCXXCompilerId.cpp.in"
+    candidate_directories:
+      - "/usr/share/cmake-4.1/Modules/"
+    found: "/usr/share/cmake-4.1/Modules/CMakeCXXCompilerId.cpp.in"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:125 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+      Compiler: /usr/bin/clang++-20 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+      
+      The CXX compiler identification is Clang, found in:
+        /workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/4.1.2/CompilerIdCXX/a.out
+      
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Compiler/Clang-FindBinUtils.cmake:26 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:207 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_CXX_COMPILER_AR"
+    description: "LLVM archiver"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-ar-20.1"
+      - "llvm-ar-20"
+      - "llvm-ar20"
+      - "llvm-ar"
+    candidate_directories:
+      - "/usr/lib/llvm-20/bin/"
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/lib/llvm-20/bin/llvm-ar-20.1"
+      - "/usr/bin/llvm-ar-20.1"
+      - "/opt/venv/bin/llvm-ar-20.1"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar-20.1"
+      - "/usr/local/cargo/bin/llvm-ar-20.1"
+      - "/usr/local/sbin/llvm-ar-20.1"
+      - "/usr/local/bin/llvm-ar-20.1"
+      - "/usr/sbin/llvm-ar-20.1"
+      - "/sbin/llvm-ar-20.1"
+      - "/bin/llvm-ar-20.1"
+      - "/usr/lib/llvm-20/bin/llvm-ar-20"
+      - "/usr/bin/llvm-ar-20"
+      - "/opt/venv/bin/llvm-ar-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar-20"
+      - "/usr/local/cargo/bin/llvm-ar-20"
+      - "/usr/local/sbin/llvm-ar-20"
+      - "/usr/local/bin/llvm-ar-20"
+      - "/usr/sbin/llvm-ar-20"
+      - "/sbin/llvm-ar-20"
+      - "/bin/llvm-ar-20"
+      - "/usr/lib/llvm-20/bin/llvm-ar20"
+      - "/usr/bin/llvm-ar20"
+      - "/opt/venv/bin/llvm-ar20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar20"
+      - "/usr/local/cargo/bin/llvm-ar20"
+      - "/usr/local/sbin/llvm-ar20"
+      - "/usr/local/bin/llvm-ar20"
+      - "/usr/sbin/llvm-ar20"
+      - "/sbin/llvm-ar20"
+      - "/bin/llvm-ar20"
+      - "/usr/lib/llvm-20/bin/llvm-ar"
+      - "/usr/bin/llvm-ar"
+      - "/opt/venv/bin/llvm-ar"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ar"
+      - "/usr/local/cargo/bin/llvm-ar"
+      - "/usr/local/sbin/llvm-ar"
+      - "/usr/local/bin/llvm-ar"
+      - "/usr/sbin/llvm-ar"
+      - "/sbin/llvm-ar"
+      - "/bin/llvm-ar"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Compiler/Clang-FindBinUtils.cmake:38 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:207 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_CXX_COMPILER_RANLIB"
+    description: "Generate index for LLVM archive"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "llvm-ranlib-20.1"
+      - "llvm-ranlib-20"
+      - "llvm-ranlib20"
+      - "llvm-ranlib"
+    candidate_directories:
+      - "/usr/lib/llvm-20/bin/"
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/lib/llvm-20/bin/llvm-ranlib-20.1"
+      - "/usr/bin/llvm-ranlib-20.1"
+      - "/opt/venv/bin/llvm-ranlib-20.1"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib-20.1"
+      - "/usr/local/cargo/bin/llvm-ranlib-20.1"
+      - "/usr/local/sbin/llvm-ranlib-20.1"
+      - "/usr/local/bin/llvm-ranlib-20.1"
+      - "/usr/sbin/llvm-ranlib-20.1"
+      - "/sbin/llvm-ranlib-20.1"
+      - "/bin/llvm-ranlib-20.1"
+      - "/usr/lib/llvm-20/bin/llvm-ranlib-20"
+      - "/usr/bin/llvm-ranlib-20"
+      - "/opt/venv/bin/llvm-ranlib-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib-20"
+      - "/usr/local/cargo/bin/llvm-ranlib-20"
+      - "/usr/local/sbin/llvm-ranlib-20"
+      - "/usr/local/bin/llvm-ranlib-20"
+      - "/usr/sbin/llvm-ranlib-20"
+      - "/sbin/llvm-ranlib-20"
+      - "/bin/llvm-ranlib-20"
+      - "/usr/lib/llvm-20/bin/llvm-ranlib20"
+      - "/usr/bin/llvm-ranlib20"
+      - "/opt/venv/bin/llvm-ranlib20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib20"
+      - "/usr/local/cargo/bin/llvm-ranlib20"
+      - "/usr/local/sbin/llvm-ranlib20"
+      - "/usr/local/bin/llvm-ranlib20"
+      - "/usr/sbin/llvm-ranlib20"
+      - "/sbin/llvm-ranlib20"
+      - "/bin/llvm-ranlib20"
+      - "/usr/lib/llvm-20/bin/llvm-ranlib"
+      - "/usr/bin/llvm-ranlib"
+      - "/opt/venv/bin/llvm-ranlib"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/llvm-ranlib"
+      - "/usr/local/cargo/bin/llvm-ranlib"
+      - "/usr/local/sbin/llvm-ranlib"
+      - "/usr/local/bin/llvm-ranlib"
+      - "/usr/sbin/llvm-ranlib"
+      - "/sbin/llvm-ranlib"
+      - "/bin/llvm-ranlib"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Compiler/Clang-FindBinUtils.cmake:50 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:207 (include)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS"
+    description: "`clang-scan-deps` dependency scanner"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "clang-scan-deps-20.1"
+      - "clang-scan-deps-20"
+      - "clang-scan-deps20"
+      - "clang-scan-deps"
+    candidate_directories:
+      - "/usr/lib/llvm-20/bin/"
+      - "/usr/bin/"
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/bin/"
+    searched_directories:
+      - "/usr/lib/llvm-20/bin/clang-scan-deps-20.1"
+      - "/usr/bin/clang-scan-deps-20.1"
+      - "/opt/venv/bin/clang-scan-deps-20.1"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/clang-scan-deps-20.1"
+      - "/usr/local/cargo/bin/clang-scan-deps-20.1"
+      - "/usr/local/sbin/clang-scan-deps-20.1"
+      - "/usr/local/bin/clang-scan-deps-20.1"
+      - "/usr/sbin/clang-scan-deps-20.1"
+      - "/sbin/clang-scan-deps-20.1"
+      - "/bin/clang-scan-deps-20.1"
+      - "/usr/lib/llvm-20/bin/clang-scan-deps-20"
+    found: "/usr/bin/clang-scan-deps-20"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:83 (try_compile)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz"
+      binary: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/usr/bin/clang-scan-deps-20"
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz'
+        
+        Run Build Command(s): /usr/bin/ninja -v cmTC_4f5e0
+        [1/2] /usr/bin/clang-20   -fPIE   -v -MD -MT CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-4.1/Modules/CMakeCCompilerABI.c
+        Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)
+        Target: x86_64-pc-linux-gnu
+        Thread model: posix
+        InstalledDir: /usr/lib/llvm-20/bin
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         (in-process)
+         "/usr/lib/llvm-20/bin/clang" -cc1 -triple x86_64-pc-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz -v -fcoverage-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz -resource-dir /usr/lib/llvm-20/lib/clang/20 -dependency-file CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -sys-header-deps -internal-isystem /usr/lib/llvm-20/lib/clang/20/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -x c /usr/share/cmake-4.1/Modules/CMakeCCompilerABI.c
+        clang -cc1 version 20.1.8 based upon LLVM 20.1.8 default target x86_64-pc-linux-gnu
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include"
+        ignoring nonexistent directory "/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/lib/llvm-20/lib/clang/20/include
+         /usr/local/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        [2/2] : && /usr/bin/clang-20  -v -Wl,-v CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -o cmTC_4f5e0   && :
+        Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)
+        Target: x86_64-pc-linux-gnu
+        Thread model: posix
+        InstalledDir: /usr/lib/llvm-20/bin
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         "/usr/bin/ld" -z relro --hash-style=gnu --build-id --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_4f5e0 /lib/x86_64-linux-gnu/Scrt1.o /lib/x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/12 -L/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64 -L/lib/x86_64-linux-gnu -L/lib/../lib64 -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib64 -L/lib -L/usr/lib -v CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o /lib/x86_64-linux-gnu/crtn.o
+        GNU ld (GNU Binutils for Ubuntu) 2.38
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:217 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Parsed C implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/usr/lib/llvm-20/lib/clang/20/include]
+          add: [/usr/local/include]
+          add: [/usr/include/x86_64-linux-gnu]
+          add: [/usr/include]
+        end of search list found
+        collapse include dir [/usr/lib/llvm-20/lib/clang/20/include] ==> [/usr/lib/llvm-20/lib/clang/20/include]
+        collapse include dir [/usr/local/include] ==> [/usr/local/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        implicit include dirs: [/usr/lib/llvm-20/lib/clang/20/include;/usr/local/include;/usr/include/x86_64-linux-gnu;/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:253 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
+        ignore line: [Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/ninja -v cmTC_4f5e0]
+        ignore line: [[1/2] /usr/bin/clang-20   -fPIE   -v -MD -MT CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-4.1/Modules/CMakeCCompilerABI.c]
+        ignore line: [Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)]
+        ignore line: [Target: x86_64-pc-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /usr/lib/llvm-20/bin]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        ignore line: [ (in-process)]
+        ignore line: [ "/usr/lib/llvm-20/bin/clang" -cc1 -triple x86_64-pc-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz -v -fcoverage-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-4uYzwz -resource-dir /usr/lib/llvm-20/lib/clang/20 -dependency-file CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -sys-header-deps -internal-isystem /usr/lib/llvm-20/lib/clang/20/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -x c /usr/share/cmake-4.1/Modules/CMakeCCompilerABI.c]
+        ignore line: [clang -cc1 version 20.1.8 based upon LLVM 20.1.8 default target x86_64-pc-linux-gnu]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include"]
+        ignore line: [ignoring nonexistent directory "/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/lib/llvm-20/lib/clang/20/include]
+        ignore line: [ /usr/local/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [ /usr/include]
+        ignore line: [End of search list.]
+        ignore line: [[2/2] : && /usr/bin/clang-20  -v -Wl -v CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -o cmTC_4f5e0   && :]
+        ignore line: [Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)]
+        ignore line: [Target: x86_64-pc-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /usr/lib/llvm-20/bin]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        link line: [ "/usr/bin/ld" -z relro --hash-style=gnu --build-id --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_4f5e0 /lib/x86_64-linux-gnu/Scrt1.o /lib/x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/12 -L/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64 -L/lib/x86_64-linux-gnu -L/lib/../lib64 -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib64 -L/lib -L/usr/lib -v CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o /lib/x86_64-linux-gnu/crtn.o]
+          arg [/usr/bin/ld] ==> ignore
+          arg [-zrelro] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [-pie] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_4f5e0] ==> ignore
+          arg [/lib/x86_64-linux-gnu/Scrt1.o] ==> obj [/lib/x86_64-linux-gnu/Scrt1.o]
+          arg [/lib/x86_64-linux-gnu/crti.o] ==> obj [/lib/x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/12] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/12]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64]
+          arg [-L/lib/x86_64-linux-gnu] ==> dir [/lib/x86_64-linux-gnu]
+          arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+          arg [-L/usr/lib/x86_64-linux-gnu] ==> dir [/usr/lib/x86_64-linux-gnu]
+          arg [-L/usr/lib/../lib64] ==> dir [/usr/lib/../lib64]
+          arg [-L/lib] ==> dir [/lib]
+          arg [-L/usr/lib] ==> dir [/usr/lib]
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_4f5e0.dir/CMakeCCompilerABI.c.o] ==> ignore
+          arg [-lgcc] ==> lib [gcc]
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--no-as-needed] ==> ignore
+          arg [-lc] ==> lib [c]
+          arg [-lgcc] ==> lib [gcc]
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--no-as-needed] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o]
+          arg [/lib/x86_64-linux-gnu/crtn.o] ==> obj [/lib/x86_64-linux-gnu/crtn.o]
+        linker tool for 'C': /usr/bin/ld
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/12] ==> [/usr/lib/gcc/x86_64-linux-gnu/12]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64] ==> [/usr/lib64]
+        collapse library dir [/lib/x86_64-linux-gnu] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib64] ==> [/lib64]
+        collapse library dir [/usr/lib/x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib64] ==> [/usr/lib64]
+        collapse library dir [/lib] ==> [/lib]
+        collapse library dir [/usr/lib] ==> [/usr/lib]
+        implicit libs: [gcc;gcc_s;c;gcc;gcc_s]
+        implicit objs: [/lib/x86_64-linux-gnu/Scrt1.o;/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o;/usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o;/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/usr/lib/gcc/x86_64-linux-gnu/12;/usr/lib64;/lib/x86_64-linux-gnu;/lib64;/usr/lib/x86_64-linux-gnu;/lib;/usr/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Internal/CMakeDetermineLinkerId.cmake:36 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:299 (cmake_determine_linker_id)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Running the C compiler's linker: "/usr/bin/ld" "-v"
+      GNU ld (GNU Binutils for Ubuntu) 2.38
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:83 (try_compile)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    checks:
+      - "Detecting CXX compiler ABI info"
+    directories:
+      source: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3"
+      binary: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/usr/bin/clang-scan-deps-20"
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_CXX_SCAN_FOR_MODULES: "OFF"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "CMAKE_CXX_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3'
+        
+        Run Build Command(s): /usr/bin/ninja -v cmTC_51bd5
+        [1/2] /usr/bin/clang++-20   -std=gnu++17 -fPIE   -v -MD -MT CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-4.1/Modules/CMakeCXXCompilerABI.cpp
+        Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)
+        Target: x86_64-pc-linux-gnu
+        Thread model: posix
+        InstalledDir: /usr/lib/llvm-20/bin
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         (in-process)
+         "/usr/lib/llvm-20/bin/clang" -cc1 -triple x86_64-pc-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3 -v -fcoverage-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3 -resource-dir /usr/lib/llvm-20/lib/clang/20 -dependency-file CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/backward -internal-isystem /usr/lib/llvm-20/lib/clang/20/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=gnu++17 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -x c++ /usr/share/cmake-4.1/Modules/CMakeCXXCompilerABI.cpp
+        clang -cc1 version 20.1.8 based upon LLVM 20.1.8 default target x86_64-pc-linux-gnu
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include"
+        ignoring nonexistent directory "/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12
+         /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12
+         /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/backward
+         /usr/lib/llvm-20/lib/clang/20/include
+         /usr/local/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        [2/2] : && /usr/bin/clang++-20  -v -Wl,-v CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_51bd5   && :
+        Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)
+        Target: x86_64-pc-linux-gnu
+        Thread model: posix
+        InstalledDir: /usr/lib/llvm-20/bin
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11
+        Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         "/usr/bin/ld" -z relro --hash-style=gnu --build-id --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_51bd5 /lib/x86_64-linux-gnu/Scrt1.o /lib/x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/12 -L/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64 -L/lib/x86_64-linux-gnu -L/lib/../lib64 -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib64 -L/lib -L/usr/lib -v CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o /lib/x86_64-linux-gnu/crtn.o
+        GNU ld (GNU Binutils for Ubuntu) 2.38
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:217 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Parsed CXX implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12]
+          add: [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12]
+          add: [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/backward]
+          add: [/usr/lib/llvm-20/lib/clang/20/include]
+          add: [/usr/local/include]
+          add: [/usr/include/x86_64-linux-gnu]
+          add: [/usr/include]
+        end of search list found
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12] ==> [/usr/include/c++/12]
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12] ==> [/usr/include/x86_64-linux-gnu/c++/12]
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/backward] ==> [/usr/include/c++/12/backward]
+        collapse include dir [/usr/lib/llvm-20/lib/clang/20/include] ==> [/usr/lib/llvm-20/lib/clang/20/include]
+        collapse include dir [/usr/local/include] ==> [/usr/local/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        implicit include dirs: [/usr/include/c++/12;/usr/include/x86_64-linux-gnu/c++/12;/usr/include/c++/12/backward;/usr/lib/llvm-20/lib/clang/20/include;/usr/local/include;/usr/include/x86_64-linux-gnu;/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:253 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Parsed CXX implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
+        ignore line: [Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/ninja -v cmTC_51bd5]
+        ignore line: [[1/2] /usr/bin/clang++-20   -std=gnu++17 -fPIE   -v -MD -MT CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-4.1/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)]
+        ignore line: [Target: x86_64-pc-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /usr/lib/llvm-20/bin]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        ignore line: [ (in-process)]
+        ignore line: [ "/usr/lib/llvm-20/bin/clang" -cc1 -triple x86_64-pc-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3 -v -fcoverage-compilation-dir=/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-DbhYo3 -resource-dir /usr/lib/llvm-20/lib/clang/20 -dependency-file CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/backward -internal-isystem /usr/lib/llvm-20/lib/clang/20/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=gnu++17 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -x c++ /usr/share/cmake-4.1/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [clang -cc1 version 20.1.8 based upon LLVM 20.1.8 default target x86_64-pc-linux-gnu]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/include"]
+        ignore line: [ignoring nonexistent directory "/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/backward]
+        ignore line: [ /usr/lib/llvm-20/lib/clang/20/include]
+        ignore line: [ /usr/local/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [ /usr/include]
+        ignore line: [End of search list.]
+        ignore line: [[2/2] : && /usr/bin/clang++-20  -v -Wl -v CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_51bd5   && :]
+        ignore line: [Ubuntu clang version 20.1.8 (++20250708082409+6fb913d3e2ec-1~exp1~20250708202428.132)]
+        ignore line: [Target: x86_64-pc-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /usr/lib/llvm-20/bin]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/11]
+        ignore line: [Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/12]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        link line: [ "/usr/bin/ld" -z relro --hash-style=gnu --build-id --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_51bd5 /lib/x86_64-linux-gnu/Scrt1.o /lib/x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/12 -L/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64 -L/lib/x86_64-linux-gnu -L/lib/../lib64 -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib64 -L/lib -L/usr/lib -v CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o /lib/x86_64-linux-gnu/crtn.o]
+          arg [/usr/bin/ld] ==> ignore
+          arg [-zrelro] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [-pie] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_51bd5] ==> ignore
+          arg [/lib/x86_64-linux-gnu/Scrt1.o] ==> obj [/lib/x86_64-linux-gnu/Scrt1.o]
+          arg [/lib/x86_64-linux-gnu/crti.o] ==> obj [/lib/x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/12] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/12]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64]
+          arg [-L/lib/x86_64-linux-gnu] ==> dir [/lib/x86_64-linux-gnu]
+          arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+          arg [-L/usr/lib/x86_64-linux-gnu] ==> dir [/usr/lib/x86_64-linux-gnu]
+          arg [-L/usr/lib/../lib64] ==> dir [/usr/lib/../lib64]
+          arg [-L/lib] ==> dir [/lib]
+          arg [-L/usr/lib] ==> dir [/usr/lib]
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_51bd5.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+          arg [-lstdc++] ==> lib [stdc++]
+          arg [-lm] ==> lib [m]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [-lc] ==> lib [c]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o]
+          arg [/lib/x86_64-linux-gnu/crtn.o] ==> obj [/lib/x86_64-linux-gnu/crtn.o]
+        linker tool for 'CXX': /usr/bin/ld
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/12] ==> [/usr/lib/gcc/x86_64-linux-gnu/12]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib64] ==> [/usr/lib64]
+        collapse library dir [/lib/x86_64-linux-gnu] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib64] ==> [/lib64]
+        collapse library dir [/usr/lib/x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib64] ==> [/usr/lib64]
+        collapse library dir [/lib] ==> [/lib]
+        collapse library dir [/usr/lib] ==> [/usr/lib]
+        implicit libs: [stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+        implicit objs: [/lib/x86_64-linux-gnu/Scrt1.o;/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/12/crtbeginS.o;/usr/lib/gcc/x86_64-linux-gnu/12/crtendS.o;/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/usr/lib/gcc/x86_64-linux-gnu/12;/usr/lib64;/lib/x86_64-linux-gnu;/lib64;/usr/lib/x86_64-linux-gnu;/lib;/usr/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Internal/CMakeDetermineLinkerId.cmake:36 (message)"
+      - "/usr/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:299 (cmake_determine_linker_id)"
+      - "/usr/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      Running the CXX compiler's linker: "/usr/bin/ld" "-v"
+      GNU ld (GNU Binutils for Ubuntu) 2.38
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/FindGit.cmake:86 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/FetchContent.cmake:1874 (find_package)"
+      - "/usr/share/cmake-4.1/Modules/FetchContent.cmake:1609 (__FetchContent_populateSubbuild)"
+      - "/usr/share/cmake-4.1/Modules/FetchContent.cmake:2145:EVAL:2 (__FetchContent_doPopulation)"
+      - "/usr/share/cmake-4.1/Modules/FetchContent.cmake:2145 (cmake_language)"
+      - "/usr/share/cmake-4.1/Modules/FetchContent.cmake:2384 (__FetchContent_Populate)"
+      - ".cpmcache/cpm/CPM_0.40.2.cmake:1114 (FetchContent_MakeAvailable)"
+      - ".cpmcache/cpm/CPM_0.40.2.cmake:895 (cpm_fetch_package)"
+      - "third_party/CMakeLists.txt:19 (CPMAddPackage)"
+    mode: "program"
+    variable: "GIT_EXECUTABLE"
+    description: "Git command line client"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "git"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+      - "/usr/local/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/"
+      - "/usr/bin/"
+      - "/usr/sbin/"
+      - "/usr/"
+      - "/bin/"
+      - "/sbin/"
+      - "/usr/X11R6/bin/"
+      - "/usr/X11R6/sbin/"
+      - "/usr/X11R6/"
+      - "/usr/pkg/bin/"
+      - "/usr/pkg/sbin/"
+      - "/usr/pkg/"
+      - "/opt/bin/"
+      - "/opt/sbin/"
+      - "/opt/"
+    searched_directories:
+      - "/opt/venv/bin/git"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/git"
+      - "/usr/local/cargo/bin/git"
+      - "/usr/local/sbin/git"
+      - "/usr/local/bin/git"
+      - "/usr/sbin/git"
+    found: "/usr/bin/git"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/FindPython/Support.cmake:2015 (find_program)"
+      - "/usr/share/cmake-4.1/Modules/FindPython.cmake:706 (include)"
+      - ".cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/cmake/internal_utils.cmake:263 (find_package)"
+      - ".cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/CMakeLists.txt:86 (include)"
+    mode: "program"
+    variable: "_Python_EXECUTABLE"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: false
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python3.14mu"
+      - "python3.14m"
+      - "python3.14u"
+      - "python3.14"
+      - "python3.14dmu"
+      - "python3.14dm"
+      - "python3.14du"
+      - "python3.14d"
+      - "python3.13mu"
+      - "python3.13m"
+      - "python3.13u"
+      - "python3.13"
+      - "python3.13dmu"
+      - "python3.13dm"
+      - "python3.13du"
+      - "python3.13d"
+      - "python3.12mu"
+      - "python3.12m"
+      - "python3.12u"
+      - "python3.12"
+      - "python3.12dmu"
+      - "python3.12dm"
+      - "python3.12du"
+      - "python3.12d"
+      - "python3.11mu"
+      - "python3.11m"
+      - "python3.11u"
+      - "python3.11"
+      - "python3.11dmu"
+      - "python3.11dm"
+      - "python3.11du"
+      - "python3.11d"
+      - "python3.10mu"
+      - "python3.10m"
+      - "python3.10u"
+      - "python3.10"
+      - "python3.10dmu"
+      - "python3.10dm"
+      - "python3.10du"
+      - "python3.10d"
+      - "python3.9mu"
+      - "python3.9m"
+      - "python3.9u"
+      - "python3.9"
+      - "python3.9dmu"
+      - "python3.9dm"
+      - "python3.9du"
+      - "python3.9d"
+      - "python3.8mu"
+      - "python3.8m"
+      - "python3.8u"
+      - "python3.8"
+      - "python3.8dmu"
+      - "python3.8dm"
+      - "python3.8du"
+      - "python3.8d"
+      - "python3.7mu"
+      - "python3.7m"
+      - "python3.7u"
+      - "python3.7"
+      - "python3.7dmu"
+      - "python3.7dm"
+      - "python3.7du"
+      - "python3.7d"
+      - "python3.6mu"
+      - "python3.6m"
+      - "python3.6u"
+      - "python3.6"
+      - "python3.6dmu"
+      - "python3.6dm"
+      - "python3.6du"
+      - "python3.6d"
+      - "python3.5mu"
+      - "python3.5m"
+      - "python3.5u"
+      - "python3.5"
+      - "python3.5dmu"
+      - "python3.5dm"
+      - "python3.5du"
+      - "python3.5d"
+      - "python3.4mu"
+      - "python3.4m"
+      - "python3.4u"
+      - "python3.4"
+      - "python3.4dmu"
+      - "python3.4dm"
+      - "python3.4du"
+      - "python3.4d"
+      - "python3.3mu"
+      - "python3.3m"
+      - "python3.3u"
+      - "python3.3"
+      - "python3.3dmu"
+      - "python3.3dm"
+      - "python3.3du"
+      - "python3.3d"
+      - "python3.2mu"
+      - "python3.2m"
+      - "python3.2u"
+      - "python3.2"
+      - "python3.2dmu"
+      - "python3.2dm"
+      - "python3.2du"
+      - "python3.2d"
+      - "python3.1mu"
+      - "python3.1m"
+      - "python3.1u"
+      - "python3.1"
+      - "python3.1dmu"
+      - "python3.1dm"
+      - "python3.1du"
+      - "python3.1d"
+      - "python3.0mu"
+      - "python3.0m"
+      - "python3.0u"
+      - "python3.0"
+      - "python3.0dmu"
+      - "python3.0dm"
+      - "python3.0du"
+      - "python3.0d"
+      - "python3"
+      - "python"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/opt/venv/Scripts/"
+      - "/opt/venv/"
+    searched_directories:
+      - "/opt/venv/bin/python3.14mu"
+      - "/opt/venv/bin/python3.14m"
+      - "/opt/venv/bin/python3.14u"
+      - "/opt/venv/bin/python3.14"
+      - "/opt/venv/bin/python3.14dmu"
+      - "/opt/venv/bin/python3.14dm"
+      - "/opt/venv/bin/python3.14du"
+      - "/opt/venv/bin/python3.14d"
+      - "/opt/venv/bin/python3.13mu"
+      - "/opt/venv/bin/python3.13m"
+      - "/opt/venv/bin/python3.13u"
+      - "/opt/venv/bin/python3.13"
+      - "/opt/venv/bin/python3.13dmu"
+      - "/opt/venv/bin/python3.13dm"
+      - "/opt/venv/bin/python3.13du"
+      - "/opt/venv/bin/python3.13d"
+      - "/opt/venv/bin/python3.12mu"
+      - "/opt/venv/bin/python3.12m"
+      - "/opt/venv/bin/python3.12u"
+      - "/opt/venv/bin/python3.12"
+      - "/opt/venv/bin/python3.12dmu"
+      - "/opt/venv/bin/python3.12dm"
+      - "/opt/venv/bin/python3.12du"
+      - "/opt/venv/bin/python3.12d"
+      - "/opt/venv/bin/python3.11mu"
+      - "/opt/venv/bin/python3.11m"
+      - "/opt/venv/bin/python3.11u"
+      - "/opt/venv/bin/python3.11"
+      - "/opt/venv/bin/python3.11dmu"
+      - "/opt/venv/bin/python3.11dm"
+      - "/opt/venv/bin/python3.11du"
+      - "/opt/venv/bin/python3.11d"
+      - "/opt/venv/bin/python3.10mu"
+      - "/opt/venv/bin/python3.10m"
+      - "/opt/venv/bin/python3.10u"
+    found: "/opt/venv/bin/python3.10"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/usr/share/cmake-4.1/Modules/CheckCSourceCompiles.cmake:103 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-4.1/Modules/FindThreads.cmake:97 (check_c_source_compiles)"
+      - "/usr/share/cmake-4.1/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - ".cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/cmake/internal_utils.cmake:70 (find_package)"
+      - ".cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/CMakeLists.txt:88 (config_compiler_and_linker)"
+    checks:
+      - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
+    directories:
+      source: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-BVhPYE"
+      binary: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-BVhPYE"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/usr/bin/clang-scan-deps-20"
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CPM_modules;/workspace/tt_metal/third_party/umd/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-BVhPYE'
+        
+        Run Build Command(s): /usr/bin/ninja -v cmTC_488bc
+        [1/2] /usr/bin/clang-20 -DCMAKE_HAVE_LIBC_PTHREAD  -fPIE -MD -MT CMakeFiles/cmTC_488bc.dir/src.c.o -MF CMakeFiles/cmTC_488bc.dir/src.c.o.d -o CMakeFiles/cmTC_488bc.dir/src.c.o -c /workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-BVhPYE/src.c
+        [2/2] : && /usr/bin/clang-20   CMakeFiles/cmTC_488bc.dir/src.c.o -o cmTC_488bc   && :
+        
+      exitCode: 0
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CTest.cmake:171 (find_program)"
+      - ".cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/CMakeLists.txt:22 (include)"
+    mode: "program"
+    variable: "GITCOMMAND"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "git"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+      - "/usr/local/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/"
+      - "/usr/bin/"
+      - "/usr/sbin/"
+      - "/usr/"
+      - "/bin/"
+      - "/sbin/"
+      - "/usr/X11R6/bin/"
+      - "/usr/X11R6/sbin/"
+      - "/usr/X11R6/"
+      - "/usr/pkg/bin/"
+      - "/usr/pkg/sbin/"
+      - "/usr/pkg/"
+      - "/opt/bin/"
+      - "/opt/sbin/"
+      - "/opt/"
+    searched_directories:
+      - "/opt/venv/bin/git"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/git"
+      - "/usr/local/cargo/bin/git"
+      - "/usr/local/sbin/git"
+      - "/usr/local/bin/git"
+      - "/usr/sbin/git"
+    found: "/usr/bin/git"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CTest.cmake:188 (find_program)"
+      - ".cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/CMakeLists.txt:22 (include)"
+    mode: "program"
+    variable: "MEMORYCHECK_COMMAND"
+    description: "Path to the memory checking command, used for memory error detection."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "purify"
+      - "valgrind"
+      - "boundscheck"
+      - "drmemory"
+      - "cuda-memcheck"
+      - "compute-sanitizer"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+      - "/usr/local/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/"
+      - "/usr/bin/"
+      - "/usr/sbin/"
+      - "/usr/"
+      - "/bin/"
+      - "/sbin/"
+      - "/usr/X11R6/bin/"
+      - "/usr/X11R6/sbin/"
+      - "/usr/X11R6/"
+      - "/usr/pkg/bin/"
+      - "/usr/pkg/sbin/"
+      - "/usr/pkg/"
+      - "/opt/bin/"
+      - "/opt/sbin/"
+      - "/opt/"
+    searched_directories:
+      - "/opt/venv/bin/purify"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/purify"
+      - "/usr/local/cargo/bin/purify"
+      - "/usr/local/sbin/purify"
+      - "/usr/local/bin/purify"
+      - "/usr/sbin/purify"
+      - "/usr/bin/purify"
+      - "/sbin/purify"
+      - "/bin/purify"
+      - "/usr/local/bin/purify"
+      - "/usr/local/sbin/purify"
+      - "/usr/local/purify"
+      - "/usr/bin/purify"
+      - "/usr/sbin/purify"
+      - "/usr/purify"
+      - "/bin/purify"
+      - "/sbin/purify"
+      - "/usr/X11R6/bin/purify"
+      - "/usr/X11R6/sbin/purify"
+      - "/usr/X11R6/purify"
+      - "/usr/pkg/bin/purify"
+      - "/usr/pkg/sbin/purify"
+      - "/usr/pkg/purify"
+      - "/opt/bin/purify"
+      - "/opt/sbin/purify"
+      - "/opt/purify"
+      - "/opt/venv/bin/valgrind"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/valgrind"
+      - "/usr/local/cargo/bin/valgrind"
+      - "/usr/local/sbin/valgrind"
+      - "/usr/local/bin/valgrind"
+      - "/usr/sbin/valgrind"
+      - "/usr/bin/valgrind"
+      - "/sbin/valgrind"
+      - "/bin/valgrind"
+      - "/usr/local/bin/valgrind"
+      - "/usr/local/sbin/valgrind"
+      - "/usr/local/valgrind"
+      - "/usr/bin/valgrind"
+      - "/usr/sbin/valgrind"
+      - "/usr/valgrind"
+      - "/bin/valgrind"
+      - "/sbin/valgrind"
+      - "/usr/X11R6/bin/valgrind"
+      - "/usr/X11R6/sbin/valgrind"
+      - "/usr/X11R6/valgrind"
+      - "/usr/pkg/bin/valgrind"
+      - "/usr/pkg/sbin/valgrind"
+      - "/usr/pkg/valgrind"
+      - "/opt/bin/valgrind"
+      - "/opt/sbin/valgrind"
+      - "/opt/valgrind"
+      - "/opt/venv/bin/boundscheck"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/boundscheck"
+      - "/usr/local/cargo/bin/boundscheck"
+      - "/usr/local/sbin/boundscheck"
+      - "/usr/local/bin/boundscheck"
+      - "/usr/sbin/boundscheck"
+      - "/usr/bin/boundscheck"
+      - "/sbin/boundscheck"
+      - "/bin/boundscheck"
+      - "/usr/local/bin/boundscheck"
+      - "/usr/local/sbin/boundscheck"
+      - "/usr/local/boundscheck"
+      - "/usr/bin/boundscheck"
+      - "/usr/sbin/boundscheck"
+      - "/usr/boundscheck"
+      - "/bin/boundscheck"
+      - "/sbin/boundscheck"
+      - "/usr/X11R6/bin/boundscheck"
+      - "/usr/X11R6/sbin/boundscheck"
+      - "/usr/X11R6/boundscheck"
+      - "/usr/pkg/bin/boundscheck"
+      - "/usr/pkg/sbin/boundscheck"
+      - "/usr/pkg/boundscheck"
+      - "/opt/bin/boundscheck"
+      - "/opt/sbin/boundscheck"
+      - "/opt/boundscheck"
+      - "/opt/venv/bin/drmemory"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/drmemory"
+      - "/usr/local/cargo/bin/drmemory"
+      - "/usr/local/sbin/drmemory"
+      - "/usr/local/bin/drmemory"
+      - "/usr/sbin/drmemory"
+      - "/usr/bin/drmemory"
+      - "/sbin/drmemory"
+      - "/bin/drmemory"
+      - "/usr/local/bin/drmemory"
+      - "/usr/local/sbin/drmemory"
+      - "/usr/local/drmemory"
+      - "/usr/bin/drmemory"
+      - "/usr/sbin/drmemory"
+      - "/usr/drmemory"
+      - "/bin/drmemory"
+      - "/sbin/drmemory"
+      - "/usr/X11R6/bin/drmemory"
+      - "/usr/X11R6/sbin/drmemory"
+      - "/usr/X11R6/drmemory"
+      - "/usr/pkg/bin/drmemory"
+      - "/usr/pkg/sbin/drmemory"
+      - "/usr/pkg/drmemory"
+      - "/opt/bin/drmemory"
+      - "/opt/sbin/drmemory"
+      - "/opt/drmemory"
+      - "/opt/venv/bin/cuda-memcheck"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/cuda-memcheck"
+      - "/usr/local/cargo/bin/cuda-memcheck"
+      - "/usr/local/sbin/cuda-memcheck"
+      - "/usr/local/bin/cuda-memcheck"
+      - "/usr/sbin/cuda-memcheck"
+      - "/usr/bin/cuda-memcheck"
+      - "/sbin/cuda-memcheck"
+      - "/bin/cuda-memcheck"
+      - "/usr/local/bin/cuda-memcheck"
+      - "/usr/local/sbin/cuda-memcheck"
+      - "/usr/local/cuda-memcheck"
+      - "/usr/bin/cuda-memcheck"
+      - "/usr/sbin/cuda-memcheck"
+      - "/usr/cuda-memcheck"
+      - "/bin/cuda-memcheck"
+      - "/sbin/cuda-memcheck"
+      - "/usr/X11R6/bin/cuda-memcheck"
+      - "/usr/X11R6/sbin/cuda-memcheck"
+      - "/usr/X11R6/cuda-memcheck"
+      - "/usr/pkg/bin/cuda-memcheck"
+      - "/usr/pkg/sbin/cuda-memcheck"
+      - "/usr/pkg/cuda-memcheck"
+      - "/opt/bin/cuda-memcheck"
+      - "/opt/sbin/cuda-memcheck"
+      - "/opt/cuda-memcheck"
+      - "/opt/venv/bin/compute-sanitizer"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/compute-sanitizer"
+      - "/usr/local/cargo/bin/compute-sanitizer"
+      - "/usr/local/sbin/compute-sanitizer"
+      - "/usr/local/bin/compute-sanitizer"
+      - "/usr/sbin/compute-sanitizer"
+      - "/usr/bin/compute-sanitizer"
+      - "/sbin/compute-sanitizer"
+      - "/bin/compute-sanitizer"
+      - "/usr/local/bin/compute-sanitizer"
+      - "/usr/local/sbin/compute-sanitizer"
+      - "/usr/local/compute-sanitizer"
+      - "/usr/bin/compute-sanitizer"
+      - "/usr/sbin/compute-sanitizer"
+      - "/usr/compute-sanitizer"
+      - "/bin/compute-sanitizer"
+      - "/sbin/compute-sanitizer"
+      - "/usr/X11R6/bin/compute-sanitizer"
+      - "/usr/X11R6/sbin/compute-sanitizer"
+      - "/usr/X11R6/compute-sanitizer"
+      - "/usr/pkg/bin/compute-sanitizer"
+      - "/usr/pkg/sbin/compute-sanitizer"
+      - "/usr/pkg/compute-sanitizer"
+      - "/opt/bin/compute-sanitizer"
+      - "/opt/sbin/compute-sanitizer"
+      - "/opt/compute-sanitizer"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CTest.cmake:196 (find_program)"
+      - ".cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/CMakeLists.txt:22 (include)"
+    mode: "program"
+    variable: "COVERAGE_COMMAND"
+    description: "Path to the coverage program that CTest uses for performing coverage inspection"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "gcov"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+      - "/usr/local/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/"
+      - "/usr/bin/"
+      - "/usr/sbin/"
+      - "/usr/"
+      - "/bin/"
+      - "/sbin/"
+      - "/usr/X11R6/bin/"
+      - "/usr/X11R6/sbin/"
+      - "/usr/X11R6/"
+      - "/usr/pkg/bin/"
+      - "/usr/pkg/sbin/"
+      - "/usr/pkg/"
+      - "/opt/bin/"
+      - "/opt/sbin/"
+      - "/opt/"
+    searched_directories:
+      - "/opt/venv/bin/gcov"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/gcov"
+      - "/usr/local/cargo/bin/gcov"
+      - "/usr/local/sbin/gcov"
+      - "/usr/local/bin/gcov"
+      - "/usr/sbin/gcov"
+    found: "/usr/bin/gcov"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/usr/share/cmake-4.1/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-4.1/Modules/CheckCXXCompilerFlag.cmake:103 (cmake_check_compiler_flag)"
+      - ".cpmcache/fmt/69912fb6b71fcb1f7e5deca191a2bb4748c4e7b6/CMakeLists.txt:262 (check_cxx_compiler_flag)"
+    checks:
+      - "Performing Test HAS_NULLPTR_WARNING"
+    directories:
+      source: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-GljyS2"
+      binary: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-GljyS2"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/usr/bin/clang-scan-deps-20"
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CPM_modules;/workspace/tt_metal/third_party/umd/cmake;/workspace/tt_metal/third_party/umd/.cpmcache/fmt/69912fb6b71fcb1f7e5deca191a2bb4748c4e7b6/support/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "HAS_NULLPTR_WARNING"
+      cached: true
+      stdout: |
+        Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-GljyS2'
+        
+        Run Build Command(s): /usr/bin/ninja -v cmTC_c083b
+        [1/2] /usr/bin/clang++-20 -DHAS_NULLPTR_WARNING  -fPIE   -Wzero-as-null-pointer-constant -MD -MT CMakeFiles/cmTC_c083b.dir/src.cxx.o -MF CMakeFiles/cmTC_c083b.dir/src.cxx.o.d -o CMakeFiles/cmTC_c083b.dir/src.cxx.o -c /workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-GljyS2/src.cxx
+        [2/2] : && /usr/bin/clang++-20   CMakeFiles/cmTC_c083b.dir/src.cxx.o -o cmTC_c083b   && :
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CheckSymbolExists.cmake:193 (try_compile)"
+      - "/usr/share/cmake-4.1/Modules/CheckSymbolExists.cmake:98 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - ".cpmcache/spdlog/b1c2586bb5c35a7929362e87f62433eb68206873/CMakeLists.txt:250 (check_symbol_exists)"
+    directories:
+      source: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-pFcke5"
+      binary: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-pFcke5"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/usr/bin/clang-scan-deps-20"
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CPM_modules;/workspace/tt_metal/third_party/umd/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "HAVE_FWRITE_UNLOCKED"
+      cached: true
+      stdout: |
+        Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-pFcke5'
+        
+        Run Build Command(s): /usr/bin/ninja -v cmTC_0fe0e
+        [1/2] /usr/bin/clang-20   -fPIE -MD -MT CMakeFiles/cmTC_0fe0e.dir/CheckSymbolExists.c.o -MF CMakeFiles/cmTC_0fe0e.dir/CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_0fe0e.dir/CheckSymbolExists.c.o -c /workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-pFcke5/CheckSymbolExists.c
+        [2/2] : && /usr/bin/clang-20   CMakeFiles/cmTC_0fe0e.dir/CheckSymbolExists.c.o -o cmTC_0fe0e   && :
+        
+      exitCode: 0
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/FindPython/Support.cmake:3709 (find_path)"
+      - "/usr/share/cmake-4.1/Modules/FindPython.cmake:685 (include)"
+      - ".cpmcache/nanobind/ecb3880ad950ee63406ff66a5563d380c7994aa7/CMakeLists.txt:148 (find_package)"
+    mode: "path"
+    variable: "_Python_INCLUDE_DIR"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: false
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "Python.h"
+    candidate_directories:
+      - "/usr/include/python3.10/"
+    found: "/usr/include/python3.10/"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+      CMAKE_SYSTEM_INCLUDE_PATH:
+        - "/usr/include/X11"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "CMakeLists.txt:93 (find_program)"
+    mode: "program"
+    variable: "CLANG_TIDY_EXE"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "clang-tidy"
+      - "clang-tidy-20"
+    candidate_directories:
+      - "/opt/venv/bin/"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/"
+      - "/usr/local/cargo/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+      - "/usr/local/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/"
+      - "/usr/bin/"
+      - "/usr/sbin/"
+      - "/usr/"
+      - "/bin/"
+      - "/sbin/"
+      - "/usr/X11R6/bin/"
+      - "/usr/X11R6/sbin/"
+      - "/usr/X11R6/"
+      - "/usr/pkg/bin/"
+      - "/usr/pkg/sbin/"
+      - "/usr/pkg/"
+      - "/opt/bin/"
+      - "/opt/sbin/"
+      - "/opt/"
+    searched_directories:
+      - "/opt/venv/bin/clang-tidy"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/clang-tidy"
+      - "/usr/local/cargo/bin/clang-tidy"
+      - "/usr/local/sbin/clang-tidy"
+      - "/usr/local/bin/clang-tidy"
+      - "/usr/sbin/clang-tidy"
+      - "/usr/bin/clang-tidy"
+      - "/sbin/clang-tidy"
+      - "/bin/clang-tidy"
+      - "/usr/local/bin/clang-tidy"
+      - "/usr/local/sbin/clang-tidy"
+      - "/usr/local/clang-tidy"
+      - "/usr/bin/clang-tidy"
+      - "/usr/sbin/clang-tidy"
+      - "/usr/clang-tidy"
+      - "/bin/clang-tidy"
+      - "/sbin/clang-tidy"
+      - "/usr/X11R6/bin/clang-tidy"
+      - "/usr/X11R6/sbin/clang-tidy"
+      - "/usr/X11R6/clang-tidy"
+      - "/usr/pkg/bin/clang-tidy"
+      - "/usr/pkg/sbin/clang-tidy"
+      - "/usr/pkg/clang-tidy"
+      - "/opt/bin/clang-tidy"
+      - "/opt/sbin/clang-tidy"
+      - "/opt/clang-tidy"
+      - "/opt/venv/bin/clang-tidy-20"
+      - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli/clang-tidy-20"
+      - "/usr/local/cargo/bin/clang-tidy-20"
+      - "/usr/local/sbin/clang-tidy-20"
+      - "/usr/local/bin/clang-tidy-20"
+      - "/usr/sbin/clang-tidy-20"
+    found: "/usr/bin/clang-tidy-20"
+    search_context:
+      ENV{PATH}:
+        - "/opt/venv/bin"
+        - "/vscode/cursor-server/bin/linux-x64/20adc1003928b0f1b99305dbaf845656ff81f5d0/bin/remote-cli"
+        - "/opt/venv/bin"
+        - "/opt/venv/bin"
+        - "/usr/local/cargo/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "/usr/local"
+        - "/usr"
+        - "/"
+        - "/usr"
+        - "/usr/local"
+        - "/usr/X11R6"
+        - "/usr/pkg"
+        - "/opt"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-4.1/Modules/CheckFunctionExists.cmake:167 (try_compile)"
+      - "device/CMakeLists.txt:246 (check_function_exists)"
+    checks:
+      - "Looking for backtrace"
+    directories:
+      source: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-V22NQu"
+      binary: "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-V22NQu"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/usr/bin/clang-scan-deps-20"
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/workspace/tt_metal/third_party/umd/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "HAVE_BACKTRACE"
+      cached: true
+      stdout: |
+        Change Dir: '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-V22NQu'
+        
+        Run Build Command(s): /usr/bin/ninja -v cmTC_b2d73
+        [1/2] /usr/bin/clang-20   -DCHECK_FUNCTION_EXISTS=backtrace -fPIE -MD -MT CMakeFiles/cmTC_b2d73.dir/CheckFunctionExists.c.o -MF CMakeFiles/cmTC_b2d73.dir/CheckFunctionExists.c.o.d -o CMakeFiles/cmTC_b2d73.dir/CheckFunctionExists.c.o -c /workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/CMakeFiles/CMakeScratch/TryCompile-V22NQu/CheckFunctionExists.c
+        [2/2] : && /usr/bin/clang-20 -DCHECK_FUNCTION_EXISTS=backtrace  CMakeFiles/cmTC_b2d73.dir/CheckFunctionExists.c.o -o cmTC_b2d73   && :
+        
+      exitCode: 0
+...

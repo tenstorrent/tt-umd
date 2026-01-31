@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/CMakeFiles/umd_asio-populate"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/CMakeFiles/umd_asio-populate.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/CMakeFiles/umd_asio-populate-complete.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-build.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-configure.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-download.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-install.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-mkdir.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-patch.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-test.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"umd_asio-populate"
+		],
+		"name" : "umd_asio-populate"
+	}
+}

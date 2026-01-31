@@ -1,0 +1,1242 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+Diagnostics:
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const Mark'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      454
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          Offset:          461
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          FileOffset:      461
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is_null'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      516
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          Offset:          516
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''pos'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      596
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''line'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      607
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''column'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      613
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '3 adjacent parameters of ''Mark'' of similar type (''int'') are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      639
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          FileOffset:      639
+          Length:          32
+    Notes:
+      - Message:         'the first parameter in the range is ''pos_'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+        FileOffset:      643
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+            FileOffset:      643
+            Length:          4
+      - Message:         'the last parameter in the range is ''column_'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+        FileOffset:      664
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+            FileOffset:      664
+            Length:          7
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''op'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      81
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'member initializer for ''m_a'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      97
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          97
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'member initializer for ''m_z'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      105
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          105
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_params'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      113
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          113
+          Length:          11
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      185
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'member initializer for ''m_z'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      219
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          219
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_params'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      227
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          227
+          Length:          11
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''RegEx'' of similar type (''char'') are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      255
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          FileOffset:      255
+          Length:          14
+    Notes:
+      - Message:         'the first parameter in the range is ''a'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+        FileOffset:      260
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+            FileOffset:      260
+            Length:          1
+      - Message:         'the last parameter in the range is ''z'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+        FileOffset:      268
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+            FileOffset:      268
+            Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''a'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      260
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''z'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      268
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_params'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      308
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          308
+          Length:          11
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::string" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      347
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          24
+          Length:          0
+          ReplacementText: "#include <string>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''op'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      369
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'member initializer for ''m_a'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      389
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          389
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'member initializer for ''m_z'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      397
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+          Offset:          397
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ex'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+      FileOffset:      499
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''REGEX_OP'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      442
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''RegEx'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      703
+      Replacements:    []
+    Notes:
+      - Message:         'example recursive call chain, starting from function ''_Construct<YAML::RegEx, const YAML::RegEx &>'''
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h'
+        FileOffset:      4101
+        Replacements:    []
+      - Message:         'Frame #1: function ''_Construct<YAML::RegEx, const YAML::RegEx &>'' calls function ''RegEx'' here:'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h'
+        FileOffset:      4387
+        Replacements:    []
+      - Message:         'Frame #2: function ''RegEx'' calls function ''vector'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+        FileOffset:      703
+        Replacements:    []
+      - Message:         'Frame #3: function ''vector'' calls function ''__uninitialized_copy_a<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *, YAML::RegEx>'' here:'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_vector.h'
+        FileOffset:      19110
+        Replacements:    []
+      - Message:         'Frame #4: function ''__uninitialized_copy_a<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *, YAML::RegEx>'' calls function ''uninitialized_copy<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *>'' here:'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_uninitialized.h'
+        FileOffset:      12249
+        Replacements:    []
+      - Message:         'Frame #5: function ''uninitialized_copy<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *>'' calls function ''__uninit_copy<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *>'' here:'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_uninitialized.h'
+        FileOffset:      6417
+        Replacements:    []
+      - Message:         'Frame #6: function ''__uninit_copy<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *>'' calls function ''__do_uninit_copy<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *>'' here:'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_uninitialized.h'
+        FileOffset:      4832
+        Replacements:    []
+      - Message:         'Frame #7: function ''__do_uninit_copy<__gnu_cxx::__normal_iterator<const YAML::RegEx *, std::vector<YAML::RegEx>>, YAML::RegEx *>'' calls function ''_Construct<YAML::RegEx, const YAML::RegEx &>'' here:'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_uninitialized.h'
+        FileOffset:      4377
+        Replacements:    []
+      - Message:         '... which was the starting point of the recursive call chain; there may be other cycles'
+        FilePath:        '/usr/lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_uninitialized.h'
+        FileOffset:      4377
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      753
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''a'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      771
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''z'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      779
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''op'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      824
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-deprecated-copy-with-dtor
+    DiagnosticMessage:
+      Message:         'definition of implicit copy constructor for ''RegEx'' is deprecated because it has a user-declared destructor'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      843
+      Replacements:    []
+    Notes:
+      - Message:         'in implicit copy constructor for ''YAML::RegEx'' first required here'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.cpp'
+        FileOffset:      568
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ex'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      915
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Matches'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1148
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1148
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1166
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Matches'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1179
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1179
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Matches'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1225
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1225
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''in'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1252
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Matches<std::basic_string<char>>'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1294
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1294
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Match'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1339
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1339
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Match'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1382
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1382
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''in'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1406
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Match<YAML::Stream>'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1448
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1448
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''Match<std::basic_string<char>>'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1448
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          1448
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''op'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      1524
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      2221
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+          Offset:          2221
+          Length:          8
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+        FileOffset:      1489
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::RegEx'' with 2 bytes to align ''m_params'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regex_yaml.h'
+      FileOffset:      2296
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      492
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''in'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      691
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-type-traits
+    DiagnosticMessage:
+      Message:         'use c++17 style variable templates'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      909
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          921
+          Length:          0
+          ReplacementText: _v
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          942
+          Length:          7
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''source'' of type ''StringCharSource'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      1473
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          1490
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''in'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      1588
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''source'' of type ''StreamCharSource'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      1602
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          1619
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-enum
+    DiagnosticMessage:
+      Message:         '5 enumeration values not explicitly handled in switch: ''REGEX_EMPTY'', ''REGEX_OR'', ''REGEX_AND''...'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      1886
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          FileOffset:      1886
+          Length:          4
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''Match<YAML::StreamCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      2043
+      Replacements:    []
+    Notes:
+      - Message:         'example recursive call chain, starting from function ''MatchUnchecked<YAML::StreamCharSource>'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      2189
+        Replacements:    []
+      - Message:         'Frame #1: function ''MatchUnchecked<YAML::StreamCharSource>'' calls function ''MatchOpOr<YAML::StreamCharSource>'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      2455
+        Replacements:    []
+      - Message:         'Frame #2: function ''MatchOpOr<YAML::StreamCharSource>'' calls function ''MatchUnchecked<YAML::StreamCharSource>'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      3769
+        Replacements:    []
+      - Message:         '... which was the starting point of the recursive call chain; there may be other cycles'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      3769
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''Match<YAML::StringCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      2043
+      Replacements:    []
+    Notes:
+      - Message:         'example recursive call chain, starting from function ''MatchUnchecked<YAML::StringCharSource>'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      2189
+        Replacements:    []
+      - Message:         'Frame #1: function ''MatchUnchecked<YAML::StringCharSource>'' calls function ''MatchOpOr<YAML::StringCharSource>'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      2455
+        Replacements:    []
+      - Message:         'Frame #2: function ''MatchOpOr<YAML::StringCharSource>'' calls function ''MatchUnchecked<YAML::StringCharSource>'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      3769
+        Replacements:    []
+      - Message:         '... which was the starting point of the recursive call chain; there may be other cycles'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+        FileOffset:      3769
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchUnchecked<YAML::StreamCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      2189
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchUnchecked<YAML::StringCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      2189
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      2236
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3410
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3410
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3425
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3587
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3587
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3602
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpOr<YAML::StreamCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3677
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpOr<YAML::StringCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3677
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''n'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3761
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3765
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''n'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3765
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      3814
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3814
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          3830
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpAnd<YAML::StreamCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4099
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpAnd<YAML::StringCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4099
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''n'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4216
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4220
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''n'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4220
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4276
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4276
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4293
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4309
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4309
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4326
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpNot<YAML::StreamCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4410
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpNot<YAML::StringCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4410
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4474
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4474
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4489
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4536
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4536
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4551
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpSeq<YAML::StreamCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4627
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''MatchOpSeq<YAML::StringCharSource>'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4627
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''n'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4730
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          4734
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''n'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      4734
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+      FileOffset:      5008
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          5008
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/regeximpl.h'
+          Offset:          5025
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const Mark'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      982
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          982
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          FileOffset:      982
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''CharacterSet'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1218
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::Stream'' with 7 bytes to align ''m_readahead'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1459
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1634
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1670
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-reserved-identifier
+    DiagnosticMessage:
+      Message:         'declaration uses identifier ''_ReadAheadTo'', which is a reserved identifier'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1687
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          1687
+          Length:          12
+          ReplacementText: ReadAheadTo
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          2056
+          Length:          12
+          ReplacementText: ReadAheadTo
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-reserved-identifier
+    DiagnosticMessage:
+      Message:         'identifier ''_ReadAheadTo'' is reserved because it starts with ''_'' followed by a capital letter'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1687
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1707
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1913
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1989
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      2029
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          2029
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          2046
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      906
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      1060
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_offset'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      1095
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          529
+          Length:          11
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1103
+          Length:          0
+          ReplacementText: '{0}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const StreamCharSource'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      1228
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1023
+          Length:          6
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1235
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          FileOffset:      1235
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      1290
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      1384
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1384
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1439
+          Length:          0
+          ReplacementText: '} '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+      FileOffset:      1443
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1443
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/streamcharsource.h'
+          Offset:          1468
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      614
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      632
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          FileOffset:      632
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const StringCharSource'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      721
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          721
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          FileOffset:      721
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      758
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      856
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          856
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          889
+          Length:          0
+          ReplacementText: '} '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''std::size_t'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      882
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          FileOffset:      882
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          FileOffset:      879
+          Length:          2
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      893
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          893
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          920
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_offset'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+      FileOffset:      1186
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          514
+          Length:          12
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stringsource.h'
+          Offset:          1194
+          Length:          0
+          ReplacementText: '{0}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

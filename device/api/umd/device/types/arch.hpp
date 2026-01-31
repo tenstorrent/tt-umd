@@ -17,9 +17,9 @@ namespace tt {
 
 /**
  * Enums for different architectures.
+ * Note: GRAYSKULL (value 1) was removed as the architecture is deprecated.
  */
 enum class ARCH {
-    GRAYSKULL = 1,
     WORMHOLE_B0 = 2,
     BLACKHOLE = 3,
     QUASAR = 4,

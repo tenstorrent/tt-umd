@@ -1,0 +1,314 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+Diagnostics:
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding size of ''YAML::ostream_wrapper'' with 7 bytes to alignment boundary'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      461
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''std::ostream *'' (aka ''basic_ostream<char> *'') -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      970
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+          Offset:          979
+          Length:          0
+          ReplacementText: ' != nullptr'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-else-after-return
+    DiagnosticMessage:
+      Message:         'do not use ''else'' after ''return'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      1011
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+          Offset:          1011
+          Length:          5
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+          Offset:          1016
+          Length:          64
+          ReplacementText: "      m_buffer[m_pos] = '\\0';\n      return &m_buffer[0];\n   "
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+          FileOffset:      1011
+          Length:          4
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-container-data-pointer
+    DiagnosticMessage:
+      Message:         '''data'' should be used for accessing the data pointer instead of taking the address of the 0-th element'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      1061
+      Replacements:    []
+    Notes:
+      - Message:         this fix will not be applied because it overlaps with another fix
+        FilePath:        ''
+        FileOffset:      0
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      1297
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      1304
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+          Offset:          1304
+          Length:          8
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+        FileOffset:      1265
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      1582
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/ostream_wrapper.h'
+      FileOffset:      1875
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_buffer'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      338
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          338
+          Length:          10
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::string" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      538
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          98
+          Length:          0
+          ReplacementText: "#include <string>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''std::ostream *'' (aka ''basic_ostream<char> *'') -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      559
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          568
+          Length:          0
+          ReplacementText: ' != nullptr'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-narrowing-conversions
+    DiagnosticMessage:
+      Message:         'narrowing conversion from ''size_type'' (aka ''unsigned long'') to signed type ''streamsize'' (aka ''long'') is implementation-defined'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      606
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''size_type'' (aka ''unsigned long'') to ''streamsize'' (aka ''long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      610
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      606
+          Length:          10
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      587
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  boost-use-ranges
+    DiagnosticMessage:
+      Message:         use a boost version of this algorithm
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      706
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          60
+          Length:          0
+          ReplacementText: "#include <boost/range/algorithm/copy.hpp>\n"
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          706
+          Length:          9
+          ReplacementText: 'boost::range::copy'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          716
+          Length:          11
+          ReplacementText: str
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          728
+          Length:          10
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-narrowing-conversions
+    DiagnosticMessage:
+      Message:         'narrowing conversion from ''std::size_t'' (aka ''unsigned long'') to signed type ''difference_type'' (aka ''long'') is implementation-defined'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      759
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''std::size_t'' (aka ''unsigned long'') to ''difference_type'' (aka ''long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      759
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      759
+          Length:          5
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      757
+          Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''ch'' of type ''char'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      779
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          784
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      784
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''std::ostream *'' (aka ''basic_ostream<char> *'') -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      894
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          Offset:          903
+          Length:          0
+          ReplacementText: ' != nullptr'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-narrowing-conversions
+    DiagnosticMessage:
+      Message:         'narrowing conversion from ''std::size_t'' (aka ''unsigned long'') to signed type ''streamsize'' (aka ''long'') is implementation-defined'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      933
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''std::size_t'' (aka ''unsigned long'') to ''streamsize'' (aka ''long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      933
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      933
+          Length:          4
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      922
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      1036
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      1036
+          Length:          3
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-narrowing-conversions
+    DiagnosticMessage:
+      Message:         'narrowing conversion from ''std::size_t'' (aka ''unsigned long'') to signed type ''difference_type'' (aka ''long'') is implementation-defined'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      1067
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''std::size_t'' (aka ''unsigned long'') to ''difference_type'' (aka ''long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      1067
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      1067
+          Length:          5
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      1065
+          Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      1138
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+          FileOffset:      1138
+          Length:          3
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/ostream_wrapper.cpp'
+      FileOffset:      1192
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

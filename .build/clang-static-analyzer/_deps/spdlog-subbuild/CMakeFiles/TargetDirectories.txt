@@ -1,0 +1,3 @@
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/CMakeFiles/spdlog-populate.dir
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/CMakeFiles/edit_cache.dir
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/CMakeFiles/rebuild_cache.dir

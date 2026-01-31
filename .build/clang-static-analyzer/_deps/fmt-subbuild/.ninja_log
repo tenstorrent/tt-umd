@@ -1,0 +1,21 @@
+# ninja log v5
+0	14	1769639174603197804	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-mkdir	9f58edadfb22d509
+0	14	1769639174603197804	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-mkdir	9f58edadfb22d509
+14	773	1769639175363189332	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-download	90da3d99b4f372ca
+14	773	1769639175363189332	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-download	90da3d99b4f372ca
+773	797	0	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-update	3df80b20ef7d6623
+773	797	0	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-update	3df80b20ef7d6623
+797	811	1769639175403188886	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-patch	56fb4494357cd88f
+797	811	1769639175403188886	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-patch	56fb4494357cd88f
+811	822	1769639175411188797	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-configure	8879e84f8273d338
+811	822	1769639175411188797	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-configure	8879e84f8273d338
+822	833	1769639175423188664	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-build	b8a02db5113ead77
+822	833	1769639175423188664	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-build	b8a02db5113ead77
+833	846	1769639175435188530	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-install	641ce3247ceefba7
+833	846	1769639175435188530	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-install	641ce3247ceefba7
+846	857	1769639175447188396	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-test	49f0a72dc8198999
+846	857	1769639175447188396	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-test	49f0a72dc8198999
+857	874	1769639175463188218	CMakeFiles/fmt-populate-complete	7d95489c6d0eca98
+857	874	1769639175463188218	fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-done	7d95489c6d0eca98
+857	874	1769639175463188218	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/CMakeFiles/fmt-populate-complete	7d95489c6d0eca98
+857	874	1769639175463188218	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/fmt-populate-done	7d95489c6d0eca98

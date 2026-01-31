@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/CMakeFiles/nanobind-populate-complete.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-build.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-configure.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-download.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-install.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-mkdir.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-patch.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-test.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-subbuild/nanobind-populate-prefix/src/nanobind-populate-stamp/nanobind-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"nanobind-populate"
+		],
+		"name" : "nanobind-populate"
+	}
+}

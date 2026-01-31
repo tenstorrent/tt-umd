@@ -1,0 +1,28 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googlemock/src/gmock_main.cc'
+Diagnostics:
+  - DiagnosticName:  clang-diagnostic-undef
+    DiagnosticMessage:
+      Message:         '''GTEST_OS_ESP8266'' is not defined, evaluates to 0'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googlemock/src/gmock_main.cc'
+      FileOffset:      1633
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-undef
+    DiagnosticMessage:
+      Message:         '''GTEST_OS_ESP32'' is not defined, evaluates to 0'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googlemock/src/gmock_main.cc'
+      FileOffset:      1653
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-undef
+    DiagnosticMessage:
+      Message:         '''GTEST_OS_WINDOWS_MOBILE'' is not defined, evaluates to 0'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googlemock/src/gmock_main.cc'
+      FileOffset:      2491
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

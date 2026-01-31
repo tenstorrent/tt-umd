@@ -1,0 +1,1894 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+Diagnostics:
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/emitterstyle.h'
+      FileOffset:      355
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/emitterstyle.h'
+          Offset:          355
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/emitterstyle.h'
+          Offset:          372
+          Length:          22
+          ReplacementText: 'namespace YAML::EmitterStyle'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/emitterstyle.h'
+          Offset:          437
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''value'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/emitterstyle.h'
+      FileOffset:      402
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const Mark'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      454
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          Offset:          461
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          FileOffset:      461
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is_null'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      516
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          Offset:          516
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''pos'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      596
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''line'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      607
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''column'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      613
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '3 adjacent parameters of ''Mark'' of similar type (''int'') are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      639
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          FileOffset:      639
+          Length:          32
+    Notes:
+      - Message:         'the first parameter in the range is ''pos_'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+        FileOffset:      643
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+            FileOffset:      643
+            Length:          4
+      - Message:         'the last parameter in the range is ''column_'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+        FileOffset:      664
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+            FileOffset:      664
+            Length:          7
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      551
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          551
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          568
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2460
+          Length:          22
+          ReplacementText: '} // namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2483
+          Length:          20
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      820
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''m_ref'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      950
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1141
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1141
+          Length:          7
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+        FileOffset:      964
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_iterator'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1169
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1169
+          Length:          12
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_pMemory'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1183
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1183
+          Length:          12
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-pass-by-value
+    DiagnosticMessage:
+      Message:         'pass by value and use std::move'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1238
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          549
+          Length:          0
+          ReplacementText: "#include <utility>\n"
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1303
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1310
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'parameter ''pMemory'' is passed by value and only copied once; consider moving it to avoid unnecessary copies'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1303
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          549
+          Length:          0
+          ReplacementText: "#include <utility>\n"
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1303
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1310
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-type-traits
+    DiagnosticMessage:
+      Message:         'use c++14 style type templates'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1407
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1398
+          Length:          9
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1421
+          Length:          0
+          ReplacementText: _t
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1506
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-type-traits
+    DiagnosticMessage:
+      Message:         'use c++17 style variable templates'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1422
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1441
+          Length:          0
+          ReplacementText: _v
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1449
+          Length:          7
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-named-parameter
+    DiagnosticMessage:
+      Message:         all parameters should be named in a function
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      1513
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          1513
+          Length:          0
+          ReplacementText: ' /*unused*/'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''v'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      2116
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''YAML::detail::node *'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      2141
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2148
+          Length:          0
+          ReplacementText: ' != nullptr'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      2149
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2149
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2195
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''YAML::detail::node *'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      2204
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2204
+          Length:          0
+          ReplacementText: '('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2211
+          Length:          0
+          ReplacementText: ' != nullptr)'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''YAML::detail::node *'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      2215
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2215
+          Length:          0
+          ReplacementText: '('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2223
+          Length:          0
+          ReplacementText: ' != nullptr)'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+      FileOffset:      2224
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2224
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/iterator.h'
+          Offset:          2304
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      564
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          564
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          581
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          5033
+          Length:          22
+          ReplacementText: '} // namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          5056
+          Length:          20
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''l'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      672
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''r'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      687
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_dependencies'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      778
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          778
+          Length:          16
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      883
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          883
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''ref'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      949
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          949
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is_defined'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1005
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1005
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''mark'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1064
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1064
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''type'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1118
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1118
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''scalar'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1177
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1177
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''tag'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1242
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1242
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''style'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1301
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1301
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''mark_defined'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1517
+      Replacements:    []
+    Notes:
+      - Message:         'example recursive call chain, starting from function ''mark_defined'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+        FileOffset:      1517
+        Replacements:    []
+      - Message:         'Frame #1: function ''mark_defined'' calls function ''mark_defined'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+        FileOffset:      1649
+        Replacements:    []
+      - Message:         '... which was the starting point of the recursive call chain; there may be other cycles'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+        FileOffset:      1649
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1555
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1555
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1569
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1642
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1642
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1676
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1766
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1766
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1797
+          Length:          0
+          ReplacementText: '} '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1801
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1801
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1836
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      1901
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1901
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          1923
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      2013
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2013
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2035
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      2215
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2215
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2237
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''size'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      2666
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2666
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''begin'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      2721
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2721
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''end'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      2874
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          2874
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'parameter ''pMemory'' is passed by value and only copied once; consider moving it to avoid unnecessary copies'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      3122
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          563
+          Length:          0
+          ReplacementText: "#include <utility>\n"
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          3122
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          3129
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'parameter ''pMemory'' is passed by value and only copied once; consider moving it to avoid unnecessary copies'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      3307
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          3307
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          3314
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'parameter ''pMemory'' is passed by value and only copied once; consider moving it to avoid unnecessary copies'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      4347
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4347
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4354
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'parameter ''pMemory'' is passed by value and only copied once; consider moving it to avoid unnecessary copies'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      4451
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4451
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4458
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'parameter ''pMemory'' is passed by value and only copied once; consider moving it to avoid unnecessary copies'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      4635
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4635
+          Length:          0
+          ReplacementText: 'std::move('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4642
+          Length:          0
+          ReplacementText: ')'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_index'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+      FileOffset:      4969
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          796
+          Length:          10
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node.h'
+          Offset:          4976
+          Length:          0
+          ReplacementText: '{}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      636
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          636
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          653
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          684
+          Length:          22
+          ReplacementText: '} // namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          707
+          Length:          20
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      729
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          729
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          746
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          3408
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      2471
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          2471
+          Length:          7
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+        FileOffset:      797
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      2927
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+          Offset:          2927
+          Length:          8
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+        FileOffset:      2525
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::detail::node_data'' with 3 bytes to align ''m_mark'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      2963
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::detail::node_data'' with 4 bytes to align ''m_tag'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      3011
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::detail::node_data'' with 4 bytes to align ''m_scalar'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_data.h'
+      FileOffset:      3076
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      550
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          550
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          567
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          4805
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''value'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      616
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''pNode'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      1057
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      1574
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''m_ref'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      1767
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''node_iterator_base<V>'' of similar type (''MapIter'') are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      2411
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          FileOffset:      2411
+          Length:          29
+    Notes:
+      - Message:         'the first parameter in the range is ''mapIt'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+        FileOffset:      2419
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+            FileOffset:      2419
+            Length:          5
+      - Message:         'the last parameter in the range is ''mapEnd'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+        FileOffset:      2434
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+            FileOffset:      2434
+            Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-type-traits
+    DiagnosticMessage:
+      Message:         'use c++14 style type templates'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      2710
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          2701
+          Length:          9
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          2724
+          Length:          0
+          ReplacementText: _t
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          2814
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-type-traits
+    DiagnosticMessage:
+      Message:         'use c++17 style variable templates'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      2725
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          2744
+          Length:          0
+          ReplacementText: _v
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          2752
+          Length:          7
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-named-parameter
+    DiagnosticMessage:
+      Message:         all parameters should be named in a function
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      2821
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          2821
+          Length:          0
+          ReplacementText: ' /*unused*/'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      3128
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          3128
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          3148
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      3154
+      Replacements:    []
+    Notes:
+      - Message:         'in instantiation of function template specialization ''YAML::detail::node_iterator_base<const YAML::detail::node>::operator==<const YAML::detail::node>'' requested here'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+        FileOffset:      3505
+        Replacements:    []
+      - Message:         'in instantiation of function template specialization ''YAML::detail::node_iterator_base<const YAML::detail::node>::operator!=<const YAML::detail::node>'' requested here'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      977
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      3563
+      Replacements:    []
+    Notes:
+      - Message:         'in instantiation of member function ''YAML::detail::node_iterator_base<const YAML::detail::node>::operator++'' requested here'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      977
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4019
+      Replacements:    []
+    Notes:
+      - Message:         'in instantiation of member function ''YAML::detail::node_iterator_base<const YAML::detail::node>::operator*'' requested here'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      977
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''it'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4401
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4452
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          4452
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          4464
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is_defined'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4487
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+          Offset:          4487
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''it'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4511
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::detail::node_iterator_base<YAML::detail::node>'' with 4 bytes to align ''m_seqIt'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4653
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::detail::node_iterator_base<const YAML::detail::node>'' with 4 bytes to align ''m_seqIt'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_iterator.h'
+      FileOffset:      4653
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      507
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          507
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          524
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          3223
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is_defined'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      700
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          700
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''mark'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      760
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          760
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''type'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      815
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          815
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''scalar'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      874
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          874
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''tag'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      940
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          940
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''style'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      1000
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          1000
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''size'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      1594
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          1594
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''begin'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      1650
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          1650
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''end'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      1806
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          1806
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'the parameter ''pMemory'' is copied for each invocation but only used as a const reference; consider making it a const reference'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      2016
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          1995
+          Length:          0
+          ReplacementText: 'const '
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2015
+          Length:          0
+          ReplacementText: '&'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'the parameter ''pMemory'' is copied for each invocation but only used as a const reference; consider making it a const reference'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      2129
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2108
+          Length:          0
+          ReplacementText: 'const '
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2128
+          Length:          0
+          ReplacementText: '&'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''get<YAML::detail::node>'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      2229
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2229
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'the parameter ''pMemory'' is copied for each invocation but only used as a const reference; consider making it a const reference'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      2675
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2654
+          Length:          0
+          ReplacementText: 'const '
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2674
+          Length:          0
+          ReplacementText: '&'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'the parameter ''pMemory'' is copied for each invocation but only used as a const reference; consider making it a const reference'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      2810
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2789
+          Length:          0
+          ReplacementText: 'const '
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2809
+          Length:          0
+          ReplacementText: '&'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-unnecessary-value-param
+    DiagnosticMessage:
+      Message:         'the parameter ''pMemory'' is copied for each invocation but only used as a const reference; consider making it a const reference'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+      FileOffset:      2910
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2889
+          Length:          0
+          ReplacementText: 'const '
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/detail/node_ref.h'
+          Offset:          2909
+          Length:          0
+          ReplacementText: '&'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-type-traits
+    DiagnosticMessage:
+      Message:         'use c++17 style variable templates'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+      FileOffset:      638
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+          Offset:          659
+          Length:          0
+          ReplacementText: _v
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+          Offset:          690
+          Length:          7
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+      FileOffset:      736
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+          Offset:          736
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+          Offset:          753
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/iterator.h'
+          Offset:          1142
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+      FileOffset:      588
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+          Offset:          588
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+          Offset:          605
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+          Offset:          676
+          Length:          22
+          ReplacementText: '} // namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+          Offset:          699
+          Length:          20
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''Zombie'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+      FileOffset:      3060
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+      FileOffset:      3449
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+          Offset:          3449
+          Length:          8
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+        FileOffset:      3044
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::Node'' with 7 bytes to align ''m_invalidKey'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/node.h'
+      FileOffset:      3557
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/ptr.h'
+      FileOffset:      368
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/ptr.h'
+          Offset:          368
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/ptr.h'
+          Offset:          385
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/ptr.h'
+          Offset:          742
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/type.h'
+      FileOffset:      351
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/type.h'
+          Offset:          351
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/type.h'
+          Offset:          368
+          Length:          18
+          ReplacementText: 'namespace YAML::NodeType'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/type.h'
+          Offset:          447
+          Length:          1
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''value'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/node/type.h'
+      FileOffset:      394
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::make_pair" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      365
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          237
+          Length:          0
+          ReplacementText: "#include <utility>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "YAML::anchor_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      412
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          24
+          Length:          0
+          ReplacementText: "#include \"yaml-cpp/anchor.h\"\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''it'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      506
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      585
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          585
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          599
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_refCount'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      720
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          720
+          Length:          13
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''detail::node *'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      741
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          747
+          Length:          0
+          ReplacementText: ' != nullptr'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      748
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          748
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          768
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''Setup'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      789
+      Replacements:    []
+    Notes:
+      - Message:         'example recursive call chain, starting from function ''Setup'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      789
+        Replacements:    []
+      - Message:         'Frame #1: function ''Setup'' calls function ''Setup'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      991
+        Replacements:    []
+      - Message:         '... which was the starting point of the recursive call chain; there may be other cycles'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      991
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      898
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          898
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          910
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      984
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          984
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          1007
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''am'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1219
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''detail::node *'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1265
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          1271
+          Length:          0
+          ReplacementText: ' != nullptr'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1272
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          1272
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          1304
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-no-recursion
+    DiagnosticMessage:
+      Message:         'function ''Emit'' is within a recursive call chain'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1352
+      Replacements:    []
+    Notes:
+      - Message:         'example recursive call chain, starting from function ''Emit'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      1352
+        Replacements:    []
+      - Message:         'Frame #1: function ''Emit'' calls function ''Emit'' here:'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      2091
+        Replacements:    []
+      - Message:         '... which was the starting point of the recursive call chain; there may be other cycles'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+        FileOffset:      2091
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''am'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1442
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "YAML::NullAnchor" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1474
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''anchor_t'' (aka ''unsigned long'') -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1555
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          1561
+          Length:          0
+          ReplacementText: ' != 0u'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      1700
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      2082
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          2082
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          2119
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''it'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+      FileOffset:      2499
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-concat-nested-namespaces
+    DiagnosticMessage:
+      Message:         nested namespaces can be concatenated
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      456
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          456
+          Length:          16
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          473
+          Length:          16
+          ReplacementText: 'namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          504
+          Length:          22
+          ReplacementText: '} // namespace YAML::detail'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          527
+          Length:          20
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_anchorByIdentity'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      951
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          951
+          Length:          20
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''LookupAnchor'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1050
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          1050
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-reserved-identifier
+    DiagnosticMessage:
+      Message:         'declaration uses identifier ''_CreateNewAnchor'', which is a reserved identifier'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1131
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.cpp'
+          Offset:          387
+          Length:          16
+          ReplacementText: CreateNewAnchor
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          1131
+          Length:          16
+          ReplacementText: CreateNewAnchor
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-reserved-identifier
+    DiagnosticMessage:
+      Message:         'identifier ''_CreateNewAnchor'' is reserved because it starts with ''_'' followed by a capital letter'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1131
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1180
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          1180
+          Length:          8
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+        FileOffset:      1109
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_curAnchor'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1318
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          973
+          Length:          15
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          1329
+          Length:          0
+          ReplacementText: '{0}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''am'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1464
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''IsAliased'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1477
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          1477
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-access-specifiers
+    DiagnosticMessage:
+      Message:         redundant access specifier has the same accessibility as the previous access specifier
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+      FileOffset:      1527
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+          Offset:          1527
+          Length:          8
+          ReplacementText: ''
+    Notes:
+      - Message:         previously declared here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/nodeevents.h'
+        FileOffset:      887
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

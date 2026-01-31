@@ -1,0 +1,21 @@
+# ninja log v5
+1	16	1769639177035170695	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-mkdir	42d060c82ed1eb5c
+1	16	1769639177035170695	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-mkdir	42d060c82ed1eb5c
+16	689	1769639177707163205	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-download	78f1ebbc3d3345ae
+16	689	1769639177707163205	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-download	78f1ebbc3d3345ae
+689	708	0	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-update	928c8355f03e9917
+689	708	0	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-update	928c8355f03e9917
+708	718	1769639177739162848	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-patch	415597c9c1bc4233
+708	718	1769639177739162848	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-patch	415597c9c1bc4233
+718	728	1769639177747162759	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-configure	694f507850f3c5fd
+718	728	1769639177747162759	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-configure	694f507850f3c5fd
+728	738	1769639177755162669	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-build	16f7a0276b964ee2
+728	738	1769639177755162669	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-build	16f7a0276b964ee2
+738	748	1769639177767162536	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-install	aca43d98c22d7697
+738	748	1769639177767162536	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-install	aca43d98c22d7697
+748	757	1769639177775162446	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-test	4c313026c75e83b8
+748	757	1769639177775162446	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-test	4c313026c75e83b8
+757	772	1769639177791162269	CMakeFiles/spdlog-populate-complete	2bb947dfc3fb1138
+757	772	1769639177791162269	spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-done	2bb947dfc3fb1138
+757	772	1769639177791162269	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/CMakeFiles/spdlog-populate-complete	2bb947dfc3fb1138
+757	772	1769639177791162269	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-done	2bb947dfc3fb1138

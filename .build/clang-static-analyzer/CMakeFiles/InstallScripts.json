@@ -1,0 +1,33 @@
+{
+	"InstallScripts" : 
+	[
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/third_party/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/googletest-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/googletest-build/googlemock/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/googletest-build/googletest/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/yaml-cpp-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/spdlog-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-build/include/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobind-build/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/device/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/src/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tools/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/microbenchmark/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/api/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/baremetal/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/blackhole/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/misc/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/pcie/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/unified/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/wormhole/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/galaxy/cmake_install.cmake",
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/tests/test_utils/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

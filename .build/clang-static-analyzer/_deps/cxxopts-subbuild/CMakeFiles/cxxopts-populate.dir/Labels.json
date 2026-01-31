@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate-complete.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-build.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-configure.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-download.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-install.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-mkdir.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-patch.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-test.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"cxxopts-populate"
+		],
+		"name" : "cxxopts-populate"
+	}
+}

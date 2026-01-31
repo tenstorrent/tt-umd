@@ -1,0 +1,28 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/src/gtest_main.cc'
+Diagnostics:
+  - DiagnosticName:  clang-diagnostic-undef
+    DiagnosticMessage:
+      Message:         '''GTEST_OS_ESP8266'' is not defined, evaluates to 0'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/src/gtest_main.cc'
+      FileOffset:      1606
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-undef
+    DiagnosticMessage:
+      Message:         '''GTEST_OS_ESP32'' is not defined, evaluates to 0'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/src/gtest_main.cc'
+      FileOffset:      1626
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-undef
+    DiagnosticMessage:
+      Message:         '''GTEST_OS_QURT'' is not defined, evaluates to 0'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/src/gtest_main.cc'
+      FileOffset:      1880
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

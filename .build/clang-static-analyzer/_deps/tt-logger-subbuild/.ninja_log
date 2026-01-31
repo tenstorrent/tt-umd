@@ -1,0 +1,21 @@
+# ninja log v5
+0	18	1769639178159158166	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-mkdir	2862ccee8ad1d64b
+0	18	1769639178159158166	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-mkdir	2862ccee8ad1d64b
+18	489	1769639178631152905	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-download	5cd782172b8a6648
+18	489	1769639178631152905	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-download	5cd782172b8a6648
+489	509	0	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-update	fcd23d9f1eaa2918
+489	509	0	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-update	fcd23d9f1eaa2918
+509	522	1769639178667152504	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-patch	d6dd7c1546a13ac
+509	522	1769639178667152504	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-patch	d6dd7c1546a13ac
+522	534	1769639178675152415	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-configure	47ab56b541ca2082
+522	534	1769639178675152415	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-configure	47ab56b541ca2082
+534	544	1769639178687152281	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-build	efe100bc211b42a2
+534	544	1769639178687152281	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-build	efe100bc211b42a2
+545	555	1769639178699152147	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-install	da22385a9e3b31b8
+545	555	1769639178699152147	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-install	da22385a9e3b31b8
+555	567	1769639178711152013	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-test	ff78b3849fd5ee64
+555	567	1769639178711152013	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-test	ff78b3849fd5ee64
+567	585	1769639178727151835	CMakeFiles/tt-logger-populate-complete	e0aec9ec0ffb157c
+567	585	1769639178727151835	tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-done	e0aec9ec0ffb157c
+567	585	1769639178727151835	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/CMakeFiles/tt-logger-populate-complete	e0aec9ec0ffb157c
+567	585	1769639178727151835	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-done	e0aec9ec0ffb157c

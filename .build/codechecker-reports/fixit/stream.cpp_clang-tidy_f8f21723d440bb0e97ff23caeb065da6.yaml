@@ -1,0 +1,1304 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+Diagnostics:
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const Mark'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      454
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          Offset:          461
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          FileOffset:      461
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''is_null'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      516
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          Offset:          516
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''pos'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      596
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''line'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      607
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''column'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      613
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '3 adjacent parameters of ''Mark'' of similar type (''int'') are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+      FileOffset:      639
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+          FileOffset:      639
+          Length:          32
+    Notes:
+      - Message:         'the first parameter in the range is ''pos_'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+        FileOffset:      643
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+            FileOffset:      643
+            Length:          4
+      - Message:         'the last parameter in the range is ''column_'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+        FileOffset:      664
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/include/yaml-cpp/mark.h'
+            FileOffset:      664
+            Length:          7
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unused-macros
+    DiagnosticMessage:
+      Message:         macro is not used
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      116
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unused-macros
+    DiagnosticMessage:
+      Message:         macro is not used
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      167
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         replace macro with enum
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      207
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          207
+          Length:          8
+          ReplacementText: "enum {\n"
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          239
+          Length:          0
+          ReplacementText: ' ='
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          249
+          Length:          0
+          ReplacementText: "};\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         'macro ''CP_REPLACEMENT_CHARACTER'' defines an integral constant; prefer an enum instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      215
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''UtfIntroState'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      272
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''UtfIntroCharType'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      615
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      741
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-anonymous-namespace
+    DiagnosticMessage:
+      Message:         'variable ''s_introFinalState'' declared ''static'', move to anonymous namespace instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      746
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      1328
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-anonymous-namespace
+    DiagnosticMessage:
+      Message:         'variable ''s_introTransitions'' declared ''static'', move to anonymous namespace instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      1342
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      3440
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-anonymous-namespace
+    DiagnosticMessage:
+      Message:         'variable ''s_introUngetCount'' declared ''static'', move to anonymous namespace instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      3445
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-internal-linkage
+    DiagnosticMessage:
+      Message:         'function ''IntroCharTypeOf'' can be made static or moved into an anonymous namespace to enforce internal linkage'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4086
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          4062
+          Length:          0
+          ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4125
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-switch-missing-default-case
+    DiagnosticMessage:
+      Message:         switching on non-enum value without default case may not cover all cases
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4208
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4208
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xBB is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4264
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xBF is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4300
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xEF is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4336
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xFE is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4372
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xFF is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4408
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xFF is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4464
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-internal-linkage
+    DiagnosticMessage:
+      Message:         'function ''Utf8Adjust'' can be made static or moved into an anonymous namespace to enforce internal linkage'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4535
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          4523
+          Length:          0
+          ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''Utf8Adjust'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4546
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      4546
+          Length:          41
+    Notes:
+      - Message:         'the first parameter in the range is ''ch'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+        FileOffset:      4560
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+            FileOffset:      4560
+            Length:          2
+      - Message:         'the last parameter in the range is ''lead_bits'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+        FileOffset:      4578
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+            FileOffset:      4578
+            Length:          9
+      - Message:         '''unsigned long'' and ''unsigned char'' may be implicitly converted'
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+        FileOffset:      4564
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4560
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-auto
+    DiagnosticMessage:
+      Message:         use auto when initializing with a cast to avoid duplicating the type name
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4644
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          4644
+          Length:          13
+          ReplacementText: auto
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-internal-linkage
+    DiagnosticMessage:
+      Message:         'function ''QueueUnicodeCodepoint'' can be made static or moved into an anonymous namespace to enforce internal linkage'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4912
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          4900
+          Length:          0
+          ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::deque" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4939
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          0
+          Length:          0
+          ReplacementText: "#include <deque>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''q'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4952
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      4969
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x80 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5194
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x800 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5259
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '6 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5302
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x10000 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5364
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '12 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5409
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '6 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5449
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '18 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5538
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '12 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5578
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '6 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5618
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_mark'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5733
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5733
+          Length:          8
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-redundant-member-init
+    DiagnosticMessage:
+      Message:         'initializer for member ''m_readahead'' is redundant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5768
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5768
+          Length:          13
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      5968
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5968
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5980
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6122
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6223
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6223
+          Length:          17
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''ch'' of type ''std::istream::int_type'' (aka ''int'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6256
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          6279
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6279
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6301
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6301
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''charType'' of type ''UtfIntroCharType'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6331
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          6348
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''newState'' of type ''UtfIntroState'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6384
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          6398
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6409
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6409
+          Length:          25
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-signed-char-misuse
+    DiagnosticMessage:
+      Message:         '''signed char'' to ''int'' conversion; consider casting to ''unsigned char'' first.'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6464
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6464
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6464
+          Length:          24
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6617
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6617
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6637
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          6637
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          6708
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6688
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6688
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-enum
+    DiagnosticMessage:
+      Message:         '14 enumeration values not explicitly handled in switch: ''uis_start'', ''uis_utfbe_b1'', ''uis_utf32be_b2''...'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      6760
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      6760
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''ch'' of type ''char'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      7539
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          7544
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      7544
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''char'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      7775
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          7774
+          Length:          1
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          7793
+          Length:          0
+          ReplacementText: ' == 0'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::string" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8285
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          19
+          Length:          0
+          ReplacementText: "#include <string>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8435
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          8435
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          8455
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8590
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          8590
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          8601
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "size_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8766
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          0
+          Length:          0
+          ReplacementText: "#include <cstddef>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8773
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-switch-default
+    DiagnosticMessage:
+      Message:         '''switch'' missing ''default'' label'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8844
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-branch-clone
+    DiagnosticMessage:
+      Message:         switch has 2 consecutive identical branches
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      8927
+      Replacements:    []
+    Notes:
+      - Message:         last of these clones ends here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+        FileOffset:      9039
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-branch-clone
+    DiagnosticMessage:
+      Message:         switch has 2 consecutive identical branches
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9047
+      Replacements:    []
+    Notes:
+      - Message:         last of these clones ends here
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+        FileOffset:      9159
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9220
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          9220
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          9262
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''b'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9352
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9504
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9514
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''nBigEnd'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9540
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          9544
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9719
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      9719
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '8 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9738
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9777
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      9777
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xDC00 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9811
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xE000 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9826
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xD800 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9982
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xDC00 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      9997
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''chLow'' of type ''unsigned long'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10332
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          10346
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10382
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      10382
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '8 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10401
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10461
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      10461
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xDC00 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10500
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xE000 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10519
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xD800 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10762
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0xE000 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      10781
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x3FF is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11102
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '10 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11122
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x3FF is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11189
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x10000 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11244
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-internal-linkage
+    DiagnosticMessage:
+      Message:         'function ''ReadBuffer'' can be made static or moved into an anonymous namespace to enforce internal linkage'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11335
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          11322
+          Length:          0
+          ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::streambuf" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11524
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          19
+          Length:          0
+          ReplacementText: "#include <streambuf>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::size_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11605
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''size_t'' (aka ''unsigned long'') -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11719
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          11718
+          Length:          1
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          11741
+          Length:          0
+          ReplacementText: ' == 0u'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::ios_base" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11773
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          0
+          Length:          0
+          ReplacementText: "#include <ios>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11874
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      11874
+          Length:          13
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      11959
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ch'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      12026
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-avoid-c-arrays
+    DiagnosticMessage:
+      Message:         'do not declare C-style arrays, use ''std::array'' instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      12036
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '8 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      12326
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      12339
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      12339
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+      FileOffset:      12345
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          FileOffset:      12345
+          Length:          8
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-const-return-type
+    DiagnosticMessage:
+      Message:         'return type ''const Mark'' is ''const''-qualified at the top level, which may reduce code readability without improving const correctness'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      982
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          982
+          Length:          6
+          ReplacementText: ''
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          FileOffset:      982
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  performance-enum-size
+    DiagnosticMessage:
+      Message:         'enum ''CharacterSet'' uses a larger base type (''unsigned int'', size: 4 bytes) than necessary for its value set, consider using ''std::uint8_t'' (1 byte) as the base type to reduce its size'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1218
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_charSet'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1334
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5749
+          Length:          11
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          1343
+          Length:          0
+          ReplacementText: '{}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding class ''YAML::Stream'' with 7 bytes to align ''m_readahead'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1459
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_nPrefetchedAvailable'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1527
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5849
+          Length:          25
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          1549
+          Length:          0
+          ReplacementText: '{0}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-default-member-init
+    DiagnosticMessage:
+      Message:         'use default member initializer for ''m_nPrefetchedUsed'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1568
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          5882
+          Length:          21
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          1585
+          Length:          0
+          ReplacementText: '{0}'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1634
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1670
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-reserved-identifier
+    DiagnosticMessage:
+      Message:         'declaration uses identifier ''_ReadAheadTo'', which is a reserved identifier'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1687
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.cpp'
+          Offset:          8753
+          Length:          12
+          ReplacementText: ReadAheadTo
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          1687
+          Length:          12
+          ReplacementText: ReadAheadTo
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          2056
+          Length:          12
+          ReplacementText: ReadAheadTo
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-reserved-identifier
+    DiagnosticMessage:
+      Message:         'identifier ''_ReadAheadTo'' is reserved because it starts with ''_'' followed by a capital letter'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1687
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1707
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1913
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''i'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      1989
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-braces-around-statements
+    DiagnosticMessage:
+      Message:         statement should be inside braces
+      FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+      FileOffset:      2029
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          2029
+          Length:          0
+          ReplacementText: ' {'
+        - FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858/src/stream.h'
+          Offset:          2046
+          Length:          0
+          ReplacementText: "\n}"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

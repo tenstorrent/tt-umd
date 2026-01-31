@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/CMakeFiles/tt-logger-populate"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/CMakeFiles/tt-logger-populate.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/CMakeFiles/tt-logger-populate-complete.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-build.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-configure.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-download.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-install.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-mkdir.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-patch.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-test.rule"
+		},
+		{
+			"file" : "/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/tt-logger-subbuild/tt-logger-populate-prefix/src/tt-logger-populate-stamp/tt-logger-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"tt-logger-populate"
+		],
+		"name" : "tt-logger-populate"
+	}
+}

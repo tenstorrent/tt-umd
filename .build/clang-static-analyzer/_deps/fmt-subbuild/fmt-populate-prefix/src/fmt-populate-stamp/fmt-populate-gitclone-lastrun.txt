@@ -1,0 +1,15 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=git
+command=/usr/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/fmt-subbuild/fmt-populate-prefix/tmp/fmt-populate-gitclone.cmake
+source_dir=/workspace/tt_metal/third_party/umd/.cpmcache/fmt/69912fb6b71fcb1f7e5deca191a2bb4748c4e7b6
+work_dir=/workspace/tt_metal/third_party/umd/.cpmcache/fmt
+repository=https://github.com/fmtlib/fmt.git
+remote=origin
+init_submodules=TRUE
+recurse_submodules=--recursive
+submodules=
+CMP0097=NEW
+      

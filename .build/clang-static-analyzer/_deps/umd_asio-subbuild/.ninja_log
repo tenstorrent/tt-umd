@@ -1,0 +1,21 @@
+# ninja log v5
+1	14	1769639182615108497	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-mkdir	a372960d284e7e6e
+1	14	1769639182615108497	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-mkdir	a372960d284e7e6e
+15	1752	1769639184351089146	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-download	89f46fd71d84928d
+15	1752	1769639184351089146	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-download	89f46fd71d84928d
+1752	1773	0	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-update	ce834c03d1ac3973
+1752	1773	0	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-update	ce834c03d1ac3973
+1774	1787	1769639184387088745	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-patch	8d34076301aeb7cc
+1774	1787	1769639184387088745	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-patch	8d34076301aeb7cc
+1787	1801	1769639184399088611	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-configure	1d352e930e0dd053
+1787	1801	1769639184399088611	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-configure	1d352e930e0dd053
+1801	1814	1769639184415088433	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-build	ff83b02f1c058db2
+1801	1814	1769639184415088433	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-build	ff83b02f1c058db2
+1814	1827	1769639184427088299	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-install	1e2dbc926db31314
+1814	1827	1769639184427088299	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-install	1e2dbc926db31314
+1827	1840	1769639184439088165	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-test	cd27a4f3efaf3a13
+1827	1840	1769639184439088165	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-test	cd27a4f3efaf3a13
+1841	1859	1769639184459087942	CMakeFiles/umd_asio-populate-complete	48cd97e454b8fedd
+1841	1859	1769639184459087942	umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-done	48cd97e454b8fedd
+1841	1859	1769639184459087942	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/CMakeFiles/umd_asio-populate-complete	48cd97e454b8fedd
+1841	1859	1769639184459087942	/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/src/umd_asio-populate-stamp/umd_asio-populate-done	48cd97e454b8fedd

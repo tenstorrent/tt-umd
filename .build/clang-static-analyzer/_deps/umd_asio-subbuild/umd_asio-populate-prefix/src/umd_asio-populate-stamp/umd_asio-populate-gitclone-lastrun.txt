@@ -1,0 +1,15 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=git
+command=/usr/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/umd_asio-subbuild/umd_asio-populate-prefix/tmp/umd_asio-populate-gitclone.cmake
+source_dir=/workspace/tt_metal/third_party/umd/.cpmcache/umd_asio/83a029aeca9a00050695989a093d0cc1fcd67ba8
+work_dir=/workspace/tt_metal/third_party/umd/.cpmcache/umd_asio
+repository=https://github.com/chriskohlhoff/asio.git
+remote=origin
+init_submodules=TRUE
+recurse_submodules=--recursive
+submodules=
+CMP0097=NEW
+      

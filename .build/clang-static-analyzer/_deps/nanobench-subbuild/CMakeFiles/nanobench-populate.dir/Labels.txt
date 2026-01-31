@@ -1,0 +1,14 @@
+# Target labels
+ nanobench-populate
+# Source files and their labels
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/CMakeFiles/nanobench-populate
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/CMakeFiles/nanobench-populate.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/CMakeFiles/nanobench-populate-complete.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-build.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-configure.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-download.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-install.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-mkdir.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-patch.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-test.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/nanobench-populate-prefix/src/nanobench-populate-stamp/nanobench-populate-update.rule

@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/nanobench-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

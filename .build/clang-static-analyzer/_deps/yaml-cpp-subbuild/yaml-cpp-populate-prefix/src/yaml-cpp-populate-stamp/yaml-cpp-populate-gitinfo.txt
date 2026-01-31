@@ -1,0 +1,15 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=git
+command=/usr/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/tmp/yaml-cpp-populate-gitclone.cmake
+source_dir=/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp/652ccf99aa11ad40631a0e2faf489e7e553b7858
+work_dir=/workspace/tt_metal/third_party/umd/.cpmcache/yaml-cpp
+repository=https://github.com/jbeder/yaml-cpp.git
+remote=origin
+init_submodules=TRUE
+recurse_submodules=--recursive
+submodules=
+CMP0097=NEW
+      

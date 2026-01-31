@@ -1,0 +1,3 @@
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/googletest-subbuild/CMakeFiles/googletest-populate.dir
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/googletest-subbuild/CMakeFiles/edit_cache.dir
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/googletest-subbuild/CMakeFiles/rebuild_cache.dir

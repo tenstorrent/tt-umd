@@ -1,0 +1,1230 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+Diagnostics:
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      4871
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      4882
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      5372
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      5383
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      5902
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      5913
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      6437
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      6448
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      12968
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h'
+      FileOffset:      12979
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding size of ''struct tenstorrent_get_device_info_out'' with 2 bytes to alignment boundary'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      2037
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  'clang-diagnostic-c++-compat'
+    DiagnosticMessage:
+      Message:         'struct has size 0 in C, size 1 in C++'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      2655
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-zero-length-array
+    DiagnosticMessage:
+      Message:         zero size arrays are an extension
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      2732
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      2732
+          Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  'clang-diagnostic-c++-compat'
+    DiagnosticMessage:
+      Message:         'empty struct has size 0 in C, size 1 in C++'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      3491
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-gnu-empty-struct
+    DiagnosticMessage:
+      Message:         empty struct is a GNU extension
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      3491
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  'clang-diagnostic-c++-compat'
+    DiagnosticMessage:
+      Message:         'empty struct has size 0 in C, size 1 in C++'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      3532
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-gnu-empty-struct
+    DiagnosticMessage:
+      Message:         empty struct is a GNU extension
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      3532
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  'clang-diagnostic-c++-compat'
+    DiagnosticMessage:
+      Message:         'struct has size 0 in C, non-zero size in C++'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      3574
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  'clang-diagnostic-c++-compat'
+    DiagnosticMessage:
+      Message:         'empty struct has size 0 in C, size 1 in C++'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      5635
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-gnu-empty-struct
+    DiagnosticMessage:
+      Message:         empty struct is a GNU extension
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      5635
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding size of ''struct tenstorrent_lock_ctl_in'' with 3 bytes to alignment boundary'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      6059
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  'clang-diagnostic-c++-compat'
+    DiagnosticMessage:
+      Message:         'empty struct has size 0 in C, size 1 in C++'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      7017
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-gnu-empty-struct
+    DiagnosticMessage:
+      Message:         empty struct is a GNU extension
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      7017
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding struct ''struct tenstorrent_configure_tlb_in'' with 4 bytes to align ''config'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      7472
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8099
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8099
+          Length:          8
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8120
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8120
+          Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8183
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8183
+          Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8294
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8294
+          Length:          2
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8343
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8343
+          Length:          2
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8392
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8392
+          Length:          4
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         unknown command tag name
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8437
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8437
+          Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-documentation-unknown-command
+    DiagnosticMessage:
+      Message:         'unknown command tag name ''data''; did you mean ''date''?'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+      FileOffset:      8496
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          Offset:          8497
+          Length:          5
+          ReplacementText: date
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/pcie/ioctl.h'
+          FileOffset:      8496
+          Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         included header mman.h is not used directly
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      180
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          180
+          Length:          24
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         included header pthread.h is not used directly
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      204
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          204
+          Length:          21
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         replace macro with enum
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      375
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          375
+          Length:          8
+          ReplacementText: "enum {\n"
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          406
+          Length:          0
+          ReplacementText: ' ='
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          413
+          Length:          0
+          ReplacementText: ','
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          414
+          Length:          8
+          ReplacementText: ''
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          444
+          Length:          0
+          ReplacementText: ' ='
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          452
+          Length:          0
+          ReplacementText: "};\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         'macro ''BLACKHOLE_PCI_DEVICE_ID'' defines an integral constant; prefer an enum instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      383
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         'macro ''WORMHOLE_PCI_DEVICE_ID'' defines an integral constant; prefer an enum instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      422
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unused-macros
+    DiagnosticMessage:
+      Message:         macro is not used
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      502
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "uint64_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      761
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          225
+          Length:          0
+          ReplacementText: "#include <stdint.h>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '156 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      855
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '10 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1001
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '202 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1038
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '20 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1149
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '8 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1322
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "uint32_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1386
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding struct ''struct tt_tlb_t'' with 4 bytes to align ''size'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1410
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "ENOMEM" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1803
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          Offset:          142
+          Length:          0
+          ReplacementText: "#include <asm-generic/errno-base.h>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''e'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      1958
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-declaration-after-statement
+    DiagnosticMessage:
+      Message:         mixing declarations and code is incompatible with standards before C99
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      2538
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '8 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      3031
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x1F is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      3158
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '0x07 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      3283
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      3823
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      3823
+          Length:          12
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      3928
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      3928
+          Length:          12
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      4034
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      4034
+          Length:          13
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe buffer access
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      4140
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      4140
+          Length:          12
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-covered-switch-default
+    DiagnosticMessage:
+      Message:         default label in switch which covers all enumeration values
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      4187
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "EINVAL" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      4216
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "ENODEV" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      4963
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-covered-switch-default
+    DiagnosticMessage:
+      Message:         default label in switch which covers all enumeration values
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5263
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unreachable-code-return
+    DiagnosticMessage:
+      Message:         '''return'' will never be executed'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5318
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      5318
+          Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "uint8_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5360
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5368
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''tt_noc_read32'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5371
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      5371
+          Length:          24
+    Notes:
+      - Message:         'the first parameter in the range is ''y'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      5379
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      5379
+            Length:          1
+      - Message:         'the last parameter in the range is ''addr'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      5391
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      5391
+            Length:          4
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      5371
+        Replacements:    []
+      - Message:         '''uint8_t'' and ''uint64_t'' may be implicitly converted: ''uint8_t'' (as ''unsigned char'') -> ''uint64_t'' (as ''unsigned long''), ''uint64_t'' (as ''unsigned long'') -> ''uint8_t'' (as ''unsigned char'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      5382
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5379
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-declaration-after-statement
+    DiagnosticMessage:
+      Message:         mixing declarations and code is incompatible with standards before C99
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5486
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-cast-align
+    DiagnosticMessage:
+      Message:         'cast from ''uint8_t *'' (aka ''unsigned char *'') to ''volatile uint32_t *'' (aka ''volatile unsigned int *'') increases required alignment from 1 to 4'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5868
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      5868
+          Length:          50
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      5888
+          Length:          30
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      5889
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      5889
+          Length:          19
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6010
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '3 adjacent parameters of ''tt_noc_write32'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6013
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      6013
+          Length:          40
+    Notes:
+      - Message:         'the first parameter in the range is ''y'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6021
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      6021
+            Length:          1
+      - Message:         'the last parameter in the range is ''value'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6048
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      6048
+            Length:          5
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6013
+        Replacements:    []
+      - Message:         '''uint8_t'' and ''uint64_t'' may be implicitly converted: ''uint8_t'' (as ''unsigned char'') -> ''uint64_t'' (as ''unsigned long''), ''uint64_t'' (as ''unsigned long'') -> ''uint8_t'' (as ''unsigned char'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6024
+        Replacements:    []
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6013
+        Replacements:    []
+      - Message:         '''uint8_t'' and ''uint32_t'' may be implicitly converted: ''uint8_t'' (as ''unsigned char'') -> ''uint32_t'' (as ''unsigned int''), ''uint32_t'' (as ''unsigned int'') -> ''uint8_t'' (as ''unsigned char'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6039
+        Replacements:    []
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6024
+        Replacements:    []
+      - Message:         '''uint64_t'' and ''uint32_t'' may be implicitly converted: ''uint64_t'' (as ''unsigned long'') -> ''uint32_t'' (as ''unsigned int''), ''uint32_t'' (as ''unsigned int'') -> ''uint64_t'' (as ''unsigned long'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6039
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6021
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-declaration-after-statement
+    DiagnosticMessage:
+      Message:         mixing declarations and code is incompatible with standards before C99
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6127
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-cast-align
+    DiagnosticMessage:
+      Message:         'cast from ''uint8_t *'' (aka ''unsigned char *'') to ''volatile uint32_t *'' (aka ''volatile unsigned int *'') increases required alignment from 1 to 4'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6500
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      6500
+          Length:          50
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      6520
+          Length:          30
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6521
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      6521
+          Length:          19
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6647
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''tt_noc_read'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6650
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      6650
+          Length:          24
+    Notes:
+      - Message:         'the first parameter in the range is ''y'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6658
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      6658
+            Length:          1
+      - Message:         'the last parameter in the range is ''addr'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6670
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      6670
+            Length:          4
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6650
+        Replacements:    []
+      - Message:         '''uint8_t'' and ''uint64_t'' may be implicitly converted: ''uint8_t'' (as ''unsigned char'') -> ''uint64_t'' (as ''unsigned long''), ''uint64_t'' (as ''unsigned long'') -> ''uint8_t'' (as ''unsigned char'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      6661
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6658
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "int32_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      6762
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      7183
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      7183
+          Length:          19
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      7428
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      7428
+          Length:          7
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      7601
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''tt_noc_write'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      7604
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      7604
+          Length:          24
+    Notes:
+      - Message:         'the first parameter in the range is ''y'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      7612
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      7612
+            Length:          1
+      - Message:         'the last parameter in the range is ''addr'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      7624
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      7624
+            Length:          4
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      7604
+        Replacements:    []
+      - Message:         '''uint8_t'' and ''uint64_t'' may be implicitly converted: ''uint8_t'' (as ''unsigned char'') -> ''uint64_t'' (as ''unsigned long''), ''uint64_t'' (as ''unsigned long'') -> ''uint8_t'' (as ''unsigned char'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      7615
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      7612
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      8155
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8155
+          Length:          19
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-unsafe-buffer-usage
+    DiagnosticMessage:
+      Message:         unsafe pointer arithmetic
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      8400
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8400
+          Length:          7
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''tt_dma_map'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      8575
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8575
+          Length:          21
+    Notes:
+      - Message:         'the first parameter in the range is ''len'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      8582
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      8582
+            Length:          3
+      - Message:         'the last parameter in the range is ''flags'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      8591
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      8591
+            Length:          5
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      8575
+        Replacements:    []
+      - Message:         '''size_t'' and ''int'' may be implicitly converted: ''size_t'' (as ''unsigned long'') -> ''int'', ''int'' -> ''size_t'' (as ''unsigned long'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      8587
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_t'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      8681
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8681
+          Length:          9
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8679
+          Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''uint64_t'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      8732
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8732
+          Length:          9
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      8730
+          Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-declaration-after-statement
+    DiagnosticMessage:
+      Message:         mixing declarations and code is incompatible with standards before C99
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      8802
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''e'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      9600
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''tt_tlb_alloc'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      10577
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      10577
+          Length:          41
+    Notes:
+      - Message:         'the first parameter in the range is ''size'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      10584
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      10584
+            Length:          4
+      - Message:         'the last parameter in the range is ''cache'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      10613
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      10613
+            Length:          5
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      10577
+        Replacements:    []
+      - Message:         '''size_t'' and ''enum tt_tlb_cache_mode'' may be implicitly converted: ''size_t'' (as ''unsigned long'') -> ''enum tt_tlb_cache_mode'', ''enum tt_tlb_cache_mode'' -> ''size_t'' (as ''unsigned long'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      10590
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-declaration-after-statement
+    DiagnosticMessage:
+      Message:         mixing declarations and code is incompatible with standards before C99
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      10832
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''e'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      10967
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-narrowing-conversions
+    DiagnosticMessage:
+      Message:         'narrowing conversion from ''__u64'' (aka ''unsigned long long'') to signed type ''off_t'' (aka ''long'') is implementation-defined'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11075
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'operand of ? changes signedness: ''__u64'' (aka ''unsigned long long'') to ''off_t'' (aka ''long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11089
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      11075
+          Length:          28
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      11033
+          Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-narrowing-conversions
+    DiagnosticMessage:
+      Message:         'narrowing conversion from ''__u64'' (aka ''unsigned long long'') to signed type ''off_t'' (aka ''long'') is implementation-defined'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11106
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'operand of ? changes signedness: ''__u64'' (aka ''unsigned long long'') to ''off_t'' (aka ''long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11120
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      11106
+          Length:          28
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      11033
+          Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''e'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11382
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  cert-err33-c
+    DiagnosticMessage:
+      Message:         'the value returned by this function should not be disregarded; neglecting it may lead to errors'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11513
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      11513
+          Length:          84
+    Notes:
+      - Message:         cast the expression to void to silence this warning
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      11513
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  concurrency-mt-unsafe
+    DiagnosticMessage:
+      Message:         function is not thread safe
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11581
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-declaration-after-statement
+    DiagnosticMessage:
+      Message:         mixing declarations and code is incompatible with standards before C99
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      11995
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '3 adjacent parameters of ''tt_tlb_map_unicast'' of convertible types are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      13272
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+          FileOffset:      13272
+          Length:          35
+    Notes:
+      - Message:         'the first parameter in the range is ''x'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      13280
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      13280
+            Length:          1
+      - Message:         'the last parameter in the range is ''addr'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      13303
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+            FileOffset:      13303
+            Length:          4
+      - Message:         ''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      13272
+        Replacements:    []
+      - Message:         '''uint8_t'' and ''uint64_t'' may be implicitly converted: ''uint8_t'' (as ''unsigned char'') -> ''uint64_t'' (as ''unsigned long''), ''uint64_t'' (as ''unsigned long'') -> ''uint8_t'' (as ''unsigned char'')'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+        FileOffset:      13294
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''x'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      13280
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'parameter name ''y'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/tt_kmd_lib/tt_kmd_lib.c'
+      FileOffset:      13291
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

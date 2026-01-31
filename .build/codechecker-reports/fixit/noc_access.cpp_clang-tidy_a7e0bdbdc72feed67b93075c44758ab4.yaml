@@ -1,0 +1,32 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/device/noc_access.cpp'
+Diagnostics:
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "tt::umd::NocId" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/noc_access.cpp'
+      FileOffset:      214
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/noc_access.cpp'
+          Offset:          121
+          Length:          0
+          ReplacementText: "#include \"umd/device/types/noc_id.hpp\"\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-anonymous-namespace
+    DiagnosticMessage:
+      Message:         'variable ''tls_noc_id'' declared ''static'', move to anonymous namespace instead'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/noc_access.cpp'
+      FileOffset:      220
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "tt::umd::NocIdSwitcher" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/noc_access.cpp'
+      FileOffset:      443
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

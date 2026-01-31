@@ -1,0 +1,863 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+Diagnostics:
+  - DiagnosticName:  readability-avoid-const-params-in-decls
+    DiagnosticMessage:
+      Message:         'parameter ''timeout_ms'' is const-qualified in the function declaration; const-qualification of parameters only has an effect in function definitions'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/warm_reset.hpp'
+      FileOffset:      459
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/warm_reset.hpp'
+          Offset:          459
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-avoid-const-params-in-decls
+    DiagnosticMessage:
+      Message:         'parameter ''timeout_ms'' is const-qualified in the function declaration; const-qualification of parameters only has an effect in function definitions'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/warm_reset.hpp'
+      FileOffset:      1254
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/warm_reset.hpp'
+          Offset:          1254
+          Length:          6
+          ReplacementText: ''
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-weak-vtables
+    DiagnosticMessage:
+      Message:         '''WarmResetNotificationTest'' has no out-of-line virtual method definitions; its vtable will be emitted in every translation unit'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      423
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::function" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      726
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          222
+          Length:          0
+          ReplacementText: "#include <functional>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''success'' of type ''bool'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      988
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          993
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '101 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      1500
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '102 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      1689
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::error_code" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      1867
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          240
+          Length:          0
+          ReplacementText: "#include <system_error>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ec'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      1878
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ec'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2023
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-convert-member-functions-to-static
+    DiagnosticMessage:
+      Message:         'method ''wait_for_socket_state'' can be made static'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2122
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          2117
+          Length:          0
+          ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''socket_name'' of type ''std::string'' (aka ''basic_string<char>'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2182
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          2194
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::string" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2187
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          240
+          Length:          0
+          ReplacementText: "#include <string>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::to_string" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2225
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''socket_path'' of type ''std::filesystem::path'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2259
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          2281
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '50 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2393
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''int'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2434
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          2434
+          Length:          0
+          ReplacementText: '('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          2443
+          Length:          0
+          ReplacementText: ') != 0'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''currently_exists'' of type ''bool'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2459
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          2464
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '10 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2754
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-weak-vtables
+    DiagnosticMessage:
+      Message:         '''WarmResetTimingTest'' has no out-of-line virtual method definitions; its vtable will be emitted in every translation unit'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      2937
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-shadow-uncaptured-local
+    DiagnosticMessage:
+      Message:         declaration shadows a local variable
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3270
+      Replacements:    []
+    Notes:
+      - Message:         previous declaration is here
+        FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+        FileOffset:      3038
+        Replacements:    []
+      - Message:         'expanded from macro ''INSTANTIATE_TEST_SUITE_P'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/include/gtest/gtest-param-test.h'
+        FileOffset:      21090
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "pid_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3463
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          120
+          Length:          0
+          ReplacementText: "#include <sched.h>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''pid'' of type ''pid_t'' (aka ''int'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3536
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          3542
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''result'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3592
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          3596
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '500 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3858
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''sleep_duration_ms'' of type ''std::chrono::milliseconds'' (aka ''duration<long, ratio<1, 1000>>'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3870
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          3896
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-auto
+    DiagnosticMessage:
+      Message:         use auto when initializing with a cast to avoid duplicating the type name
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      3870
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          3870
+          Length:          25
+          ReplacementText: auto
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '1000 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      4051
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''pid'' of type ''pid_t'' (aka ''int'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      4209
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          4215
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "WIFEXITED" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      4309
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          120
+          Length:          0
+          ReplacementText: "#include <stdlib.h>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "WEXITSTATUS" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      4347
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''ec'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      4466
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''fake_socket'' of type ''std::string'' (aka ''basic_string<char>'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      4741
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          4753
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''good_pid'' of type ''pid_t'' (aka ''int'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      5279
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          5285
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''bad_pid'' of type ''pid_t'' (aka ''int'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      5421
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          5427
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '100 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      5750
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '500 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      5912
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '500 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      6168
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''first_valid_start'' of type ''bool'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      6509
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          6514
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''double_start'' of type ''bool'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      6688
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          6693
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''second_valid_start'' of type ''bool'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      6916
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          6921
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding size of ''TimeoutParams'' with 3 bytes to alignment boundary'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      7159
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-weak-vtables
+    DiagnosticMessage:
+      Message:         '''WarmResetProcessWaitTest'' has no out-of-line virtual method definitions; its vtable will be emitted in every translation unit'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      7353
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '50 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      7619
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-shadow-uncaptured-local
+    DiagnosticMessage:
+      Message:         declaration shadows a local variable
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      8241
+      Replacements:    []
+    Notes:
+      - Message:         previous declaration is here
+        FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+        FileOffset:      7682
+        Replacements:    []
+      - Message:         'expanded from macro ''INSTANTIATE_TEST_SUITE_P'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/.cpmcache/googletest/96129d89f45386492ae46d6bb8c027bc3df5f949/googletest/include/gtest/gtest-param-test.h'
+        FileOffset:      21090
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''pid'' of type ''pid_t'' (aka ''int'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      8487
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          8493
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''result'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      8536
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          8540
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''socket_path'' of type ''std::string'' (aka ''basic_string<char>'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      9052
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+          Offset:          9064
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '500 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/baremetal/test_notification_mechanism.cpp'
+      FileOffset:      9534
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-padded
+    DiagnosticMessage:
+      Message:         'padding size of ''tt::umd::test_utils::MultiProcessPipe'' with 4 bytes to alignment boundary'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      286
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      618
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      618
+          Length:          12
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      611
+          Length:          6
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      715
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      715
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      703
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''saved_errno'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      751
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          Offset:          755
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      860
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      860
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      848
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      914
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      914
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      902
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-identifier-length
+    DiagnosticMessage:
+      Message:         'variable name ''p'' is too short, expected at least 3 characters'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      1269
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      1782
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      1782
+          Length:          11
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      1770
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      1828
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      1828
+          Length:          11
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      1816
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2081
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2081
+          Length:          11
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2069
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2276
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2276
+          Length:          11
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2264
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2323
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2323
+          Length:          11
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2311
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '5 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2498
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2644
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2644
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2632
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2702
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2702
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2690
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      2747
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2747
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      2735
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      3316
+      Replacements:    []
+      Ranges:
+        - FilePath:        ''
+          FileOffset:      0
+          Length:          0
+        - FilePath:        ''
+          FileOffset:      0
+          Length:          0
+    Notes:
+      - Message:         'expanded from macro ''FD_SET'''
+        FilePath:        '/usr/include/x86_64-linux-gnu/sys/select.h'
+        FileOffset:      2661
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/usr/include/x86_64-linux-gnu/sys/select.h'
+            FileOffset:      2661
+            Length:          2
+          - FilePath:        '/usr/include/x86_64-linux-gnu/sys/select.h'
+            FileOffset:      2661
+            Length:          2
+      - Message:         'expanded from macro ''__FD_SET'''
+        FilePath:        '/usr/include/x86_64-linux-gnu/bits/select.h'
+        FileOffset:      1317
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/usr/include/x86_64-linux-gnu/bits/select.h'
+            FileOffset:      1317
+            Length:          1
+          - FilePath:        '/usr/include/x86_64-linux-gnu/bits/select.h'
+            FileOffset:      1317
+            Length:          1
+      - Message:         'expanded from macro ''__FD_ELT'''
+        FilePath:        '/usr/include/x86_64-linux-gnu/sys/select.h'
+        FileOffset:      1801
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/usr/include/x86_64-linux-gnu/sys/select.h'
+            FileOffset:      1801
+            Length:          1
+          - FilePath:        '/usr/include/x86_64-linux-gnu/sys/select.h'
+            FileOffset:      1801
+            Length:          1
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''ready'' of type ''int'' can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      4154
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          Offset:          4158
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      4185
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4185
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4173
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      4475
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4475
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4463
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      4589
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4589
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4577
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-sign-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion changes signedness: ''int'' to ''size_type'' (aka ''unsigned long'')'
+      FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+      FileOffset:      4629
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4629
+          Length:          1
+        - FilePath:        '/workspace/tt_metal/third_party/umd/tests/test_utils/pipe_communication.hpp'
+          FileOffset:      4617
+          Length:          11
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

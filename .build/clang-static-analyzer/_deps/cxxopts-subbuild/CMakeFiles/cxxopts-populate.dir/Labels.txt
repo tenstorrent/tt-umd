@@ -1,0 +1,14 @@
+# Target labels
+ cxxopts-populate
+# Source files and their labels
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate-complete.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-build.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-configure.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-download.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-install.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-mkdir.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-patch.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-test.rule
+/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer/_deps/cxxopts-subbuild/cxxopts-populate-prefix/src/cxxopts-populate-stamp/cxxopts-populate-update.rule

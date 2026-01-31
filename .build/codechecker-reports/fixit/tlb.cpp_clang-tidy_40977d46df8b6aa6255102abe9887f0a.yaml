@@ -1,0 +1,398 @@
+---
+MainSourceFile:  '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+Diagnostics:
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''local_offset'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      515
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''x_end'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      546
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''y_end'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      570
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''x_start'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      594
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''y_start'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      620
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''noc_sel'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      646
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''mcast'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      672
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''ordering'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      696
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''linked'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      723
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-non-private-member-variables-in-classes
+    DiagnosticMessage:
+      Message:         'member variable ''static_vc'' has public visibility'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      748
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''check'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      914
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+          Offset:          914
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  modernize-use-nodiscard
+    DiagnosticMessage:
+      Message:         'function ''apply_offset'' should be marked [[nodiscard]]'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+      FileOffset:      963
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/api/umd/device/types/tlb.hpp'
+          Offset:          963
+          Length:          0
+          ReplacementText: '[[nodiscard]] '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      220
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          220
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''int'' -> ''bool'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      220
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          220
+          Length:          0
+          ReplacementText: '('
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          960
+          Length:          0
+          ReplacementText: ') != 0'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      303
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          303
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      372
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          372
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      443
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          443
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      518
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          518
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      593
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          593
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      666
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          666
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      738
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          738
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      814
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          814
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-implicit-bool-conversion
+    DiagnosticMessage:
+      Message:         'implicit conversion ''bool'' -> ''int'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      889
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          889
+          Length:          0
+          ReplacementText: 'static_cast<int>'
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  clang-diagnostic-missing-prototypes
+    DiagnosticMessage:
+      Message:         'no previous prototype for function ''pack_bits'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1010
+      Replacements:    []
+    Notes:
+      - Message:         'declare ''static'' if the function is not intended to be used outside of this translation unit'
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+        FileOffset:      1005
+        Replacements:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+            Offset:          1005
+            Length:          0
+            ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-use-internal-linkage
+    DiagnosticMessage:
+      Message:         'function ''pack_bits'' can be made static or moved into an anonymous namespace to enforce internal linkage'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1010
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          1005
+          Length:          0
+          ReplacementText: 'static '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  bugprone-easily-swappable-parameters
+    DiagnosticMessage:
+      Message:         '2 adjacent parameters of ''pack_bits'' of similar type (''std::uint64_t &'') are easily swapped by mistake'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1020
+      Replacements:    []
+      Ranges:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          FileOffset:      1020
+          Length:          42
+    Notes:
+      - Message:         'the first parameter in the range is ''lower'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+        FileOffset:      1035
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+            FileOffset:      1035
+            Length:          5
+      - Message:         'the last parameter in the range is ''upper'''
+        FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+        FileOffset:      1057
+        Replacements:    []
+        Ranges:
+          - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+            FileOffset:      1057
+            Length:          5
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::uint64_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1025
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          131
+          Length:          0
+          ReplacementText: "#include <cstdint>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::uint32_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1090
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '64 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1134
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '64 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1240
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-const-correctness
+    DiagnosticMessage:
+      Message:         'variable ''upper_delta'' of type ''uint64_t'' (aka ''unsigned long'') can be declared ''const'''
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1289
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          1298
+          Length:          0
+          ReplacementText: 'const '
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "uint64_t" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1289
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  readability-magic-numbers
+    DiagnosticMessage:
+      Message:         '64 is a magic number; consider replacing it with a named constant'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1335
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::pair" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1391
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          131
+          Length:          0
+          ReplacementText: "#include <utility>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::runtime_error" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      1534
+      Replacements:
+        - FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+          Offset:          131
+          Length:          0
+          ReplacementText: "#include <stdexcept>\n"
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+  - DiagnosticName:  misc-include-cleaner
+    DiagnosticMessage:
+      Message:         'no header providing "std::make_pair" is directly included'
+      FilePath:        '/workspace/tt_metal/third_party/umd/device/types/tlb.cpp'
+      FileOffset:      2207
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/workspace/tt_metal/third_party/umd/.build/clang-static-analyzer'
+...

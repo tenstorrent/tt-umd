@@ -4,9 +4,13 @@
 
 #include "umd/device/utils/robust_mutex.hpp"
 
+#include <bits/pthreadtypes.h>
+#include <bits/time.h>
+#include <sched.h>
 #include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
 
 #include "assert.hpp"
+#include "fmt/format.h"
 // PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED.
 #include <errno.h>        // errno, ENOENT
 #include <fcntl.h>        // O_RDWR, O_CREATE
@@ -17,14 +21,10 @@
 #include <time.h>         // clock_gettime, timespec
 #include <unistd.h>       // ftruncate, close, getpid, syscall
 
-#include <chrono>
-#include <functional>
-#include <mutex>
-#include <stdexcept>
+#include <cstdint>
 #include <string>
-#include <thread>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
-#include <unordered_map>
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.

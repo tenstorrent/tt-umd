@@ -6,13 +6,23 @@
 
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask
+#include <unistd.h>
 
+#include <algorithm>
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <regex>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
+#include "fmt/format.h"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 

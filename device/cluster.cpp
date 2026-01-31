@@ -5,75 +5,58 @@
 #include "umd/device/cluster.hpp"
 
 #include <assert.h>
-#include <dirent.h>
-#include <errno.h>
 #include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <yaml-cpp/yaml.h>
 
-#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <limits>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
-#include <ratio>
-#include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "api/umd/device/cluster.hpp"
 #include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
-#include "hugepage.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_blackhole.hpp"
-#include "umd/device/topology/topology_discovery_wormhole.hpp"
-#include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
-#include "utils.hpp"
 
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 
-#include <iomanip>
-#include <thread>
 
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"

@@ -5,13 +5,11 @@
 #include "umd/device/warm_reset.hpp"
 
 #include <fmt/core.h>
-#include <fmt/format.h>
-#include <fmt/ranges.h>
 
 #include <cxxopts.hpp>
+#include <exception>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
-#include <vector>
 
 #include "common.hpp"
 #include "umd/device/topology/topology_discovery.hpp"

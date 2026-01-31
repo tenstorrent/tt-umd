@@ -4,24 +4,34 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
+#include "fmt/format.h"
 #include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 

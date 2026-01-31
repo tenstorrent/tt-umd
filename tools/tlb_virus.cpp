@@ -3,18 +3,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <fmt/core.h>
-#include <fmt/format.h>
-#include <fmt/ranges.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cxxopts.hpp>
+#include <exception>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "common.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"

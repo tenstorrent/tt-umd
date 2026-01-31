@@ -3,6 +3,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip/mock_chip.hpp"
+#include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace tt::umd {
 

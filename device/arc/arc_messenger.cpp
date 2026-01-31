@@ -3,11 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/arc/arc_messenger.hpp"
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 
 #include "umd/device/arc/blackhole_arc_messenger.hpp"
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 

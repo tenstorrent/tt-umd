@@ -4,14 +4,13 @@
 
 #include <gtest/gtest.h>
 #include <nanobench.h>
-#include <sys/mman.h>
 
 #include <chrono>
+#include <memory>
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/warm_reset.hpp"
 
 using namespace tt::umd;
 using namespace tt::umd::test::utils;

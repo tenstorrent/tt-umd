@@ -3,16 +3,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/jtag/jtag_device.hpp"
+#include <linux/limits.h>
+#include <sys/types.h>
+#include <unistd.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <optional>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "umd/device/jtag/jtag.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/types/arch.hpp"
 #include "utils.hpp"
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;

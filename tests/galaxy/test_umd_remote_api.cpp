@@ -4,18 +4,20 @@
 
 #include <gtest/gtest.h>
 
-#include <filesystem>
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <numeric>
-#include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "test_galaxy_common.hpp"
+#include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "wormhole/eth_interface.h"
-#include "wormhole/host_mem_address_map.h"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;

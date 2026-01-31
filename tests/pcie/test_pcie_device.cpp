@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <filesystem>
-#include <string>
 #include <vector>
 
+#include "fmt/format.h"
+#include "fmt/ranges.h"
 #include "umd/device/pcie/pci_device.hpp"
 
 using namespace tt::umd;

@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/types/tlb.hpp"
+#include <cstdint>
+#include <stdexcept>
+#include <utility>
 
 namespace tt::umd {
 

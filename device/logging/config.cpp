@@ -14,6 +14,7 @@
 #include "umd/device/logging/config.hpp"
 
 #include <tt-logger/tt-logger.hpp>
+#include "spdlog/common.h"
 
 namespace tt::umd::logging {
 

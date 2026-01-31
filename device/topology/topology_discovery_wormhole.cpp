@@ -6,15 +6,22 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"

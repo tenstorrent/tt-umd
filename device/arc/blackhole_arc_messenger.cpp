@@ -3,8 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/arc/blackhole_arc_messenger.hpp"
+#include <chrono>
+#include <cstdint>
+#include <vector>
 
+#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 

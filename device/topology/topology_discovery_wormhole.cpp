@@ -161,12 +161,6 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, t
     return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
 }
 
-uint32_t TopologyDiscoveryWormhole::read_training_status(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t training_status;
-    tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
-    return training_status;
-}
-
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
         throw std::runtime_error(
@@ -273,7 +267,8 @@ bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t
 }
 
 bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return read_training_status(tt_device, eth_core) == LINK_TRAIN_SUCCESS;
+    return dynamic_cast<WormholeTTDevice*>(tt_device)->read_training_status(eth_core) ==
+           wormhole::EthTrainStatus::Success;
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {

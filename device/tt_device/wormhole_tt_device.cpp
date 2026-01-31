@@ -423,7 +423,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     }
 
     start = std::chrono::steady_clock::now();
-    while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
+    while (read_training_status(eth_core) == wormhole::EthTrainStatus::Ongoing) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
@@ -441,15 +441,15 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     return time_taken_heartbeat + time_taken_port;
 }
 
-uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+wormhole::EthTrainStatus WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
     uint32_t training_status;
     read_from_device(
         &training_status,
         is_selected_noc1() ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
                            : eth_core,
-        0x1104,
+        wormhole::ETH_TRAIN_STATUS_ADDR,
         sizeof(uint32_t));
-    return training_status;
+    return static_cast<wormhole::EthTrainStatus>(training_status);
 }
 
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {

@@ -1,0 +1,6 @@
+# Clang-Tidy Violations: readability-redundant-casting
+Total: 3 violations
+
+- tests/wormhole/test_umd_remote_api_stability.cpp:350 — redundant explicit casting to the same type 'transfer_size_t' (aka 'unsigned int') as the sub-expression, remove this casting
+- tests/wormhole/test_umd_remote_api_stability.cpp:355 — redundant explicit casting to the same type 'transfer_size_t' (aka 'unsigned int') as the sub-expression, remove this casting
+- tools/system_health.cpp:192 — redundant explicit casting to the same type 'uint32_t' (aka 'unsigned int') as the sub-expression, remove this casting

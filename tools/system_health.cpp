@@ -183,7 +183,7 @@ int main(int argc, char* argv[]) {
 
         for (uint32_t chan = 0; chan < soc_desc.get_num_eth_channels(); chan++) {
             CoreCoord translated_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::TRANSLATED);
-            CoreCoord logical_eth_coord = CoreCoord(0, chan, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord logical_eth_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::LOGICAL);
 
             std::stringstream eth_ss;
 

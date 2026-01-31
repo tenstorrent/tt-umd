@@ -183,13 +183,14 @@ int main(int argc, char* argv[]) {
 
         for (uint32_t chan = 0; chan < soc_desc.get_num_eth_channels(); chan++) {
             CoreCoord translated_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::TRANSLATED);
+            CoreCoord logical_eth_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::LOGICAL);
 
             std::stringstream eth_ss;
 
             read_vec.resize(1);
             static constexpr std::uint32_t RETRAIN_COUNT_ADDR = 0x1EDC;  // wormhole
             cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
-            eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_can).str();
+            eth_ss << " eth channel " << std::dec << chan << " " << logical_eth_coord.str();
 
             std::string connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {

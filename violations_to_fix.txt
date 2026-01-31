@@ -1,0 +1,4 @@
+# Clang-Tidy Violations: performance-move-const-arg
+Total: 1 violations
+
+- device/cluster.cpp:1029 — passing result of std::move() as a const reference argument; no move will actually happen

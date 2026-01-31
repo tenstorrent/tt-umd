@@ -54,7 +54,7 @@ public:
     ConstrainedTemplateTemplateGenerator(
         int seed,
         DISTRIBUTION_T<UNCONSTRAINED_SAMPLE_T> const& distribution,
-        std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
+        std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)>&& constrain) :
         generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
@@ -72,7 +72,7 @@ template <typename SAMPLE_T, typename UNCONSTRAINED_SAMPLE_T, class DISTRIBUTION
 class ConstrainedTemplateGenerator {
 public:
     ConstrainedTemplateGenerator(
-        int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
+        int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)>&& constrain) :
         generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {

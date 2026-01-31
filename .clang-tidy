@@ -63,7 +63,6 @@ Checks: >
     -performance-inefficient-algorithm,
     -performance-move-const-arg,
     -performance-no-int-to-ptr,
-    -performance-unnecessary-value-param,
     -readability-avoid-nested-conditional-operator,
     -readability-avoid-return-with-void-value,
     -readability-container-contains,

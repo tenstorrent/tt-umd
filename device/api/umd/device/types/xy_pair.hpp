@@ -42,9 +42,7 @@ struct cxy_pair : public xy_pair {
     std::string str() const;
 };
 
-constexpr bool operator==(const cxy_pair &a, const cxy_pair &b) {
-    return a.x == b.x && a.y == b.y && a.chip == b.chip;
-}
+constexpr bool operator==(const cxy_pair &a, const cxy_pair &b) { return a.x == b.x && a.y == b.y && a.chip == b.chip; }
 
 constexpr bool operator!=(const cxy_pair &a, const cxy_pair &b) { return !(a == b); }
 

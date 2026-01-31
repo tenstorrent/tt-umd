@@ -59,7 +59,6 @@ Checks: >
     -performance-avoid-endl,
     -performance-enum-size,
     -performance-faster-string-find,
-    -performance-for-range-copy,
     -performance-inefficient-algorithm,
     -performance-move-const-arg,
     -performance-no-int-to-ptr,

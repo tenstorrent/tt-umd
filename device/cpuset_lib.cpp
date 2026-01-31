@@ -615,8 +615,8 @@ void cpuset_allocator::print_hwloc_nodeset(hwloc_obj_t &obj) {
 }
 
 void cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool verbose, bool show_cpuids) {
-    char type[32], attr[1024];
-
+    char type[32];
+    char attr[1024];
     hwloc_obj_type_snprintf(type, sizeof(type), obj, verbose);
     printf("%*s%s", 2 * depth, "", type);
     if (obj->os_index != (unsigned)-1) {

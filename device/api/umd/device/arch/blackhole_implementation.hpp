@@ -303,6 +303,11 @@ inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
+// ETH related constants.
+inline constexpr uint64_t ETH_FW_MAJOR_ADDR = 0x7CFBE;
+inline constexpr uint64_t ETH_FW_MINOR_ADDR = 0x7CFBD;
+inline constexpr uint64_t ETH_FW_PATCH_ADDR = 0x7CFBC;
+
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
 tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);

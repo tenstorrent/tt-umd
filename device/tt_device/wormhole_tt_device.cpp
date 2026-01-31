@@ -89,6 +89,12 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
+semver_t WormholeTTDevice::get_eth_fw_version(tt_xy_pair eth_core) {
+    uint32_t eth_fw_version_read;
+    read_from_device(&eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t));
+    return semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+}
+
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -423,7 +429,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     }
 
     start = std::chrono::steady_clock::now();
-    while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
+    while (read_training_status(eth_core) == wormhole::EthTrainStatus::Ongoing) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
@@ -441,15 +447,20 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     return time_taken_heartbeat + time_taken_port;
 }
 
-uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+wormhole::EthTrainStatus WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
     uint32_t training_status;
     read_from_device(
         &training_status,
         is_selected_noc1() ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
                            : eth_core,
-        0x1104,
+        wormhole::ETH_TRAIN_STATUS_ADDR,
         sizeof(uint32_t));
-    return training_status;
+    return static_cast<wormhole::EthTrainStatus>(training_status);
+}
+
+void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
+    uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
+    write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
 }
 
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {

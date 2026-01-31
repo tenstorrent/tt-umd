@@ -68,7 +68,8 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("no_wait_for_eth_training", &TopologyDiscoveryOptions::no_wait_for_eth_training)
         .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness)
         .def_rw("predict_eth_fw_version", &TopologyDiscoveryOptions::predict_eth_fw_version)
-        .def_rw("verify_eth_fw_hash", &TopologyDiscoveryOptions::verify_eth_fw_hash);
+        .def_rw("verify_eth_fw_hash", &TopologyDiscoveryOptions::verify_eth_fw_hash)
+        .def_rw("retrain_eth_count", &TopologyDiscoveryOptions::retrain_eth_count);
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

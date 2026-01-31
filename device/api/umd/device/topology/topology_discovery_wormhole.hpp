@@ -50,8 +50,6 @@ protected:
 
     tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint32_t read_training_status(TTDevice* tt_device, tt_xy_pair eth_core);
-
     uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
     uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
@@ -74,6 +72,8 @@ protected:
     EthAddresses eth_addresses;
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    void retrain_eth_cores() override;
 
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;

@@ -161,12 +161,6 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, t
     return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
 }
 
-uint32_t TopologyDiscoveryWormhole::read_training_status(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t training_status;
-    tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
-    return training_status;
-}
-
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
         throw std::runtime_error(
@@ -273,15 +267,12 @@ bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t
 }
 
 bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return read_training_status(tt_device, eth_core) == LINK_TRAIN_SUCCESS;
+    return dynamic_cast<WormholeTTDevice*>(tt_device)->read_training_status(eth_core) ==
+           wormhole::EthTrainStatus::Success;
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t eth_fw_version_read;
-    tt_device->read_from_device(
-        &eth_fw_version_read, eth_core, eth_l1_mem::address_map::FW_VERSION_ADDR, sizeof(uint32_t));
-
-    semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
@@ -352,6 +343,55 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
         TT_THROW(message);
     }
     return true;
+}
+
+void TopologyDiscoveryWormhole::retrain_eth_cores() {
+    if (!options.no_wait_for_eth_training && options.retrain_eth_count > 0) {
+        // Retrain ETH cores on Wormhole B0 devices if needed.
+        uint32_t current_retrain_eth_count = 0;
+        while (current_retrain_eth_count < options.retrain_eth_count) {
+            current_retrain_eth_count++;
+            bool all_eth_cores_trained = true;
+
+            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+                auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
+
+                for (const CoreCoord& eth_core : get_soc_descriptor(tt_device.get()).get_cores(CoreType::ETH)) {
+                    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
+                    if (wormhole_tt_device->read_training_status(eth_core) == wormhole::EthTrainStatus::Fail) {
+                        if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
+                            log_warning(
+                                LogUMD,
+                                "ETH FW version {} is older than minimum version needed for retraining {}",
+                                eth_fw_version.to_string(),
+                                wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN.to_string());
+                            return;
+                        }
+
+                        log_info(
+                            LogUMD,
+                            "Retraining ETH core {} on device {}, iteration {}.",
+                            eth_core.str(),
+                            get_local_asic_id(tt_device.get(), eth_core),
+                            current_retrain_eth_count);
+                        wormhole_tt_device->retrain_eth_core(eth_core);
+                        all_eth_cores_trained = false;
+                    }
+                }
+            }
+
+            if (all_eth_cores_trained) {
+                break;
+            } else {
+                // Give eth cores some time to accept the retrain command.
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+
+            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+                wait_eth_cores_training(tt_device.get());
+            }
+        }
+    }
 }
 
 }  // namespace tt::umd

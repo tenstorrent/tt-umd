@@ -14,6 +14,7 @@
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
@@ -131,14 +132,6 @@ tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, 
         "bug.");
 }
 
-uint32_t TopologyDiscoveryBlackhole::read_port_status(TTDevice* tt_device, tt_xy_pair eth_core) {
-    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
-        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint8_t port_status;
-    tt_device->read_from_device(&port_status, translated_eth_core, 0x7CC04, sizeof(port_status));
-    return port_status;
-}
-
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
@@ -188,7 +181,7 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return read_port_status(tt_device, eth_core) == blackhole::port_status_e::PORT_UP;
+    return dynamic_cast<BlackholeTTDevice*>(tt_device)->read_port_status(eth_core) == blackhole::port_status_e::PORT_UP;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {
@@ -222,17 +215,8 @@ void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
 bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
-    static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
-    static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
-    uint8_t major = 0;
-    uint8_t minor = 0;
-    uint8_t patch = 0;
 
-    tt_device->read_from_device(&major, translated_eth_core, eth_fw_major_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
-    semver_t eth_fw_version = semver_t(major, minor, patch);
+    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
@@ -284,6 +268,10 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_devi
 
 bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
     return true;
+}
+
+void TopologyDiscoveryBlackhole::retrain_eth_cores() {
+    log_debug(LogUMD, "Retraining ETH cores skipped for Blackhole.");
 }
 
 }  // namespace tt::umd

@@ -211,6 +211,17 @@ uint32_t BlackholeTTDevice::get_clock() {
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
 
+semver_t BlackholeTTDevice::get_eth_fw_version(tt_xy_pair eth_core) {
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint8_t patch = 0;
+
+    read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t));
+    read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t));
+    read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t));
+    return semver_t(major, minor, patch);
+}
+
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
@@ -285,15 +296,10 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto time_taken = std::chrono::milliseconds(0);
 
-    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
-    uint32_t port_status_val;
-    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
-    while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
-        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    while (read_port_status(eth_core) == blackhole::port_status_e::PORT_UNKNOWN) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -305,6 +311,13 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
         }
     }
     return time_taken;
+}
+
+blackhole::port_status_e BlackholeTTDevice::read_port_status(tt_xy_pair eth_core) {
+    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t port_status_val;
+    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    return static_cast<blackhole::port_status_e>(port_status_val);
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {

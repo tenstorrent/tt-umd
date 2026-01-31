@@ -43,6 +43,9 @@ struct TopologyDiscoveryOptions {
 
     // Enables verifying ERISC FW on cores to ensure reliability of discovery.
     bool verify_eth_fw_hash = false;
+
+    // Number of times to retrain ETH cores before giving up.
+    uint32_t retrain_eth_count = 0;
 };
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
@@ -136,6 +139,8 @@ protected:
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
+
+    virtual void retrain_eth_cores() = 0;
 
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices_to_discover;
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices;

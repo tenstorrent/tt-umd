@@ -356,4 +356,40 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     return true;
 }
 
+void TopologyDiscoveryWormhole::retrain_eth_cores() {
+    if (!options.no_wait_for_eth_training && options.retrain_eth_count > 0) {
+        // Retrain ETH cores on Wormhole B0 devices if needed.
+        uint32_t current_retrain_eth_count = 0;
+        while (current_retrain_eth_count < options.retrain_eth_count) {
+            current_retrain_eth_count++;
+            bool all_eth_cores_trained = true;
+
+            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+                auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
+
+                for (const CoreCoord& eth_core : get_soc_descriptor(tt_device.get()).get_cores(CoreType::ETH)) {
+                    if (wormhole_tt_device->read_training_status(eth_core) == wormhole::EthTrainStatus::Fail) {
+                        log_info(
+                            LogUMD,
+                            "Retraining ETH core {} on device {}, iteration {}.",
+                            eth_core.str(),
+                            get_local_asic_id(tt_device.get(), eth_core),
+                            current_retrain_eth_count);
+                        wormhole_tt_device->retrain_eth_core(eth_core);
+                        all_eth_cores_trained = false;
+                    }
+                }
+            }
+
+            if (all_eth_cores_trained) {
+                break;
+            }
+
+            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+                wait_eth_cores_training(tt_device.get());
+            }
+        }
+    }
+}
+
 }  // namespace tt::umd

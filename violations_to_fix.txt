@@ -1,0 +1,9 @@
+# Clang-Tidy Violations: readability-inconsistent-declaration-parameter-name
+Total: 6 violations
+
+- device/api/umd/device/topology/topology_discovery_blackhole.hpp:54 — function 'tt::umd::TopologyDiscoveryBlackhole::create_remote_device' has a definition with different parameter names
+- device/api/umd/device/cluster.hpp:242 — function 'tt::umd::Cluster::start_device' has a definition with different parameter names
+- device/api/umd/device/cluster.hpp:444 — function 'tt::umd::Cluster::broadcast_write_to_cluster' has a definition with different parameter names
+- device/api/umd/device/cluster.hpp:462 — function 'tt::umd::Cluster::get_static_tlb_writer' has a definition with different parameter names
+- device/api/umd/device/topology/topology_discovery_wormhole.hpp:63 — function 'tt::umd::TopologyDiscoveryWormhole::create_remote_device' has a definition with different parameter names
+- device/api/umd/device/warm_reset.hpp:66 — function 'tt::umd::WarmResetCommunication::Monitor::start_monitoring' has a definition with different parameter names

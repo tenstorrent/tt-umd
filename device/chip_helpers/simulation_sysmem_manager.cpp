@@ -18,7 +18,7 @@
 namespace tt::umd {
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) : SysmemManager() {
-    init_sysmem(num_host_mem_channels);
+    SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {

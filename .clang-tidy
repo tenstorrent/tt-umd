@@ -61,7 +61,6 @@ Checks: >
     -performance-faster-string-find,
     -performance-for-range-copy,
     -performance-inefficient-algorithm,
-    -performance-move-const-arg,
     -performance-no-int-to-ptr,
     -performance-unnecessary-value-param,
     -readability-avoid-nested-conditional-operator,

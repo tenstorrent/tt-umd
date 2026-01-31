@@ -1,9 +1,0 @@
-# Clang-Tidy Violations: readability-redundant-inline-specifier
-Total: 6 violations
-
-- device/api/umd/device/types/xy_pair.hpp:25 — function 'operator==' has inline specifier but is implicitly inlined
-- device/api/umd/device/types/xy_pair.hpp:27 — function 'operator!=' has inline specifier but is implicitly inlined
-- device/api/umd/device/types/xy_pair.hpp:29 — function 'operator<' has inline specifier but is implicitly inlined
-- device/api/umd/device/types/xy_pair.hpp:45 — function 'operator==' has inline specifier but is implicitly inlined
-- device/api/umd/device/types/xy_pair.hpp:49 — function 'operator!=' has inline specifier but is implicitly inlined
-- device/api/umd/device/types/xy_pair.hpp:51 — function 'operator<' has inline specifier but is implicitly inlined

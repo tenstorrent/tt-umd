@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -47,6 +48,8 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
+    wormhole::EthTrainStatus read_training_status(tt_xy_pair eth_core);
+
     ~WormholeTTDevice() override{};
 
 protected:
@@ -68,10 +71,6 @@ private:
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
     bool is_hardware_hung() override;
-
-    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
-
-    uint32_t read_training_status(tt_xy_pair eth_core);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

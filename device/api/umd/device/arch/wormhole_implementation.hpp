@@ -344,15 +344,6 @@ enum EthTrainStatus {
 
 inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
 
-// ETH related constants.
-enum EthTrainStatus {
-    Ongoing = 0,
-    Success = 1,
-    Fail = 2,
-};
-
-inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
-
 inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
 }  // namespace wormhole
 

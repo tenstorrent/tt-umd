@@ -113,11 +113,11 @@ void run_data_mover_test(
     auto target_devices = device.get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
-    auto it = std::find(target_devices.begin(), target_devices.end(), sender_core.chip);
+    auto it = target_devices.find(sender_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Sender core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
-    it = std::find(target_devices.begin(), target_devices.end(), receiver_core.chip);
+    it = target_devices.find(receiver_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
@@ -224,12 +224,12 @@ void run_data_broadcast_test(
     auto target_devices = device.get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
-    auto it = std::find(target_devices.begin(), target_devices.end(), sender_core.chip);
+    auto it = target_devices.find(sender_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Sender core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
     for (const auto& receiver_core : receiver_cores) {
-        it = std::find(target_devices.begin(), target_devices.end(), receiver_core.chip);
+        it = target_devices.find(receiver_core.chip);
         ASSERT_TRUE(it != target_devices.end())
             << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
     }

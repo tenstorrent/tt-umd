@@ -1,0 +1,9 @@
+# Clang-Tidy Violations: performance-for-range-copy
+Total: 6 violations
+
+- tools/common.hpp:10 — loop variable is copied but only used as const reference; consider making it a const reference
+- tools/common.hpp:18 — loop variable is copied but only used as const reference; consider making it a const reference
+- tests/api/test_cluster_descriptor.cpp:41 — loop variable is copied but only used as const reference; consider making it a const reference
+- tests/api/test_cluster_descriptor.cpp:100 — loop variable is copied but only used as const reference; consider making it a const reference
+- tests/api/test_cluster.cpp:463 — loop variable is copied but only used as const reference; consider making it a const reference
+- device/topology/topology_discovery.cpp:332 — loop variable is copied but only used as const reference; consider making it a const reference

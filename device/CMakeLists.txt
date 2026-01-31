@@ -22,12 +22,12 @@ if(TT_UMD_BUILD_SIMULATION)
         COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
         VERBATIM
     )
-    
+
     # Create a target that generates all required files for code analysis
     add_custom_target(
         all_generated_files
-        DEPENDS ${FBS_GENERATED_HEADER}
-        COMMENT "Generating all required files for code analysis"
+        DEPENDS
+            ${FBS_GENERATED_HEADER}
     )
 endif()
 

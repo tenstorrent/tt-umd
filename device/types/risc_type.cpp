@@ -122,6 +122,7 @@ RiscType invert_selected_options(RiscType selected) {
     uint64_t selected_bits = static_cast<uint64_t>(selected);
     uint64_t inverted =
         (~selected_bits) & static_cast<uint64_t>(RiscType::ALL | RiscType::ALL_TENSIX | RiscType::ALL_NEO);
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) - RiscType is a bitflags enum; any combination is valid
     return static_cast<RiscType>(inverted);
 }
 

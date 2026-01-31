@@ -90,10 +90,12 @@ std::string RiscTypeToString(RiscType value);
 RiscType invert_selected_options(RiscType selected);
 
 constexpr RiscType operator|(RiscType lhs, RiscType rhs) {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) - RiscType is a bitflags enum; any combination is valid
     return static_cast<RiscType>(static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
 }
 
 constexpr RiscType operator&(RiscType lhs, RiscType rhs) {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) - RiscType is a bitflags enum; any combination is valid
     return static_cast<RiscType>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
 }
 
@@ -101,7 +103,10 @@ constexpr bool operator!=(RiscType lhs, RiscType rhs) {
     return static_cast<uint64_t>(lhs) != static_cast<uint64_t>(rhs);
 }
 
-constexpr RiscType operator~(RiscType operand) { return static_cast<RiscType>(~static_cast<std::uint64_t>(operand)); }
+constexpr RiscType operator~(RiscType operand) {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) - RiscType is a bitflags enum; any combination is valid
+    return static_cast<RiscType>(~static_cast<std::uint64_t>(operand));
+}
 
 constexpr RiscType& operator|=(RiscType& lhs, RiscType rhs) {
     lhs = lhs | rhs;

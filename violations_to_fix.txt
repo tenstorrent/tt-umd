@@ -1,0 +1,4 @@
+# Clang-Tidy Violations: readability-avoid-return-with-void-value
+Total: 1 violations
+
+- device/jtag/jtag.cpp:117 — return statement within a void function should not have a specified return value

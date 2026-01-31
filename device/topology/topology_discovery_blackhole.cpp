@@ -222,17 +222,8 @@ void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
 bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
-    static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
-    static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
-    uint8_t major = 0;
-    uint8_t minor = 0;
-    uint8_t patch = 0;
 
-    tt_device->read_from_device(&major, translated_eth_core, eth_fw_major_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
-    semver_t eth_fw_version = semver_t(major, minor, patch);
+    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {

@@ -211,6 +211,17 @@ uint32_t BlackholeTTDevice::get_clock() {
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
 
+semver_t BlackholeTTDevice::get_eth_fw_version(tt_xy_pair eth_core) {
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint8_t patch = 0;
+
+    read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t));
+    read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t));
+    read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t));
+    return semver_t(major, minor, patch);
+}
+
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {

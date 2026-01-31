@@ -353,7 +353,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
 
 template <typename T>
 std::unordered_map<ChipId, T> filter_chip_collection(
-    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::unordered_map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -366,7 +366,7 @@ std::unordered_map<ChipId, T> filter_chip_collection(
 
 template <typename T>
 std::map<ChipId, T> filter_chip_collection(
-    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);

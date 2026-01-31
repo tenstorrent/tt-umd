@@ -60,7 +60,6 @@ Checks: >
     -performance-enum-size,
     -performance-inefficient-algorithm,
     -performance-no-int-to-ptr,
-    -performance-unnecessary-value-param,
     -readability-avoid-nested-conditional-operator,
     -readability-container-contains,
     -readability-convert-member-functions-to-static,

@@ -75,7 +75,6 @@ Checks: >
     -readability-math-missing-parentheses,
     -readability-qualified-auto,
     -readability-redundant-casting,
-    -readability-redundant-control-flow,
     -readability-redundant-member-init,
     -readability-static-accessed-through-instance,
     -readability-uppercase-literal-suffix,

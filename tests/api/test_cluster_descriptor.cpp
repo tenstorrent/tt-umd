@@ -38,7 +38,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
         std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
         std::unordered_set<ChipId> pci_chips_set;
-        for (auto [pci_device_number, _] : pci_device_infos) {
+        for (const auto& [pci_device_number, _] : pci_device_infos) {
             pci_chips_set.insert(pci_device_number);
         }
 
@@ -97,7 +97,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 
     auto ethernet_connections = cluster_desc->get_ethernet_connections();
-    for (auto [chip, connections] : ethernet_connections) {
+    for (const auto& [chip, connections] : ethernet_connections) {
         for (auto [channel, remote_chip_and_channel] : connections) {
             std::cout << "Ethernet connection from chip " << chip << " channel " << channel << " to chip "
                       << std::get<0>(remote_chip_and_channel) << " channel " << std::get<1>(remote_chip_and_channel)

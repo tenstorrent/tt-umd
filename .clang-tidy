@@ -64,7 +64,6 @@ Checks: >
     -performance-unnecessary-value-param,
     -readability-avoid-nested-conditional-operator,
     -readability-container-contains,
-    -readability-container-data-pointer,
     -readability-convert-member-functions-to-static,
     -readability-else-after-return,
     -readability-function-cognitive-complexity,

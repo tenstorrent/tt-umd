@@ -1,0 +1,4 @@
+# Clang-Tidy Violations: performance-faster-string-find
+Total: 1 violations
+
+- device/jtag/jtag_device.cpp:69 — 'find_last_of' called with a string literal consisting of a single character; consider using the more effective overload accepting a character

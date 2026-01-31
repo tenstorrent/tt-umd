@@ -1,0 +1,8 @@
+# Clang-Tidy Violations: readability-isolate-declaration
+Total: 5 violations
+
+- device/cpuset_lib.cpp:618 — multiple declarations in a single statement reduces readability
+- device/tt_device/tt_device.cpp:248 — multiple declarations in a single statement reduces readability
+- device/arc/wormhole_spi_tt_device.cpp:314 — multiple declarations in a single statement reduces readability
+- device/arc/wormhole_spi_tt_device.cpp:379 — multiple declarations in a single statement reduces readability
+- device/chip_helpers/silicon_sysmem_manager.cpp:201 — multiple declarations in a single statement reduces readability

@@ -58,7 +58,6 @@ Checks: >
     -modernize-use-using,
     -performance-avoid-endl,
     -performance-enum-size,
-    -performance-inefficient-algorithm,
     -performance-no-int-to-ptr,
     -readability-avoid-nested-conditional-operator,
     -readability-container-contains,

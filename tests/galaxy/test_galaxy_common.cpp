@@ -22,10 +22,7 @@ void move_data(
         receiver_core.chip,
         device.get_soc_descriptor(receiver_core.chip).get_coord_at(receiver_core.core, receiver_core.core.coord_system),
         receiver_core.addr);
-    device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
-
-    return;
-}
+    device.wait_for_non_mmio_flush();  }
 
 void broadcast_data(
     Cluster& device,
@@ -49,7 +46,4 @@ void broadcast_data(
                 .get_coord_at(receiver_core.core, receiver_core.core.coord_system),
             receiver_core.addr);
     }
-    device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
-
-    return;
-}
+    device.wait_for_non_mmio_flush();  }

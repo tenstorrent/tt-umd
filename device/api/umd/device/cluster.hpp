@@ -239,7 +239,7 @@ public:
      *
      * @param device_params Object specifying initialization configuration.
      */
-    void start_device(const DeviceParams& DeviceParams);
+    void start_device(const DeviceParams& device_params);
 
     /**
      * To be called at the end of a run.
@@ -447,7 +447,7 @@ public:
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude);
+        std::set<uint32_t>& cols_to_exclude);
 
     /**
      * Provide fast write access to a statically-mapped TLB.
@@ -459,7 +459,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 

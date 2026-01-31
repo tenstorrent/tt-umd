@@ -663,7 +663,7 @@ TEST(SiliconDriverWH, DMA1) {
     // First, write a different pattern to each of the DRAM cores.
     for (auto core : dram_cores) {
         std::vector<uint8_t> pattern(buf_size);
-        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+        test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
         cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
 

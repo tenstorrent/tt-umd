@@ -50,6 +50,8 @@ public:
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
+    void retrain_eth_core(tt_xy_pair eth_core);
+
     ~WormholeTTDevice() override = default;
 
 protected:

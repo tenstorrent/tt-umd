@@ -340,6 +340,8 @@ inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
 // ETH related constants.
 inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
+inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
+inline constexpr uint32_t ETH_TRIGGER_RETRAIN_VAL = 1;
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {

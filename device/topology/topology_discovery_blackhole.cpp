@@ -4,8 +4,13 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

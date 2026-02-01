@@ -9,6 +9,7 @@
 #include <fmt/ranges.h>
 
 #include <cxxopts.hpp>
+#include <exception>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>

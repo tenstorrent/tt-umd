@@ -6,14 +6,18 @@
 
 #include <picosha2.h>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <optional>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"

@@ -9,7 +9,10 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <future>
+#include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 

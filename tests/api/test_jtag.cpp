@@ -4,8 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
 #include <memory>
+#include <ostream>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "umd/device/cluster.hpp"

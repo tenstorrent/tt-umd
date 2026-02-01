@@ -9,8 +9,14 @@
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"

@@ -5,6 +5,7 @@
 
 #include <fmt/format.h>
 
+#include <memory>
 #include <stdexcept>
 
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"

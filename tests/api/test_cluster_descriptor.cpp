@@ -4,7 +4,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"

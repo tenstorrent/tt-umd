@@ -4,11 +4,17 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

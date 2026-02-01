@@ -4,10 +4,17 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <exception>
+#include <iostream>
 #include <iterator>
+#include <memory>
+#include <ostream>
 #include <thread>
+#include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"

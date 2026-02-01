@@ -4,6 +4,10 @@
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 
+#include <cstdint>
+#include <stdexcept>
+#include <vector>
+
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"

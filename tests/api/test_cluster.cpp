@@ -11,13 +11,19 @@
 #include <unistd.h>  // For access()
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
+#include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <optional>
+#include <random>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 

@@ -5,9 +5,16 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

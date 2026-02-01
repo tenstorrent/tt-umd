@@ -6,6 +6,11 @@
 #include <nanobench.h>
 #include <sys/mman.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <vector>
+
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
 

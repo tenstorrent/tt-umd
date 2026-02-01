@@ -4,7 +4,14 @@
 
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 namespace tt::umd {
 

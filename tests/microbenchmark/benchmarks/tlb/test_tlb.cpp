@@ -6,6 +6,9 @@
 #include <nanobench.h>
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"

@@ -63,7 +63,7 @@ static constexpr uint8_t SPI_WR_STATUS_CMD = 0x01;
 
 static constexpr uint32_t SPI_DUMP_ADDR_CORRECTION = 0x10000000;
 
-static inline uint32_t spi_ctrl0_spi_scph(uint32_t scph) { return (scph << 6) & 0x1; }
+static inline uint32_t spi_ctrl0_spi_scph(uint32_t scph) { return (scph & 0x1) << 6; }
 
 static inline uint32_t spi_ctrl1_ndf(uint32_t frame_count) { return frame_count & 0xffff; }
 

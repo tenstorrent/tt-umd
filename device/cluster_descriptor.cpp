@@ -756,7 +756,7 @@ void ClusterDescriptor::merge_cluster_ids() {
     for (const auto &[chip, chan_to_chip_chan_map] : ethernet_connections) {
         for (const auto &[chan, dest_chip_chan_tuple] : chan_to_chip_chan_map) {
             chip_sets.merge(chip, std::get<0>(dest_chip_chan_tuple));
-            log_debug(LogUMD, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
+            log_trace(LogUMD, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
         }
     }
 

@@ -370,7 +370,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar4_wc_mapping = mappings.mapping_array[i];
         }
 
-        log_debug(
+        log_trace(
             LogUMD,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,

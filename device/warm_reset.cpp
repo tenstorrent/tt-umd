@@ -76,7 +76,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
 
 int wait_for_pci_bdf_to_reappear(
     const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
-    log_debug(tt::LogUMD, "Waiting for devices to reappear on pci bus.");
+    log_debug(tt::LogUMD, "Waiting for device {} to reappear on pci bus.", bdf);
 
     auto deadline = std::chrono::steady_clock::now() + timeout_ms;
     bool device_reappeared = false;

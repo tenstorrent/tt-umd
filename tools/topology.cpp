@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "common.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-
-#include <tt-logger/tt-logger.hpp>
-
 #include <cxxopts.hpp>
 #include <iostream>
 #include <memory>
 #include <ostream>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
+
+#include "common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
 using namespace tt::umd;
 

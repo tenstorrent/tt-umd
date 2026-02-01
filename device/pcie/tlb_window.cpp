@@ -4,9 +4,6 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
-#include "noc_access.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -14,6 +11,9 @@
 #include <stdexcept>
 #include <string.h>
 #include <utility>
+
+#include "noc_access.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 namespace tt::umd {
 

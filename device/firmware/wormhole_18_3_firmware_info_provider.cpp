@@ -4,6 +4,10 @@
 
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
 
+#include <cstdint>
+#include <optional>
+#include <vector>
+
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp"
@@ -11,10 +15,6 @@
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
-
-#include <cstdint>
-#include <optional>
-#include <vector>
 
 namespace tt::umd {
 

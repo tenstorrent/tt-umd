@@ -4,13 +4,12 @@
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 
+#include <cstdint>
+#include <fmt/core.h>
+
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/types/telemetry.hpp"
-
-#include <fmt/core.h>
-
-#include <cstdint>
 
 namespace tt::umd {
 

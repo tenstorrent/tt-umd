@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device/tt_device.hpp"
-
 #include <gtest/gtest.h>
-
 #include <memory>
 #include <vector>
+
+#include "umd/device/tt_device/tt_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -4,13 +4,6 @@
 
 #include "umd/device/jtag/jtag_device.hpp"
 
-#include "assert.hpp"
-#include "umd/device/jtag/jtag.hpp"
-#include "umd/device/utils/common.hpp"
-#include "utils.hpp"
-
-#include <tt-logger/tt-logger.hpp>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -18,9 +11,15 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "assert.hpp"
+#include "umd/device/jtag/jtag.hpp"
+#include "umd/device/utils/common.hpp"
+#include "utils.hpp"
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);

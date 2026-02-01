@@ -4,17 +4,16 @@
 
 // This file holds Chip specific API examples.
 
+#include <cstddef>
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <memory>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
-
-#include <gtest/gtest.h>
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <vector>
 
 using namespace tt::umd;
 

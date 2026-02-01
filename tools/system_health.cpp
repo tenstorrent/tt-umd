@@ -2,15 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "common.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-
-#include <tt-logger/tt-logger.hpp>
-
 #include <algorithm>
 #include <cstdint>
 #include <cxxopts.hpp>
@@ -20,9 +11,17 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+
+#include "common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

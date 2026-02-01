@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <chrono>
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <memory>
+#include <thread>
+#include <vector>
+
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-
-#include <gtest/gtest.h>
-
-#include <chrono>
-#include <cstdint>
-#include <memory>
-#include <thread>
-#include <vector>
 
 using namespace tt::umd;
 

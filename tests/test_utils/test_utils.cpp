@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "pipe_communication.hpp"
-
-#include <gtest/gtest.h>
-
 #include <chrono>
+#include <gtest/gtest.h>
 #include <thread>
 #include <vector>
+
+#include "pipe_communication.hpp"
 
 using namespace tt::umd::test_utils;
 

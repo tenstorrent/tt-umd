@@ -4,17 +4,16 @@
 
 #include "umd/device/jtag/jtag.hpp"
 
-#include "assert.hpp"
-
-#include <stdint.h>
-#include <tt-logger/tt-logger.hpp>
-
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <stdint.h>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <vector>
+
+#include "assert.hpp"
 
 /*static*/ DlHandle Jtag::handle;
 

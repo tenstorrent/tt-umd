@@ -2,6 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <gtest/gtest.h>
+#include <memory>
+#include <numeric>
+#include <random>
+#include <thread>
+#include <tt-logger/tt-logger.hpp>
+#include <vector>
+
 #include "test_wh_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
@@ -11,21 +25,6 @@
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
-
-#include <gtest/gtest.h>
-#include <tt-logger/tt-logger.hpp>
-
-#include <cassert>
-#include <chrono>
-#include <cstdint>
-#include <cstdlib>
-#include <ctime>
-#include <filesystem>
-#include <memory>
-#include <numeric>
-#include <random>
-#include <thread>
-#include <vector>
 
 namespace tt::umd::test::utils {
 class WormholeNebulaX2TestFixture : public WormholeTestFixture {

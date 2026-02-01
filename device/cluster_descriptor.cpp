@@ -4,16 +4,6 @@
 
 #include "umd/device/cluster_descriptor.hpp"
 
-#include "api/umd/device/arch/blackhole_implementation.hpp"
-#include "api/umd/device/arch/grendel_implementation.hpp"
-#include "api/umd/device/arch/wormhole_implementation.hpp"
-#include "api/umd/device/types/cluster_descriptor_types.hpp"
-#include "assert.hpp"
-#include "disjoint_set.hpp"
-
-#include <tt-logger/tt-logger.hpp>
-#include <yaml-cpp/yaml.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -28,11 +18,20 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <yaml-cpp/yaml.h>
+
+#include "api/umd/device/arch/blackhole_implementation.hpp"
+#include "api/umd/device/arch/grendel_implementation.hpp"
+#include "api/umd/device/arch/wormhole_implementation.hpp"
+#include "api/umd/device/types/cluster_descriptor_types.hpp"
+#include "assert.hpp"
+#include "disjoint_set.hpp"
 
 namespace tt::umd {
 

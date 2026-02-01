@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstddef>
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <memory>
+#include <vector>
+
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/tlb.hpp"
-
-#include <gtest/gtest.h>
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <vector>
 
 using namespace tt;
 using namespace tt::umd;

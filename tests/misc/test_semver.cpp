@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/utils/semver.hpp"
-
-#include <gtest/gtest.h>
-
 #include <exception>
+#include <gtest/gtest.h>
 #include <map>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;
 

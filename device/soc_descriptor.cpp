@@ -4,6 +4,23 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fmt/core.h>
+#include <fstream>
+#include <iostream>
+#include <optional>
+#include <regex>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+#include <yaml-cpp/yaml.h>
+
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
@@ -12,24 +29,6 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
-
-#include <fmt/core.h>
-#include <tt-logger/tt-logger.hpp>
-#include <yaml-cpp/yaml.h>
-
-#include <cstddef>
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <optional>
-#include <regex>
-#include <set>
-#include <stdexcept>
-#include <string>
-#include <unordered_set>
-#include <utility>
-#include <vector>
 
 // #include "l1_address_map.h"
 

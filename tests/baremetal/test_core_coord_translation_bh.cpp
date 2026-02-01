@@ -2,20 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <map>
 #include <memory>
 #include <set>
 #include <stdexcept>
 #include <vector>
+
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

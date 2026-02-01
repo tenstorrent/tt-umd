@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "assert.hpp"
-
-#include <gtest/gtest.h>
-
 #include <functional>
+#include <gtest/gtest.h>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "assert.hpp"
 
 struct CustomType {
     int value;

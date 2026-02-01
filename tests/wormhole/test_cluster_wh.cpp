@@ -2,6 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstddef>
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <ios>
+#include <memory>
+#include <random>
+#include <set>
+#include <thread>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
@@ -13,17 +23,6 @@
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
-
-#include <gtest/gtest.h>
-
-#include <cstddef>
-#include <cstdint>
-#include <ios>
-#include <memory>
-#include <random>
-#include <set>
-#include <thread>
-#include <vector>
 
 using namespace tt::umd;
 

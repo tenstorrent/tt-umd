@@ -4,19 +4,12 @@
 
 #include "umd/device/types/telemetry.hpp"
 
-#include "common.hpp"
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
-
-#include <fmt/core.h>
-#include <tt-logger/tt-logger.hpp>
-
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <cxxopts.hpp>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <fstream>
 #include <iomanip>
@@ -27,8 +20,14 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
+
+#include "common.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 

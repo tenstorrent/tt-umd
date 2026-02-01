@@ -2,17 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "disjoint_set.hpp"
-#include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-
-#include <gtest/gtest.h>
-
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -23,6 +16,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include "disjoint_set.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;

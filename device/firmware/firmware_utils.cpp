@@ -4,27 +4,26 @@
 
 #include "umd/device/firmware/firmware_utils.hpp"
 
-#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/telemetry.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
-#include "umd/device/utils/semver.hpp"
-
-#include <picosha2.h>
-#include <tt-logger/tt-logger.hpp>
-
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <picosha2.h>
 #include <string>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 

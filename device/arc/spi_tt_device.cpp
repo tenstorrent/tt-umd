@@ -8,6 +8,7 @@
 #include "umd/device/types/arch.hpp"
 
 #include <fmt/format.h>
+
 #include <memory>
 #include <stdexcept>
 

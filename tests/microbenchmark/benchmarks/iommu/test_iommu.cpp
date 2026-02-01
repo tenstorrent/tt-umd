@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+#include <nanobench.h>
+#include <sys/mman.h>
+
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
-#include <gtest/gtest.h>
 #include <memory>
-#include <nanobench.h>
-#include <sys/mman.h>
 #include <utility>
 #include <vector>
 

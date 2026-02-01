@@ -4,6 +4,7 @@
 #include "umd/device/arc/spi_tt_device.hpp"
 
 #include <fmt/format.h>
+
 #include <memory>
 #include <stdexcept>
 

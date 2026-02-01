@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "api/umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -24,6 +23,7 @@
 #include "noc_access.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"

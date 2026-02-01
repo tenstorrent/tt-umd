@@ -4,11 +4,12 @@
 
 // This file holds Chip specific API examples.
 
+#include <fmt/xchar.h>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
-#include <fmt/xchar.h>
-#include <gtest/gtest.h>
 #include <memory>
 #include <stdexcept>
 #include <string>

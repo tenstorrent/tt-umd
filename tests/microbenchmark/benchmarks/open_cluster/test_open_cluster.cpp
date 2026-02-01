@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <chrono>
 #include <gtest/gtest.h>
-#include <memory>
 #include <nanobench.h>
 #include <sys/mman.h>
+
+#include <chrono>
+#include <memory>
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"

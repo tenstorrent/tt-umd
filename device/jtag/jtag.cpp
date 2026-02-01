@@ -4,10 +4,11 @@
 
 #include "umd/device/jtag/jtag.hpp"
 
+#include <stdint.h>
+
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
-#include <stdint.h>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>

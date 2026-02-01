@@ -3,20 +3,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "api/umd/device/cluster.hpp"
-#include "umd/device/cluster.hpp"
+
+#include <assert.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
-#include <assert.h>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <dirent.h>
-#include <errno.h>
 #include <filesystem>
-#include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
 #include <fstream>
 #include <iomanip>
 #include <iterator>
@@ -28,13 +34,8 @@
 #include <ratio>
 #include <regex>
 #include <set>
-#include <stdarg.h>
 #include <stdexcept>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
-#include <sys/mman.h>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
@@ -43,7 +44,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <yaml-cpp/yaml.h>
 
 #include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
@@ -56,6 +56,7 @@
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"

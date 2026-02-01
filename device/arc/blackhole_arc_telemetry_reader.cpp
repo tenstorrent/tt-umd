@@ -4,8 +4,9 @@
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 
-#include <cstdint>
 #include <fmt/core.h>
+
+#include <cstdint>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"

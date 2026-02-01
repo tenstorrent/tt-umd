@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
 #include <ostream>

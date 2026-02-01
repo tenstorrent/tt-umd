@@ -4,8 +4,9 @@
 
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 
-#include <cstdint>
 #include <fmt/format.h>
+
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <set>

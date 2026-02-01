@@ -4,6 +4,9 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
+#include <fmt/color.h>
+#include <glob.h>
+
 #include <algorithm>
 #include <asio.hpp>
 #include <atomic>
@@ -15,9 +18,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
-#include <fmt/color.h>
 #include <functional>
-#include <glob.h>
 #include <map>
 #include <memory>
 #include <optional>

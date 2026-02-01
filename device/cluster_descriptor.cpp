@@ -4,12 +4,14 @@
 
 #include "umd/device/cluster_descriptor.hpp"
 
+#include <fmt/format.h>
+#include <yaml-cpp/yaml.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
-#include <fmt/format.h>
 #include <fstream>
 #include <limits>
 #include <map>
@@ -24,7 +26,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <yaml-cpp/yaml.h>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"

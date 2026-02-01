@@ -4,13 +4,14 @@
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 
+#include <sys/mman.h>  // for mmap, munmap
+#include <sys/stat.h>  // for fstat
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"

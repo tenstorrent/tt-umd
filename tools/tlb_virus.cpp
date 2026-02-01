@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <cxxopts.hpp>
 #include <exception>
-#include <fmt/core.h>
-#include <fmt/format.h>
-#include <fmt/ranges.h>
 #include <iostream>
 #include <map>
 #include <memory>

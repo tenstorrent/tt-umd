@@ -4,13 +4,14 @@
 
 #include "umd/device/types/telemetry.hpp"
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <cxxopts.hpp>
-#include <fmt/core.h>
-#include <fmt/format.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>

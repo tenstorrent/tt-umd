@@ -6,6 +6,9 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
+#include <sys/mman.h>  // for mmap, munmap
+#include <sys/stat.h>  // for fstat
+
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -16,8 +19,6 @@
 #include <memory>
 #include <ostream>
 #include <string>
-#include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 

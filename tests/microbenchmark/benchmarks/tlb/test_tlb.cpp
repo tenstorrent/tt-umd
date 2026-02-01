@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+#include <nanobench.h>
+
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <gtest/gtest.h>
 #include <memory>
-#include <nanobench.h>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"

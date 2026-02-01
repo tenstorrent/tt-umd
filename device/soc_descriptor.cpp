@@ -4,10 +4,12 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
+#include <fmt/core.h>
+#include <yaml-cpp/yaml.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fmt/core.h>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -19,7 +21,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <yaml-cpp/yaml.h>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

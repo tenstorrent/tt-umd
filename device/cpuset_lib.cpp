@@ -4,6 +4,10 @@
 
 #include "cpuset_lib.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <fmt/std.h>     // Needed to format thread_id
+
 #include <algorithm>
 #include <cerrno>
 #include <cstddef>
@@ -12,9 +16,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
-#include <fmt/std.h>     // Needed to format thread_id
 #include <iostream>
 #include <regex>
 #include <string>

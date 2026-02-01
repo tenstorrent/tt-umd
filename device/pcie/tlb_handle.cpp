@@ -4,11 +4,12 @@
 
 #include "umd/device/pcie/tlb_handle.hpp"
 
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"

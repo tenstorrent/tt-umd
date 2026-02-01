@@ -22,11 +22,11 @@ struct xy_pair {
     std::string str() const;
 };
 
-constexpr inline bool operator==(const xy_pair &a, const xy_pair &b) { return a.x == b.x && a.y == b.y; }
+constexpr bool operator==(const xy_pair &a, const xy_pair &b) { return a.x == b.x && a.y == b.y; }
 
-constexpr inline bool operator!=(const xy_pair &a, const xy_pair &b) { return !(a == b); }
+constexpr bool operator!=(const xy_pair &a, const xy_pair &b) { return !(a == b); }
 
-constexpr inline bool operator<(const xy_pair &left, const xy_pair &right) {
+constexpr bool operator<(const xy_pair &left, const xy_pair &right) {
     return (left.x < right.x || (left.x == right.x && left.y < right.y));
 }
 
@@ -42,13 +42,11 @@ struct cxy_pair : public xy_pair {
     std::string str() const;
 };
 
-constexpr inline bool operator==(const cxy_pair &a, const cxy_pair &b) {
-    return a.x == b.x && a.y == b.y && a.chip == b.chip;
-}
+constexpr bool operator==(const cxy_pair &a, const cxy_pair &b) { return a.x == b.x && a.y == b.y && a.chip == b.chip; }
 
-constexpr inline bool operator!=(const cxy_pair &a, const cxy_pair &b) { return !(a == b); }
+constexpr bool operator!=(const cxy_pair &a, const cxy_pair &b) { return !(a == b); }
 
-constexpr inline bool operator<(const cxy_pair &left, const cxy_pair &right) {
+constexpr bool operator<(const cxy_pair &left, const cxy_pair &right) {
     return (
         left.chip < right.chip || (left.chip == right.chip && left.x < right.x) ||
         (left.chip == right.chip && left.x == right.x && left.y < right.y));

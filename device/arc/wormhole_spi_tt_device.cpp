@@ -311,7 +311,9 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
     // Get aligned parameters.
-    uint32_t start_addr, num_chunks, start_offset;
+    uint32_t start_addr;
+    uint32_t num_chunks;
+    uint32_t start_offset;
     get_aligned_params(addr, size, wormhole::ARC_SPI_CHUNK_SIZE, start_addr, num_chunks, start_offset);
 
     std::vector<uint8_t> chunk_buf(wormhole::ARC_SPI_CHUNK_SIZE);
@@ -376,7 +378,9 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
         // Get aligned parameters.
-        uint32_t start_addr, num_chunks, start_offset;
+        uint32_t start_addr;
+        uint32_t num_chunks;
+        uint32_t start_offset;
         get_aligned_params(addr, size, wormhole::ARC_SPI_CHUNK_SIZE, start_addr, num_chunks, start_offset);
 
         std::vector<uint8_t> chunk_buf(wormhole::ARC_SPI_CHUNK_SIZE);

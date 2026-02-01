@@ -66,7 +66,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         if (len != -1) {
             buffer[len] = '\0';
             std::string path(buffer);
-            std::string::size_type pos = path.find_last_of("/");
+            std::string::size_type pos = path.find_last_of('/');
             actual_path = path.substr(0, pos);
         }
     }

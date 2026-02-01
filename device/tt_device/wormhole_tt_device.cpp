@@ -448,6 +448,18 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
 }
 
 wormhole::EthTrainStatus WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+    uint32_t retrain_status;
+    read_from_device(
+        &retrain_status,
+        is_selected_noc1() ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
+                           : eth_core,
+        wormhole::ETH_RETRAIN_ADDR,
+        sizeof(uint32_t));
+    // If core is in retrain state, then training status is not valid as the training is ongoing.
+    if (retrain_status == wormhole::ETH_TRIGGER_RETRAIN_VAL) {
+        return wormhole::EthTrainStatus::Ongoing;
+    }
+
     uint32_t training_status;
     read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
     return static_cast<wormhole::EthTrainStatus>(training_status);

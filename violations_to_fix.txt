@@ -1,0 +1,4 @@
+# Clang-Tidy Violations: misc-redundant-expression
+Total: 1 violations
+
+- device/arc/wormhole_spi_tt_device.cpp:64 — ineffective bitwise and operation

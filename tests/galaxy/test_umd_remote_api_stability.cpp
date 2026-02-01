@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <cassert>
-#include <cstdlib>
-#include <memory>
 #include <vector>
 
 #include "tests/galaxy/test_galaxy_common.hpp"

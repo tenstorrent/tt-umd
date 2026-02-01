@@ -4,9 +4,9 @@
 
 // This file holds Chip specific API examples.
 
-#include <gtest/gtest.h>
 #include <cstddef>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <memory>
 #include <vector>
 

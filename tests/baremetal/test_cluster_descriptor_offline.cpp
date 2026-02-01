@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-
-#include <fstream>
-#include <tt-logger/tt-logger.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>

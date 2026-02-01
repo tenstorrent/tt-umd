@@ -4,13 +4,13 @@
 
 #include "umd/device/chip/remote_chip.hpp"
 
-#include <tt-logger/tt-logger.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>

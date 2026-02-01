@@ -4,26 +4,25 @@
 
 #include "umd/device/types/telemetry.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <ctime>
+#include <cxxopts.hpp>
 #include <fmt/core.h>
 #include <fmt/format.h>
-
-#include <chrono>
-#include <cxxopts.hpp>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <vector>
-#include <algorithm>
-#include <cstdint>
-#include <ctime>
-#include <memory>
-#include <stdexcept>
 #include <utility>
+#include <vector>
 
 #include "common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"

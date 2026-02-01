@@ -2,19 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <future>
-#include <thread>
-#include <vector>
 #include <functional>
+#include <future>
+#include <gtest/gtest.h>
 #include <string>
+#include <sys/wait.h>
 #include <system_error>
+#include <thread>
+#include <unistd.h>
+#include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "test_utils/pipe_communication.hpp"

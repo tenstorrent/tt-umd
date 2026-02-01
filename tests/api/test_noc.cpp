@@ -4,8 +4,8 @@
 
 // This file holds Cluster specific API examples.
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <memory>
 #include <vector>
 

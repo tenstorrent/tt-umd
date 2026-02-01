@@ -4,30 +4,29 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
-#include <fmt/color.h>
-#include <glob.h>
-
+#include <algorithm>
 #include <asio.hpp>
+#include <atomic>
+#include <cerrno>
 #include <charconv>  // for std::from_chars
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <filesystem>
+#include <fmt/color.h>
+#include <functional>
+#include <glob.h>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
-#include <algorithm>
-#include <atomic>
-#include <cerrno>
-#include <cstdint>
-#include <cstring>
-#include <exception>
-#include <functional>
-#include <map>
-#include <optional>
-#include <string>
-#include <system_error>
 #include <utility>
 #include <vector>
 

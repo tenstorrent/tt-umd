@@ -5,9 +5,9 @@
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 
 #include <chrono>
-#include <tt-logger/tt-logger.hpp>
 #include <cstdint>
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"

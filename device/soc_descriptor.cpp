@@ -4,23 +4,22 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fmt/core.h>
-#include <yaml-cpp/yaml.h>
-
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
-#include <cstddef>
-#include <cstdint>
-#include <filesystem>
-#include <optional>
-#include <set>
 #include <utility>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

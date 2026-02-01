@@ -4,14 +4,13 @@
 
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 
-#include <fmt/format.h>
-
-#include <optional>
-#include <tt-logger/tt-logger.hpp>
 #include <cstdint>
+#include <fmt/format.h>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
 #include "assert.hpp"

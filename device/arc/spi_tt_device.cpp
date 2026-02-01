@@ -4,9 +4,8 @@
 #include "umd/device/arc/spi_tt_device.hpp"
 
 #include <fmt/format.h>
-
-#include <stdexcept>
 #include <memory>
+#include <stdexcept>
 
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

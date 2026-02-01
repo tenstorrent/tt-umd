@@ -4,8 +4,8 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 
-#include <stdexcept>
 #include <cstdint>
+#include <stdexcept>
 #include <tuple>
 
 #include "assert.hpp"

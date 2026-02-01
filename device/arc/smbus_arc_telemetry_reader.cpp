@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+
 #include <cstdint>
 #include <stdexcept>
 #include <vector>
-#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

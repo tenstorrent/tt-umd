@@ -2,20 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstddef>
+#include <cstdint>
+#include <cxxopts.hpp>
+#include <exception>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
-
-#include <cxxopts.hpp>
 #include <iostream>
 #include <map>
-#include <tt-logger/tt-logger.hpp>
-#include <vector>
-#include <cstddef>
-#include <cstdint>
-#include <exception>
 #include <memory>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
 #include "common.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"

@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-
-#include <stdexcept>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <ostream>
+#include <stdexcept>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"

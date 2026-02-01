@@ -4,12 +4,12 @@
 
 #include "umd/device/chip/chip.hpp"
 
-#include <chrono>
-#include <cstdint>
-#include <tt-logger/tt-logger.hpp>
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 

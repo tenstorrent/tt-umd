@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstdint>
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
+
+#include <cstdint>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

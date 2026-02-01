@@ -4,23 +4,22 @@
 
 #include "cpuset_lib.hpp"
 
-#include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
-#include <fmt/std.h>     // Needed to format thread_id
-
 #include <algorithm>
-#include <filesystem>
-#include <regex>
-#include <thread>
-#include <tt-logger/tt-logger.hpp>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <fmt/std.h>     // Needed to format thread_id
 #include <iostream>
+#include <regex>
 #include <string>
+#include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 

@@ -4,13 +4,12 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
-#include <string.h>
-
-#include <stdexcept>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
+#include <string.h>
 #include <utility>
 
 #include "noc_access.hpp"

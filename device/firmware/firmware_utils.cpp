@@ -4,19 +4,18 @@
 
 #include "umd/device/firmware/firmware_utils.hpp"
 
-#include <picosha2.h>
-
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <optional>
+#include <picosha2.h>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <utility>
-#include <chrono>
-#include <memory>
-#include <string>
 #include <vector>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"

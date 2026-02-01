@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstdint>
+#include <cstring>
 #include <gtest/gtest.h>
-
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <unordered_map>
-#include <cstdint>
-#include <cstring>
 #include <utility>
 #include <vector>
 

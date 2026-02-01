@@ -4,31 +4,30 @@
 
 #include "umd/device/pcie/pci_device.hpp"
 
-#include <fcntl.h>      // for ::open
-#include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
-#include <sys/ioctl.h>  // for ioctl
-#include <sys/mman.h>   // for mmap, munmap
-#include <unistd.h>     // for ::close
-
-#include <cstdint>
-#include <cstring>  // for memcpy
-#include <filesystem>
-#include <fstream>
-#include <optional>
-#include <stdexcept>
-#include <tt-logger/tt-logger.hpp>
-#include <vector>
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdint>
+#include <cstring>  // for memcpy
 #include <exception>
+#include <fcntl.h>      // for ::open
+#include <filesystem>
+#include <fstream>
 #include <ios>
+#include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
 #include <map>
 #include <memory>
+#include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <sys/ioctl.h>  // for ioctl
+#include <sys/mman.h>   // for mmap, munmap
+#include <tt-logger/tt-logger.hpp>
+#include <unistd.h>     // for ::close
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "ioctl.h"

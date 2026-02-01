@@ -4,9 +4,9 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 
-#include <tt-logger/tt-logger.hpp>
 #include <cstdint>
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
 #include "assert.hpp"

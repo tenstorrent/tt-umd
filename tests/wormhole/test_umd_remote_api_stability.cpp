@@ -2,19 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-
+#include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <gtest/gtest.h>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <cassert>
-#include <cstdlib>
-#include <memory>
 #include <vector>
 
 #include "test_wh_common.hpp"

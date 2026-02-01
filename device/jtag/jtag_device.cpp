@@ -4,14 +4,14 @@
 
 #include "umd/device/jtag/jtag_device.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <optional>
-#include <tt-logger/tt-logger.hpp>
-#include <algorithm>
-#include <filesystem>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <utility>
 #include <vector>

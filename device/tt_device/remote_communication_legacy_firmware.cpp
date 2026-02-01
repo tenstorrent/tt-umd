@@ -4,11 +4,11 @@
 
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
 
-#include <tt-logger/tt-logger.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"

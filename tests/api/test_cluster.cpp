@@ -4,28 +4,27 @@
 
 // This file holds Cluster specific API examples.
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdlib>  // for std::getenv
+#include <cstring>
+#include <filesystem>
 #include <fmt/format.h>
 #include <fmt/xchar.h>
 #include <gtest/gtest.h>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <random>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <sys/types.h>
 #include <unistd.h>  // For access()
-
-#include <algorithm>
-#include <cstdint>
-#include <cstdlib>  // for std::getenv
-#include <filesystem>
-#include <iostream>
-#include <optional>
-#include <sstream>
-#include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <array>
-#include <cstring>
-#include <memory>
-#include <random>
-#include <stdexcept>
-#include <unordered_map>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "test_utils/setup_risc_cores.hpp"

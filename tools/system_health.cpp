@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cxxopts.hpp>
-#include <tt-logger/tt-logger.hpp>
 #include <algorithm>
 #include <cstdint>
+#include <cxxopts.hpp>
 #include <ios>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <vector>

@@ -383,7 +383,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                             LogUMD,
                             "Retraining ETH core {} on device {}, iteration {}.",
                             eth_core.str(),
-                            get_local_asic_id(tt_device.get(), eth_core),
+                            asic_id,
                             current_retrain_eth_count);
                         wormhole_tt_device->retrain_eth_core(eth_core);
                         all_eth_cores_trained = false;
@@ -393,12 +393,10 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
 
             if (all_eth_cores_trained) {
                 break;
-            } else {
-                // Give eth cores some time to accept the retrain command.
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
 
             for (const auto& [asic_id, tt_device] : devices_to_discover) {
+                log_debug(LogUMD, "Waiting for ETH cores to finish training after retrain on device {}.", asic_id);
                 wait_eth_cores_training(tt_device.get());
             }
         }

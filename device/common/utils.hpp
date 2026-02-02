@@ -48,7 +48,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
 
 static std::vector<std::string> split_string_by_comma(const std::string& input_string) {
     std::vector<std::string> device_tokens;
-    std::stringstream ss(tt_visible_devices_string);
+    std::stringstream ss(input_string);
     std::string token;
     while (std::getline(ss, token, ',')) {
         token.erase(token.find_last_not_of(" \n\r\t") + 1);

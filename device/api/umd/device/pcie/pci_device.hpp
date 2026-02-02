@@ -325,6 +325,18 @@ private:
      */
     bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
 
+    /**
+     * Get all device IDs without considering TT_VISIBLE_DEVICES environment variable.
+     * @return vector of all available device IDs
+     */
+    static std::vector<int> get_all_device_ids();
+
+    /**
+     * Get mapping of BDF to device ID without considering TT_VISIBLE_DEVICES environment variable.
+     * @return map from BDF string to device ID
+     */
+    static std::map<std::string, int> get_bdf_to_device_id_map();
+
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;

@@ -7,7 +7,6 @@
 #include <cstdint>
 
 
-
 namespace tt::umd::blackhole {
 
 // Note, this only includes message IDs that have actually be implemented in CMFW.
@@ -53,5 +52,4 @@ enum BlackholeArcMessageQueueIndex : uint8_t {
 };
 
 } // namespace tt::umd::blackhole
-
 

@@ -46,6 +46,21 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
+static std::vector<std::string> split_tt_visible_devices_string(const std::string& tt_visible_devices_string) {
+    std::vector<std::string> device_tokens;
+    std::stringstream ss(tt_visible_devices_string);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        token.erase(token.find_last_not_of(" \n\r\t") + 1);
+        token.erase(0, token.find_first_not_of(" \n\r\t"));
+        if (!token.empty()) {
+            device_tokens.push_back(token);
+        }
+    }
+
+    return device_tokens;
+}
+
 static std::optional<std::unordered_set<std::string>> get_unordered_set_from_bdf_string(const std::string& input) {
     std::unordered_set<std::string> result_set;
     std::stringstream ss(input);

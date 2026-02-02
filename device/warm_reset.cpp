@@ -7,16 +7,29 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <algorithm>
 #include <asio.hpp>
+#include <atomic>
+#include <cerrno>
 #include <charconv>  // for std::from_chars
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"

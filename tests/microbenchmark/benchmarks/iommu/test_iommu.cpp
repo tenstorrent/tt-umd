@@ -7,7 +7,10 @@
 #include <sys/mman.h>
 
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <memory>
+#include <utility>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"

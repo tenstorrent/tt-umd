@@ -10,14 +10,25 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
+#include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <map>
+#include <memory>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "assert.hpp"

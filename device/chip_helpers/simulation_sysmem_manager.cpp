@@ -7,8 +7,11 @@
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"

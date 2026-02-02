@@ -4,6 +4,11 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"

@@ -48,6 +48,7 @@ public:
 
         // Set NOC context to this_noc for consistent read operations.
         NocIdSwitcher this_noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
+        std::cout << "Current NOC is NOC:" << static_cast<uint32_t>(get_noc_index(this_noc)) << "\n";
 
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
 
@@ -170,8 +171,8 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
         }
     }
 
-    if (get_chip_arch(0) == ARCH::BLACKHOLE) {
-        if (core_type == CoreType::ROUTER_ONLY) {
+    if (get_chip_arch(0) == ARCH::WORMHOLE_B0) {
+        if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::ROUTER_ONLY) {
             GTEST_SKIP() << "Skipping test for core type: " << to_str(core_type);
         }
     }

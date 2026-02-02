@@ -305,8 +305,8 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0x100088000},
-     {CoreType::PCIE, 0xFFFB30000},
-     {CoreType::ARC, 0xFFFB30000},
+     {CoreType::PCIE, 0xFFFB20000},
+     {CoreType::ARC, 0xFFFB20000},
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
 

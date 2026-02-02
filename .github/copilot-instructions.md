@@ -19,6 +19,52 @@ cmake --build build
 - Do NOT modify `CMakeLists.txt`.
 - Do NOT run security scans (CodeQL, etc.) - CI handles this separately.
 
+## Pre-commit Integration
+
+**All agents should use pre-commit hooks when making changes to ensure code quality and consistency.**
+
+### Installing Pre-commit
+
+If pre-commit is not already installed, install it with:
+```bash
+pip install pre-commit
+```
+
+### Configuring Pre-commit for the Repository
+
+After installing, configure the git hooks:
+```bash
+pre-commit install
+```
+
+This will set up automatic checks before each commit. The hooks are defined in `.pre-commit-config.yaml` and include:
+- **gersemi**: CMake file formatting
+- **clang-format**: C++ code formatting
+- **black**: Python code formatting
+- **yamllint**: YAML file linting (for `.github/` directory)
+- **check-copyright**: Copyright header verification
+- **check-cpp-comment-periods**: Ensures C++ comments end with periods
+
+### Using Pre-commit
+
+**Automatic execution**: Pre-commit hooks run automatically before each commit after installation.
+
+**Manual execution**: Run all hooks on all files:
+```bash
+pre-commit run --all-files
+```
+
+**Run on specific files**: 
+```bash
+pre-commit run --files <file1> <file2>
+```
+
+**Best Practices**:
+1. Install pre-commit at the start of your work session
+2. Run `pre-commit run --all-files` before making changes to establish a baseline
+3. Let hooks run automatically before commits to catch issues early
+4. If hooks fail, fix the issues and re-commit (many hooks auto-fix formatting)
+
 ## Code Style Guidelines
 
 - **C++ Standard**: C++17

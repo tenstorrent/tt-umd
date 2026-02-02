@@ -3,27 +3,11 @@ cmake_minimum_required(VERSION 3.16)
 option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
 set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
 
-include(cmake/compilers.cmake)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Generate compile_commands.json for IDEs and tools
-
-if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
-    message(STATUS "Setting C and C++ compiler from environment variables")
-    set(CMAKE_C_COMPILER $ENV{CMAKE_C_COMPILER})
-    set(CMAKE_CXX_COMPILER $ENV{CMAKE_CXX_COMPILER})
-endif()
-
-if(CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
-    message(STATUS "Using specifed C++ compiler: ${CMAKE_CXX_COMPILER}")
-    message(STATUS "Using specifed C compiler: ${CMAKE_C_COMPILER}")
-else()
-    message(STATUS "No C or C++ compiler specified, defaulting to Clang-17")
-    FIND_AND_SET_CLANG17()
-endif()
 
 # Read version from VERSION file
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION)
@@ -42,8 +26,6 @@ project(
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-CHECK_COMPILERS()
-include(check_libcpp)
 
 include(GNUInstallDirs)
 set(MASTER_PROJECT OFF)
@@ -112,7 +94,7 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
         CLANG_TIDY_EXE
         NAMES
             clang-tidy
-            clang-tidy-17
+            clang-tidy-20
     )
     # These flags are needed because clang-tidy might reference warning options in
     # .clang-tidy config file that aren't supported by your actual compiler
@@ -130,15 +112,12 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
 endif()
 
 # Enable all warnings and treat them as errors
-# Ignore unused variables and functions since there is no harm.
-# TODO: Re-enable sign-compare
 add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
-    -Wno-unused-variable
-    -Wno-unused-function
     -Wno-sign-compare
+    -Wno-unused-function
 )
 
 # Fixed this warning on clang, but not yet gcc

@@ -68,13 +68,10 @@
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
-static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
-
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 
-#include <fstream>
 #include <iomanip>
 #include <thread>
 
@@ -173,6 +170,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
+        pci_ids.reserve(local_chip_ids_.size());
         for (ChipId local_chip_id : local_chip_ids_) {
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
@@ -741,17 +739,18 @@ void Cluster::broadcast_write_to_cluster(
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude) {
+    std::set<uint32_t>& columns_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
+        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
+            columns_to_exclude.find(9) == columns_to_exclude.end()) {
             TT_ASSERT(
-                !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
+                !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
-            if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
+            if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero do not exclude anything.
                 std::set<uint32_t> unsafe_rows = {};
-                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
+                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = columns_to_exclude;
                 std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
                 cols_to_exclude_for_col_0_bcast.insert(9);
                 rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
@@ -764,8 +763,8 @@ void Cluster::broadcast_write_to_cluster(
                     cols_to_exclude_for_col_0_bcast,
                     false);
             }
-            if (cols_to_exclude.find(9) == cols_to_exclude.end()) {
-                std::set<uint32_t> cols_to_exclude_for_col_9_bcast = cols_to_exclude;
+            if (columns_to_exclude.find(9) == columns_to_exclude.end()) {
+                std::set<uint32_t> cols_to_exclude_for_col_9_bcast = columns_to_exclude;
                 cols_to_exclude_for_col_9_bcast.insert(0);
                 ethernet_broadcast_write(
                     mem_ptr,
@@ -779,7 +778,7 @@ void Cluster::broadcast_write_to_cluster(
         } else {
             TT_ASSERT(
                 use_translated_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                    valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -787,20 +786,21 @@ void Cluster::broadcast_write_to_cluster(
                 address,
                 chips_to_exclude,
                 rows_to_exclude,
-                cols_to_exclude,
+                columns_to_exclude,
                 use_translated_coords_for_eth_broadcast);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
+        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
+            columns_to_exclude.find(5) == columns_to_exclude.end()) {
             TT_ASSERT(
-                !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
+                !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
-            if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
+            if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
                 // since writing to these is unsafe ERISC FW does not exclude these.
                 std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
-                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
+                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = columns_to_exclude;
                 std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
                 cols_to_exclude_for_col_0_bcast.insert(5);
                 rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
@@ -813,8 +813,8 @@ void Cluster::broadcast_write_to_cluster(
                     cols_to_exclude_for_col_0_bcast,
                     false);
             }
-            if (cols_to_exclude.find(5) == cols_to_exclude.end()) {
-                std::set<uint32_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude;
+            if (columns_to_exclude.find(5) == columns_to_exclude.end()) {
+                std::set<uint32_t> cols_to_exclude_for_col_5_bcast = columns_to_exclude;
                 cols_to_exclude_for_col_5_bcast.insert(0);
                 ethernet_broadcast_write(
                     mem_ptr,
@@ -828,7 +828,7 @@ void Cluster::broadcast_write_to_cluster(
         } else {
             TT_ASSERT(
                 use_translated_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                    valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -836,7 +836,7 @@ void Cluster::broadcast_write_to_cluster(
                 address,
                 chips_to_exclude,
                 rows_to_exclude,
-                cols_to_exclude,
+                columns_to_exclude,
                 use_translated_coords_for_eth_broadcast);
         }
     }
@@ -878,6 +878,11 @@ void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, Cor
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+}
+
+void Cluster::dma_multicast_write(
+    void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
@@ -1023,7 +1028,7 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     TopologyDiscoveryOptions options;
     options.soc_descriptor_path = std::move(sdesc_path);
     options.io_device_type = device_type;
-    return TopologyDiscovery::discover(std::move(options)).first;
+    return TopologyDiscovery::discover(options).first;
 }
 
 }  // namespace tt::umd

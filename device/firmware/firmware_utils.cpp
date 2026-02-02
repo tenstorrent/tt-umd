@@ -84,14 +84,6 @@ std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
     return version_map->back().second;
 }
 
-semver_t get_eth_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
-    if (arch == tt::ARCH::BLACKHOLE) {
-        return semver_t(0, 0, 0);
-    }
-
-    return semver_t((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
-}
-
 std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version) {
     const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
     switch (tt_device->get_arch()) {
@@ -114,7 +106,7 @@ std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_
     tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
     std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
 
-    return eth_fw_text_sha256_hash.compare(hashed_range.sha256_hash) == 0;
+    return eth_fw_text_sha256_hash == hashed_range.sha256_hash;
 }
 
 semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {

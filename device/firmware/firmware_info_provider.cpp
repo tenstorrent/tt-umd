@@ -5,6 +5,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
 #include <cstdint>
+#include <optional>
 
 #include "assert.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -12,10 +13,12 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -259,7 +262,12 @@ std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const 
     if (!raw.has_value()) {
         return std::nullopt;
     }
-    return get_eth_fw_version_from_telemetry(*raw, tt_device->get_arch());
+    switch (tt_device->get_arch()) {
+        case tt::ARCH::WORMHOLE_B0:
+            return semver_t::from_wormhole_eth_firmware_tag(raw.value());
+        default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
+            return std::nullopt;
+    }
 }
 
 std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {

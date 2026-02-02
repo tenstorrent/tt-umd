@@ -56,6 +56,7 @@ public:
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
@@ -96,8 +97,6 @@ private:
     void initialize_default_chip_mutexes();
     void initialize_membars();
 
-    void check_pcie_device_initialized();
-    int test_setup_interface();
     void init_pcie_iatus();
 
     void set_membar_flag(

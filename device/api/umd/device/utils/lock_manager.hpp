@@ -26,6 +26,8 @@ enum class MutexType {
     CREATE_ETH_MAP,
     // Used for guarding against multiple users initializing the same chip.
     CHIP_IN_USE,
+    // Used for guarding PCIe DMA operations against concurrent access from multiple processes.
+    PCIE_DMA,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying

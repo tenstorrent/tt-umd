@@ -29,16 +29,8 @@
 
 namespace tt::umd {
 
-static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
-
-// TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
-// TLB windows and there is no longer a pre-defined WC/UC split.
-static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
-
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
-static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -199,7 +191,8 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
 
 static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
         }
@@ -264,7 +257,7 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
 std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unordered_set<int> &pci_target_devices) {
     std::map<int, PciDeviceInfo> infos;
     for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
         }
@@ -838,11 +831,6 @@ tt::ARCH PCIDevice::get_pcie_arch() {
     return cached_arch;
 }
 
-bool PCIDevice::is_arch_agnostic_reset_supported() {
-    if (PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET) {
-        return true;
-    }
-    return false;
-}
+bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
 
 }  // namespace tt::umd

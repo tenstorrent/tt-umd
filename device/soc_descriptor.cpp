@@ -21,7 +21,6 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
@@ -382,6 +381,7 @@ void SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_in
 
 std::vector<tt_xy_pair> SocDescriptor::convert_to_tt_xy_pair(const std::vector<std::string> &core_strings) {
     std::vector<tt_xy_pair> core_pairs;
+    core_pairs.reserve(core_strings.size());
     for (const auto &core_string : core_strings) {
         core_pairs.push_back(format_node(core_string));
     }
@@ -708,6 +708,7 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const {
     std::vector<CoreCoord> translated_cores;
+    translated_cores.reserve(noc0_cores.size());
     for (const auto &core : noc0_cores) {
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }

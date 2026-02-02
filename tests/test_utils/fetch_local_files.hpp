@@ -25,9 +25,11 @@ inline std::string GetAbsPath(const std::string& relative_path) {
     return abs_path.string();
 }
 
-inline std::string GetSocDescAbsPath(std::string soc_desc_name) { return GetAbsPath("soc_descs/" + soc_desc_name); }
+inline std::string GetSocDescAbsPath(const std::string& soc_desc_name) {
+    return GetAbsPath("soc_descs/" + soc_desc_name);
+}
 
-inline std::string GetClusterDescAbsPath(std::string cluster_desc_name) {
+inline std::string GetClusterDescAbsPath(const std::string& cluster_desc_name) {
     return GetAbsPath("cluster_descriptor_examples/" + cluster_desc_name);
 }
 
@@ -52,6 +54,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300_with_remote_connections.yaml",
              "wormhole_N300_with_bus_id.yaml",
              "wormhole_N300.yaml",
+             "wormhole_N300_pci_bdf.yaml",
          }) {
         cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));
     }

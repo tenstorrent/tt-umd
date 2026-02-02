@@ -40,22 +40,21 @@ public:
         return semver_t(major, minor, patch, pre_release);
     }
 
-    static semver_t from_wormhole_eth_firmware_tag(std::uint32_t version) {
-        uint64_t major = (version >> 16) & 0xff;
-        uint64_t minor = (version >> 12) & 0xf;
-        uint64_t patch = version & 0xfff;
-        return semver_t(major, minor, patch);
-    }
-
     /*
      * Create a semver_t from a 32-bit integer by unpacking the following bits:
      * 0x00AABCCC where A is major, B is minor and C is patch.
      * Actual meaning of the tag is:
      * 0xEERRCDDD where E is entity, R is release, C is customer and D is debug.
      */
-    static semver_t from_eth_fw_tag(uint32_t version) {
-        return semver_t((version >> 16) & 0xFF, (version >> 12) & 0xF, version & 0xFFF);
+    static semver_t from_wormhole_eth_firmware_tag(std::uint32_t version) {
+        uint64_t major = (version >> 16) & 0xFF;
+        uint64_t minor = (version >> 12) & 0xF;
+        uint64_t patch = version & 0xFFF;
+        return semver_t(major, minor, patch);
     }
+
+    // Alternative name used in tt-metal. TODO: Remove.
+    static semver_t from_eth_fw_tag(std::uint32_t version) { return from_wormhole_eth_firmware_tag(version); }
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
@@ -115,10 +114,9 @@ private:
         std::string version = version_str;
         size_t pos = version_str.find("-rc.");
         size_t count = 3;  // -rc length
-        bool ispos = false;
-        if (pos != std::string::npos) {
+        bool ispos = (pos != std::string::npos);
+        if (ispos) {
             version.erase(pos, count);
-            ispos = true;
         }
         std::istringstream iss(version);
         std::string token;
@@ -136,7 +134,7 @@ private:
                 if (std::getline(iss, token, '.')) {
                     patch = std::stoull(token);
 
-                    if (std::getline(iss, token, '.') && ispos == true) {
+                    if (std::getline(iss, token, '.') && ispos) {
                         pre_release = std::stoull(token);
                     }
                 }

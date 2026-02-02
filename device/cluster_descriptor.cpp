@@ -353,7 +353,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
 
 template <typename T>
 std::unordered_map<ChipId, T> filter_chip_collection(
-    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::unordered_map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -366,7 +366,7 @@ std::unordered_map<ChipId, T> filter_chip_collection(
 
 template <typename T>
 std::map<ChipId, T> filter_chip_collection(
-    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -969,7 +969,7 @@ ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
     return this->ethernet_connections_to_remote_devices;
 }
 
-const EthCoord ClusterDescriptor::get_chip_location(const ChipId chip) const {
+EthCoord ClusterDescriptor::get_chip_location(const ChipId chip) const {
     if (chip_locations.find(chip) == chip_locations.end()) {
         return {0, 0, 0, 0};
     }
@@ -999,7 +999,7 @@ const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio
 
 const std::unordered_set<ChipId> &ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
-const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
+std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
     std::vector<ChipId> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(

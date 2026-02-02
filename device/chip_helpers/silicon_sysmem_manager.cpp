@@ -198,7 +198,8 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
         bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
-        uint64_t physical_address, noc_address;
+        uint64_t physical_address;
+        uint64_t noc_address;
         if (map_buffer_to_noc) {
             std::tie(noc_address, physical_address) =
                 tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);

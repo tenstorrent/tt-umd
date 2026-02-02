@@ -320,6 +320,12 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     tt_device_->dma_read_from_device(dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
 }
 
+void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
+    tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
+    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
+}
+
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");

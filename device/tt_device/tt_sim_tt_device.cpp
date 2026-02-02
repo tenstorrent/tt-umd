@@ -239,6 +239,11 @@ bool TTSimTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("Getting NOC translation status is not supported in TTSim simulation device.");
 }
 
+void TTSimTTDevice::dma_multicast_write(
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for TTSim simulation device.");
+}
+
 void TTSimTTDevice::create_simulator_binary() {
     const std::string filename = simulator_directory_.stem().string();
     const std::string extension = simulator_directory_.extension().string();

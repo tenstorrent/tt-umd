@@ -263,7 +263,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
 
     if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
+        if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
                 "ETH FW version hash check failed for device {} ETH core {}",

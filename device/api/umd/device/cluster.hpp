@@ -239,7 +239,7 @@ public:
      *
      * @param device_params Object specifying initialization configuration.
      */
-    void start_device(const DeviceParams& DeviceParams);
+    void start_device(const DeviceParams& device_params);
 
     /**
      * To be called at the end of a run.
@@ -411,6 +411,19 @@ public:
      */
     void dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
 
+    /**
+     * Use PCIe DMA to write the same data to multiple device cores simultaneously.
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core_start Starting core coordinates (x,y) of the multicast write.
+     * @param core_end Ending core coordinates (x,y) of the multicast write.
+     * @param addr Address to write to.
+     */
+    void dma_multicast_write(
+        void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+
     void noc_multicast_write(
         void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
@@ -446,7 +459,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 

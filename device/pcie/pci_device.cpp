@@ -261,6 +261,12 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
             if (bdf_to_device_id_map.find(device_token) != bdf_to_device_id_map.end()) {
                 int device_id = bdf_to_device_id_map[device_token];
                 filtered_device_ids.insert(device_id);
+                log_debug(
+                    LogUMD,
+                    "Added device id {} with BDF {} because of token filter {}.",
+                    device_id,
+                    device_token,
+                    device_token);
             } else {
                 TT_THROW(
                     "Invalid BDF identifier in TT_VISIBLE_DEVICES: {}. Valid device identifiers are either integers or "
@@ -277,6 +283,7 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
             int device_id = std::stoi(device_token);
             if (std::find(all_device_ids.begin(), all_device_ids.end(), device_id) != all_device_ids.end()) {
                 filtered_device_ids.insert(device_id);
+                log_debug(LogUMD, "Added device id {} because of token filter {}.", device_id, device_token);
             } else {
                 TT_THROW(
                     "Invalid device ID in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "

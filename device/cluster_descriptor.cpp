@@ -412,8 +412,12 @@ std::unordered_set<ChipId> filter_chip_collection(
         auto it = chips.find(chip_id);
         if (it != chips.end()) {
             filtered_collection.emplace(chip_id);
-std::make_unique
-    return filteredique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
+        }
+    }
+    return filtered_collection;
+}
+
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
     std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
@@ -478,7 +482,10 @@ std::make_unique
             continue;
         }
 
-        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_colstd::make_uniqueoup, target_chip_idssc;
+        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, target_chip_ids);
+    }
+
+    return desc;
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(

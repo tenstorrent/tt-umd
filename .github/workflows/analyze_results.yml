@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies for API calls
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends curl jq
+          apt-get install -y --no-install-recommends curl jq gh
 
       - name: Create benchmark results directory
         run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/{base,compare}
@@ -80,6 +80,9 @@ jobs:
       - name: Run analysis of benchmark data (with baseline)
         if: steps.download-baseline.outcome == 'success' && steps.download-comparison.outcome == 'success'
         run: |
+          echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           python3 tests/microbenchmark/tools/analyze_results.py \
           ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare -c ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base \
           | tee ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
@@ -87,9 +90,12 @@ jobs:
       - name: Run analysis of benchmark data (comparison only)
         if: steps.download-baseline.outcome != 'success' && steps.download-comparison.outcome == 'success'
         run: |
+          echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           python3 tests/microbenchmark/tools/analyze_results.py \
           ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare \
-          | tee ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          | tee -a ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
 
       - name: Comment on PR with results
         if: github.event_name == 'pull_request'

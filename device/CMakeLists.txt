@@ -208,6 +208,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/wormhole_dram.hpp
                 api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp
+                api/umd/device/types/tt_device_health.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp

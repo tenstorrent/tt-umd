@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -37,60 +39,37 @@ public:
 
     void verify_noc_id_cores_via_other_noc(ChipId chip, CoreType core_type, CoordSystem this_noc) {
         CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
-        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
-        for (const CoreCoord& core : cores) {
-            // Read this NOC - redundant.
-            const auto [this_x, this_y] = read_noc_id_reg(chip, core, get_noc_index(this_noc));
-            CoreCoord this_noc_coord(this_x, this_y, core_type, this_noc);
 
-            // Compare this NOC x, y to UMD NOC x, y - redundant.
-            EXPECT_EQ(core.x, this_x);
-            EXPECT_EQ(core.y, this_y);
-
-            // Read other NOC x, y.
-            const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
-            CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
-
-            // Get other UMD NOC x, y.
-            auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
-
-            // Compare other NOC x, y to UMD NOC x, y.
-            EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
-            EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
-        }
-    }
-
-    void verify_noc_id_cores_via_other_noc_2(ChipId chip, CoreType core_type, CoordSystem this_noc) {
-        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
-
-        NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
+        // Set NOC context to this_noc for consistent read operations.
+        NocIdSwitcher this_noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
 
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
 
-        if ((core_type == CoreType::PCIE) || (core_type == CoreType::ARC) || (core_type == CoreType::L2CPU) ||
-            (core_type == CoreType::ROUTER_ONLY)) {  // BH example, WH is router only
-            NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
-        }
-
         for (const CoreCoord& core : cores) {
-            // Read other NOC.
-            const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
-            CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
-            if (core_type == CoreType::ROUTER_ONLY) {
-                std::cout << "Other for NOC" << static_cast<uint32_t>(get_noc_index(other_noc)) << " x: " << other_x
-                          << ", y: " << other_y << "\n";
+            {
+                // Read NOC_NODE_ID register from hardware via this_noc.
+                const auto [this_x, this_y] = read_noc_id_reg(chip, core, get_noc_index(this_noc));
+                CoreCoord this_noc_coord(this_x, this_y, core_type, this_noc);
+
+                // Switch context to other_noc to read its perspective of the same core.
+                // Note: The switcher has automatic storage, hence after the current scope the destructor
+                // sets the NOC to it's previous value which here is this_noc.
+                NocIdSwitcher other_noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
+
+                // Read NOC_NODE_ID register from hardware via other_noc.
+                // Note: The NOC via which we read must match the noc_index parameter because some registers
+                // return NOC-dependent values (coordinates relative to the active NOC).
+                const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
+                CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
+
+                // Verify host-side coordinate translation by converting this_noc coordinates
+                // to other_noc coordinates and comparing against hardware-reported values.
+                auto other_noc_coord_soc_desc =
+                    cluster_->get_soc_descriptor(chip).translate_coord_to(this_noc_coord, other_noc);
+
+                EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
+                EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
             }
-
-            // Get other UMD NOC x, y.
-            auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
-
-            EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
-            EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
-        }
-
-        if ((core_type == CoreType::PCIE) || (core_type == CoreType::ARC) || (core_type == CoreType::L2CPU) ||
-            (core_type == CoreType::ROUTER_ONLY)) {
-            NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
         }
     }
 
@@ -105,10 +84,6 @@ private:
         const uint64_t noc_node_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, noc_index) +
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
-        if (core.core_type == CoreType::ROUTER_ONLY) {
-            std::cout << "On NOC" << std::hex << static_cast<uint32_t>(noc_index)
-                      << " reg addr: " << noc_node_id_reg_addr << "\n";
-        }
         uint32_t noc_node_id_val;
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
@@ -184,13 +159,29 @@ TEST_F(TestNoc, TestNoc1NodeId) {
 }
 
 TEST_F(TestNoc, TestNocValidity) {
-    // for (ChipId chip : get_cluster()->get_target_device_ids()) {
-    // verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC0);
-    verify_noc_id_cores_via_other_noc_2(0, CoreType::TENSIX, CoordSystem::NOC0);
-    verify_noc_id_cores_via_other_noc_2(0, CoreType::TENSIX, CoordSystem::NOC1);
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC1);
 
-    // verify_noc_id_cores_via_other_noc(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
-    verify_noc_id_cores_via_other_noc_2(0, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
-    verify_noc_id_cores_via_other_noc_2(0, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
-    // }
+        verify_noc_id_cores_via_other_noc(chip, CoreType::ETH, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::ETH, CoordSystem::NOC1);
+
+        verify_noc_id_cores_via_other_noc(chip, CoreType::DRAM, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::DRAM, CoordSystem::NOC1);
+
+        verify_noc_id_cores_via_other_noc(chip, CoreType::ARC, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::ARC, CoordSystem::NOC1);
+
+        verify_noc_id_cores_via_other_noc(chip, CoreType::PCIE, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::PCIE, CoordSystem::NOC1);
+
+        verify_noc_id_cores_via_other_noc(chip, CoreType::SECURITY, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::SECURITY, CoordSystem::NOC1);
+
+        verify_noc_id_cores_via_other_noc(chip, CoreType::L2CPU, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::L2CPU, CoordSystem::NOC1);
+
+        verify_noc_id_cores_via_other_noc(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
+        verify_noc_id_cores_via_other_noc(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
+    }
 }

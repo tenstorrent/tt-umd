@@ -201,6 +201,36 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
     }
 }
 
+TEST(ApiClusterTest, OpenChipsByBDFWormhole6U) {
+    // Get all available PCI devices and their BDF addresses.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+    }
+
+    if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
+        GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
+    }
+
+    std::string bdf_value = "0000:01:00.0, 0000:02:00.0, 0000:03:00.0, 0000:04:00.0";
+
+    if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+    }
+
+    // Make sure that Cluster construction is without exceptions.
+    std::unique_ptr<Cluster> cluster_tt_visible_devices = std::make_unique<Cluster>();
+
+    // Check that the cluster has the expected number of chips.
+    auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
+    EXPECT_EQ(actual_pci_device_ids.size(), 4);
+
+    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
+    }
+}
+
 TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // First, pregenerate a cluster descriptor and save it to a file.
     // This will run topology discovery and touch all the devices.

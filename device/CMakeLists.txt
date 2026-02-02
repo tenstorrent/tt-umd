@@ -23,8 +23,9 @@ if(TT_UMD_BUILD_SIMULATION)
         VERBATIM
     )
 
-    # Create a target that generates all required files for code analysis
-    add_custom_target(umd_all_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    # Add FlatBuffers header to the code analysis target
+    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
 
 if(TT_UMD_BUILD_STATIC)

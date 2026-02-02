@@ -15,7 +15,7 @@ SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelem
                                    : tt_xy_pair(
                                          wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                          wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
-    get_telemetry_address();
+    SmBusArcTelemetryReader::get_telemetry_address();
 }
 
 void SmBusArcTelemetryReader::get_telemetry_address() {

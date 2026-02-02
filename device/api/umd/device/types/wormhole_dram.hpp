@@ -4,9 +4,9 @@
 
 #pragma once
 
-namespace tt::umd {
 
-namespace wormhole {
+
+namespace tt::umd::wormhole {
 
 enum WormholeDramTrainingStatus : uint8_t {
     TrainingNone,
@@ -19,6 +19,6 @@ enum WormholeDramTrainingStatus : uint8_t {
     CaDebug,
 };
 
-}  // namespace wormhole
+} // namespace tt::umd::wormhole
 
-}  // namespace tt::umd
+

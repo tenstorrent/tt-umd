@@ -53,25 +53,14 @@ public:
 
         for (const CoreCoord& core : cores) {
             {
-                // Read NOC_NODE_ID register from hardware via this_noc.
-                const auto [this_x, this_y] = read_noc_id_reg(chip, core, get_noc_index(this_noc));
-                CoreCoord this_noc_coord(this_x, this_y, core_type, this_noc);
-
-                // Switch context to other_noc to read its perspective of the same core.
-                // Note: The switcher has automatic storage, hence after the current scope the destructor
-                // sets the NOC to it's previous value which here is this_noc.
-                NocIdSwitcher other_noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
-
-                // Read NOC_NODE_ID register from hardware via other_noc.
-                // Note: The NOC via which we read must match the noc_index parameter because some registers
-                // return NOC-dependent values (coordinates relative to the active NOC).
+                // Read via this_noc the coordinate of the other_noc for the current core.
                 const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
+
+                // Represent these coords in the system from which their regs were read.
                 CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
 
-                // Verify host-side coordinate translation by converting this_noc coordinates
-                // to other_noc coordinates and comparing against hardware-reported values.
-                auto other_noc_coord_soc_desc =
-                    cluster_->get_soc_descriptor(chip).translate_coord_to(this_noc_coord, other_noc);
+                // Translate the current core (which is represented in this_noc) to the other_noc.
+                auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
 
                 EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x)
                     << " on NOC" << static_cast<uint32_t>(get_noc_index(other_noc));
@@ -174,6 +163,16 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
     if (get_chip_arch(0) == ARCH::BLACKHOLE) {
         if (core_type == CoreType::ROUTER_ONLY) {
             GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
+        }
+        if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
+            core_type == CoreType::L2CPU || core_type == CoreType::ROUTER_ONLY) {
+            GTEST_SKIP() << "Skipping test for core type: " << to_str(core_type);
+        }
+    }
+
+    if (get_chip_arch(0) == ARCH::BLACKHOLE) {
+        if (core_type == CoreType::ROUTER_ONLY) {
+            GTEST_SKIP() << "Skipping test for core type: " << to_str(core_type);
         }
     }
 

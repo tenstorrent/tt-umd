@@ -46,7 +46,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
-static std::vector<std::string> split_tt_visible_devices_string(const std::string& tt_visible_devices_string) {
+static std::vector<std::string> split_string_by_comma(const std::string& input_string) {
     std::vector<std::string> device_tokens;
     std::stringstream ss(tt_visible_devices_string);
     std::string token;

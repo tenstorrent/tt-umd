@@ -1,7 +1,0 @@
-# Clang-Tidy Violations: modernize-concat-nested-namespaces
-Total: 4 violations
-
-- device/api/umd/device/types/blackhole_arc.hpp:9 — nested namespaces can be concatenated
-- device/api/umd/device/types/wormhole_telemetry.hpp:7 — nested namespaces can be concatenated
-- device/api/umd/device/types/blackhole_eth.hpp:11 — nested namespaces can be concatenated
-- device/api/umd/device/types/wormhole_dram.hpp:7 — nested namespaces can be concatenated

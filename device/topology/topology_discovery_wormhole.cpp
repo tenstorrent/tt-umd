@@ -272,11 +272,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t eth_fw_version_read;
-    tt_device->read_from_device(
-        &eth_fw_version_read, eth_core, eth_l1_mem::address_map::FW_VERSION_ADDR, sizeof(uint32_t));
-
-    semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {

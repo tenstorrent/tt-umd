@@ -343,7 +343,7 @@ enum EthTrainStatus {
 };
 
 inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
-
+inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {

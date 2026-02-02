@@ -14,7 +14,6 @@ Checks: >
     -bugprone-sizeof-container,
     -bugprone-suspicious-stringview-data-usage,
     -bugprone-switch-missing-default-case,
-    -bugprone-unchecked-optional-access,
     -concurrency-mt-unsafe,
     -cppcoreguidelines-avoid-c-arrays,
     -cppcoreguidelines-avoid-do-while,

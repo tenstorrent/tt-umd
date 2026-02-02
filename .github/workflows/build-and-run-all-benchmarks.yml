@@ -35,6 +35,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 10
       build-type: ${{ inputs.build-type || 'Release' }}
+      build-wheel: false
 
   run-benchmarks:
     secrets: inherit

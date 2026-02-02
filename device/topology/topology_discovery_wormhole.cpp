@@ -252,8 +252,11 @@ bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u
 
 void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
-    eth_addresses =
-        TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());
+    auto eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version();
+    if (!eth_fw_version.has_value()) {
+        TT_THROW("ETH_FW_VERSION is not available.");
+    }
+    eth_addresses = TopologyDiscoveryWormhole::get_eth_addresses(*eth_fw_version);
 }
 
 bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {

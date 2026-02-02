@@ -51,7 +51,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 
 bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 
-SimulationSysmemManager::~SimulationSysmemManager() { unpin_or_unmap_sysmem(); }
+SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
 void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
 

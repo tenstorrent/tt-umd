@@ -26,6 +26,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tt_device_health.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -61,6 +62,17 @@ void bind_tt_device(nb::module_ &m) {
         .def_ro("pci_function", &PciDeviceInfo::pci_function)
         .def_ro("pci_bdf", &PciDeviceInfo::pci_bdf)
         .def("get_arch", &PciDeviceInfo::get_arch);
+
+    nb::enum_<TTDeviceInitResult>(m, "TTDeviceInitResult")
+        .value("UNKNOWN", TTDeviceInitResult::UNKNOWN)
+        .value("UNINITIALIZED", TTDeviceInitResult::UNINITIALIZED)
+        .value("NOC0_FAILED", TTDeviceInitResult::NOC0_FAILED)
+        .value("NOC1_FAILED", TTDeviceInitResult::NOC1_FAILED)
+        .value("ARC_STARTUP_FAILED", TTDeviceInitResult::ARC_STARTUP_FAILED)
+        .value("ARC_MESSENGER_UNAVAILABLE", TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE)
+        .value("ARC_TELEMETRY_UNAVAILABLE", TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE)
+        .value("FIRMWARE_INFO_PROVIDER_UNAVAILABLE", TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE)
+        .value("SUCCESSFUL", TTDeviceInitResult::SUCCESSFUL);
 
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>())
@@ -112,7 +124,11 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::rv_policy::take_ownership)
-        .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+        .def(
+            "init_tt_device",
+            &TTDevice::init_tt_device,
+            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
+            nb::arg("throw_on_arc_failure") = true)
         .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)

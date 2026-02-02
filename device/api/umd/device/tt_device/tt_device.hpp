@@ -19,6 +19,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/tt_device_health.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -268,7 +269,8 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    TTDeviceInitResult init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool throw_on_arc_failure = true);
 
     uint64_t get_refclk_counter();
 
@@ -308,6 +310,8 @@ public:
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
+    TTDeviceInitResult get_last_init_result() const;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -328,6 +332,8 @@ protected:
     tt_xy_pair arc_core;
 
 private:
+    TTDeviceInitResult last_init_result_ = TTDeviceInitResult::UNINITIALIZED;
+
     void probe_arc();
 
     TlbWindow *get_cached_tlb_window();

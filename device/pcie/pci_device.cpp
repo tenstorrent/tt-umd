@@ -262,7 +262,10 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
                 int device_id = bdf_to_device_id_map[device_token];
                 filtered_device_ids.insert(device_id);
             } else {
-                TT_THROW("Invalid BDF identifier in TT_VISIBLE_DEVICES: {}", device_token);
+                TT_THROW(
+                    "Invalid BDF identifier in TT_VISIBLE_DEVICES: {}. Valid device identifiers are either integers or "
+                    "part of the BDF string.",
+                    device_token);
             }
 
             continue;
@@ -275,11 +278,17 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
             if (std::find(all_device_ids.begin(), all_device_ids.end(), device_id) != all_device_ids.end()) {
                 filtered_device_ids.insert(device_id);
             } else {
-                TT_THROW("Invalid device ID in TT_VISIBLE_DEVICES: {}", device_token);
+                TT_THROW(
+                    "Invalid device ID in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                    "part of the BDF string.",
+                    device_token);
             }
 
         } else {
-            TT_THROW("Invalid device identifier in TT_VISIBLE_DEVICES: {}", device_token);
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
         }
     }
 

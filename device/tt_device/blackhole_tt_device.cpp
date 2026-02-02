@@ -12,6 +12,7 @@
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -111,7 +112,11 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
-        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+        auto result = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR);
+        if (!result.has_value()) {
+            TT_THROW("Failed to read NIU_CFG_NOC0_ARC_ADDR via JTAG");
+        }
+        niu_cfg = result.value();
     } else {
         niu_cfg = bar_read32(addr);
     }

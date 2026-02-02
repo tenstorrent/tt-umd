@@ -4,6 +4,7 @@
 
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
+#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"
@@ -124,9 +125,16 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
 
     uint64_t queue_control_block;
     if (tt_device->get_communication_device_type() == IODeviceType::JTAG) {
-        queue_control_block = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr).value();
-        queue_control_block |=
-            ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
+        auto result_low = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr);
+        if (!result_low.has_value()) {
+            TT_THROW("Failed to read queue control block lower 32 bits via JTAG");
+        }
+        queue_control_block = result_low.value();
+        auto result_high = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4);
+        if (!result_high.has_value()) {
+            TT_THROW("Failed to read queue control block upper 32 bits via JTAG");
+        }
+        queue_control_block |= ((uint64_t)result_high.value() << 32);
     } else {
         tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
     }

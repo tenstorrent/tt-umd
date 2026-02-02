@@ -319,7 +319,11 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         TT_THROW("Proceeding could lead to undefined behavior");
     }
 
-    log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
+    if (map_buffer_to_noc) {
+        log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
+    } else {
+        log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}", iova);
+    }
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;

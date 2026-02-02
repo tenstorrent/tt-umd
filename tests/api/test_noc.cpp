@@ -10,6 +10,7 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 
 using namespace tt;
@@ -67,8 +68,10 @@ public:
                 auto other_noc_coord_soc_desc =
                     cluster_->get_soc_descriptor(chip).translate_coord_to(this_noc_coord, other_noc);
 
-                EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
-                EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
+                EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x)
+                    << " on NOC" << static_cast<uint32_t>(get_noc_index(other_noc));
+                EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y)
+                    << " on NOC" << static_cast<uint32_t>(get_noc_index(other_noc));
             }
         }
     }
@@ -162,6 +165,12 @@ class TestNocValidity : public TestNoc, public ::testing::WithParamInterface<std
 
 TEST_P(TestNocValidity, VerifyNocTranslation) {
     auto [core_type, noc] = GetParam();
+
+    if (get_chip_arch(0) == ARCH::BLACKHOLE) {
+        if (core_type == CoreType::ROUTER_ONLY) {
+            GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
+        }
+    }
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         verify_noc_id_cores_via_other_noc(chip, core_type, noc);

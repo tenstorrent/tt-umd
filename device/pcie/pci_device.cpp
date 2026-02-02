@@ -246,16 +246,7 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
         return device_ids;
     }
 
-    std::vector<std::string> device_tokens;
-    std::stringstream ss(tt_visible_devices_str);
-    std::string token;
-    while (std::getline(ss, token, ',')) {
-        token.erase(token.find_last_not_of(" \n\r\t") + 1);
-        token.erase(0, token.find_first_not_of(" \n\r\t"));
-        if (!token.empty()) {
-            device_tokens.push_back(token);
-        }
-    }
+    std::vector<std::string> device_tokens = utils::split_tt_visible_devices_string(tt_visible_devices_str);
 
     std::vector<int> all_device_ids = get_all_device_ids();
     std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();

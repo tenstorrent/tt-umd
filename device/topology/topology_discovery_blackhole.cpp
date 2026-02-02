@@ -181,7 +181,10 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return dynamic_cast<BlackholeTTDevice*>(tt_device)->read_port_status(eth_core) == blackhole::port_status_e::PORT_UP;
+    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    return dynamic_cast<BlackholeTTDevice*>(tt_device)->read_port_status(translated_eth_core) ==
+           blackhole::port_status_e::PORT_UP;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {

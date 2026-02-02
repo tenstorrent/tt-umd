@@ -66,7 +66,6 @@ Checks: >
     -readability-function-cognitive-complexity,
     -readability-identifier-length,
     -readability-implicit-bool-conversion,
-    -readability-inconsistent-declaration-parameter-name,
     -readability-make-member-function-const,
     -readability-magic-numbers,
     -readability-math-missing-parentheses,

@@ -158,30 +158,63 @@ TEST_F(TestNoc, TestNoc1NodeId) {
     }
 }
 
-TEST_F(TestNoc, TestNocValidity) {
+class TestNocValidity : public TestNoc, public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem>> {};
+
+TEST_P(TestNocValidity, VerifyNocTranslation) {
+    auto [core_type, noc] = GetParam();
+
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::TENSIX, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::ETH, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::ETH, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::DRAM, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::DRAM, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::ARC, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::ARC, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::PCIE, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::PCIE, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::SECURITY, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::SECURITY, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::L2CPU, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::L2CPU, CoordSystem::NOC1);
-
-        verify_noc_id_cores_via_other_noc(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
-        verify_noc_id_cores_via_other_noc(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
+        verify_noc_id_cores_via_other_noc(chip, core_type, noc);
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    AllCoreTypesAndNocs,
+    TestNocValidity,
+    ::testing::Combine(
+        ::testing::Values(
+            CoreType::TENSIX,
+            CoreType::ETH,
+            CoreType::DRAM,
+            CoreType::ARC,
+            CoreType::PCIE,
+            CoreType::SECURITY,
+            CoreType::L2CPU,
+            CoreType::ROUTER_ONLY),
+        ::testing::Values(CoordSystem::NOC0, CoordSystem::NOC1)),
+    [](const ::testing::TestParamInfo<std::tuple<CoreType, CoordSystem>>& info) {
+        CoreType core_type = std::get<0>(info.param);
+        CoordSystem noc = std::get<1>(info.param);
+        std::string core_name;
+        switch (core_type) {
+            case CoreType::TENSIX:
+                core_name = "TENSIX";
+                break;
+            case CoreType::ETH:
+                core_name = "ETH";
+                break;
+            case CoreType::DRAM:
+                core_name = "DRAM";
+                break;
+            case CoreType::ARC:
+                core_name = "ARC";
+                break;
+            case CoreType::PCIE:
+                core_name = "PCIE";
+                break;
+            case CoreType::SECURITY:
+                core_name = "SECURITY";
+                break;
+            case CoreType::L2CPU:
+                core_name = "L2CPU";
+                break;
+            case CoreType::ROUTER_ONLY:
+                core_name = "ROUTER_ONLY";
+                break;
+            default:
+                core_name = "UNKNOWN";
+                break;
+        }
+        std::string noc_name = (noc == CoordSystem::NOC0) ? "NOC0" : "NOC1";
+        return core_name + "_" + noc_name;
+    });

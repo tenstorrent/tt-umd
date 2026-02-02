@@ -742,7 +742,8 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& columns_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (columns_to_exclude.find(0) == columns_to_exclude.end() or columns_to_exclude.find(9) == columns_to_exclude.end()) {
+        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
+            columns_to_exclude.find(9) == columns_to_exclude.end()) {
             TT_ASSERT(
                 !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
@@ -790,7 +791,8 @@ void Cluster::broadcast_write_to_cluster(
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (columns_to_exclude.find(0) == columns_to_exclude.end() or columns_to_exclude.find(5) == columns_to_exclude.end()) {
+        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
+            columns_to_exclude.find(5) == columns_to_exclude.end()) {
             TT_ASSERT(
                 !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");

@@ -1,5 +1,0 @@
-# Clang-Tidy Violations: modernize-make-unique
-Total: 2 violations
-
-- device/cluster_descriptor.cpp:407 — use std::make_unique instead
-- device/cluster_descriptor.cpp:478 — use std::make_unique instead

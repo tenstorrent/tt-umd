@@ -419,7 +419,7 @@ std::unordered_set<ChipId> filter_chip_collection(
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
@@ -490,7 +490,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     const std::unordered_set<ChipId> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     BoardType board_type;
     HarvestingMasks harvesting_masks{0, 0, 0, 0};

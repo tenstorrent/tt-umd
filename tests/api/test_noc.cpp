@@ -36,7 +36,7 @@ public:
     }
 
     void verify_noc_id_cores_via_other_noc(ChipId chip, CoreType core_type, CoordSystem this_noc) {
-        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1;
+        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
         for (const CoreCoord& core : cores) {
             // Read this NOC - redundant.
@@ -61,7 +61,7 @@ public:
     }
 
     void verify_noc_id_cores_via_other_noc_2(ChipId chip, CoreType core_type, CoordSystem this_noc) {
-        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1;
+        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
 
         NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
 

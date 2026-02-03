@@ -23,7 +23,7 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
 }
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type) :
+    std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType  /*device_type*/) :
     WormholeTTDevice(), remote_communication_(std::move(remote_communication)) {
     // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
     // which in turn uses a local TTDevice for communication,
@@ -96,16 +96,16 @@ void RemoteWormholeTTDevice::noc_multicast_write(
     }
 }
 
-void RemoteWormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+void RemoteWormholeTTDevice::dma_write_to_device(const void * /*src*/, size_t  /*size*/, tt_xy_pair  /*core*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA write to device not supported for remote Wormhole device.");
 }
 
-void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void RemoteWormholeTTDevice::dma_read_from_device(void * /*dst*/, size_t  /*size*/, tt_xy_pair  /*core*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA read from device not supported for remote Wormhole device.");
 }
 
 void RemoteWormholeTTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void * /*src*/, size_t  /*size*/, tt_xy_pair  /*core_start*/, tt_xy_pair  /*core_end*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA multicast write not supported for remote Wormhole device.");
 }
 

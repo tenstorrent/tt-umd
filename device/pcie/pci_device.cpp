@@ -239,7 +239,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci_target_devices) {
+std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> & /*pci_target_devices*/) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 

@@ -178,7 +178,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
-void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+void TTDevice::configure_iatu_region(size_t  /*region*/, uint64_t  /*target*/, size_t  /*region_size*/) {
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 

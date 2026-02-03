@@ -135,12 +135,12 @@ tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
     return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
 
-int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {
+int JtagDevice::open_jlink_by_serial_wrapper(uint8_t  /*chip_id*/, unsigned int serial_number) {
     jtag->close_jlink();
     return jtag->open_jlink_by_serial_wrapper(serial_number);
 }
 
-int JtagDevice::open_jlink_wrapper(uint8_t chip_id) { return jtag->open_jlink_wrapper(); }
+int JtagDevice::open_jlink_wrapper(uint8_t  /*chip_id*/) { return jtag->open_jlink_wrapper(); }
 
 // TODO: implement std::optional type return in JTAG library itself.
 // For now JTAG library handles it by exiting the program on error.

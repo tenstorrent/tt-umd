@@ -33,7 +33,7 @@ TLBManager* MockChip::get_tlb_manager() { return nullptr; }
 
 int MockChip::get_num_host_channels() { return 0; }
 
-int MockChip::get_host_channel_size(std::uint32_t channel) { return 0; }
+int MockChip::get_host_channel_size(std::uint32_t  /*channel*/) { return 0; }
 
 void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {}
 
@@ -56,12 +56,12 @@ void MockChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start,
 void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
 
 int MockChip::arc_msg(
-    uint32_t msg_code,
-    bool wait_for_done,
-    const std::vector<uint32_t>& args,
-    const std::chrono::milliseconds timeout_ms,
+    uint32_t  /*msg_code*/,
+    bool  /*wait_for_done*/,
+    const std::vector<uint32_t>&  /*args*/,
+    const std::chrono::milliseconds  /*timeout_ms*/,
     uint32_t* return_3,
-    uint32_t* return_4) {
+    uint32_t*  /*return_4*/) {
     // This designates success for the ARC enable eth queue message.
     *return_3 = 1;
     return 0;

@@ -73,6 +73,10 @@ enum class RiscType : std::uint64_t {
     DM6 = 1ULL << 30,
     DM7 = 1ULL << 31,
 
+    // Maximum valid value - all bits 0-31.
+    // This helps static analyzers understand the valid range for cast operations.
+    VALID_BITS_MASK = 0xFFFFFFFFULL,
+
     // Combined constants for each NEO triplet.
     ALL_NEO0_TRISCS = NEO0_TRISC0 | NEO0_TRISC1 | NEO0_TRISC2 | NEO0_TRISC3,
     ALL_NEO1_TRISCS = NEO1_TRISC0 | NEO1_TRISC1 | NEO1_TRISC2 | NEO1_TRISC3,
@@ -94,7 +98,10 @@ constexpr RiscType operator|(RiscType lhs, RiscType rhs) {
 }
 
 constexpr RiscType operator&(RiscType lhs, RiscType rhs) {
-    return static_cast<RiscType>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
+    // Mask the result to ensure it's within valid range (bits 0-31).
+    // This addresses Clang Static Analyzer optin.core.EnumCastOutOfRange.
+    return static_cast<RiscType>(
+        (static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs)) & static_cast<uint64_t>(RiscType::VALID_BITS_MASK));
 }
 
 constexpr bool operator!=(RiscType lhs, RiscType rhs) {

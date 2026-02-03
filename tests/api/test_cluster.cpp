@@ -1354,6 +1354,10 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
     std::cout << "Passed hash check." << std::endl;
 
     // Revert ERISC FW state with warm reset.
-    WarmReset::warm_reset();
+    if (is_galaxy_configuration(cluster.get())) {
+        WarmReset::ubb_warm_reset();
+    } else {
+        WarmReset::warm_reset();
+    }
     std::cout << "Completed warm reset." << std::endl;
 }

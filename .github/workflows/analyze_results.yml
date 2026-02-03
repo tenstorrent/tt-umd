@@ -97,13 +97,6 @@ jobs:
           ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare \
           | tee -a ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
 
-      - name: Comment on PR with results
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment ${{ github.event.number }} --body-file ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
-
       - name: Cleanup benchmark results directory
         if: always()
         run: rm -rf ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}

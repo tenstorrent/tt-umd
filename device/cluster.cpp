@@ -10,7 +10,6 @@
 #include <fmt/ranges.h>  // Needed to format vectors
 #include <cstdarg>
 #include <cstdio>
-
 #include <cstring>
 #include <sys/mman.h>
 #include <yaml-cpp/yaml.h>

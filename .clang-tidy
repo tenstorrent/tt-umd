@@ -62,7 +62,6 @@ Checks: >
     -modernize-use-emplace,
     -modernize-use-equals-default,
     -modernize-use-nodiscard,
-    -modernize-use-override,
     -modernize-use-trailing-return-type,
     -modernize-use-using,
     -performance-avoid-endl,

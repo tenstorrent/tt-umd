@@ -8,7 +8,6 @@
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
-
 namespace tt::umd::blackhole {
 
 static constexpr uint32_t POSTCODE_ETH_INIT_SKIP = 0xC0DE0000;
@@ -175,5 +174,4 @@ struct boot_results_t {
 
 constexpr uint32_t BOOT_RESULTS_ADDR = 0x7CC00;
 
-} // namespace tt::umd::blackhole
-
+}  // namespace tt::umd::blackhole

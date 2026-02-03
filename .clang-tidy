@@ -35,7 +35,6 @@ Checks: >
     -cppcoreguidelines-slicing,
     -cppcoreguidelines-special-member-functions,
     -misc-const-correctness,
-    -misc-header-include-cycle,
     -misc-include-cleaner,
     -misc-no-recursion,
     -misc-non-private-member-variables-in-classes,

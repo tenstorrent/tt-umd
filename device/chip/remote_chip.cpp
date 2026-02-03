@@ -48,8 +48,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     } else {
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
-    return std::unique_ptr<RemoteChip>(
-        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
@@ -68,8 +67,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
-    return std::unique_ptr<RemoteChip>(
-        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }
 
 RemoteChip::RemoteChip(

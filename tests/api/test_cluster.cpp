@@ -11,13 +11,19 @@
 #include <unistd.h>  // For access()
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
+#include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <optional>
+#include <random>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -134,6 +140,100 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
             ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
+    }
+}
+
+TEST(ApiClusterTest, OpenChipsByBDF) {
+    // Get all available PCI devices and their BDF addresses.
+    auto device_info_map = PCIDevice::enumerate_devices_info();
+
+    if (device_info_map.empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+    }
+
+    // Extract BDF addresses.
+    std::vector<std::string> pci_bdf_addresses;
+    pci_bdf_addresses.reserve(device_info_map.size());
+    for (const auto& [device_id, info] : device_info_map) {
+        pci_bdf_addresses.push_back(info.pci_bdf);
+    }
+
+    // Limit combinations like the original test.
+    if (pci_bdf_addresses.size() > 4) {
+        GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
+                        "This test is intended to be run on all systems apart from 6U.";
+    }
+
+    int total_combinations = 1 << pci_bdf_addresses.size();
+
+    for (uint32_t combination = 0; combination < total_combinations; combination++) {
+        std::vector<std::string> target_bdf_addresses;
+        target_bdf_addresses.reserve(pci_bdf_addresses.size());
+        for (int i = 0; i < pci_bdf_addresses.size(); i++) {
+            if (combination & (1 << i)) {
+                target_bdf_addresses.push_back(pci_bdf_addresses[i]);
+            }
+        }
+
+        std::cout << "Creating Cluster with target BDF addresses: ";
+        for (const auto& bdf : target_bdf_addresses) {
+            std::cout << bdf << " ";
+        }
+        std::cout << std::endl;
+
+        // Convert BDF addresses to comma-separated string.
+        std::string bdf_value;
+        for (size_t i = 0; i < target_bdf_addresses.size(); ++i) {
+            if (i > 0) {
+                bdf_value += ",";
+            }
+            bdf_value += target_bdf_addresses[i];
+        }
+
+        if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+        }
+
+        // Make sure that Cluster construction is without exceptions.
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+        // Check that the cluster has the expected number of chips.
+        auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+        EXPECT_EQ(actual_pci_device_ids.size(), target_bdf_addresses.size());
+
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
+        }
+    }
+}
+
+TEST(ApiClusterTest, OpenChipsByBDFWormhole6U) {
+    // Get all available PCI devices and their BDF addresses.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+    }
+
+    if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
+        GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
+    }
+
+    std::string bdf_value = "0000:01:00.0, 0000:02:00.0, 0000:03:00.0, 0000:04:00.0";
+
+    if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+    }
+
+    // Make sure that Cluster construction is without exceptions.
+    std::unique_ptr<Cluster> cluster_tt_visible_devices = std::make_unique<Cluster>();
+
+    // Check that the cluster has the expected number of chips.
+    auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
+    EXPECT_EQ(actual_pci_device_ids.size(), 4);
+
+    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
     }
 }
 

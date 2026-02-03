@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

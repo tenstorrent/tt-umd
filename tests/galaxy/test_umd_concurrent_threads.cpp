@@ -4,10 +4,17 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
+#include <iterator>
+#include <memory>
 #include <numeric>
+#include <set>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <vector>
 
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"

@@ -6,8 +6,13 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"

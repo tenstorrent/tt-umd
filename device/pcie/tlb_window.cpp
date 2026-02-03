@@ -6,7 +6,12 @@
 
 #include <string.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <stdexcept>
+#include <utility>
 
 #include "noc_access.hpp"
 #include "umd/device/pcie/pci_device.hpp"

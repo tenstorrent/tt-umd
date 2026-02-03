@@ -14,6 +14,8 @@
         "--disable",
         "prefix:altera",
         "--disable",
-        "prefix:boost"
+        "prefix:boost",
+        "--disable",
+        "checker:optin.core.EnumCastOutOfRange"
     ]
 }

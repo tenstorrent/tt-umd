@@ -202,7 +202,13 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
 }
 
 static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
+        // to check if the device is in the pci_target_devices set.
+        if (pci_target_devices.find(n) == pci_target_devices.end()) {
+            continue;
+        }
+
         log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
@@ -239,7 +245,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci_target_devices) {
+std::vector<int> PCIDevice::enumerate_devices() {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -318,9 +324,9 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
     return device_ids;
 }
 
-std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unordered_set<int> &pci_target_devices) {
+std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
     std::map<int, PciDeviceInfo> infos;
-    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+    for (int n : PCIDevice::enumerate_devices()) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;

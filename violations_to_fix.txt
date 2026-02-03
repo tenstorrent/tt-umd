@@ -1,7 +1,0 @@
-# Clang-Tidy Violations: modernize-use-equals-default
-Total: 4 violations
-
-- device/api/umd/device/tt_device/wormhole_tt_device.hpp:50 — use '= default' to define a trivial destructor
-- device/api/umd/device/types/core_coordinates.hpp:101 — use '= default' to define a trivial default constructor
-- tests/wormhole/test_wh_common.hpp:36 — use '= default' to define a trivial destructor
-- device/tt_device/tt_device.cpp:51 — use '= default' to define a trivial default constructor

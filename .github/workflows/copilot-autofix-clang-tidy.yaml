@@ -37,9 +37,9 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
         with:
-          # For workflow_dispatch, use the default branch (main)
-          # The script will be available after this PR is merged
-          ref: ${{ github.event.inputs.ref || 'main' }}
+          # Check out main by default, but allow testing on PR branches
+          # For testing: temporarily change 'main' to your branch name
+          ref: main
           fetch-depth: 0
 
       - name: Configure git safe.directory

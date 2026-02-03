@@ -74,7 +74,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
             actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
         }
 
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        timeout_left -= tt_device->wait_eth_core_training(actual_eth_ /*timeout_ms*/out_left);
     }
 }
 
@@ -199,7 +199,7 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
             break;
         }
         default:
-            throw std::runtime_error("Unrecognized power state.");
+            throw std::runtime_error("Unrecog /*wait_for_done*/tate.");
     }
     return msg;
 }

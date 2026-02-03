@@ -162,9 +162,7 @@ void Cluster::log_pci_device_summary() {
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
-
-    eth_fw_version = cluster_desc->eth_fw_version;
+    arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_s /*num_host_mem_ch_per_mmio_device*/fw_version = cluster_desc->eth_fw_version;
 
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
@@ -216,8 +214,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
-        log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(
+        log_info(LogUMD, "Creating Simulati /*simulator_directory*/  return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
         throw std::runtime_error(
@@ -677,8 +674,7 @@ inline bool valid_tensix_broadcast_grid(
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
-    for (const auto& row : architecture_implementation->get_t6_y_locations()) {
-        t6_bcast_rows_complete &= (rows_to_exclude.find(row) == rows_to_exclude.end());
+    for (const auto& row : architecture_implementation->get_t6_y_locations( /*cols_to_exclude*/_bcast_rows_complete &= (rows_to_exclude.find(row) == rows_to_exclude.end());
         t6_bcast_rows_empty &= (rows_to_exclude.find(row) != rows_to_exclude.end());
     }
     return t6_bcast_rows_complete || t6_bcast_rows_empty;

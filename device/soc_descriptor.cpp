@@ -534,13 +534,11 @@ std::unordered_set<tt_xy_pair> SocDescriptor::get_eth_xy_pairs_for_channels(
     std::unordered_set<tt_xy_pair> eth_xy_pairs;
     for (uint32_t channel : eth_channels) {
         CoreCoord eth_core = get_eth_core_for_channel(channel, coord_system);
-        eth_xy_pairs.insert({eth_core.x, eth_core.y});
-    }
-    return eth_xy_pairs;
+        eth_xy_pairs.insert({eth_core.x, eth_core.y}) /*coord_system*/return eth_xy_pairs;
 }
 
 uint32_t SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
-    return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
+    return translate_coord_to(core_coord, CoordSyst /*coord_system*/.y;
 }
 
 std::pair<int, int> SocDescriptor::get_dram_channel_for_core(

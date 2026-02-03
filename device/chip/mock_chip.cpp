@@ -29,7 +29,7 @@ TTDevice* MockChip::get_tt_device() { return nullptr; }
 
 SysmemManager* MockChip::get_sysmem_manager() { return nullptr; }
 
-TLBManager* MockChip::get_tlb_manager() { return nullptr; }
+TLBMana /*channel*/ckChip::get_tlb_manager() { return nullptr; }
 
 int MockChip::get_num_host_channels() { return 0; }
 
@@ -52,12 +52,10 @@ void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core,
 void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
 
 void MockChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
-
-void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
+ /*msg_code*/ckChip::noc /*wait_for_done*/ite(void* dst, size_t size, CoreCoo /*args*/ore_start, CoreCoord core_end, uint64_ /*timeout_ms*/
 
 int MockChip::arc_msg(
-    uint32_t msg_code,
-    bool wait_for_done,
+    uint32_t ms /*return_4*/    bool wait_for_done,
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,

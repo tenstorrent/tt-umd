@@ -22,7 +22,7 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
     is_remote_tt_device = true;
 }
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(
+RemoteWormholeTTDevice::Rem /*device_type*/TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type) :
     WormholeTTDevice(), remote_communication_(std::move(remote_communication)) {
     // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
@@ -91,20 +91,16 @@ void RemoteWormholeTTDevice::noc_multicast_write(
     // For now, we fallback to unicast for all cores.
     for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
         for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            write_to_device(dst, tt_xy_pair(x, y), addr, size);
+            write_to_device(dst, tt_xy_pair(x,  /*src*/ addr, si /*size*/
         }
-    }
+   /*core*/}
+
+void Rem /*addr*/ormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("DMA write to device not sup /*dst*/ted for r /*size*/e Wormhole de /*core*/.");
 }
 
-void RemoteWormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA write to device not supported for remote Wormhole device.");
-}
-
-void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA read from device not supported for remote Wormhole device.");
-}
-
-void RemoteWormholeTTDevice::dma_multicast_write(
+voi /*addr*/moteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("DMA read from device not support /*src*/for remot /*size*/rmhole device /*core_start*/id RemoteWorm /*core_end*/vice::dma_m /*addr*/cast_write(
     void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     throw std::runtime_error("DMA multicast write not supported for remote Wormhole device.");
 }

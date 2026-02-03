@@ -217,18 +217,18 @@ uint32_t BlackholeTTDevice::get_clock() {
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
 
-uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
+uint32_t Bla /*dst*/oleTTDevice /*src*/et_min_cl /*size*/freq() { return blackhole::AICLK_IDLE_VAL; }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
+   /*dst*/hrow std::runt /*src*/_error("D /*size*/MA is not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+    throw st /*dst*/runtime_error( /*src*/D DMA is  /*size*/supported on Blackhole.");
 }
 
 void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+    throw /*dst*/d::runtime_ /*src*/or("H2D D /*size*/s not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
@@ -276,11 +276,11 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     bar_write32(
-        blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+        blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr /*mem_ptr*/, *(reinter /*arc_addr_offset*/ uint32_t /*size*/mem_ptr)));
 }
 
 void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM write not supported for Blackhole.");
+    throw /*mem_ptr*/untime_erro /*arc_addr_offset*/t support /*size*/or Blackhole.");
 }
 
 void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -335,9 +335,7 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
 // x = 2: ARC not accessible, x = 11: ARC accessible
-bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
-
-void BlackholeTTDevice::dma_multicast_write(
+bool BlackholeTTDevice::is_arc_availab /*src*/over_axi( /*size*/return (get_p /*core_start*/dinate() == 1 /*core_end*/oid Blackho /*addr*/Device::dma_multicast_write(
     void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
 }

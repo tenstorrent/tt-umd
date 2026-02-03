@@ -585,8 +585,7 @@ uint32_t CoordinateManager::get_num_harvested_eth_channels() const {
 }
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
-    tt::ARCH arch,
-    const bool noc_translation_enabled,
+    tt::AR /*board_type*/   const bool  /*asic_location*/on_enabled,
     const HarvestingMasks harvesting_masks,
     const BoardType board_type,
     uint8_t asic_location) {

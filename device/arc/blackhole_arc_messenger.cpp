@@ -18,7 +18,7 @@ BlackholeArcMessenger::BlackholeArcMessenger(TTDevice* tt_device) : ArcMessenger
 }
 
 uint32_t BlackholeArcMessenger::send_message(
-    const uint32_t msg_code,
+ /*return_values*/t32_t msg_code,
     std::vector<uint32_t>& return_values,
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms) {

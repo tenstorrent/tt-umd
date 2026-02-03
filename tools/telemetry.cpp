@@ -30,7 +30,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
-using namespace tt::umd;
+using namespace  /*arch*/umd;
 
 std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware_info_provider, tt::ARCH arch) {
     if (firmware_info_provider == nullptr) {

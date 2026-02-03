@@ -304,16 +304,17 @@ std::vector<int> PCIDevice::enumerate_devices() {
         bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
 
         if (is_integer) {
-            int device_id = std::stoi(device_token);
-            if (std::find(all_device_ids.begin(), all_device_ids.end(), device_id) != all_device_ids.end()) {
-                filtered_device_ids.insert(device_id);
-                log_debug(LogUMD, "Added device id {} because of token filter {}.", device_id, device_token);
-            } else {
+            int logical_device_id = std::stoi(device_token);
+
+            if (logical_device_id < 0 || logical_device_id >= all_device_ids.size()) {
                 TT_THROW(
                     "Invalid device ID in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
-                    "part of the BDF string.",
-                    device_token);
+                    "part of the BDF string. Valid integer IDs are between 0 and {}.",
+                    device_token,
+                    all_device_ids.size() - 1);
             }
+
+            filtered_device_ids.insert(logical_device_id);
 
         } else {
             TT_THROW(

@@ -98,8 +98,10 @@ constexpr RiscType operator|(RiscType lhs, RiscType rhs) {
 }
 
 constexpr RiscType operator&(RiscType lhs, RiscType rhs) {
-    // Mask the result to ensure it's within valid range (bits 0-31).
-    // This addresses Clang Static Analyzer optin.core.EnumCastOutOfRange.
+    // Masking with VALID_BITS_MASK is functionally redundant (both inputs are already valid)
+    // but satisfies Clang Static Analyzer optin.core.EnumCastOutOfRange check.
+    // The analyzer doesn't understand that RiscType is a bitmask enum where any combination
+    // of defined bits is valid, so we explicitly bound the result to the valid range.
     return static_cast<RiscType>(
         (static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs)) & static_cast<uint64_t>(RiscType::VALID_BITS_MASK));
 }

@@ -68,7 +68,7 @@ void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core
 }
 
 void SimulationChip::dma_multicast_write(
-    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    void*  /*src*/, size_t  /*size*/, CoreCoord  /*core_start*/, CoreCoord  /*core_end*/, uint64_t  /*addr*/) {
     throw std::runtime_error("dma_multicast_write is not supported in SimulationChip.");
 }
 
@@ -110,12 +110,12 @@ void SimulationChip::set_power_state(DevicePowerState state) {}
 int SimulationChip::get_clock() { return 0; }
 
 int SimulationChip::arc_msg(
-    uint32_t msg_code,
-    bool wait_for_done,
-    const std::vector<uint32_t>& args,
-    const std::chrono::milliseconds timeout_ms,
+    uint32_t  /*msg_code*/,
+    bool  /*wait_for_done*/,
+    const std::vector<uint32_t>&  /*args*/,
+    const std::chrono::milliseconds  /*timeout_ms*/,
     uint32_t* return_3,
-    uint32_t* return_4) {
+    uint32_t*  /*return_4*/) {
     *return_3 = 1;
     return 0;
 }

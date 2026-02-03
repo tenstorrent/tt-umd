@@ -533,7 +533,7 @@ bool WarmResetCommunication::Monitor::start_monitoring(
                     auto buf = std::make_shared<WarmResetCommunication::MessageType>();
                     sock->async_read_some(
                         asio::buffer(buf.get(), sizeof(WarmResetCommunication::MessageType)),
-                        [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t len) {
+                        [sock, buf, &on_cleanup_request, &post_cleanup_request](std::error_code ec, size_t  /*len*/) {
                             if (ec) {
                                 return;
                             }

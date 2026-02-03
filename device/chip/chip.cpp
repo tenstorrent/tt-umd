@@ -78,7 +78,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
     }
 }
 
-void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) {
+void Chip::wait_dram_cores_training(const std::chrono::milliseconds  /*timeout_ms*/) {
     TTDevice* tt_device = get_tt_device();
     const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
     const uint32_t chip_num_dram_channels = std::min(
@@ -206,7 +206,7 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
 
 int Chip::arc_msg(
     uint32_t msg_code,
-    bool wait_for_done,
+    bool  /*wait_for_done*/,
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms,
     uint32_t* return_3,

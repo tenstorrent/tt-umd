@@ -30,7 +30,7 @@ static constexpr int NUM_OF_BYTES_RESERVED = 128;
 // Partitions L1 memory between threads to avoid address overlaps.
 // All of this is focused on a single chip system.
 static void test_read_write_all_tensix_cores_impl(
-    Cluster* cluster, int thread_id, uint32_t reserved_size = 0, bool enable_alignment = false) {
+    Cluster* cluster, int thread_id, uint32_t reserved_size = 0) {
     std::cout << " Starting test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
               << " thread_id " << thread_id << std::endl;
 
@@ -75,12 +75,12 @@ static void test_read_write_all_tensix_cores_impl(
 // But we don't want these addresses to overlap, since the data will be corrupted.
 // All of this is focused on a single chip system.
 void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
-    test_read_write_all_tensix_cores_impl(cluster, thread_id, 0, false);
+    test_read_write_all_tensix_cores_impl(cluster, thread_id, 0);
 }
 
 // Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
 void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
-    test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
+    test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED);
 }
 
 // Single process opens multiple clusters but uses them sequentially.

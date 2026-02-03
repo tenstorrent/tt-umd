@@ -77,7 +77,7 @@ inline std::string backtrace_to_string(
     return ss.str();
 }
 
-inline void segfault_handler(int sig) {
+inline void segfault_handler(int  /*sig*/) {
     std::cerr << backtrace_to_string() << std::endl;
     exit(EXIT_FAILURE);
 }

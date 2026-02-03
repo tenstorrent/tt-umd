@@ -539,12 +539,12 @@ std::unordered_set<tt_xy_pair> SocDescriptor::get_eth_xy_pairs_for_channels(
     return eth_xy_pairs;
 }
 
-uint32_t SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
+uint32_t SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem  /*coord_system*/) const {
     return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
 }
 
 std::pair<int, int> SocDescriptor::get_dram_channel_for_core(
-    const CoreCoord &core_coord, const CoordSystem coord_system) const {
+    const CoreCoord &core_coord, const CoordSystem  /*coord_system*/) const {
     auto logical_core = translate_coord_to(core_coord, CoordSystem::LOGICAL);
     return std::make_pair(logical_core.x, logical_core.y);
 }

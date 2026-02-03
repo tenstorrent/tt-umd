@@ -222,7 +222,7 @@ void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selecte
     }
 }
 
-void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool  /*staggered_start*/) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);

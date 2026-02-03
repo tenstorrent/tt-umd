@@ -167,7 +167,7 @@ void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_r
     }
 }
 
-void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool  /*staggered_start*/) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -186,44 +186,44 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
     }
 }
 
-void TTSimTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
+void TTSimTTDevice::dma_d2h(void*  /*dst*/, uint32_t  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
+void TTSimTTDevice::dma_d2h_zero_copy(void*  /*dst*/, uint32_t  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
+void TTSimTTDevice::dma_h2d(uint32_t  /*dst*/, const void*  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+void TTSimTTDevice::dma_h2d_zero_copy(uint32_t  /*dst*/, const void*  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void TTSimTTDevice::read_from_arc_apb(void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void TTSimTTDevice::write_to_arc_apb(const void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void TTSimTTDevice::read_from_arc_csm(void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC CSM access is not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void TTSimTTDevice::write_to_arc_csm(const void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC CSM access is not supported in TTSim simulation device.");
 }
 
-bool TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds  /*timeout_ms*/) {
     throw std::runtime_error("Waiting for ARC core start is not supported in TTSim simulation device.");
 }
 
 std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    const tt_xy_pair  /*eth_core*/, const std::chrono::milliseconds  /*timeout_ms*/) {
     throw std::runtime_error("Waiting for ETH core training is not supported in TTSim simulation device.");
 }
 
@@ -240,7 +240,7 @@ bool TTSimTTDevice::get_noc_translation_enabled() {
 }
 
 void TTSimTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void*  /*src*/, size_t  /*size*/, tt_xy_pair  /*core_start*/, tt_xy_pair  /*core_end*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA multicast write not supported for TTSim simulation device.");
 }
 

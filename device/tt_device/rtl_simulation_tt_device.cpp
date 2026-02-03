@@ -176,46 +176,46 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, b
     }
 }
 
-void RtlSimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
+void RtlSimulationTTDevice::dma_d2h(void*  /*dst*/, uint32_t  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
+void RtlSimulationTTDevice::dma_d2h_zero_copy(void*  /*dst*/, uint32_t  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
+void RtlSimulationTTDevice::dma_h2d(uint32_t  /*dst*/, const void*  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t  /*dst*/, const void*  /*src*/, size_t  /*size*/) {
     throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void RtlSimulationTTDevice::read_from_arc_apb(void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_apb(
-    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    const void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void RtlSimulationTTDevice::read_from_arc_csm(void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_csm(
-    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+    const void*  /*mem_ptr*/, uint64_t  /*arc_addr_offset*/, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC CSM access is not supported in RTL simulation device.");
 }
 
-bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds  /*timeout_ms*/) {
     throw std::runtime_error("Waiting for ARC core start is not supported in RTL simulation device.");
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    const tt_xy_pair  /*eth_core*/, const std::chrono::milliseconds  /*timeout_ms*/) {
     throw std::runtime_error("Waiting for ETH core training is not supported in RTL simulation device.");
 }
 
@@ -231,16 +231,16 @@ bool RtlSimulationTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("Getting NOC translation status is not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+void RtlSimulationTTDevice::dma_write_to_device(const void*  /*src*/, size_t  /*size*/, tt_xy_pair  /*core*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA write to device not supported for RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void RtlSimulationTTDevice::dma_read_from_device(void*  /*dst*/, size_t  /*size*/, tt_xy_pair  /*core*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void*  /*src*/, size_t  /*size*/, tt_xy_pair  /*core_start*/, tt_xy_pair  /*core_end*/, uint64_t  /*addr*/) {
     throw std::runtime_error("DMA multicast write not supported for RTL simulation device.");
 }
 

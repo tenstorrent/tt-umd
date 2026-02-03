@@ -12,6 +12,24 @@ include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 
 include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 
+# Helper function to mark a target's include directories as SYSTEM for CMake < 3.25
+# CMake 3.25+ handles this via CPMAddPackage's SYSTEM option, but older versions need manual handling
+function(mark_target_system_includes target_name)
+    if(CMAKE_VERSION VERSION_LESS 3.25)
+        if(TARGET ${target_name})
+            get_target_property(_includes ${target_name} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_includes)
+                set_target_properties(
+                    ${target_name}
+                    PROPERTIES
+                        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
+                            "${_includes}"
+                )
+            endif()
+        endif()
+    endif()
+endfunction()
+
 ####################################################################################################################
 # google test
 ####################################################################################################################
@@ -21,11 +39,14 @@ if(TT_UMD_BUILD_TESTS)
         GITHUB_REPOSITORY google/googletest
         GIT_TAG v1.13.0
         VERSION 1.13.0
+        SYSTEM YES
         OPTIONS
             "INSTALL_GTEST OFF"
     )
     if(googletest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
+        mark_target_system_includes(gtest)
+        mark_target_system_includes(gmock)
     endif()
 endif()
 
@@ -37,6 +58,7 @@ CPMAddPackage(
     GITHUB_REPOSITORY jbeder/yaml-cpp
     GIT_TAG
         2f86d13775d119edbb69af52e5f566fd65c6953b # 0.8.0 + patches
+    SYSTEM YES
     OPTIONS
         "YAML_CPP_BUILD_TESTS OFF"
         "YAML_CPP_BUILD_TOOLS OFF"
@@ -50,6 +72,7 @@ if(yaml-cpp_ADDED)
             DEBUG_POSTFIX
                 ""
     )
+    mark_target_system_includes(yaml-cpp)
 endif()
 
 ###################################################################################################################
@@ -60,12 +83,16 @@ if(TT_UMD_BUILD_SIMULATION)
         NAME nanomsg
         GITHUB_REPOSITORY nanomsg/nng
         GIT_TAG v1.8.0
+        SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "BUILD_SHARED_LIBS OFF"
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
     )
+    if(nanomsg_ADDED)
+        mark_target_system_includes(nng)
+    endif()
 endif()
 
 ###################################################################################################################
@@ -76,6 +103,7 @@ if(TT_UMD_BUILD_SIMULATION)
         NAME flatbuffers
         GITHUB_REPOSITORY google/flatbuffers
         GIT_TAG v24.3.25
+        SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "FLATBUFFERS_BUILD_FLATC ON"
@@ -91,6 +119,9 @@ if(TT_UMD_BUILD_SIMULATION)
         )
         add_library(flatbuffers::flatbuffers ALIAS flatbuffers)
     endif()
+    if(flatbuffers_ADDED)
+        mark_target_system_includes(flatbuffers)
+    endif()
 endif()
 
 ###################################################################################################################
@@ -101,25 +132,36 @@ if(TT_UMD_BUILD_SIMULATION)
         NAME libuv
         GITHUB_REPOSITORY libuv/libuv
         GIT_TAG v1.51.0
+        SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "LIBUV_BUILD_TESTS OFF"
             "LIBUV_BUILD_SHARED OFF"
             "BUILD_SHARED_LIBS OFF"
     )
+    if(libuv_ADDED)
+        mark_target_system_includes(uv_a)
+    endif()
 endif()
 
 ###################################################################################################################
 # fmt : https://github.com/fmtlib/fmt
 ###################################################################################################################
 
-CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES)
+
+if(fmt_ADDED)
+    mark_target_system_includes(fmt)
+endif()
 
 ###################################################################################################################
 # nanobench (for uBenchmarking)
 ###################################################################################################################
 if(MASTER_PROJECT)
-    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11)
+    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11 SYSTEM YES)
+    if(nanobench_ADDED)
+        mark_target_system_includes(nanobench)
+    endif()
 endif()
 
 ####################################################################################################################
@@ -129,16 +171,25 @@ CPMAddPackage(
     NAME spdlog
     GITHUB_REPOSITORY gabime/spdlog
     VERSION 1.15.2
+    SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
         "SPDLOG_FMT_EXTERNAL_HO ON"
         "SPDLOG_INSTALL ON"
 )
 
+if(spdlog_ADDED)
+    mark_target_system_includes(spdlog)
+endif()
+
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.7)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.7 SYSTEM YES)
+
+if(tt-logger_ADDED)
+    mark_target_system_includes(tt-logger)
+endif()
 
 ####################################################################################################################
 # cxxopts
@@ -148,14 +199,30 @@ CPMAddPackage(
     GITHUB_REPOSITORY jarro2783/cxxopts
     GIT_TAG
         dbf4c6a66816f6c3872b46cc6af119ad227e04e1 #version 3.2.1 + patches
+    SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
 )
 
+if(cxxopts_ADDED)
+    mark_target_system_includes(cxxopts)
+endif()
+
 ####################################################################################################################
 # nanobind
 ####################################################################################################################
-CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.10.2 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
+CPMAddPackage(
+    NAME nanobind
+    GITHUB_REPOSITORY wjakob/nanobind
+    VERSION 2.10.2
+    SYSTEM YES
+    OPTIONS
+        "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+)
+
+if(nanobind_ADDED)
+    mark_target_system_includes(nanobind)
+endif()
 
 ####################################################################################################################
 # picosha2
@@ -164,6 +231,7 @@ CPMAddPackage(
     NAME picosha2
     GITHUB_REPOSITORY okdshin/PicoSHA2
     GIT_TAG v1.0.1
+    SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
     DOWNLOAD_ONLY YES
@@ -172,14 +240,14 @@ CPMAddPackage(
 if(picosha2_ADDED)
     # picosha2 is header-only, create an interface library
     add_library(picosha2 INTERFACE)
-    target_include_directories(picosha2 INTERFACE ${picosha2_SOURCE_DIR})
+    target_include_directories(picosha2 SYSTEM INTERFACE ${picosha2_SOURCE_DIR})
     add_library(picosha2::picosha2 ALIAS picosha2)
 endif()
 
 ####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
-CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 DOWNLOAD_ONLY YES)
+CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 SYSTEM YES DOWNLOAD_ONLY YES)
 
 if(umd_asio_ADDED)
     add_library(umd_asio_lib INTERFACE)

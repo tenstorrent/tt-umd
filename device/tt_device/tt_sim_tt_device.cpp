@@ -75,6 +75,11 @@ void TTSimTTDevice::start_device() {
     libttsim_pci_device_id = pci_id >> 16;
     log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+    if (libttsim_pci_device_id == 0x401E) {  // WH: use 16MiB TLB regions
+        tlb_region_size = 0x1000000;
+    } else if (libttsim_pci_device_id == 0xB140) {  // BH: use 2MiB TLB regions
+        tlb_region_size = 0x200000;
+    }
 }
 
 void TTSimTTDevice::close_device() {
@@ -86,12 +91,32 @@ void TTSimTTDevice::close_device() {
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    pfn_libttsim_tile_wr_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (tlb_region_size) {  // if set, split into requests that do not span TLB regions
+        while (size) {
+            uint32_t cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
+            pfn_libttsim_tile_wr_bytes(core.x, core.y, addr, mem_ptr, cur_size);
+            addr += cur_size;
+            mem_ptr = reinterpret_cast<const uint8_t*>(mem_ptr) + cur_size;
+            size -= cur_size;
+        }
+    } else {
+        pfn_libttsim_tile_wr_bytes(core.x, core.y, addr, mem_ptr, size);
+    }
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    pfn_libttsim_tile_rd_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (tlb_region_size) {  // if set, split into requests that do not span TLB regions
+        while (size) {
+            uint32_t cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
+            pfn_libttsim_tile_rd_bytes(core.x, core.y, addr, mem_ptr, cur_size);
+            addr += cur_size;
+            mem_ptr = reinterpret_cast<uint8_t*>(mem_ptr) + cur_size;
+            size -= cur_size;
+        }
+    } else {
+        pfn_libttsim_tile_rd_bytes(core.x, core.y, addr, mem_ptr, size);
+    }
     pfn_libttsim_clock(10);
 }
 
@@ -214,6 +239,11 @@ bool TTSimTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("Getting NOC translation status is not supported in TTSim simulation device.");
 }
 
+void TTSimTTDevice::dma_multicast_write(
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for TTSim simulation device.");
+}
+
 void TTSimTTDevice::create_simulator_binary() {
     const std::string filename = simulator_directory_.stem().string();
     const std::string extension = simulator_directory_.extension().string();
@@ -276,6 +306,8 @@ void TTSimTTDevice::load_simulator_library(const std::filesystem::path& path) {
     DLSYM_FUNCTION(libttsim_init)
     DLSYM_FUNCTION(libttsim_exit)
     DLSYM_FUNCTION(libttsim_pci_config_rd32)
+    DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
+    DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)

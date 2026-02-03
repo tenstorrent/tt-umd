@@ -114,10 +114,9 @@ private:
         std::string version = version_str;
         size_t pos = version_str.find("-rc.");
         size_t count = 3;  // -rc length
-        bool ispos = false;
-        if (pos != std::string::npos) {
+        bool ispos = (pos != std::string::npos);
+        if (ispos) {
             version.erase(pos, count);
-            ispos = true;
         }
         std::istringstream iss(version);
         std::string token;
@@ -135,7 +134,7 @@ private:
                 if (std::getline(iss, token, '.')) {
                     patch = std::stoull(token);
 
-                    if (std::getline(iss, token, '.') && ispos == true) {
+                    if (std::getline(iss, token, '.') && ispos) {
                         pre_release = std::stoull(token);
                     }
                 }

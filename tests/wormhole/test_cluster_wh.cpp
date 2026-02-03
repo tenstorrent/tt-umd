@@ -4,8 +4,14 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <ios>
 #include <memory>
+#include <random>
+#include <set>
 #include <thread>
+#include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -648,6 +654,7 @@ TEST(SiliconDriverWH, DMA1) {
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
+    dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }
@@ -662,7 +669,7 @@ TEST(SiliconDriverWH, DMA1) {
     // First, write a different pattern to each of the DRAM cores.
     for (auto core : dram_cores) {
         std::vector<uint8_t> pattern(buf_size);
-        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+        test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
         cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
 
@@ -696,6 +703,7 @@ TEST(SiliconDriverWH, DMA2) {
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
+    dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }

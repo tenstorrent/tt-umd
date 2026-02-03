@@ -137,8 +137,9 @@ void RtlSimulationTTDevice::close_device() {
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    std::vector<std::uint32_t> data(
-        static_cast<const uint32_t*>(mem_ptr), static_cast<const uint32_t*>(mem_ptr) + size / sizeof(uint32_t));
+    const uint32_t num_elements = size / sizeof(uint32_t);
+    const auto* data_ptr = static_cast<const uint32_t*>(mem_ptr);
+    std::vector<std::uint32_t> data(data_ptr, data_ptr + num_elements);
     _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
 }
 
@@ -236,6 +237,11 @@ void RtlSimulationTTDevice::dma_write_to_device(const void* src, size_t size, tt
 
 void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
     throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_multicast_write(
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for RTL simulation device.");
 }
 
 }  // namespace tt::umd

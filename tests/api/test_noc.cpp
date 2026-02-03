@@ -6,6 +6,10 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <memory>
+#include <vector>
+
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/noc_id.hpp"

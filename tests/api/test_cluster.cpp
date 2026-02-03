@@ -11,13 +11,19 @@
 #include <unistd.h>  // For access()
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
+#include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <optional>
+#include <random>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -137,6 +143,100 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
     }
 }
 
+TEST(ApiClusterTest, OpenChipsByBDF) {
+    // Get all available PCI devices and their BDF addresses.
+    auto device_info_map = PCIDevice::enumerate_devices_info();
+
+    if (device_info_map.empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+    }
+
+    // Extract BDF addresses.
+    std::vector<std::string> pci_bdf_addresses;
+    pci_bdf_addresses.reserve(device_info_map.size());
+    for (const auto& [device_id, info] : device_info_map) {
+        pci_bdf_addresses.push_back(info.pci_bdf);
+    }
+
+    // Limit combinations like the original test.
+    if (pci_bdf_addresses.size() > 4) {
+        GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
+                        "This test is intended to be run on all systems apart from 6U.";
+    }
+
+    int total_combinations = 1 << pci_bdf_addresses.size();
+
+    for (uint32_t combination = 0; combination < total_combinations; combination++) {
+        std::vector<std::string> target_bdf_addresses;
+        target_bdf_addresses.reserve(pci_bdf_addresses.size());
+        for (int i = 0; i < pci_bdf_addresses.size(); i++) {
+            if (combination & (1 << i)) {
+                target_bdf_addresses.push_back(pci_bdf_addresses[i]);
+            }
+        }
+
+        std::cout << "Creating Cluster with target BDF addresses: ";
+        for (const auto& bdf : target_bdf_addresses) {
+            std::cout << bdf << " ";
+        }
+        std::cout << std::endl;
+
+        // Convert BDF addresses to comma-separated string.
+        std::string bdf_value;
+        for (size_t i = 0; i < target_bdf_addresses.size(); ++i) {
+            if (i > 0) {
+                bdf_value += ",";
+            }
+            bdf_value += target_bdf_addresses[i];
+        }
+
+        if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+        }
+
+        // Make sure that Cluster construction is without exceptions.
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+        // Check that the cluster has the expected number of chips.
+        auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+        EXPECT_EQ(actual_pci_device_ids.size(), target_bdf_addresses.size());
+
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
+        }
+    }
+}
+
+TEST(ApiClusterTest, OpenChipsByBDFWormhole6U) {
+    // Get all available PCI devices and their BDF addresses.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+    }
+
+    if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
+        GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
+    }
+
+    std::string bdf_value = "0000:01:00.0, 0000:02:00.0, 0000:03:00.0, 0000:04:00.0";
+
+    if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
+        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+    }
+
+    // Make sure that Cluster construction is without exceptions.
+    std::unique_ptr<Cluster> cluster_tt_visible_devices = std::make_unique<Cluster>();
+
+    // Check that the cluster has the expected number of chips.
+    auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
+    EXPECT_EQ(actual_pci_device_ids.size(), 4);
+
+    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
+    }
+}
+
 TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // First, pregenerate a cluster descriptor and save it to a file.
     // This will run topology discovery and touch all the devices.
@@ -220,7 +320,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // created Cluster class.
     std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
     umd_cluster = std::make_unique<Cluster>();
-    std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
+    umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
@@ -460,9 +560,9 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
-    for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
+    for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
         const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
-        for (auto [channel, remote_chip_and_channel] : connections) {
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
             auto [remote_chip, remote_channel] = remote_chip_and_channel;
 
             const uint32_t num_channels_remote_chip =
@@ -856,6 +956,56 @@ TEST(TestCluster, TestMulticastWrite) {
     }
 
     cluster->noc_multicast_write(write_data.data(), write_data.size(), 0, start_tensix, end_tensix, address);
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> readback(data_size, 0);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(write_data, readback);
+        }
+    }
+}
+
+TEST(TestCluster, TestDmaMulticastWrite) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
+    }
+
+    const tt_xy_pair grid_size = {8, 8};
+
+    const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+    const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    const uint64_t address = 0;
+    const size_t data_size = 256;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (std::size_t i = 0; i < data_size; i++) {
+        write_data[i] = (uint8_t)i;
+    }
+
+    for (uint32_t x = 0; x < grid_size.x; x++) {
+        for (uint32_t y = 0; y < grid_size.y; y++) {
+            std::vector<uint8_t> zeros(data_size, 0);
+            cluster->write_to_device(
+                zeros.data(), zeros.size(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address);
+
+            std::vector<uint8_t> readback(data_size, 1);
+            cluster->read_from_device(
+                readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+
+            EXPECT_EQ(zeros, readback);
+        }
+    }
+
+    cluster->dma_multicast_write(write_data.data(), write_data.size(), 0, start_tensix, end_tensix, address);
 
     for (uint32_t x = 0; x < grid_size.x; x++) {
         for (uint32_t y = 0; y < grid_size.y; y++) {

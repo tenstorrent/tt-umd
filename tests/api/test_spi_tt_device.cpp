@@ -4,10 +4,14 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arc/spi_tt_device.hpp"

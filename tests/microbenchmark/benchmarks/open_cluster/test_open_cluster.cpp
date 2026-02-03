@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 
 #include <chrono>
+#include <memory>
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"

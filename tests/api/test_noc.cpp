@@ -12,6 +12,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -54,6 +55,7 @@ public:
 
         for (const CoreCoord& core : cores) {
             {
+                std::cout << "NOC0 coord of core at hand: " << core.str() << "\n";
                 // Read via this_noc the coordinate of the other_noc for the current core.
                 const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
 
@@ -62,6 +64,9 @@ public:
 
                 // Translate the current core (which is represented in this_noc) to the other_noc.
                 auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
+
+                std::cout << "\nother_noc_coord: " << other_noc_coord.str() << "\n";
+                std::cout << "other_noc_coord_soc_desc: " << other_noc_coord_soc_desc.str() << "\n\n";
 
                 EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x)
                     << " on NOC" << static_cast<uint32_t>(get_noc_index(other_noc));
@@ -79,8 +84,10 @@ private:
     std::unique_ptr<Cluster> cluster_;
 
     tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
+        auto noc_port = (core.core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
         const uint64_t noc_node_id_reg_addr =
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, noc_index) +
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
+                core.core_type, noc_index, noc_port) +
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
@@ -90,6 +97,66 @@ private:
     }
 
     static uint8_t get_noc_index(CoordSystem noc) { return (noc == CoordSystem::NOC0) ? 0 : 1; }
+
+    uint32_t get_dram_noc_port(CoreCoord core) {
+        if (core.coord_system == tt::CoordSystem::NOC0) {
+            auto it = dram_coord_to_noc_port_noc0.find({core.x, core.y});
+
+            if (it != dram_coord_to_noc_port_noc0.end()) {
+                return it->second;
+            }
+        }
+
+        if (core.coord_system == tt::CoordSystem::NOC1) {
+            auto it = dram_coord_to_noc_port_noc1.find({core.x, core.y});
+
+            if (it != dram_coord_to_noc_port_noc1.end()) {
+                return it->second;
+            }
+        }
+
+        return 0;
+    }
+
+    std::map<tt_xy_pair, uint32_t> dram_coord_to_noc_port_noc0{
+        {{0, 1}, 0},
+        {{0, 11}, 1},
+        {{0, 0}, 2},
+        {{0, 7}, 0},
+        {{0, 5}, 1},
+        {{0, 6}, 2},
+        {{5, 1}, 0},
+        {{5, 11}, 1},
+        {{5, 0}, 2},
+        {{5, 10}, 0},
+        {{5, 2}, 1},
+        {{5, 9}, 2},
+        {{5, 4}, 0},
+        {{5, 8}, 1},
+        {{5, 3}, 2},
+        {{5, 7}, 0},
+        {{5, 5}, 1},
+        {{5, 6}, 2}};
+
+    std::map<tt_xy_pair, uint32_t> dram_coord_to_noc_port_noc1{
+        {{9, 10}, 0},
+        {{9, 0}, 1},
+        {{9, 11}, 2},
+        {{9, 4}, 0},
+        {{9, 6}, 1},
+        {{9, 5}, 2},
+        {{4, 10}, 0},
+        {{4, 0}, 1},
+        {{4, 11}, 2},
+        {{4, 1}, 0},
+        {{4, 9}, 1},
+        {{4, 2}, 2},
+        {{4, 7}, 0},
+        {{4, 3}, 1},
+        {{4, 8}, 2},
+        {{4, 4}, 0},
+        {{4, 6}, 1},
+        {{4, 5}, 2}};
 };
 
 TEST_F(TestNoc, TestNoc0NodeId) {
@@ -153,6 +220,26 @@ TEST_F(TestNoc, TestNoc1NodeId) {
         if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
             check_noc_id_cores(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
         }
+    }
+}
+
+TEST_F(TestNoc, TestNocDramPortsNoc0) {
+    NocIdSwitcher noc1_switcher(NocId::NOC0);
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
+        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
+        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
+        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
+    }
+}
+
+TEST_F(TestNoc, TestNocDramPorts) {
+    NocIdSwitcher noc1_switcher(NocId::NOC1);
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
+        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
+        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
+        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
     }
 }
 

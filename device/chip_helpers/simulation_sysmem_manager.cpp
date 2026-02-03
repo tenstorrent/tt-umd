@@ -59,12 +59,12 @@ SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::u
 void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
-    size_t sysmem_buffer_size, const bool map_to_noc) {
+    size_t /*sysmem_buffer_size*/, const bool /*map_to_noc*/) {
     return nullptr;
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void * /*buffer*/, size_t /*sysmem_buffer_size*/, const bool /*map_to_noc*/) {
     return nullptr;
 }
 

@@ -30,7 +30,7 @@ static constexpr int NUM_OF_BYTES_RESERVED = 128;
 // Partitions L1 memory between threads to avoid address overlaps.
 // All of this is focused on a single chip system.
 static void test_read_write_all_tensix_cores_impl(
-    Cluster* cluster, int thread_id, uint32_t reserved_size = 0, bool enable_alignment = false) {
+    Cluster* cluster, int thread_id, uint32_t reserved_size = 0, bool /*enable_alignment*/ = false) {
     std::cout << " Starting test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
               << " thread_id " << thread_id << std::endl;
 

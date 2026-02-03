@@ -32,7 +32,7 @@
 
 using namespace tt::umd;
 
-std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware_info_provider, tt::ARCH arch) {
+std::string run_default_telemetry(int pci_device, FirmwareInfoProvider* firmware_info_provider, tt::ARCH /*arch*/) {
     if (firmware_info_provider == nullptr) {
         return fmt::format("Could not get information for device ID {}.", pci_device);
     }

@@ -588,8 +588,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
     const bool noc_translation_enabled,
     const HarvestingMasks harvesting_masks,
-    const BoardType board_type,
-    uint8_t asic_location) {
+    const BoardType /*board_type*/,
+    uint8_t /*asic_location*/) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return create_coordinate_manager(

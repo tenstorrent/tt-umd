@@ -100,7 +100,7 @@ DriverEthInterfaceParams grendel_implementation::get_eth_interface_params() cons
 DriverNocParams grendel_implementation::get_noc_params() const { return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS}; }
 
 uint64_t grendel_implementation::get_noc_reg_base(
-    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
+    const CoreType core_type, const uint32_t noc, const uint32_t /*noc_port*/) const {
     if (noc == 0) {
         for (const auto& noc_pair : grendel::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
             if (noc_pair.first == core_type) {

@@ -30,7 +30,7 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOp
     TopologyDiscovery(options) {}
 
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
-    std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<EthCoord> /*eth_coord*/, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     std::unique_ptr<RemoteCommunication> remote_communication =
         RemoteCommunication::create_remote_communication(gateway_device, {0, 0, 0, 0});
@@ -42,11 +42,11 @@ std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     return remote_tt_device;
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* /*tt_device*/, tt_xy_pair /*eth_core*/) {
     return std::nullopt;
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* /*tt_device*/, tt_xy_pair /*eth_core*/) {
     return std::nullopt;
 }
 
@@ -130,7 +130,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
     return mangle_asic_id(board_id, asic_location);
 }
 
-tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
+tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* /*tt_device*/, tt_xy_pair /*local_eth_core*/) {
     throw std::runtime_error(
         "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
         "bug.");
@@ -152,7 +152,7 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_x
     return remote_eth_id;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(TTDevice* /*tt_device*/, tt_xy_pair /*eth_core*/) {
     // This function is not important for Blackhole, so we can return any value here.
     return 0;
 }
@@ -184,7 +184,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
 
-bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
+bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t /*board_type*/) const {
     return board_ids.find(board_id) != board_ids.end();
 }
 

@@ -44,7 +44,7 @@ const std::unordered_map<tt::ARCH, std::vector<std::uint16_t>> ubb_bus_ids = {
 };
 
 const std::unordered_map<ConnectorType, LinkingBoardType> linking_board_types = {
-    {Connecto /*unique_chip_id*/nkingBoardType::A},
+    {ConnectorType::LK1, LinkingBoardType::A},
     {ConnectorType::LK2, LinkingBoardType::A},
     {ConnectorType::LK3, LinkingBoardType::B},
 };

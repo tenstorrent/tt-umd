@@ -28,7 +28,8 @@ static constexpr int NUM_OF_BYTES_RESERVED = 128;
 
 // Core implementation for testing IO in parallel threads.
 // Partitions L1 memory between threads to avoid address overlaps.
-// All of this is focused on id test_read_write_all_tensix_cores_impl(
+// All of this is focused on a single chip system.
+static void test_read_write_all_tensix_cores_impl(
     Cluster* cluster, int thread_id, uint32_t reserved_size = 0, bool enable_alignment = false) {
     std::cout << " Starting test_read_write_all_tensix_cores for cluster " << reinterpret_cast<uint64_t>(cluster)
               << " thread_id " << thread_id << std::endl;
@@ -73,12 +74,12 @@ static constexpr int NUM_OF_BYTES_RESERVED = 128;
 // We want to test IO in parallel in each thread.
 // But we don't want these addresses to overlap, since the data will be corrupted.
 // All of this is focused on a single chip system.
-st_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
+void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, 0, false);
 }
 
 // Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
-void test_read_write_all_tensix_cores_with_reserves_at_start(Cluster* cluster, int thread_id) {
+void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
     test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
 

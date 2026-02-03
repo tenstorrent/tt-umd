@@ -36,7 +36,7 @@ struct address_map {
   static constexpr std::int32_t NUM_HOST_PERF_QUEUES = 6 * 64;
   static constexpr std::int32_t HOST_PERF_QUEUE_SLOT_SIZE = HOST_PERF_SCRATCH_BUF_SIZE / NUM_HOST_PERF_QUEUES / 32 * 32;  
   
-  constexpr static std::int32_t ALLOCATABLE_QUEUE_REGION_START(std::int32_t  /*channel*/) {
+  constexpr static std::int32_t ALLOCATABLE_QUEUE_REGION_START(std::int32_t channel) {
     // queue region starts at the base of host memory region
     return DEVICE_TO_HOST_REGION_START;
   }

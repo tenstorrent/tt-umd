@@ -132,11 +132,11 @@ void JtagDevice::select_device(uint8_t chip_id) {
 
 tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
     select_device(chip_id);
-    return  /*chip_id*/family_to_arch.at((DeviceFamily)jtag->get_device_family());
+    return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
 
 int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {
-    jtag-> /*chip_id*/link();
+    jtag->close_jlink();
     return jtag->open_jlink_by_serial_wrapper(serial_number);
 }
 

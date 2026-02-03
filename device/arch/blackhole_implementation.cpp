@@ -102,7 +102,7 @@ DriverNocParams blackhole_implementation::get_noc_params() const {
 }
 
 uint64_t blackhole_implementation::get_noc_reg_base(
-    cons /*noc_port*/pe core_type, const uint32_t noc, const uint32_t noc_port) const {
+    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
     if (noc == 0) {
         for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
             if (noc_pair.first == core_type) {

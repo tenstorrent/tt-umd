@@ -333,7 +333,7 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
     }
-    dma_d2h_transfer(reinte /*size*/t_cast<uint64_t>(dst), src, size);
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
 }
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -351,7 +351,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
         return;
     }
     auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
-    *(reinterpret_cas /*size*/nt32_t *>(mem_ptr)) = result;
+    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
 void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -369,7 +369,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
         return;
     }
     bar_write32(
-        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterp /*size*/cast<const uint32_t *>(mem_ptr)));
+        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
 void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -387,7 +387,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
         return;
     }
     auto result = bar_read32(wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + arc_addr_offset);
-    *(reinterpret_cas /*size*/nt32_t *>(mem_ptr)) = result;
+    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {

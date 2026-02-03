@@ -175,7 +175,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cache /*region*/window()->w /*target*/lock_reco /*region_size*/_ptr, core, addr, size);
+    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

@@ -121,35 +121,42 @@ void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t r
     write_to_device(core, src, reg_dest, size);
 }
 
-void RemoteChip::read_fro /*src*/evice_reg /*size*/eCoord core, /*core*/d* dest, ui /*addr*/_t reg_src, uint32_t size) {
+void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     read_from_device(core, dest, reg_src, size);
 }
 
-void RemoteChip::dma_write_to_device(const void* src, size_t size,  /*dst*/eCoord co /*size*/uint64_t add /*core*/
-    throw  /*addr*/:runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
+void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
 }
 
-void RemoteChip::dma_read_from_device(void* dst, size_t size,  /*src*/eCoord co /*size*/uint64_t add /*core_start*/hrow std::ru /*core_end*/ror("Remote /*addr*/::dma_read_from_device is not available for this chip.");
+void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
 void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    throw std::runtime_error("RemoteChip::dma_multicast_write is not available for th /*cores*/ip.");
+    throw std::runtime_error("RemoteChip::dma_multicast_write is not available for this chip.");
 }
 
-void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flus /*cores*/}
+void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
-void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush /*channels*/oid RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+
+void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
-void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets() /*channel*/t RemoteChip::get_clock() { return tt_device_->get_clock(); }
+void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
+
+int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
 int RemoteChip::get_num_host_channels() { return 0; }
 
-in /*channel*/eChip::get_hos /*src*/hannel_size /*sysmem_dest*/2_t channel /*size*/    throw std::runtime_error("There are no host channels available.");
+int RemoteChip::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
 }
 
-void RemoteChip::write_to_sysmem(uint16_t channel, const void* src, u /*channel*/ sysmem_ /*dest*/, uint32_t  /*sysmem_src*/  throw std /*size*/ntime_error("RemoteChip::write_to_sysmem is not available for this chip.");
+void RemoteChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("RemoteChip::write_to_sysmem is not available for this chip.");
 }
 
 void RemoteChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {

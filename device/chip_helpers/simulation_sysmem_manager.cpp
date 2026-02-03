@@ -56,9 +56,14 @@ bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 
 SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
-void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_chan /*sysmem_buffer_size*/d::unique_ptr /*map_to_noc*/fer> SimulationSysmemManager::allocate_sysmem_buffer(
+void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
+
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
-  /*buffer*/urn nullp /*sysmem_buffer_size*/_ptr<SysmemBu /*map_to_noc*/lationSysmemManager::map_sysmem_buffer(
+    return nullptr;
+}
+
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     return nullptr;
 }

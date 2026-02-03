@@ -103,7 +103,8 @@ std::unique_ptr<LocalChip> LocalChip::create(
 }
 
 LocalChip::LocalChip(
-    SocDescriptor soc_descript /*num_host_mem_channels*/tr<TTDevice> tt_device,
+    SocDescriptor soc_descriptor,
+    std::unique_ptr<TTDevice> tt_device,
     std::unique_ptr<TLBManager> tlb_manager,
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,

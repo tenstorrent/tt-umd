@@ -29,7 +29,7 @@ namespace tt::umd {
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options) :
     TopologyDiscovery(options) {}
 
-std::unique_ /*eth_coord*/ice> TopologyDiscoveryBlackhole::create_remote_device(
+std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     std::unique_ptr<RemoteCommunication> remote_communication =
@@ -39,9 +39,14 @@ std::unique_ /*eth_coord*/ice> TopologyDiscoveryBlackhole::create_remote_device(
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
-    return remote_tt_d /*tt_device*/
-std::optiona /*eth_core*/rd> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
-    return std::nul /*tt_device*/std::optional /*eth_core*/d> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+    return remote_tt_device;
+}
+
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+    return std::nullopt;
+}
+
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
     return std::nullopt;
 }
 
@@ -122,9 +127,10 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
     uint8_t asic_location;
     tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
 
-    return mangle_asic_id(board_ /*tt_device*/location);
+    return mangle_asic_id(board_id, asic_location);
 }
- /*local_eth_core*/pologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
+
+tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     throw std::runtime_error(
         "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
         "bug.");
@@ -143,9 +149,10 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_x
         local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t remote_eth_id;
     tt_device->read_from_device(&remote_eth_id, translated_eth_core, 0x7CFE2, sizeof(remote_eth_id));
-    re /*tt_device*/te_eth_id;
+    return remote_eth_id;
 }
- /*eth_core*/t TopologyDiscoveryBlackhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
+
+uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
     // This function is not important for Blackhole, so we can return any value here.
     return 0;
 }
@@ -175,7 +182,9 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
     return remote_logical_eth_id + 4;
 }
 
-bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return  /*board_type*/bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
+bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
+
+bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
     return board_ids.find(board_id) != board_ids.end();
 }
 
@@ -275,10 +284,10 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
     uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
-    return (static_cast<uint64_t>(asic_id_hi) << 32 /*tt_device*/id_lo;
+    return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
-bool Topo /*eth_core*/overyBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
+bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
     return true;
 }
 

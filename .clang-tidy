@@ -40,7 +40,7 @@ Checks: >
     -misc-no-recursion,
     -misc-non-private-member-variables-in-classes,
     -misc-redundant-expression,
-    -misc-unused-parameters,
+
     -misc-use-anonymous-namespace,
     -misc-use-internal-linkage,
     -modernize-avoid-c-arrays,

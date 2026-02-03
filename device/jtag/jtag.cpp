@@ -4,7 +4,7 @@
 
 #include "umd/device/jtag/jtag.hpp"
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <filesystem>
 #include <iostream>

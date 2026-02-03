@@ -1,0 +1,34 @@
+# Clang-Tidy Violations: misc-header-include-cycle
+Total: 31 violations
+
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/topology/topology_discovery.hpp:13 — circular header file dependency detected while including 'cluster_descriptor.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/cluster_descriptor.hpp:19 — circular header file dependency detected while including 'topology_discovery.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/cluster_descriptor.hpp:19 — circular header file dependency detected while including 'topology_discovery.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/topology/topology_discovery.hpp:13 — circular header file dependency detected while including 'cluster_descriptor.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/cluster_descriptor.hpp:19 — circular header file dependency detected while including 'topology_discovery.hpp', please check the include path
+- device/api/umd/device/cluster_descriptor.hpp:19 — circular header file dependency detected while including 'topology_discovery.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path
+- device/api/umd/device/tt_device/tt_device.hpp:13 — circular header file dependency detected while including 'arc_telemetry_reader.hpp', please check the include path
+- device/api/umd/device/arc/arc_telemetry_reader.hpp:10 — circular header file dependency detected while including 'tt_device.hpp', please check the include path

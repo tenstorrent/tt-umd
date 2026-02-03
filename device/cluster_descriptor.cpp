@@ -412,10 +412,14 @@ std::unordered_set<ChipId> filter_chip_collection(
         auto it = chips.find(chip_id);
         if (it != chips.end()) {
             filtered_collection.emplace(chip_id);
-std::make_unique
-    return filteredique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
+        }
+    }
+    return filtered_collection;
+}
+
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
@@ -478,12 +482,15 @@ std::make_unique
             continue;
         }
 
-        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_colstd::make_uniqueoup, target_chip_idssc;
+        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, target_chip_ids);
+    }
+
+    return desc;
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     const std::unordered_set<ChipId> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     BoardType board_type;
     HarvestingMasks harvesting_masks{0, 0, 0, 0};

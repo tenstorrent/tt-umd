@@ -47,7 +47,7 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    ~WormholeTTDevice() override{};
+    ~WormholeTTDevice() override = default;
 
 protected:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);

@@ -10,7 +10,9 @@
 #include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/telemetry.hpp"
 
 using namespace tt;

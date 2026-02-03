@@ -5,13 +5,15 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <unordered_set>
 
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+
+class TTDevice;
 
 class ArcTelemetryReader {
 public:

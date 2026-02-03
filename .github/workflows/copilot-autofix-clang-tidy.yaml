@@ -39,7 +39,7 @@ jobs:
         with:
           # Check out main by default, but allow testing on PR branches
           # For testing: temporarily change 'main' to your branch name
-          ref: main
+          ref: blozano-prayer
           fetch-depth: 0
 
       - name: Configure git safe.directory

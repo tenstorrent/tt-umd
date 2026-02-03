@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -25,7 +28,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
         std::vector<uint32_t> arc_msg_return_values = {0};
-        uint32_t response = arc_messenger->send_message(
+        arc_messenger->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
@@ -87,7 +90,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
-                uint32_t response = arc_messenger->send_message(
+                arc_messenger->send_message(
                     wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,
@@ -104,7 +107,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
-                uint32_t response = arc_messenger->send_message(
+                arc_messenger->send_message(
                     wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,

@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <vector>
@@ -114,7 +115,7 @@ void Jtag::dbus_sigdump(
 void Jtag::write_axi(uint32_t reg_addr, uint32_t data) { GET_FUNCTION_POINTER(write_axi)(reg_addr, data); }
 
 void Jtag::write_noc_xy(uint32_t node_x_id, uint32_t node_y_id, uint64_t noc_addr, uint32_t noc_data, uint8_t noc_id) {
-    return GET_FUNCTION_POINTER(write_noc_xy)(node_x_id, node_y_id, noc_addr, noc_data, noc_id);
+    GET_FUNCTION_POINTER(write_noc_xy)(node_x_id, node_y_id, noc_addr, noc_data, noc_id);
 }
 
 uint32_t Jtag::read_axi(uint32_t reg_addr) { return GET_FUNCTION_POINTER(read_axi)(reg_addr); }

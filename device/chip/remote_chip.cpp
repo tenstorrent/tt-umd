@@ -4,7 +4,16 @@
 
 #include "umd/device/chip/remote_chip.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -124,6 +133,10 @@ void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord cor
 
 void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
+}
+
+void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_multicast_write is not available for this chip.");
 }
 
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

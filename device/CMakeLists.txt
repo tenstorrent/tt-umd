@@ -22,6 +22,10 @@ if(TT_UMD_BUILD_SIMULATION)
         COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
         VERBATIM
     )
+
+    # Add FlatBuffers header to the code analysis target
+    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
 
 if(TT_UMD_BUILD_STATIC)
@@ -77,7 +81,6 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
-        tt_device/tt_sim_tt_device.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
         firmware/wormhole_18_7_firmware_info_provider.cpp
@@ -96,6 +99,7 @@ target_sources(
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
+        arc/spi_tt_device.cpp
         noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
@@ -109,6 +113,7 @@ target_sources(
         jtag/jtag_device.cpp
         jtag/jtag.cpp
         tt_kmd_lib/tt_kmd_lib.c
+        arc/wormhole_spi_tt_device.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -120,6 +125,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             tt_device/rtl_simulation_tt_device.cpp
+            tt_device/tt_sim_tt_device.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -212,6 +218,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag.hpp
                 api/umd/device/tt_kmd_lib/tt_kmd_lib.h
                 api/umd/device/arch/grendel_implementation.hpp
+                api/umd/device/arc/spi_tt_device.hpp
     )
 endif()
 

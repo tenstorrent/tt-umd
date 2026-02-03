@@ -7,10 +7,25 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
+#include <limits>
+#include <map>
 #include <memory>
+#include <set>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"
@@ -353,7 +368,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
 
 template <typename T>
 std::unordered_map<ChipId, T> filter_chip_collection(
-    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::unordered_map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -366,7 +381,7 @@ std::unordered_map<ChipId, T> filter_chip_collection(
 
 template <typename T>
 std::map<ChipId, T> filter_chip_collection(
-    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -404,7 +419,7 @@ std::unordered_set<ChipId> filter_chip_collection(
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
@@ -431,6 +446,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->io_device_type = full_cluster_desc->io_device_type;
     desc->eth_fw_version = full_cluster_desc->eth_fw_version;
     desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
+
+    desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, target_chip_ids);
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
@@ -473,7 +490,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     const std::unordered_set<ChipId> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     BoardType board_type;
     HarvestingMasks harvesting_masks{0, 0, 0, 0};
@@ -893,6 +910,20 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             asic_locations.insert({chip, asic_location});
         }
     }
+
+    if (yaml["chip_pci_bdfs"]) {
+        for (const auto &chip_pci_bdf : yaml["chip_pci_bdfs"].as<std::map<int, std::string>>()) {
+            auto &chip = chip_pci_bdf.first;
+            const std::string &bdf_str = chip_pci_bdf.second;
+
+            // make sure chip is mmio mapped
+            if (chips_with_mmio.find(chip) == chips_with_mmio.end()) {
+                throw std::runtime_error(fmt::format("Chip {} has PCI BDF specified but is not mmio mapped.", chip));
+            }
+
+            chip_pci_bdfs.insert({chip, bdf_str});
+        }
+    }
 }
 
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
@@ -953,7 +984,7 @@ ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
     return this->ethernet_connections_to_remote_devices;
 }
 
-const EthCoord ClusterDescriptor::get_chip_location(const ChipId chip) const {
+EthCoord ClusterDescriptor::get_chip_location(const ChipId chip) const {
     if (chip_locations.find(chip) == chip_locations.end()) {
         return {0, 0, 0, 0};
     }
@@ -983,7 +1014,7 @@ const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio
 
 const std::unordered_set<ChipId> &ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
-const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
+std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
     std::vector<ChipId> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(
@@ -1007,13 +1038,6 @@ const std::unordered_map<ChipId, bool> &ClusterDescriptor::get_noc_translation_t
 }
 
 std::size_t ClusterDescriptor::get_number_of_chips() const { return this->all_chips.size(); }
-
-int ClusterDescriptor::get_ethernet_link_distance(ChipId chip_a, ChipId chip_b) const {
-    TT_ASSERT(
-        !this->chip_locations.empty(),
-        "Getting noc0 chip coordinates is only valid for systems where chips have coordinates");
-    return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
-}
 
 BoardType ClusterDescriptor::get_board_type(ChipId chip_id) const {
     TT_ASSERT(
@@ -1181,6 +1205,14 @@ std::string ClusterDescriptor::serialize() const {
         std::map<ChipId, uint8_t>(asic_locations.begin(), asic_locations.end());
     for (const auto &[chip_id, asic_location] : asic_locations_map) {
         out << YAML::Key << chip_id << YAML::Value << static_cast<int>(asic_location);
+    }
+    out << YAML::EndMap;
+
+    out << YAML::Key << "chip_pci_bdfs" << YAML::Value << YAML::BeginMap;
+    std::map<ChipId, std::string> pci_bdfs_map =
+        std::map<ChipId, std::string>(chip_pci_bdfs.begin(), chip_pci_bdfs.end());
+    for (const auto &[chip_id, bdf] : pci_bdfs_map) {
+        out << YAML::Key << chip_id << YAML::Value << bdf;
     }
     out << YAML::EndMap;
 
@@ -1393,6 +1425,8 @@ uint8_t ClusterDescriptor::get_asic_location(ChipId chip_id) const {
     }
     return it->second;
 }
+
+const std::unordered_map<ChipId, std::string> &ClusterDescriptor::get_chip_pci_bdfs() const { return chip_pci_bdfs; }
 
 IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
 

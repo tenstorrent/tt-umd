@@ -90,6 +90,9 @@ inline constexpr auto TLB_16M_OFFSET = tlb_offsets{
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
+    GET_SPI_DUMP_ADDR = 0x29,
+    SPI_READ = 0x2A,
+    SPI_WRITE = 0x2B,
     GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
@@ -250,6 +253,9 @@ inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
+inline constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
+inline constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
+
 // ARC APB addresses in NOC space - must be combined with ARC_NOC_ADDRESS_START.
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_START = 0x80000000;
 inline constexpr uint32_t ARC_APB_NOC_XBAR_OFFSET_END = 0x800FFFFF;
@@ -323,6 +329,11 @@ inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
+
+// Constants related to SPI.
+inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
+inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
+inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
 }  // namespace wormhole
 
@@ -472,7 +483,7 @@ public:
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
-    virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
+    uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

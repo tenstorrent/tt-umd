@@ -4,7 +4,11 @@
 
 #include "umd/device/utils/lock_manager.hpp"
 
+#include <mutex>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 
 namespace tt::umd {
 
@@ -15,6 +19,7 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::MEM_BARRIER, "MEM_BARRIER"},
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
     {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
+    {MutexType::PCIE_DMA, "PCIE_DMA"},
 };
 
 const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToString = {

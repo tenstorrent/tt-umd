@@ -6,6 +6,10 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <memory>
+#include <vector>
+
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -17,7 +21,6 @@ TEST(TestNoc, TestNoc0NodeId) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, ChipId chip, CoreCoord core) {
-        const uint64_t noc_node_id_offset = 0x2C;
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();

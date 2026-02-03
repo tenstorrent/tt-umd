@@ -37,7 +37,9 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
         with:
-          ref: main
+          # For workflow_dispatch, use the default branch (main)
+          # The script will be available after this PR is merged
+          ref: ${{ github.event.inputs.ref || 'main' }}
           fetch-depth: 0
 
       - name: Configure git safe.directory
@@ -172,7 +174,7 @@ jobs:
           # Filter YAML files to only include the specified checker, then apply directly
           FILTERED_DIR=$(mktemp -d)
 
-          python3 scripts/filter_fixes.py \
+          python3 /work/scripts/filter_fixes.py \
             --in-dir /tmp/analysis-results/fixit \
             --out-dir "$FILTERED_DIR" \
             --allow "$CHECKER"

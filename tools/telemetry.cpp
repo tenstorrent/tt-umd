@@ -28,6 +28,7 @@
 #include "common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;

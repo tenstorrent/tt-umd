@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 
 using namespace tt;

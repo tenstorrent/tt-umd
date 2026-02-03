@@ -17,6 +17,7 @@
 #include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"

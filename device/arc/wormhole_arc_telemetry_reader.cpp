@@ -8,6 +8,7 @@
 
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/telemetry.hpp"
 
 namespace tt::umd {

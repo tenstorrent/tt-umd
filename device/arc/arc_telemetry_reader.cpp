@@ -13,6 +13,7 @@
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"

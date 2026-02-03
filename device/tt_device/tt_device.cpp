@@ -51,10 +51,10 @@ TTDevice::TTDevice(
     jtag_device_(std::move(jtag_device)),
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
-    architect= default;e_impl_(std::move(architecture_impl)),
+    architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {}
 
-TTDevice::TTDevice() {}
+TTDevice::TTDevice() = default;
 
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}

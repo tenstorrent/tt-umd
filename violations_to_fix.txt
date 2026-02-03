@@ -1,0 +1,15 @@
+# Clang-Tidy Violations: modernize-use-override
+Total: 12 violations
+
+- device/api/umd/device/chip/local_chip.hpp:32 — annotate this function with 'override' or (rarely) 'final'
+- device/api/umd/device/arch/wormhole_implementation.hpp:486 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/arch/blackhole_implementation.hpp:467 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/arch/grendel_implementation.hpp:465 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:31 — prefer using 'override' or (rarely) 'final' instead of 'virtual'
+- device/api/umd/device/simulation/simulation_chip.hpp:77 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:78 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:81 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:82 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:85 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:86 — 'virtual' is redundant since the function is already declared 'override'
+- device/api/umd/device/simulation/simulation_chip.hpp:87 — 'virtual' is redundant since the function is already declared 'override'

@@ -89,6 +89,6 @@ Checks: >
     -openmp-*,
     -zircon-*
 
-HeaderFilterRegex: '^(?!.*\.cpmcache).*$'
+HeaderFilterRegex: '.*'
 WarningsAsErrors: '*'
 FormatStyle: 'file'

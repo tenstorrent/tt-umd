@@ -1,0 +1,13 @@
+# Clang-Tidy Violations: modernize-deprecated-headers
+Total: 10 violations
+
+- device/jtag/jtag.cpp:7 — inclusion of deprecated C++ header 'stdint.h'; consider using 'cstdint' instead
+- device/pcie/tlb_window.cpp:7 — inclusion of deprecated C++ header 'string.h'; consider using 'cstring' instead
+- device/cluster.cpp:7 — inclusion of deprecated C++ header 'assert.h'; consider using 'cassert' instead
+- device/cluster.cpp:9 — inclusion of deprecated C++ header 'errno.h'; consider using 'cerrno' instead
+- device/cluster.cpp:12 — inclusion of deprecated C++ header 'stdarg.h'; consider using 'cstdarg' instead
+- device/cluster.cpp:13 — inclusion of deprecated C++ header 'stdio.h'; consider using 'cstdio' instead
+- device/cluster.cpp:14 — inclusion of deprecated C++ header 'stdlib.h'; consider using 'cstdlib' instead
+- device/cluster.cpp:15 — inclusion of deprecated C++ header 'string.h'; consider using 'cstring' instead
+- device/utils/robust_mutex.cpp:11 — inclusion of deprecated C++ header 'errno.h'; consider using 'cerrno' instead
+- device/utils/robust_mutex.cpp:17 — inclusion of deprecated C++ header 'time.h'; consider using 'ctime' instead

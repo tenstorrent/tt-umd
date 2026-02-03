@@ -44,7 +44,9 @@ on:
 
 
 env:
-  BUILD_TARGETS: "umd_tests ubench"
+  CC: clang-20
+  CXX: clang++-20
+  BUILD_TARGETS: "umd_tests umd_microbenchmark"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -60,7 +62,7 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    runs-on: ubuntu-22.04
+    runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 
@@ -113,7 +115,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
-    runs-on: ubuntu-22.04
+    runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 

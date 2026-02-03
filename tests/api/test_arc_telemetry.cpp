@@ -4,7 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/cluster.hpp"

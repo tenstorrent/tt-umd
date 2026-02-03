@@ -4,6 +4,7 @@
 import unittest
 import tt_umd
 
+
 class TestCluster(unittest.TestCase):
     def test_cluster_functionality(self):
         cluster = tt_umd.Cluster()

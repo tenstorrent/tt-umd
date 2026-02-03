@@ -4,7 +4,13 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

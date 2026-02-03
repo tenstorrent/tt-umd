@@ -23,7 +23,6 @@ jobs:
       matrix:
         ubuntu-docker-version: [
           'ubuntu-22.04',
-          'ubuntu-24.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
@@ -39,6 +38,8 @@ jobs:
       matrix:
         test-group: [
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable, timeout: 45},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable, timeout: 45},
+          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable, timeout: 45},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',
@@ -50,3 +51,23 @@ jobs:
       card: ${{ matrix.test-group.card}}
       timeout: ${{ matrix.test-group.timeout}}
       build-type: ${{ inputs.build-type }}
+
+  analyze-results:
+    secrets: inherit
+    needs: run-benchmarks
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
+          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
+        ]
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+        ]
+    uses: ./.github/workflows/analyze_results.yml
+    with:
+      arch: ${{ matrix.test-group.arch}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+      card: ${{ matrix.test-group.card}}

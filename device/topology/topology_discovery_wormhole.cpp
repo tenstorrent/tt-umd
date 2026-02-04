@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
@@ -356,7 +357,9 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
             for (const auto& [asic_id, tt_device] : devices_to_discover) {
                 auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
-                for (const CoreCoord& eth_core : get_soc_descriptor(tt_device.get()).get_cores(CoreType::ETH)) {
+                for (const CoreCoord& eth_core :
+                     get_soc_descriptor(tt_device.get())
+                         .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
                     semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
                     if (wormhole_tt_device->read_training_status(eth_core) == wormhole::EthTrainStatus::Fail) {
                         if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {

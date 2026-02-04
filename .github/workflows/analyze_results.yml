@@ -77,9 +77,11 @@ jobs:
         if: inputs.baseline-run-id == ''
         continue-on-error: true
         run: |
-          MAIN_RUN_ID=$(gh run list -b main -w 175973905 -s success -L 1 --json databaseId --jq '.[0].databaseId')
-          echo Found: $MAIN_RUN_ID
-          echo "run-id=$MAIN_RUN_ID" >> $GITHUB_OUTPUT
+            MAIN_RUN_ID=$(gh run list -R ${{ github.repository }} \
+            -b main -w 175973905 -s success -L 1 \
+            --json databaseId --jq '.[0].databaseId')
+            echo Found: $MAIN_RUN_ID
+            echo "run-id=$MAIN_RUN_ID" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -113,7 +115,7 @@ jobs:
           ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare -c ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base \
           | tee ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
 
-      - name: Run analysis of benchmark data (comparison only)
+      - name: Run analysis of benchmark data
         if: steps.download-baseline.outcome != 'success' && steps.download-comparison.outcome == 'success'
         run: |
           . /tmp/venv/bin/activate

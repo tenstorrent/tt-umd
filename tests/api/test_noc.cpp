@@ -87,6 +87,9 @@ public:
 
             // We expect different values from the same NODE_ID register address because the returned
             // value depends on which NOC was used to perform the transaction.
+            // NOTE: This verifies NOC0 and NOC1 coordinates are never the same. This holds true
+            // because our grids have even dimensions. For an odd x odd grid, the center tile
+            // would have identical coordinates in both NOC systems, causing this assertion to fail.
             EXPECT_NE(other_noc_reg_value_via_this_noc, other_noc_reg_value_via_other_noc);
 
             // Reading the other NOC's register via this NOC returns this NOC's coordinates,

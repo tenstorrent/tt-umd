@@ -16,7 +16,23 @@ on:
       baseline-run-id:
         required: false
         type: string
-
+  workflow_dispatch:
+    inputs:
+      arch:
+        required: true
+        type: string
+      ubuntu-docker-version:
+        required: true
+        type: string
+      card:
+        required: true
+        type: string
+      results-run-id:
+        required: true
+        type: string
+      baseline-run-id:
+        required: false
+        type: string
 
 env:
   UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results

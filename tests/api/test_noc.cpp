@@ -100,8 +100,6 @@ public:
         }
     }
 
-    tt::ARCH get_chip_arch(ChipId chip) { return cluster_->get_cluster_description()->get_arch(chip); }
-
     Cluster* get_cluster() { return cluster_.get(); };
 
 private:
@@ -164,6 +162,7 @@ private:
 };
 
 TEST_F(TestNoc, TestNoc0NodeId) {
+    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         check_noc_id_cores(chip, CoreType::TENSIX, CoordSystem::NOC0);
         check_noc_id_harvested_cores(chip, CoreType::TENSIX, CoordSystem::NOC0);
@@ -171,7 +170,7 @@ TEST_F(TestNoc, TestNoc0NodeId) {
         check_noc_id_cores(chip, CoreType::ETH, CoordSystem::NOC0);
         check_noc_id_harvested_cores(chip, CoreType::ETH, CoordSystem::NOC0);
 
-        if (get_chip_arch(chip) == tt::ARCH::BLACKHOLE) {
+        if (arch == tt::ARCH::BLACKHOLE) {
             check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
             check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
         }
@@ -190,6 +189,7 @@ TEST_F(TestNoc, TestNoc0NodeId) {
 }
 
 TEST_F(TestNoc, TestNoc1NodeId) {
+    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
     NocIdSwitcher noc1_switcher(NocId::NOC1);
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
@@ -197,11 +197,11 @@ TEST_F(TestNoc, TestNoc1NodeId) {
         check_noc_id_harvested_cores(chip, CoreType::TENSIX, CoordSystem::NOC1);
 
         check_noc_id_cores(chip, CoreType::ETH, CoordSystem::NOC1);
-        if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
+        if (arch != tt::ARCH::BLACKHOLE) {
             check_noc_id_harvested_cores(chip, CoreType::ETH, CoordSystem::NOC1);
         }
 
-        if (get_chip_arch(chip) != tt::ARCH::WORMHOLE_B0) {
+        if (arch != tt::ARCH::WORMHOLE_B0) {
             check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
             check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
         }
@@ -213,7 +213,7 @@ TEST_F(TestNoc, TestNoc1NodeId) {
         // TODO: translated coordinate for harvested PCIE is not same on NOC0 and NOC1.
         // This needs to be fixed in some way in order for this to work on Blackhole
         // with enabled translation.
-        if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
+        if (arch != tt::ARCH::BLACKHOLE) {
             check_noc_id_harvested_cores(chip, CoreType::PCIE, CoordSystem::NOC1);
         }
 
@@ -221,7 +221,7 @@ TEST_F(TestNoc, TestNoc1NodeId) {
 
         check_noc_id_cores(chip, CoreType::L2CPU, CoordSystem::NOC1);
 
-        if (get_chip_arch(chip) != tt::ARCH::BLACKHOLE) {
+        if (arch != tt::ARCH::BLACKHOLE) {
             check_noc_id_cores(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
         }
     }
@@ -250,7 +250,7 @@ class TestNocValidity : public TestNoc, public ::testing::WithParamInterface<std
 
 TEST_P(TestNocValidity, VerifyNocTranslation) {
     auto [core_type, noc] = GetParam();
-    auto arch = get_chip_arch(0);
+    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 
     // Skip ROUTER_ONLY on Blackhole - device-side mapping doesn't correlate with host-side.
     if (arch == ARCH::BLACKHOLE && core_type == CoreType::ROUTER_ONLY) {

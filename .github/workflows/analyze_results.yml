@@ -52,6 +52,11 @@ jobs:
             tests/microbenchmark/tools/analyze_results.py
           sparse-checkout-cone-mode: false
 
+      - name: Install dependencies for API calls
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends curl jq gh python3-venv
+
       - name: Create and activate virtual environment
         run: |
           python3 -m venv /tmp/venv
@@ -63,11 +68,6 @@ jobs:
         run: |
           . /tmp/venv/bin/activate
           python3 -m pip install --no-cache-dir pandas psutil tabulate
-
-      - name: Install dependencies for API calls
-        run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends curl jq gh
 
       - name: Create benchmark results directory
         run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/{base,compare}

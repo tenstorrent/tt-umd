@@ -53,19 +53,50 @@ public:
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
 
         for (const CoreCoord& core : cores) {
+            // Read via this_noc the coordinate of the other_noc for the current core.
+            const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
+
+            // Represent the read coords in the system from which their regs were read.
+            CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
+
+            // Translate the current from host-side core (which is represented in this_noc) to the other_noc.
+            auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
+
+            EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
+            EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
+        }
+    }
+
+    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc) {
+        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
+        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
+
+        for (const CoreCoord& core_this_noc : cores) {
+            tt_xy_pair other_noc_reg_value_via_this_noc;
+            tt_xy_pair other_noc_reg_value_via_other_noc;
             {
-                // Read via this_noc the coordinate of the other_noc for the current core.
-                const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
-
-                // Represent the read coords in the system from which their regs were read.
-                CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
-
-                // Translate the current from host-side core (which is represented in this_noc) to the other_noc.
-                auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
-
-                EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
-                EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
+                NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
+                // Read via this_noc the coordinate of the other_noc (from the NODE_ID reg) for the current core.
+                other_noc_reg_value_via_this_noc = read_noc_id_reg(chip, core_this_noc, get_noc_index(other_noc));
             }
+            {
+                NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
+                // Read via this_noc the coordinate of the other_noc (from the NODE_ID reg) for the current core.
+                other_noc_reg_value_via_other_noc = read_noc_id_reg(chip, core_this_noc, get_noc_index(other_noc));
+            }
+
+            // We expect different values from the same NODE_ID register address because the returned
+            // value depends on which NOC was used to perform the transaction.
+            EXPECT_NE(other_noc_reg_value_via_this_noc, other_noc_reg_value_via_other_noc);
+
+            // Reading the other NOC's register via this NOC returns this NOC's coordinates,
+            // since the NOC used for the transaction determines the coordinate space.
+            EXPECT_EQ(other_noc_reg_value_via_this_noc, core_this_noc);
+
+            auto core_other_noc = cluster_->get_soc_descriptor(chip).translate_coord_to(core_this_noc, other_noc);
+
+            // Reading via the other NOC returns coordinates matching that NOC's coordinate space.
+            EXPECT_EQ(other_noc_reg_value_via_other_noc, core_other_noc);
         }
     }
 
@@ -220,25 +251,28 @@ class TestNocValidity : public TestNoc, public ::testing::WithParamInterface<std
 
 TEST_P(TestNocValidity, VerifyNocTranslation) {
     auto [core_type, noc] = GetParam();
-
-    if (get_chip_arch(0) == ARCH::BLACKHOLE) {
-        if (core_type == CoreType::ROUTER_ONLY) {
-            GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
-        }
-        if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
-            core_type == CoreType::L2CPU) {
-            GTEST_SKIP() << "Skipping test for core type: " << to_str(core_type);
-        }
-    }
-
-    if (get_chip_arch(0) == ARCH::WORMHOLE_B0) {
-        if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::ROUTER_ONLY) {
-            GTEST_SKIP() << "Skipping test for core type: " << to_str(core_type);
-        }
-    }
+    auto arch = get_chip_arch(0);
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        verify_noc_id_cores_via_other_noc(chip, core_type, noc);
+        if (arch == ARCH::BLACKHOLE) {
+            if (core_type == CoreType::ROUTER_ONLY) {
+                GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
+            }
+            if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
+                core_type == CoreType::L2CPU) {
+                verify_noc_ids_differ_by_noc(chip, core_type, noc);
+            } else {
+                verify_noc_id_cores_via_other_noc(chip, core_type, noc);
+            }
+        }
+
+        if (arch == ARCH::WORMHOLE_B0) {
+            if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::ROUTER_ONLY) {
+                verify_noc_ids_differ_by_noc(chip, core_type, noc);
+            } else {
+                verify_noc_id_cores_via_other_noc(chip, core_type, noc);
+            }
+        }
     }
 }
 

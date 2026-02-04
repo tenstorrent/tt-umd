@@ -42,7 +42,7 @@ jobs:
     name: Analyze results for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
 
     steps:
       - name: Checkout analysis tools
@@ -80,6 +80,8 @@ jobs:
           MAIN_RUN_ID=$(gh run list -b main -w 175973905 -s success -L 1 --json databaseId --jq '.[0].databaseId')
           echo Found: $MAIN_RUN_ID
           echo "run-id=$MAIN_RUN_ID" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download baseline JSON benchmark results
         id: download-baseline

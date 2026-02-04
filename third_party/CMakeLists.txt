@@ -12,24 +12,6 @@ include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 
 include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 
-# Helper function to mark a target's include directories as SYSTEM for CMake < 3.25
-# CMake 3.25+ handles this via CPMAddPackage's SYSTEM option, but older versions need manual handling
-function(mark_target_system_includes target_name)
-    if(CMAKE_VERSION VERSION_LESS 3.25)
-        if(TARGET ${target_name})
-            get_target_property(_includes ${target_name} INTERFACE_INCLUDE_DIRECTORIES)
-            if(_includes)
-                set_target_properties(
-                    ${target_name}
-                    PROPERTIES
-                        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
-                            "${_includes}"
-                )
-            endif()
-        endif()
-    endif()
-endfunction()
-
 ####################################################################################################################
 # google test
 ####################################################################################################################
@@ -45,8 +27,6 @@ if(TT_UMD_BUILD_TESTS)
     )
     if(googletest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
-        mark_target_system_includes(gtest)
-        mark_target_system_includes(gmock)
     endif()
 endif()
 
@@ -72,7 +52,6 @@ if(yaml-cpp_ADDED)
             DEBUG_POSTFIX
                 ""
     )
-    mark_target_system_includes(yaml-cpp)
 endif()
 
 ###################################################################################################################
@@ -90,9 +69,6 @@ if(TT_UMD_BUILD_SIMULATION)
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
     )
-    if(nanomsg_ADDED)
-        mark_target_system_includes(nng)
-    endif()
 endif()
 
 ###################################################################################################################
@@ -119,9 +95,6 @@ if(TT_UMD_BUILD_SIMULATION)
         )
         add_library(flatbuffers::flatbuffers ALIAS flatbuffers)
     endif()
-    if(flatbuffers_ADDED)
-        mark_target_system_includes(flatbuffers)
-    endif()
 endif()
 
 ###################################################################################################################
@@ -139,9 +112,6 @@ if(TT_UMD_BUILD_SIMULATION)
             "LIBUV_BUILD_SHARED OFF"
             "BUILD_SHARED_LIBS OFF"
     )
-    if(libuv_ADDED)
-        mark_target_system_includes(uv_a)
-    endif()
 endif()
 
 ###################################################################################################################
@@ -150,18 +120,11 @@ endif()
 
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES)
 
-if(fmt_ADDED)
-    mark_target_system_includes(fmt)
-endif()
-
 ###################################################################################################################
 # nanobench (for uBenchmarking)
 ###################################################################################################################
 if(MASTER_PROJECT)
     CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11 SYSTEM YES)
-    if(nanobench_ADDED)
-        mark_target_system_includes(nanobench)
-    endif()
 endif()
 
 ####################################################################################################################
@@ -187,10 +150,6 @@ endif()
 ####################################################################################################################
 CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.7 SYSTEM YES)
 
-if(tt-logger_ADDED)
-    mark_target_system_includes(tt-logger)
-endif()
-
 ####################################################################################################################
 # cxxopts
 ####################################################################################################################
@@ -204,10 +163,6 @@ CPMAddPackage(
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
 )
 
-if(cxxopts_ADDED)
-    mark_target_system_includes(cxxopts)
-endif()
-
 ####################################################################################################################
 # nanobind
 ####################################################################################################################
@@ -220,9 +175,6 @@ CPMAddPackage(
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
 )
 
-if(nanobind_ADDED)
-    mark_target_system_includes(nanobind)
-endif()
 
 ####################################################################################################################
 # picosha2

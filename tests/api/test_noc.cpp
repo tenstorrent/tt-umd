@@ -45,17 +45,27 @@ public:
         }
     }
 
-    void verify_noc_id_cores_via_other_noc(ChipId chip, CoreType core_type, CoordSystem this_noc) {
+    void verify_noc_id_cores_via_other_noc(
+        ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {
         CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
 
         // Set NOC context to this_noc for consistent read operations.
         NocIdSwitcher this_noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
 
-        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
+        const std::vector<CoreCoord>& cores =
+            use_harvested_cores ? cluster_->get_soc_descriptor(chip).get_harvested_cores(core_type, this_noc)
+                                : cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
 
         for (const CoreCoord& core : cores) {
             // Read via this_noc the coordinate of the other_noc for the current core.
             const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
+
+            // Read via this_noc the coordinate of the this_noc for the current core (for comparison).
+            const auto [this_x, this_y] = read_noc_id_reg(chip, core, get_noc_index(this_noc));
+
+            // Verify that reading this NOC's register returns coordinates matching the host-side core.
+            EXPECT_EQ(core.x, this_x);
+            EXPECT_EQ(core.y, this_y);
 
             // Represent the read coords in the system from which their regs were read.
             CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
@@ -68,9 +78,12 @@ public:
         }
     }
 
-    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc) {
+    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {
         CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
-        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
+
+        const std::vector<CoreCoord>& cores =
+            use_harvested_cores ? cluster_->get_soc_descriptor(chip).get_harvested_cores(core_type, this_noc)
+                                : cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
 
         for (const CoreCoord& core_this_noc : cores) {
             tt_xy_pair other_noc_reg_value_via_this_noc;
@@ -262,14 +275,23 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(NocId::NOC0, NocId::NOC1),
     [](const ::testing::TestParamInfo<NocId>& info) { return info.param == NocId::NOC0 ? "NOC0" : "NOC1"; });
 
-class TestNocValidity : public TestNoc, public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem>> {};
+class TestNocValidity : public TestNoc,
+                        public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem, bool>> {};
 
 TEST_P(TestNocValidity, VerifyNocTranslation) {
-    auto [core_type, noc] = GetParam();
+    auto [core_type, noc, use_harvested_cores] = GetParam();
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 
     // Skip ROUTER_ONLY on Blackhole - device-side mapping doesn't correlate with host-side.
     if (arch == ARCH::BLACKHOLE && core_type == CoreType::ROUTER_ONLY) {
+        GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
+    }
+
+    // Skip ETH and PCIe on Blackhole for harvested cores on NOC1 - well known problem:
+    // - PCIe: https://github.com/tenstorrent/tt-umd/issues/826
+    // - ETH: https://github.com/tenstorrent/tt-umd/issues/825
+    if (arch == ARCH::BLACKHOLE && (core_type == CoreType::ETH || core_type == CoreType::PCIE) &&
+        use_harvested_cores == true && noc == CoordSystem::NOC1) {
         GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
     }
 
@@ -286,9 +308,9 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         if (use_differ_test) {
-            verify_noc_ids_differ_by_noc(chip, core_type, noc);
+            verify_noc_ids_differ_by_noc(chip, core_type, noc, use_harvested_cores);
         } else {
-            verify_noc_id_cores_via_other_noc(chip, core_type, noc);
+            verify_noc_id_cores_via_other_noc(chip, core_type, noc, use_harvested_cores);
         }
     }
 }
@@ -306,9 +328,11 @@ INSTANTIATE_TEST_SUITE_P(
             CoreType::SECURITY,
             CoreType::L2CPU,
             CoreType::ROUTER_ONLY),
-        ::testing::Values(CoordSystem::NOC0, CoordSystem::NOC1)),
-    [](const ::testing::TestParamInfo<std::tuple<CoreType, CoordSystem>>& info) {
+        ::testing::Values(CoordSystem::NOC0, CoordSystem::NOC1),
+        ::testing::Values(false, true)),
+    [](const ::testing::TestParamInfo<std::tuple<CoreType, CoordSystem, bool>>& info) {
         CoreType core_type = std::get<0>(info.param);
         CoordSystem noc = std::get<1>(info.param);
-        return to_str(core_type) + "_" + to_str(noc);
+        bool use_harvested = std::get<2>(info.param);
+        return to_str(core_type) + "_" + to_str(noc) + (use_harvested ? "_Harvested" : "_Normal");
     });

@@ -111,6 +111,9 @@ private:
 
     tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
         auto noc_port = (core.core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
+        // NOTE: The noc_port parameter is not used for Blackhole. Unlike Wormhole where DRAM banks
+        // have multiple NOC ports with different register base addresses, Blackhole uses a single
+        // register base address per core type.
         const uint64_t noc_node_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +

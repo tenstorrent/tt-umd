@@ -49,29 +49,22 @@ public:
 
         // Set NOC context to this_noc for consistent read operations.
         NocIdSwitcher this_noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
-        std::cout << "Current NOC is NOC:" << static_cast<uint32_t>(get_noc_index(this_noc)) << "\n";
 
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, this_noc);
 
         for (const CoreCoord& core : cores) {
             {
-                std::cout << "NOC0 coord of core at hand: " << core.str() << "\n";
                 // Read via this_noc the coordinate of the other_noc for the current core.
                 const auto [other_x, other_y] = read_noc_id_reg(chip, core, get_noc_index(other_noc));
 
-                // Represent these coords in the system from which their regs were read.
+                // Represent the read coords in the system from which their regs were read.
                 CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
 
-                // Translate the current core (which is represented in this_noc) to the other_noc.
+                // Translate the current from host-side core (which is represented in this_noc) to the other_noc.
                 auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
 
-                std::cout << "\nother_noc_coord: " << other_noc_coord.str() << "\n";
-                std::cout << "other_noc_coord_soc_desc: " << other_noc_coord_soc_desc.str() << "\n\n";
-
-                EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x)
-                    << " on NOC" << static_cast<uint32_t>(get_noc_index(other_noc));
-                EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y)
-                    << " on NOC" << static_cast<uint32_t>(get_noc_index(other_noc));
+                EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
+                EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
             }
         }
     }
@@ -233,7 +226,7 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
             GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
         }
         if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
-            core_type == CoreType::L2CPU || core_type == CoreType::ROUTER_ONLY) {
+            core_type == CoreType::L2CPU) {
             GTEST_SKIP() << "Skipping test for core type: " << to_str(core_type);
         }
     }

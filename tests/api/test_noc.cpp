@@ -15,7 +15,12 @@ using namespace tt::umd;
 
 class TestNoc : public ::testing::Test {
 public:
-    void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
+    void SetUp() override {
+        cluster_ = std::make_unique<Cluster>();
+        if (cluster_->get_cluster_description()->get_all_chips().empty()) {
+            GTEST_SKIP() << "No chips present on the system. Skipping test.";
+        }
+    }
 
     void check_noc_id_cores(ChipId chip, CoreType core_type, CoordSystem noc) {
         const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, noc);

@@ -27,24 +27,6 @@ public:
         }
     }
 
-    void check_noc_id_cores(ChipId chip, CoreType core_type, CoordSystem noc) {
-        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_cores(core_type, noc);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(chip, core, get_noc_index(noc));
-            EXPECT_EQ(core.x, x);
-            EXPECT_EQ(core.y, y);
-        }
-    }
-
-    void check_noc_id_harvested_cores(ChipId chip, CoreType core_type, CoordSystem noc) {
-        const std::vector<CoreCoord>& cores = cluster_->get_soc_descriptor(chip).get_harvested_cores(core_type, noc);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(chip, core, get_noc_index(noc));
-            EXPECT_EQ(core.x, x);
-            EXPECT_EQ(core.y, y);
-        }
-    }
-
     void verify_noc_id_cores_via_other_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {
         CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
@@ -189,91 +171,6 @@ private:
     };
     // clang-format on
 };
-
-TEST_F(TestNoc, TestNoc0NodeId) {
-    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        check_noc_id_cores(chip, CoreType::TENSIX, CoordSystem::NOC0);
-        check_noc_id_harvested_cores(chip, CoreType::TENSIX, CoordSystem::NOC0);
-
-        check_noc_id_cores(chip, CoreType::ETH, CoordSystem::NOC0);
-        check_noc_id_harvested_cores(chip, CoreType::ETH, CoordSystem::NOC0);
-
-        if (arch == tt::ARCH::BLACKHOLE) {
-            check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
-            check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
-        }
-
-        check_noc_id_cores(chip, CoreType::ARC, CoordSystem::NOC0);
-
-        check_noc_id_cores(chip, CoreType::PCIE, CoordSystem::NOC0);
-        check_noc_id_harvested_cores(chip, CoreType::PCIE, CoordSystem::NOC0);
-
-        check_noc_id_cores(chip, CoreType::SECURITY, CoordSystem::NOC0);
-
-        check_noc_id_cores(chip, CoreType::L2CPU, CoordSystem::NOC0);
-
-        check_noc_id_cores(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
-    }
-}
-
-TEST_F(TestNoc, TestNoc1NodeId) {
-    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
-    NocIdSwitcher noc1_switcher(NocId::NOC1);
-
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        check_noc_id_cores(chip, CoreType::TENSIX, CoordSystem::NOC1);
-        check_noc_id_harvested_cores(chip, CoreType::TENSIX, CoordSystem::NOC1);
-
-        check_noc_id_cores(chip, CoreType::ETH, CoordSystem::NOC1);
-        if (arch != tt::ARCH::BLACKHOLE) {
-            check_noc_id_harvested_cores(chip, CoreType::ETH, CoordSystem::NOC1);
-        }
-
-        if (arch != tt::ARCH::WORMHOLE_B0) {
-            check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
-            check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
-        }
-
-        check_noc_id_cores(chip, CoreType::ARC, CoordSystem::NOC1);
-
-        check_noc_id_cores(chip, CoreType::PCIE, CoordSystem::NOC1);
-
-        // TODO: translated coordinate for harvested PCIE is not same on NOC0 and NOC1.
-        // This needs to be fixed in some way in order for this to work on Blackhole
-        // with enabled translation.
-        if (arch != tt::ARCH::BLACKHOLE) {
-            check_noc_id_harvested_cores(chip, CoreType::PCIE, CoordSystem::NOC1);
-        }
-
-        check_noc_id_cores(chip, CoreType::SECURITY, CoordSystem::NOC1);
-
-        check_noc_id_cores(chip, CoreType::L2CPU, CoordSystem::NOC1);
-
-        if (arch != tt::ARCH::BLACKHOLE) {
-            check_noc_id_cores(chip, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
-        }
-    }
-}
-
-class TestNocDramPorts : public TestNoc, public ::testing::WithParamInterface<NocId> {};
-
-TEST_P(TestNocDramPorts, TestDramPortsWithNocSwitcher) {
-    NocId noc_id = GetParam();
-    NocIdSwitcher noc_switcher(noc_id);
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
-        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
-        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
-        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
-    }
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    AllNocIds,
-    TestNocDramPorts,
-    ::testing::Values(NocId::NOC0, NocId::NOC1),
-    [](const ::testing::TestParamInfo<NocId>& info) { return info.param == NocId::NOC0 ? "NOC0" : "NOC1"; });
 
 class TestNocValidity : public TestNoc,
                         public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem, bool>> {};

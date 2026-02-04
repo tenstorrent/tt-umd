@@ -392,6 +392,17 @@ Cluster::Cluster(ClusterOptions options) {
             cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
         }
 #endif
+    } else if (options.chip_type == ChipType::MOCK && options.cluster_descriptor) {
+        // Filter devices only when a cluster descriptor is passed for mock.
+        // This ensures TT_VISIBLE_DEVICES is honored even when using mock cluster descriptors.
+        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
+        auto visible_devices = utils::get_visible_devices(options.target_devices);
+        if (!visible_devices.empty()) {
+            cluster_desc =
+                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
+        } else {
+            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+        }
     } else {
         // If no target devices are passed, we can use the full cluster.
         // Note that the pointer is being dereferenced below, that means that the default copy constructor will be

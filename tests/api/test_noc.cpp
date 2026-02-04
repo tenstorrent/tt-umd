@@ -253,25 +253,27 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
     auto [core_type, noc] = GetParam();
     auto arch = get_chip_arch(0);
 
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        if (arch == ARCH::BLACKHOLE) {
-            if (core_type == CoreType::ROUTER_ONLY) {
-                GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
-            }
-            if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
-                core_type == CoreType::L2CPU) {
-                verify_noc_ids_differ_by_noc(chip, core_type, noc);
-            } else {
-                verify_noc_id_cores_via_other_noc(chip, core_type, noc);
-            }
-        }
+    // Skip ROUTER_ONLY on Blackhole - device-side mapping doesn't correlate with host-side.
+    if (arch == ARCH::BLACKHOLE && core_type == CoreType::ROUTER_ONLY) {
+        GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
+    }
 
-        if (arch == ARCH::WORMHOLE_B0) {
-            if (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::ROUTER_ONLY) {
-                verify_noc_ids_differ_by_noc(chip, core_type, noc);
-            } else {
-                verify_noc_id_cores_via_other_noc(chip, core_type, noc);
-            }
+    // Determine which verification method to use based on architecture and core type.
+    bool use_differ_test = false;
+    if (arch == ARCH::BLACKHOLE) {
+        use_differ_test =
+            (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
+             core_type == CoreType::L2CPU);
+    } else if (arch == ARCH::WORMHOLE_B0) {
+        use_differ_test =
+            (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::ROUTER_ONLY);
+    }
+
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        if (use_differ_test) {
+            verify_noc_ids_differ_by_noc(chip, core_type, noc);
+        } else {
+            verify_noc_id_cores_via_other_noc(chip, core_type, noc);
         }
     }
 }

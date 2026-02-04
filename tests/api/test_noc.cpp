@@ -227,8 +227,11 @@ TEST_F(TestNoc, TestNoc1NodeId) {
     }
 }
 
-TEST_F(TestNoc, TestNocDramPortsNoc0) {
-    NocIdSwitcher noc1_switcher(NocId::NOC0);
+class TestNocDramPorts : public TestNoc, public ::testing::WithParamInterface<NocId> {};
+
+TEST_P(TestNocDramPorts, TestDramPortsWithNocSwitcher) {
+    NocId noc_id = GetParam();
+    NocIdSwitcher noc_switcher(noc_id);
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
         check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
@@ -237,15 +240,11 @@ TEST_F(TestNoc, TestNocDramPortsNoc0) {
     }
 }
 
-TEST_F(TestNoc, TestNocDramPorts) {
-    NocIdSwitcher noc1_switcher(NocId::NOC1);
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
-        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC0);
-        check_noc_id_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
-        check_noc_id_harvested_cores(chip, CoreType::DRAM, CoordSystem::NOC1);
-    }
-}
+INSTANTIATE_TEST_SUITE_P(
+    AllNocIds,
+    TestNocDramPorts,
+    ::testing::Values(NocId::NOC0, NocId::NOC1),
+    [](const ::testing::TestParamInfo<NocId>& info) { return info.param == NocId::NOC0 ? "NOC0" : "NOC1"; });
 
 class TestNocValidity : public TestNoc, public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem>> {};
 

@@ -135,17 +135,17 @@ private:
 
     uint32_t get_dram_noc_port(CoreCoord core) {
         if (core.coord_system == tt::CoordSystem::NOC0) {
-            auto it = dram_coord_to_noc_port_noc0.find({core.x, core.y});
+            auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
 
-            if (it != dram_coord_to_noc_port_noc0.end()) {
+            if (it != womrhole_dram_coord_to_noc_port_noc0.end()) {
                 return it->second;
             }
         }
 
         if (core.coord_system == tt::CoordSystem::NOC1) {
-            auto it = dram_coord_to_noc_port_noc1.find({core.x, core.y});
+            auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
 
-            if (it != dram_coord_to_noc_port_noc1.end()) {
+            if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
                 return it->second;
             }
         }
@@ -154,7 +154,7 @@ private:
     }
 
     // clang-format off
-    std::map<tt_xy_pair, uint32_t> dram_coord_to_noc_port_noc0 {
+    std::map<tt_xy_pair, uint32_t> womrhole_dram_coord_to_noc_port_noc0 {
         {{0, 1}, 0}, {{0, 11}, 1}, {{0, 0}, 2},   // Bank 0
         {{0, 7}, 0}, {{0, 5}, 1}, {{0, 6}, 2},    // Bank 1
         {{5, 1}, 0}, {{5, 11}, 1}, {{5, 0}, 2},   // Bank 2
@@ -163,7 +163,7 @@ private:
         {{5, 7}, 0}, {{5, 5}, 1}, {{5, 6}, 2}  // Bank 5
     };
 
-    std::map<tt_xy_pair, uint32_t> dram_coord_to_noc_port_noc1 {
+    std::map<tt_xy_pair, uint32_t> womrhole_dram_coord_to_noc_port_noc1 {
         {{9, 10}, 0}, {{9, 0}, 1}, {{9, 11}, 2},  // Bank 0     
         {{9, 4}, 0}, {{9, 6}, 1}, {{9, 5}, 2},    // Bank 1  
         {{4, 10}, 0}, {{4, 0}, 1}, {{4, 11}, 2},  // Bank 2    

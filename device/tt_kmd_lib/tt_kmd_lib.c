@@ -64,13 +64,11 @@ struct tt_dma_t {
 };
 
 int tt_device_open(const char* chardev_path, tt_device_t** out_dev) {
-    struct tt_device_t* dev = malloc(sizeof(struct tt_device_t));
+    struct tt_device_t* dev = calloc(1, sizeof(struct tt_device_t));
 
     if (!dev) {
         return -ENOMEM;
     }
-
-    memset(dev, 0, sizeof(struct tt_device_t));
 
     dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC);
     if (dev->fd == -1) {

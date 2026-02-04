@@ -66,6 +66,8 @@ target_sources(
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
         pcie/tlb_handle.cpp
+        mmio/silicon_mmio_device_io.cpp
+        mmio/mmio_device_io_factory.cpp
         cluster.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -126,6 +128,8 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/simulation_host.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
+            mmio/ttsim_mmio_device_io.cpp
+            mmio/rtl_simulation_mmio_device_io.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -167,6 +171,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/tlb_window.hpp
+                api/umd/device/mmio/mmio_device_io.hpp
+                api/umd/device/mmio/silicon_mmio_device_io.hpp
+                api/umd/device/mmio/mmio_device_io_factory.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
@@ -178,6 +185,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
+                api/umd/device/mmio/ttsim_mmio_device_io.hpp
+                api/umd/device/mmio/rtl_simulation_mmio_device_io.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp

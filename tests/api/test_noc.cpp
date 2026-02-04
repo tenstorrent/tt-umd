@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -118,6 +119,15 @@ private:
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        log_debug(
+            tt::LogUMD,
+            "Reading noc {} regs for chip {} core {} from addr {:x}. Result is raw {:x} which corresponds to core {}",
+            noc_index,
+            chip,
+            core,
+            noc_node_id_reg_addr,
+            noc_node_id_val,
+            tt_xy_pair(x, y));
         return tt_xy_pair(x, y);
     }
 

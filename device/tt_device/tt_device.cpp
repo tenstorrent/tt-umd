@@ -66,9 +66,9 @@ void TTDevice::probe_arc() {
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     probe_arc();
-    if (!wait_arc_core_start(timeout_ms)) {
-        throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
-    }
+    // if (!wait_arc_core_start(timeout_ms)) {
+    //     throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
+    // }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);

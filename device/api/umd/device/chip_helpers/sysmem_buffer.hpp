@@ -133,6 +133,10 @@ private:
     // Address that is used on the NOC to access the buffer.  NOC target must be
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
+
+    TlbWindow* get_cached_tlb_window();
+
+    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 };
 
 }  // namespace tt::umd

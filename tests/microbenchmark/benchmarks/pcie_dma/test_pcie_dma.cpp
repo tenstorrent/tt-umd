@@ -227,7 +227,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
 
-    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte").epochs(1).epochIterations(1000);
     const uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -237,10 +237,14 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 
+    std::cout << "here" << std::endl;
+
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+
+     sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);

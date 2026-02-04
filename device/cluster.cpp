@@ -338,6 +338,7 @@ HarvestingMasks Cluster::get_harvesting_masks(
 }
 
 Cluster::Cluster(ClusterOptions options) {
+    std::cout << "constructor start" << std::endl;
     // If the cluster descriptor is not provided, create a new one.
     ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
@@ -348,6 +349,7 @@ Cluster::Cluster(ClusterOptions options) {
     // We need to constuct a cluster descriptor if a custom one was not passed.
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
+            std::cout << "create cluster desc" << std::endl;
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
             temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
         } else {
@@ -416,6 +418,8 @@ Cluster::Cluster(ClusterOptions options) {
             options.perform_harvesting,
             simulated_harvesting_masks);
 
+        std::cout << "add chip " << std::endl;
+
         add_chip(
             chip_id,
             options.chip_type,
@@ -427,6 +431,8 @@ Cluster::Cluster(ClusterOptions options) {
                 options.num_host_mem_ch_per_mmio_device,
                 options.simulator_directory));
     }
+
+    std::cout << "construct cluster" << std::endl;
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
 }

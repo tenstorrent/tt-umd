@@ -73,7 +73,9 @@ TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : 
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
+    std::cout << "get connected devices" << std::endl;
     get_connected_devices();
+    std::cout << "discover remote devices" << std::endl;
     discover_remote_devices();
     log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
@@ -110,7 +112,9 @@ void TopologyDiscovery::get_connected_devices() {
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
+        std::cout << "init tt device " << device_id << std::endl;
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        std::cout << "finished init tt device " << device_id << std::endl;
 
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {

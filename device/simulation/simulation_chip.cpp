@@ -67,6 +67,11 @@ void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core
     read_from_device(core, dst, addr, size);
 }
 
+void SimulationChip::dma_multicast_write(
+    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    throw std::runtime_error("dma_multicast_write is not supported in SimulationChip.");
+}
+
 void SimulationChip::noc_multicast_write(
     void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.

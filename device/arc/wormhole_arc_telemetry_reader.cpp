@@ -4,6 +4,8 @@
 
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 
+#include <cstdint>
+
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/telemetry.hpp"

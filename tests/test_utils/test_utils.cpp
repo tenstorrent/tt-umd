@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <thread>
+#include <vector>
 
 #include "pipe_communication.hpp"
 

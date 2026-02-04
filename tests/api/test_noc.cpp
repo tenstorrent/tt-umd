@@ -7,7 +7,9 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -211,8 +213,8 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
     // Skip ETH and PCIe on Blackhole for harvested cores on NOC1 - well known problem:
     // - PCIe: https://github.com/tenstorrent/tt-umd/issues/826
     // - ETH: https://github.com/tenstorrent/tt-umd/issues/825
-    if (arch == ARCH::BLACKHOLE && (core_type == CoreType::ETH || core_type == CoreType::PCIE) &&
-        use_harvested_cores == true && noc == CoordSystem::NOC1) {
+    if (arch == ARCH::BLACKHOLE && (core_type == CoreType::ETH || core_type == CoreType::PCIE) && use_harvested_cores &&
+        noc == CoordSystem::NOC1) {
         GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
     }
 

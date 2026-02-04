@@ -18,6 +18,8 @@ jobs:
       run:
         shell: bash
         working-directory: /work
+    env:
+      BUILD_DIR: /work/.build
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
@@ -28,14 +30,17 @@ jobs:
       - name: Configure git safe.directory
         run: git config --global --add safe.directory /work
 
-      - name: 🔧 CMake configure
-        run: cmake --preset clang-static-analyzer
-
       - name: Setup clang symlinks for CodeChecker
         run: |
-          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 || true
-          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 || true
-          update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100 || true
+          for tool in clang clang++ clang-tidy; do
+            update-alternatives --install /usr/bin/$tool $tool /usr/bin/${tool}-20 100 || true
+          done
+
+      - name: 🔧 CMake configure
+        run: cmake --preset code-analysis
+
+      - name: 🔨 Generate simulation sources
+        run: cmake --build "$BUILD_DIR/code-analysis" --target umd_all_generated_files
 
       - name: Install CodeChecker
         run: |
@@ -44,78 +49,58 @@ jobs:
           uv pip install codechecker==6.27.1
 
       - name: 🔬 Analyze with CodeChecker
-        id: codechecker
         run: |
           set -euo pipefail
-
-          OUTPUT_DIR=/work/.build/codechecker-reports
-          mkdir -p "$OUTPUT_DIR"
-
-          echo "=== Starting CodeChecker analysis ==="
+          mkdir -p "$BUILD_DIR/codechecker-reports"
 
           CodeChecker analyze \
-            /work/.build/clang-static-analyzer/compile_commands.json \
-            --output $OUTPUT_DIR \
+            "$BUILD_DIR/code-analysis/compile_commands.json" \
+            --output "$BUILD_DIR/codechecker-reports" \
             --jobs $(nproc) \
             --config /work/.codechecker.json \
             || echo "⚠️ Analysis completed with warnings"
 
-          # Show summary
-          PLIST_COUNT=$(find "$OUTPUT_DIR" -name "*.plist" 2>/dev/null | wc -l)
-          echo "✅ Generated $PLIST_COUNT plist files"
+          echo "✅ Generated $(find "$BUILD_DIR/codechecker-reports" -name "*.plist" | wc -l) plist files"
 
-      - name: Generate JSON and HTML reports from analysis results
+      - name: Generate JSON and HTML reports
         run: |
           set -euo pipefail
 
-          OUTPUT_DIR="/work/.build/codechecker-reports"
-          JSON_OUTPUT="/work/.build/codechecker_issues.json"
-          HTML_OUTPUT="/work/.build/codechecker_html"
+          # JSON report (CodeChecker parse can fail if no issues - that's OK)
+          CodeChecker parse "$BUILD_DIR/codechecker-reports" \
+            --export json --output "$BUILD_DIR/codechecker_issues.json" || true
 
-          echo "=== Generating JSON report ==="
-          # CodeChecker parse can fail if no issues found or plist files corrupted - that's OK
-          CodeChecker parse "$OUTPUT_DIR" --export json --output "$JSON_OUTPUT" || true
+          # Ensure valid JSON exists for downstream consumers
+          [ -s "$BUILD_DIR/codechecker_issues.json" ] || \
+            echo '{"version": 1, "reports": []}' > "$BUILD_DIR/codechecker_issues.json"
 
-          if [ -f "$JSON_OUTPUT" ] && [ -s "$JSON_OUTPUT" ]; then
-            ISSUE_COUNT=$(jq '.reports | length' "$JSON_OUTPUT" || echo "0")
-            echo "✅ JSON report contains $ISSUE_COUNT issues"
-          else
-            echo "⚠️ No JSON output, creating empty report"
-            echo '{"version": 1, "reports": []}' > "$JSON_OUTPUT"
-          fi
+          echo "✅ JSON report: $(jq '.reports | length' "$BUILD_DIR/codechecker_issues.json") issues"
 
-          echo ""
-          echo "=== Generating HTML report ==="
-          mkdir -p "$HTML_OUTPUT"
-          # Same as above - parse can fail for non-fatal reasons
-          CodeChecker parse "$OUTPUT_DIR" --export html --output "$HTML_OUTPUT" || true
-
-          if [ -d "$HTML_OUTPUT" ] && [ -n "$(ls -A "$HTML_OUTPUT")" ]; then
-            echo "✅ HTML report generated"
-          else
-            echo "⚠️ HTML report is empty or missing"
-          fi
+          # HTML report
+          mkdir -p "$BUILD_DIR/codechecker_html"
+          CodeChecker parse "$BUILD_DIR/codechecker-reports" \
+            --export html --output "$BUILD_DIR/codechecker_html" || true
 
       - name: Upload JSON report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: CodeChecker-JSON-Report
-          path: /work/.build/codechecker_issues.json
+          path: ${{ env.BUILD_DIR }}/codechecker_issues.json
 
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: CodeChecker-HTML-Report
-          path: /work/.build/codechecker_html
+          path: ${{ env.BUILD_DIR }}/codechecker_html
 
       - name: Upload raw analysis results (for fixit)
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: CodeChecker-Analysis-Results
-          path: /work/.build/codechecker-reports
+          path: ${{ env.BUILD_DIR }}/codechecker-reports
           retention-days: 7
 
   publish-analysis-results:

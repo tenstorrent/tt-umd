@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
 option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
 set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
@@ -86,6 +86,10 @@ if(TT_UMD_ENABLE_LOGGING)
 endif()
 
 add_subdirectory(third_party)
+
+# Create a target that aggregates all generated files needed for code analysis.
+# Subdirectories can add dependencies to this target as needed.
+add_custom_target(umd_all_generated_files)
 
 # Configure clang-tidy AFTER third_party so dependencies are not linted
 option(TT_UMD_ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)

@@ -9,8 +9,14 @@
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -330,5 +336,10 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
+
+void BlackholeTTDevice::dma_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
+}
 
 }  // namespace tt::umd

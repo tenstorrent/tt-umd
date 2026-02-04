@@ -4,6 +4,15 @@
 
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include "noc_access.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"

@@ -4,9 +4,8 @@
 
 #pragma once
 
-namespace tt::umd {
 
-namespace wormhole {
+namespace tt::umd::wormhole {
 
 enum TelemetryTag : uint8_t {
     ENUM_VERSION = 0,
@@ -62,6 +61,5 @@ enum TelemetryTag : uint8_t {
     NUMBER_OF_TAGS = 50
 };
 
-}  // namespace wormhole
+} // namespace tt::umd::wormhole
 
-}  // namespace tt::umd

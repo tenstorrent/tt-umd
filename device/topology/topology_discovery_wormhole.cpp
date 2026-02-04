@@ -6,8 +6,13 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
@@ -311,7 +316,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
 
     if (options.verify_eth_fw_hash) {
         auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
+        if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
                 "ETH FW version hash check failed for device {} ETH core {}",

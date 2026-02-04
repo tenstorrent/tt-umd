@@ -486,7 +486,7 @@ public:
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
-    virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
+    uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

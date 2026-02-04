@@ -16,6 +16,7 @@ target_link_libraries(
         umd::device
         tt-logger::tt-logger
         cxxopts::cxxopts
+        TracyClient
 )
 
 add_executable(telemetry telemetry.cpp)

@@ -205,3 +205,10 @@ if(umd_asio_ADDED)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
 endif()
+
+####################################################################################################################
+# Tracy (Profiler)
+####################################################################################################################
+if(TT_UMD_ENABLE_TRACY)
+    CPMAddPackage(NAME tracy GITHUB_REPOSITORY wolfpld/tracy GIT_TAG v0.13.1 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
+endif()

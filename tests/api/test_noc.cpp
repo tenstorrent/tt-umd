@@ -55,6 +55,21 @@ public:
             // Translate the current from host-side core (which is represented in this_noc) to the other_noc.
             auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
 
+            log_debug(
+                tt::LogUMD,
+                "verify_noc_id_cores_via_other_noc: chip {} core {} this_noc={} read=({},{}) vs other_noc={} "
+                "read=({},{}) expected=({},{})",
+                chip,
+                core,
+                to_str(this_noc),
+                this_x,
+                this_y,
+                to_str(other_noc),
+                other_x,
+                other_y,
+                other_noc_coord_soc_desc.x,
+                other_noc_coord_soc_desc.y);
+
             EXPECT_EQ(other_noc_coord.x, other_noc_coord_soc_desc.x);
             EXPECT_EQ(other_noc_coord.y, other_noc_coord_soc_desc.y);
         }
@@ -93,6 +108,15 @@ public:
             EXPECT_EQ(other_noc_reg_value_via_this_noc, core_this_noc);
 
             auto core_other_noc = cluster_->get_soc_descriptor(chip).translate_coord_to(core_this_noc, other_noc);
+
+            log_debug(
+                tt::LogUMD,
+                "verify_noc_ids_differ_by_noc: chip {} core {} via_this_noc={} via_other_noc={} expected_other={}",
+                chip,
+                core_this_noc,
+                other_noc_reg_value_via_this_noc,
+                other_noc_reg_value_via_other_noc,
+                core_other_noc);
 
             // Reading via the other NOC returns coordinates matching that NOC's coordinate space.
             EXPECT_EQ(other_noc_reg_value_via_other_noc, core_other_noc);

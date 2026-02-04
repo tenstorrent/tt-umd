@@ -56,7 +56,8 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
-    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
+    TlbWindow* tlb_window = get_cached_tlb_window();
+    tlb_window->configure(config);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -110,7 +111,8 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
 
-    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
+    TlbWindow* tlb_window = get_cached_tlb_window();
+    tlb_window->configure(config);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -168,6 +170,15 @@ void SysmemBuffer::validate(const size_t offset) const {
     if (offset >= buffer_size_) {
         TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {#:x}", offset, buffer_size_);
     }
+}
+
+TlbWindow* SysmemBuffer::get_cached_tlb_window() {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window = std::make_unique<TlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(
+            tlb_manager_->get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        return cached_tlb_window.get();
+    }
+    return cached_tlb_window.get();
 }
 
 }  // namespace tt::umd

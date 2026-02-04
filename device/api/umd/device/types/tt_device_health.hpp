@@ -7,11 +7,9 @@
 
 namespace tt::umd {
 
-enum class TTDeviceInitResult {
+enum class TTDeviceInitResult : uint8_t {
     UNKNOWN = 0,
     UNINITIALIZED,
-    NOC0_FAILED,
-    NOC1_FAILED,
     ARC_STARTUP_FAILED,
     ARC_MESSENGER_UNAVAILABLE,
     ARC_TELEMETRY_UNAVAILABLE,

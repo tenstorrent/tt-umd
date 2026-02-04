@@ -66,8 +66,6 @@ void bind_tt_device(nb::module_ &m) {
     nb::enum_<TTDeviceInitResult>(m, "TTDeviceInitResult")
         .value("UNKNOWN", TTDeviceInitResult::UNKNOWN)
         .value("UNINITIALIZED", TTDeviceInitResult::UNINITIALIZED)
-        .value("NOC0_FAILED", TTDeviceInitResult::NOC0_FAILED)
-        .value("NOC1_FAILED", TTDeviceInitResult::NOC1_FAILED)
         .value("ARC_STARTUP_FAILED", TTDeviceInitResult::ARC_STARTUP_FAILED)
         .value("ARC_MESSENGER_UNAVAILABLE", TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE)
         .value("ARC_TELEMETRY_UNAVAILABLE", TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE)

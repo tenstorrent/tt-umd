@@ -4,15 +4,15 @@
 
 #include "api/umd/device/cluster.hpp"
 
-#include <assert.h>
+#include <cassert>
 #include <dirent.h>
 #include <errno.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>  // Needed to format vectors
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <sys/mman.h>
 #include <yaml-cpp/yaml.h>
 

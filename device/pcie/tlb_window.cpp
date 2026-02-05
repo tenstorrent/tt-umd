@@ -4,7 +4,7 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
-#include <string.h>
+#include <cstring>
 
 #include <algorithm>
 #include <cstddef>

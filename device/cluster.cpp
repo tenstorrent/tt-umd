@@ -6,7 +6,6 @@
 
 #include <cassert>
 #include <dirent.h>
-#include <errno.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>  // Needed to format vectors
 #include <cstdarg>

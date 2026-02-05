@@ -36,7 +36,7 @@ struct DeviceParams {
             if (dump_core == "*") {
                 for (size_t x = 0; x < grid_size.x; x++) {
                     for (size_t y = 0; y < grid_size.y; y++) {
-                        std::string current_core_coord = fmt::format("{}-{}", x, y);
+                        std::string const current_core_coord = fmt::format("{}-{}", x, y);
                         if (std::find(
                                 std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
                             std::end(unrolled_dump_core)) {
@@ -48,17 +48,17 @@ struct DeviceParams {
             }
             // Each core coordinate must contain three characters: "core.x-core.y".
             assert(dump_core.size() <= 5);
-            size_t delimiter_pos = dump_core.find('-');
+            size_t const delimiter_pos = dump_core.find('-');
             assert(delimiter_pos != std::string::npos);  // y-dim should exist in core coord.
 
             std::string core_dim_x = dump_core.substr(0, delimiter_pos);
-            size_t core_dim_y_start = delimiter_pos + 1;
+            size_t const core_dim_y_start = delimiter_pos + 1;
             std::string core_dim_y = dump_core.substr(core_dim_y_start, dump_core.length() - core_dim_y_start);
 
             if (core_dim_x == "*" && core_dim_y == "*") {
                 for (size_t x = 0; x < grid_size.x; x++) {
                     for (size_t y = 0; y < grid_size.y; y++) {
-                        std::string current_core_coord = fmt::format("{}-{}", x, y);
+                        std::string const current_core_coord = fmt::format("{}-{}", x, y);
                         if (std::find(
                                 std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
                             std::end(unrolled_dump_core)) {
@@ -68,7 +68,7 @@ struct DeviceParams {
                 }
             } else if (core_dim_x == "*") {
                 for (size_t x = 0; x < grid_size.x; x++) {
-                    std::string current_core_coord = fmt::format("{}-{}", x, core_dim_y);
+                    std::string const current_core_coord = fmt::format("{}-{}", x, core_dim_y);
                     if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
                         std::end(unrolled_dump_core)) {
                         unrolled_dump_core.push_back(current_core_coord);
@@ -76,7 +76,7 @@ struct DeviceParams {
                 }
             } else if (core_dim_y == "*") {
                 for (size_t y = 0; y < grid_size.y; y++) {
-                    std::string current_core_coord = fmt::format("{}-{}", core_dim_x, y);
+                    std::string const current_core_coord = fmt::format("{}-{}", core_dim_x, y);
                     if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
                         std::end(unrolled_dump_core)) {
                         unrolled_dump_core.push_back(current_core_coord);

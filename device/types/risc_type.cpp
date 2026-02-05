@@ -122,8 +122,8 @@ std::string RiscTypeToString(RiscType value) {
 }
 
 RiscType invert_selected_options(RiscType selected) {
-    uint64_t selected_bits = static_cast<uint64_t>(selected);
-    uint64_t inverted =
+    uint64_t const selected_bits = static_cast<uint64_t>(selected);
+    uint64_t const inverted =
         (~selected_bits) & static_cast<uint64_t>(RiscType::ALL | RiscType::ALL_TENSIX | RiscType::ALL_NEO);
     return static_cast<RiscType>(inverted);
 }

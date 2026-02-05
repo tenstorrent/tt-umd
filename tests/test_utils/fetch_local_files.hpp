@@ -16,11 +16,11 @@ namespace test_utils {
 
 inline std::string GetAbsPath(const std::string& relative_path) {
 #ifdef UMD_TESTS_ROOT_PATH
-    std::filesystem::path umd_test_root(UMD_TESTS_ROOT_PATH);
+    std::filesystem::path const umd_test_root(UMD_TESTS_ROOT_PATH);
 #else
 #error "UMD_TESTS_ROOT_PATH not defined. The UMD tests project cannot find cluster and SoC descriptors."
 #endif
-    std::filesystem::path abs_path = umd_test_root / relative_path;
+    std::filesystem::path const abs_path = umd_test_root / relative_path;
 
     return abs_path.string();
 }

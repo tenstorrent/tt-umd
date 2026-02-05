@@ -99,8 +99,8 @@ uint32_t WormholeTTDevice::get_clock() {
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    uint32_t dest_bar_lo = target & 0xffffffff;
-    uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
+    uint32_t const dest_bar_lo = target & 0xffffffff;
+    uint32_t const dest_bar_hi = (target >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = region;
 
     // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
@@ -152,8 +152,8 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
     static constexpr uint64_t DMA_DAR_HIGH_OFF_WRCH_0 = 0x218;
     static constexpr uint64_t DMA_WRITE_DOORBELL_OFF = 0x10;
 
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    std::scoped_lock const lock(dma_mutex_);
+    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t *bar2 = reinterpret_cast<volatile uint8_t *>(pci_device_->bar2_uc);
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
@@ -230,8 +230,8 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
     static constexpr uint64_t DMA_DAR_HIGH_OFF_RDCH_0 = 0x318;
     static constexpr uint64_t DMA_READ_DOORBELL_OFF = 0x30;
 
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    std::scoped_lock const lock(dma_mutex_);
+    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t *bar2 = reinterpret_cast<volatile uint8_t *>(pci_device_->bar2_uc);
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
@@ -298,7 +298,7 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_d2h is not applicable for JTAG communication type.");
     }
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
         throw std::runtime_error("DMA size exceeds buffer size");
@@ -312,7 +312,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d is not applicable for JTAG communication type.");
     }
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
         throw std::runtime_error("DMA size exceeds buffer size");
@@ -519,7 +519,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
                 return true;
 
             case STATUS_OLD_POST_CODE: {
-                bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
+                bool const pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
                                 bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
                 if (pc_idle) {
@@ -536,13 +536,13 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         }
 
         uint32_t message_id = 0;
-        bool is_queued =
+        bool const is_queued =
             ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL);
-        bool is_handling =
+        bool const is_handling =
             ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL);
-        bool is_complete =
+        bool const is_complete =
             ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN);
-        bool dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
+        bool const dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
 
         if (is_queued) {
             message_id = bar_read_arc_reset_scratch_status & 0xFF;
@@ -593,7 +593,7 @@ bool WormholeTTDevice::is_hardware_hung() {
         TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
-    uint32_t scratch_data = bar_read32(
+    uint32_t const scratch_data = bar_read32(
         architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
         6 * 4);
 

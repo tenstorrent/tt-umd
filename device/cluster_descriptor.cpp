@@ -49,7 +49,7 @@ bool ClusterDescriptor::ethernet_core_has_active_ethernet_link(
 
 std::tuple<ChipId, EthernetChannel> ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
     ChipId local_chip, EthernetChannel local_ethernet_channel) const {
-    std::vector<std::tuple<EthernetChannel, EthernetChannel>> directly_connected_channels = {};
+    std::vector<std::tuple<EthernetChannel, EthernetChannel>> const directly_connected_channels = {};
     if (this->all_chips.find(local_chip) == this->all_chips.end() ||
         this->ethernet_connections.at(local_chip).find(local_ethernet_channel) ==
             this->ethernet_connections.at(local_chip).end()) {
@@ -104,8 +104,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
         return std::numeric_limits<int>::max();
     }
 
-    int x_distance = std::abs(location_a.x - location_b.x);
-    int y_distance = std::abs(location_a.y - location_b.y);
+    int const x_distance = std::abs(location_a.x - location_b.x);
+    int const y_distance = std::abs(location_a.y - location_b.y);
 
     // move along y-dim to exit from the shelf to go to a higher shelf
     if (location_b.shelf > location_a.shelf) {
@@ -128,8 +128,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
 
         // for each shelf-to-shelf connection at location_a.y, find the distance to location_b, take min
         int distance = std::numeric_limits<int>::max();
-        EthCoord exit_shelf = shelf_to_shelf_connection.source_chip_coord;
-        for (EthCoord next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
+        EthCoord const exit_shelf = shelf_to_shelf_connection.source_chip_coord;
+        for (EthCoord const next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
             TT_ASSERT(
                 exit_shelf.y == location_a.y && exit_shelf.shelf == location_a.shelf &&
                     exit_shelf.rack == location_a.rack,
@@ -141,8 +141,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
                 "Invalid shelf entry coordinates");
 
             // hop onto the next shelf and find distance from there
-            int distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_shelf);
-            int distance_in_next_shelf = get_ethernet_link_coord_distance(next_shelf, location_b);
+            int const distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_shelf);
+            int const distance_in_next_shelf = get_ethernet_link_coord_distance(next_shelf, location_b);
             // no path found
             if (distance_to_exit == std::numeric_limits<int>::max() ||
                 distance_in_next_shelf == std::numeric_limits<int>::max()) {
@@ -219,8 +219,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
 
         // for each rack-to-rack connection at location_a.x, find the distance to location_b, take min
         int distance = std::numeric_limits<int>::max();
-        EthCoord exit_rack = rack_to_rack_connection.source_chip_coord;
-        for (EthCoord next_rack : rack_to_rack_connection.destination_chip_coords) {
+        EthCoord const exit_rack = rack_to_rack_connection.source_chip_coord;
+        for (EthCoord const next_rack : rack_to_rack_connection.destination_chip_coords) {
             TT_ASSERT(
                 exit_rack.x == location_a.x && exit_rack.shelf == location_a.shelf && exit_rack.rack == location_a.rack,
                 "Invalid rack exit coordinates");
@@ -230,8 +230,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
                 "Invalid rack entry coordinates");
 
             // hop onto the next rack and find distance from there
-            int distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_rack);
-            int distance_in_next_rack = get_ethernet_link_coord_distance(next_rack, location_b);
+            int const distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_rack);
+            int const distance_in_next_rack = get_ethernet_link_coord_distance(next_rack, location_b);
             // no path found
             if (distance_to_exit == std::numeric_limits<int>::max() ||
                 distance_in_next_rack == std::numeric_limits<int>::max()) {
@@ -308,7 +308,7 @@ ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
 
     int min_distance = std::numeric_limits<int>::max();
     ChipId closest_chip = chip;
-    EthCoord chip_eth_coord = this->chip_locations.at(chip);
+    EthCoord const chip_eth_coord = this->chip_locations.at(chip);
 
     for (const auto &pair : this->chips_with_mmio) {
         const ChipId &mmio_chip = pair.first;
@@ -512,7 +512,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
 
     for (auto &logical_id : logical_device_ids) {
         desc->all_chips.insert(logical_id);
-        EthCoord chip_location{0, logical_id, 0, 0, 0};
+        EthCoord const chip_location{0, logical_id, 0, 0, 0};
         desc->chip_locations.insert({logical_id, chip_location});
         desc->coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] =
             logical_id;
@@ -552,18 +552,18 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
 
     // Preload idle eth channels.
     for (const auto &chip : all_chips) {
-        int num_harvested_channels =
+        int const num_harvested_channels =
             harvesting_masks_map.empty()
                 ? 0
                 : CoordinateManager::get_num_harvested(harvesting_masks_map.at(chip).eth_harvesting_mask);
-        int num_channels =
+        int const num_channels =
             architecture_implementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
             idle_eth_channels[chip].insert(i);
         }
     }
 
-    for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
+    for (YAML::Node  const&connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
@@ -573,9 +573,9 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             "information on whether "
             "routing is enabled.");
 
-        int chip_0 = endpoints.at(0)["chip"].as<int>();
+        int const chip_0 = endpoints.at(0)["chip"].as<int>();
         int channel_0 = endpoints.at(0)["chan"].as<int>();
-        int chip_1 = endpoints.at(1)["chip"].as<int>();
+        int const chip_1 = endpoints.at(1)["chip"].as<int>();
         int channel_1 = endpoints.at(1)["chan"].as<int>();
         auto &eth_conn_chip_0 = ethernet_connections.at(chip_0);
         if (eth_conn_chip_0.find(channel_0) != eth_conn_chip_0.end()) {
@@ -631,7 +631,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     }
 
     if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
-        for (YAML::Node &connected_endpoints :
+        for (YAML::Node  const&connected_endpoints :
              yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
             TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 
@@ -641,10 +641,10 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
                 "Remote ethernet connections in YAML should always contatin information on connected endpoints and "
                 "channels");
 
-            ChipId chip_0 = endpoints.at(0)["chip"].as<ChipId>();
+            ChipId const chip_0 = endpoints.at(0)["chip"].as<ChipId>();
             int channel_0 = endpoints.at(0)["chan"].as<int>();
-            uint64_t chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
-            int channel_1 = endpoints.at(1)["chan"].as<int>();
+            uint64_t const chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
+            int const channel_1 = endpoints.at(1)["chan"].as<int>();
             ethernet_connections_to_remote_devices[chip_0][channel_0] = {chip_1, channel_1};
 
             // Mark the local channel as active and remove from idle, to accurately represent used Ethernet channels in
@@ -672,15 +672,15 @@ void ClusterDescriptor::fill_galaxy_connections() {
         }
         for (const auto &[chan, chip_and_chan] : ethernet_connections.at(chip_id)) {
             const ChipId &neighbor_chip = std::get<0>(chip_and_chan);
-            EthCoord neighbor_eth_coord = chip_locations.at(neighbor_chip);
+            EthCoord const neighbor_eth_coord = chip_locations.at(neighbor_chip);
             // shelves are connected in x-dim
             if (neighbor_eth_coord.shelf != chip_eth_coord.shelf) {
-                EthCoord higher_shelf_coord =
+                EthCoord const higher_shelf_coord =
                     neighbor_eth_coord.shelf > chip_eth_coord.shelf ? neighbor_eth_coord : chip_eth_coord;
-                EthCoord lower_shelf_coord =
+                EthCoord const lower_shelf_coord =
                     neighbor_eth_coord.shelf < chip_eth_coord.shelf ? neighbor_eth_coord : chip_eth_coord;
-                int lower_shelf_id = lower_shelf_coord.shelf;
-                int lower_shelf_y = lower_shelf_coord.y;
+                int const lower_shelf_id = lower_shelf_coord.shelf;
+                int const lower_shelf_y = lower_shelf_coord.y;
 
                 auto &galaxy_shelf_exit_chip_coords_per_y_dim =
                     galaxy_shelves_exit_chip_coords_per_y_dim[lower_shelf_id];
@@ -697,12 +697,12 @@ void ClusterDescriptor::fill_galaxy_connections() {
 
             // racks are connected in y-dim
             if (neighbor_eth_coord.rack != chip_eth_coord.rack) {
-                EthCoord higher_rack_coord =
+                EthCoord const higher_rack_coord =
                     neighbor_eth_coord.rack > chip_eth_coord.rack ? neighbor_eth_coord : chip_eth_coord;
-                EthCoord lower_rack_coord =
+                EthCoord const lower_rack_coord =
                     neighbor_eth_coord.rack < chip_eth_coord.rack ? neighbor_eth_coord : chip_eth_coord;
-                int lower_rack_id = lower_rack_coord.rack;
-                int lower_rack_x = lower_rack_coord.x;
+                int const lower_rack_id = lower_rack_coord.rack;
+                int const lower_rack_x = lower_rack_coord.x;
 
                 auto &galaxy_rack_exit_chip_coords_per_x_dim = galaxy_racks_exit_chip_coords_per_x_dim[lower_rack_id];
 
@@ -783,18 +783,18 @@ void ClusterDescriptor::merge_cluster_ids() {
 
 void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml) {
     for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
-        ChipId chip_id = node->first.as<int>();
-        std::string arch_str = node->second.as<std::string>();
+        ChipId const chip_id = node->first.as<int>();
+        std::string const arch_str = node->second.as<std::string>();
         all_chips.insert(chip_id);
         chip_arch.insert({chip_id, tt::arch_from_str(arch_str)});
         ethernet_connections.insert({chip_id, {}});
     }
 
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
-        ChipId chip_id = node->first.as<int>();
+        ChipId const chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
         TT_ASSERT(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
-        EthCoord chip_location{
+        EthCoord const chip_location{
             chip_id, chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
 
         chip_locations.insert({chip_id, chip_location});
@@ -820,7 +820,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = yaml_chip_board_type.first;
             const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
+            BoardType const board_type = board_type_from_string(board_type_str);
             if (board_type == BoardType::UNKNOWN) {
                 log_warning(
                     LogUMD,
@@ -835,7 +835,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         for (const auto &yaml_chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = yaml_chip_board_type.first;
             const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
+            BoardType const board_type = board_type_from_string(board_type_str);
             if (board_type == BoardType::UNKNOWN) {
                 log_warning(
                     LogUMD,
@@ -852,7 +852,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     }
 
     if (yaml["boards"]) {
-        YAML::Node boardsNode = yaml["boards"];
+        YAML::Node const boardsNode = yaml["boards"];
         if (!boardsNode || !boardsNode.IsSequence()) {
             throw std::runtime_error("Invalid or missing 'boards' node.");
         }
@@ -862,7 +862,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
                 throw std::runtime_error("Each board entry should be a sequence of 3 maps.");
             }
 
-            uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
+            uint64_t const board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
 
             for (const auto &chip : boardEntry[2]["chips"]) {
                 add_chip_to_board(chip.as<ChipId>(), board_id);
@@ -892,13 +892,13 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
 
             // Enforce '0x' prefix.
             if (bus_str.substr(0, 2) != "0x") {
-                std::string msg =
+                std::string const msg =
                     "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
                 throw std::runtime_error(msg);
             }
             bus_str = bus_str.substr(2);
 
-            uint16_t bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
+            uint16_t const bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
             chip_to_bus_id.insert({chip, bus_id});
         }
     }
@@ -929,7 +929,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
     if (yaml["harvesting"]) {
         for (const auto &chip_node : yaml["harvesting"].as<std::map<int, YAML::Node>>()) {
-            ChipId chip = chip_node.first;
+            ChipId const chip = chip_node.first;
             auto harvesting_info = chip_node.second;
             noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
 
@@ -969,7 +969,7 @@ void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
         if (this->chip_locations.empty()) {
             continue;
         }
-        ChipId closest_mmio_chip = get_closest_mmio_capable_chip(chip);
+        ChipId const closest_mmio_chip = get_closest_mmio_capable_chip(chip);
         this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
     }
 }
@@ -1004,8 +1004,8 @@ ChipId ClusterDescriptor::get_shelf_local_physical_chip_coords(ChipId virtual_co
     // NoC 0 coordinates of chip inside a single rack. Calculated based on Galaxy topology.
     // See:
     // https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
-    int x = get_chip_locations().at(virtual_coord).x;
-    int y = get_chip_locations().at(virtual_coord).y;
+    int const x = get_chip_locations().at(virtual_coord).x;
+    int const y = get_chip_locations().at(virtual_coord).y;
     return 8 * x + y;
 }
 
@@ -1054,7 +1054,7 @@ tt::ARCH ClusterDescriptor::get_arch() const {
     }
 
     // We already validated that all chips have the same arch.
-    tt::ARCH arch = get_arch(*chips.begin());
+    tt::ARCH const arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
         TT_THROW("Chip {} has invalid architecture.", *chips.begin());
     }
@@ -1080,14 +1080,14 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::BeginMap;
 
     out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
-    std::map<ChipId, tt::ARCH> chip_arch_map = std::map<ChipId, tt::ARCH>(chip_arch.begin(), chip_arch.end());
+    std::map<ChipId, tt::ARCH> const chip_arch_map = std::map<ChipId, tt::ARCH>(chip_arch.begin(), chip_arch.end());
     for (const auto &[chip_id, arch] : chip_arch_map) {
         out << YAML::Key << chip_id << YAML::Value << tt::arch_to_str(arch);
     }
     out << YAML::EndMap;
 
     out << YAML::Key << "chips" << YAML::Value << YAML::BeginMap;
-    std::map<ChipId, EthCoord> chip_locations_map =
+    std::map<ChipId, EthCoord> const chip_locations_map =
         std::map<ChipId, EthCoord>(chip_locations.begin(), chip_locations.end());
     for (const auto &[chip_id, chip_location] : chip_locations_map) {
         out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
@@ -1142,7 +1142,7 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::EndSeq;
 
     out << YAML::Key << "chips_with_mmio" << YAML::Value << YAML::BeginSeq;
-    std::map<ChipId, ChipId> chips_with_mmio_map =
+    std::map<ChipId, ChipId> const chips_with_mmio_map =
         std::map<ChipId, ChipId>(chips_with_mmio.begin(), chips_with_mmio.end());
     for (const auto &chip_with_mmio : chips_with_mmio_map) {
         out << YAML::BeginMap << YAML::Key << chip_with_mmio.first << YAML::Value << chip_with_mmio.second
@@ -1153,11 +1153,11 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::Key << "io_device_type" << YAML::Value << DeviceTypeToString.at(io_device_type);
 
     out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
-    std::set<ChipId> all_chips_map = std::set<ChipId>(all_chips.begin(), all_chips.end());
+    std::set<ChipId> const all_chips_map = std::set<ChipId>(all_chips.begin(), all_chips.end());
     for (const int &chip : all_chips_map) {
         out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
         out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
-        HarvestingMasks harvesting = get_harvesting_masks(chip);
+        HarvestingMasks const harvesting = get_harvesting_masks(chip);
         out << YAML::Key << "harvest_mask" << YAML::Value << harvesting.tensix_harvesting_mask;
         out << YAML::Key << "dram_harvesting_mask" << YAML::Value << harvesting.dram_harvesting_mask;
         out << YAML::Key << "eth_harvesting_mask" << YAML::Value << harvesting.eth_harvesting_mask;
@@ -1174,9 +1174,9 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::EndMap;
 
     out << YAML::Key << "chip_to_bus_id" << YAML::Value << YAML::BeginMap;
-    std::map<ChipId, uint16_t> sorted_chip_to_bus_id(chip_to_bus_id.begin(), chip_to_bus_id.end());
+    std::map<ChipId, uint16_t> const sorted_chip_to_bus_id(chip_to_bus_id.begin(), chip_to_bus_id.end());
     for (const auto &[chip, bus_id] : sorted_chip_to_bus_id) {
-        std::string hex_bus_id = fmt::format("0x{:04x}", bus_id);
+        std::string const hex_bus_id = fmt::format("0x{:04x}", bus_id);
         out << YAML::Key << chip << YAML::Value << hex_bus_id;
     }
     out << YAML::EndMap;
@@ -1201,7 +1201,7 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::EndSeq;
 
     out << YAML::Key << "asic_locations" << YAML::Value << YAML::BeginMap;
-    std::map<ChipId, uint8_t> asic_locations_map =
+    std::map<ChipId, uint8_t> const asic_locations_map =
         std::map<ChipId, uint8_t>(asic_locations.begin(), asic_locations.end());
     for (const auto &[chip_id, asic_location] : asic_locations_map) {
         out << YAML::Key << chip_id << YAML::Value << static_cast<int>(asic_location);
@@ -1209,7 +1209,7 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::EndMap;
 
     out << YAML::Key << "chip_pci_bdfs" << YAML::Value << YAML::BeginMap;
-    std::map<ChipId, std::string> pci_bdfs_map =
+    std::map<ChipId, std::string> const pci_bdfs_map =
         std::map<ChipId, std::string>(chip_pci_bdfs.begin(), chip_pci_bdfs.end());
     for (const auto &[chip_id, bdf] : pci_bdfs_map) {
         out << YAML::Key << chip_id << YAML::Value << bdf;
@@ -1233,9 +1233,9 @@ std::filesystem::path ClusterDescriptor::serialize_to_file(const std::filesystem
 }
 
 std::filesystem::path ClusterDescriptor::get_default_cluster_descriptor_file_path() const {
-    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::filesystem::path const temp_path = std::filesystem::temp_directory_path();
     std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
-    std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
+    std::filesystem::path const cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
     std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
 
     return cluster_path;
@@ -1326,7 +1326,7 @@ bool ClusterDescriptor::verify_same_architecture() {
         if (arch == tt::ARCH::Invalid) {
             TT_THROW("Chip {} has invalid architecture.", *chips.begin());
         }
-        bool all_same_arch =
+        bool const all_same_arch =
             std::all_of(chips.begin(), chips.end(), [&](ChipId chip_id) { return this->get_arch(chip_id) == arch; });
         if (!all_same_arch) {
             TT_THROW("Chips with differing architectures detected. This is unsupported.");
@@ -1340,7 +1340,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
     bool harvesting_info_good = true;
 
     for (const ChipId chip : all_chips) {
-        HarvestingMasks harvesting_masks = get_harvesting_masks(chip);
+        HarvestingMasks const harvesting_masks = get_harvesting_masks(chip);
 
         const BoardType board_type = get_board_type(chip);
 

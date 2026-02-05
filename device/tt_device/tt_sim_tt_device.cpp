@@ -40,7 +40,7 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(const std::filesystem::path& simulator_directory) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
+    SocDescriptor const soc_descriptor = SocDescriptor(soc_desc_path);
     return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, 0);
 }
 
@@ -69,11 +69,11 @@ TTSimTTDevice::~TTSimTTDevice() {
 }
 
 void TTSimTTDevice::start_device() {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     pfn_libttsim_init();
 
     // Read the PCI ID (first 32 bits of PCI config space).
-    uint32_t pci_id = pfn_libttsim_pci_config_rd32(0, 0);
+    uint32_t const pci_id = pfn_libttsim_pci_config_rd32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = pci_id >> 16;
     log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
@@ -93,17 +93,17 @@ void TTSimTTDevice::start_device() {
 }
 
 void TTSimTTDevice::close_device() {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     pfn_libttsim_exit();
 }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     if (tlb_region_size) {  // if set, split into requests that do not span TLB regions
         while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
+            uint32_t const cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
             pfn_libttsim_tile_wr_bytes(core.x, core.y, addr, mem_ptr, cur_size);
             addr += cur_size;
             mem_ptr = reinterpret_cast<const uint8_t*>(mem_ptr) + cur_size;
@@ -115,10 +115,10 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     if (tlb_region_size) {  // if set, split into requests that do not span TLB regions
         while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
+            uint32_t const cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
             pfn_libttsim_tile_rd_bytes(core.x, core.y, addr, mem_ptr, cur_size);
             addr += cur_size;
             mem_ptr = reinterpret_cast<uint8_t*>(mem_ptr) + cur_size;
@@ -131,13 +131,13 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+        uint32_t const soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint32_t reset_value = uint32_t(soft_resets);
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
     } else if (libttsim_pci_device_id == 0xFEED) {  // QSR
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+        uint32_t const soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint64_t reset_value = uint64_t(soft_resets);
         if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
             reset_value = 0xF0000;  // This is using old API, translate to QSR values
@@ -157,10 +157,10 @@ void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_re
 }
 
 void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
-    uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t const soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+    uint32_t const soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
@@ -176,10 +176,10 @@ void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_r
 }
 
 void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    std::lock_guard<std::recursive_mutex> const lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t const soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
+    uint32_t const soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
@@ -269,7 +269,7 @@ off_t TTSimTTDevice::resize_simulator_binary(int src_fd) {
         close_simulator_binary();
         TT_THROW("Failed to get file size: {}", strerror(errno));
     }
-    off_t file_size = st.st_size;
+    off_t const file_size = st.st_size;
     if (ftruncate(copied_simulator_fd_, file_size) < 0) {
         close(src_fd);
         close_simulator_binary();
@@ -279,14 +279,14 @@ off_t TTSimTTDevice::resize_simulator_binary(int src_fd) {
 }
 
 void TTSimTTDevice::copy_simulator_binary() {
-    int src_fd = open(simulator_directory_.c_str(), O_RDONLY | O_CLOEXEC);
+    int const src_fd = open(simulator_directory_.c_str(), O_RDONLY | O_CLOEXEC);
     if (src_fd < 0) {
         close_simulator_binary();
         TT_THROW("Failed to open simulator file for reading: {} - {}", simulator_directory_.string(), strerror(errno));
     }
-    off_t file_size = resize_simulator_binary(src_fd);
+    off_t const file_size = resize_simulator_binary(src_fd);
     off_t offset = 0;
-    ssize_t bytes_copied = sendfile(copied_simulator_fd_, src_fd, &offset, file_size);
+    ssize_t const bytes_copied = sendfile(copied_simulator_fd_, src_fd, &offset, file_size);
     close(src_fd);
     if (bytes_copied < 0) {
         close_simulator_binary();

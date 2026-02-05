@@ -34,7 +34,7 @@ static void set_barrier_params(Cluster& cluster) {
 }
 
 TEST(SiliconDriverBH, CreateDestroy) {
-    DeviceParams default_params;
+    DeviceParams const default_params;
     for (int i = 0; i < 50; i++) {
         Cluster cluster;
         set_barrier_params(cluster);
@@ -182,7 +182,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 
     test_utils::safe_test_cluster_start(&cluster);
 
-    std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
+    std::vector<uint32_t> const unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (auto& chip_id : cluster.get_target_device_ids()) {
         for (const auto& size : unaligned_sizes) {
             std::vector<uint8_t> write_vec(size, 0);
@@ -288,15 +288,15 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     printf("Target Tensix cores completed\n");
 
     // Target DRAM channel 0.
-    std::vector<uint32_t> dram_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+    std::vector<uint32_t> const dram_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
     std::uint32_t address = 0x400;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        int NUM_CHANNELS = cluster.get_soc_descriptor(chip_id).get_num_dram_channels();
+        int const NUM_CHANNELS = cluster.get_soc_descriptor(chip_id).get_num_dram_channels();
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
             for (int ch = 0; ch < NUM_CHANNELS; ch++) {
                 std::vector<CoreCoord> chan = cluster.get_soc_descriptor(chip_id).get_dram_cores().at(ch);
-                CoreCoord subchan = chan.at(0);
+                CoreCoord const subchan = chan.at(0);
                 cluster.write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, subchan, address);
                 cluster.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
@@ -392,7 +392,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     }
 
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
-        CoreCoord core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
+        CoreCoord const core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
         test_utils::read_data_from_device(cluster, readback_membar_vec, 0, core, 0, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all DRAM
@@ -421,7 +421,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
         vec2.at(i) = vec1.size() + i;
     }
     std::thread th1 = std::thread([&] {
-        std::uint32_t address = base_addr;
+        std::uint32_t const address = base_addr;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -436,7 +436,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     });
 
     std::thread th2 = std::thread([&] {
-        std::uint32_t address = base_addr + vec1.size() * 4;
+        std::uint32_t const address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -480,8 +480,8 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     test_utils::safe_test_cluster_start(&cluster);
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::vector<uint32_t> const broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t const address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
     std::set<uint32_t> cols_to_exclude = {0, 5};
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
@@ -557,7 +557,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
 
     test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
-    bool virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
+    bool const virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
                                    cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
@@ -565,8 +565,8 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::vector<uint32_t> const broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t const address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};
     std::set<uint32_t> cols_to_exclude = {0, 5};
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
@@ -649,7 +649,7 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 TEST(ClusterBH, PCIECores) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (ChipId chip : cluster->get_target_device_ids()) {
+    for (ChipId const chip : cluster->get_target_device_ids()) {
         const auto& pcie_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE);
 
         EXPECT_EQ(pcie_cores.size(), 1);
@@ -665,7 +665,7 @@ TEST(ClusterBH, PCIECores) {
 TEST(ClusterBH, L2CPUCores) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (ChipId chip : cluster->get_target_device_ids()) {
+    for (ChipId const chip : cluster->get_target_device_ids()) {
         const auto& l2cpu_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::L2CPU);
         const auto& harvested_l2cpu_cores = cluster->get_soc_descriptor(chip).get_harvested_cores(CoreType::L2CPU);
 

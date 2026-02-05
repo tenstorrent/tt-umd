@@ -116,7 +116,7 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot control soft reset on a non-tensix or harvested core");
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = static_cast<uint32_t>(valid);
+    uint32_t const valid_val = static_cast<uint32_t>(valid);
     get_tt_device()->set_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core), valid_val);
 }
 
@@ -128,7 +128,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 }
 
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
-    uint32_t soft_reset_current_state =
+    uint32_t const soft_reset_current_state =
         get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
@@ -156,7 +156,7 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
     uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     // The update variable should be applied in such a way that it clears the bits that are set in the selected_riscs.
-    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
+    uint32_t const soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
         soft_reset_new |
         (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
@@ -220,7 +220,7 @@ int Chip::arc_msg(
         arc_msg_return_values.push_back(0);
     }
 
-    uint32_t exit_code =
+    uint32_t const exit_code =
         get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, args, timeout_ms);
 
     if (return_3 != nullptr) {
@@ -237,7 +237,7 @@ int Chip::arc_msg(
 void Chip::set_power_state(DevicePowerState state) {
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t msg = get_power_state_arc_msg(state);
+        uint32_t const msg = get_power_state_arc_msg(state);
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {0, 0});
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == DevicePowerState::BUSY) {

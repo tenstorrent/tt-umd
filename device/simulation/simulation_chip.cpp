@@ -132,7 +132,7 @@ int SimulationChip::get_host_channel_size(std::uint32_t channel) {
     }
 
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    HugepageMapping const hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
     TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }

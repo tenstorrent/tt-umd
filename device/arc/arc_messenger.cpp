@@ -18,7 +18,7 @@
 namespace tt::umd {
 
 std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_device) {
-    tt::ARCH arch = tt_device->get_arch();
+    tt::ARCH const arch = tt_device->get_arch();
 
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:

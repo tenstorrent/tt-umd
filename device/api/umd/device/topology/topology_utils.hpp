@@ -25,7 +25,7 @@ static inline uint64_t get_sys_addr(
     uint32_t noc_y,
     uint64_t offset) {
     uint64_t result = chip_y;
-    uint64_t noc_addr_local_bits_mask = (1UL << noc_params.noc_addr_local_bits) - 1;
+    uint64_t const noc_addr_local_bits_mask = (1UL << noc_params.noc_addr_local_bits) - 1;
     result <<= noc_params.noc_addr_node_id_bits;
     result |= chip_x;
     result <<= noc_params.noc_addr_node_id_bits;

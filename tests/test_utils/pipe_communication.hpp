@@ -29,7 +29,7 @@ public:
         child_pipes.resize(num_children);
         for (int i = 0; i < num_children; ++i) {
             if (pipe(child_pipes[i].data()) == -1) {
-                int saved_errno = errno;
+                int const saved_errno = errno;
                 for (int j = 0; j < i; ++j) {
                     close(child_pipes[j][PIPE_READ]);
                     close(child_pipes[j][PIPE_WRITE]);
@@ -102,7 +102,7 @@ public:
             //   - exceptfds: set of fds to monitor for errors (unused, nullptr)
             //   - timeout: max time to wait before returning 0
             // Returns: >0 if fd is ready, 0 if timeout, -1 on error.
-            int ready = select(child_pipes[i][PIPE_READ] + 1, &read_set, nullptr, nullptr, &timeout);
+            int const ready = select(child_pipes[i][PIPE_READ] + 1, &read_set, nullptr, nullptr, &timeout);
 
             if (ready <= 0) {
                 return false;

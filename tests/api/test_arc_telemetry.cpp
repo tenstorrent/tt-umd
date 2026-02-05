@@ -17,7 +17,7 @@ using namespace tt;
 using namespace tt::umd;
 
 TEST(TestTelemetry, BasicTelemetry) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
@@ -33,8 +33,8 @@ TEST(TestTelemetry, BasicTelemetry) {
 
         ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
 
-        uint32_t board_id_high = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_HIGH);
-        uint32_t board_id_low = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_LOW);
+        uint32_t const board_id_high = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_HIGH);
+        uint32_t const board_id_low = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_LOW);
 
         const uint64_t board_id = ((uint64_t)board_id_high << 32) | (board_id_low);
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
@@ -42,9 +42,9 @@ TEST(TestTelemetry, BasicTelemetry) {
 }
 
 TEST(TestTelemetry, TelemetryEntryAvailable) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
         ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();

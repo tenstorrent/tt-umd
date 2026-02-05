@@ -137,7 +137,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Creating cluster " << i << std::endl;
-            std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+            std::unique_ptr<Cluster> const cluster = std::make_unique<Cluster>();
             std::cout << "Running IO for cluster " << i << std::endl;
             test_read_write_all_tensix_cores(cluster.get(), i);
             std::cout << "Finished IO for cluster " << i << std::endl;
@@ -155,7 +155,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
-            std::unique_ptr<Cluster> cluster =
+            std::unique_ptr<Cluster> const cluster =
                 std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
             std::cout << "Setting up risc cores and starting cluster " << i << std::endl;
             test_utils::safe_test_cluster_start(cluster.get());
@@ -179,7 +179,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 
     auto workload_thread = std::thread([&] {
         std::cout << "Creating workload cluster" << std::endl;
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> const cluster = std::make_unique<Cluster>();
         std::cout << "Running IO for workload cluster" << std::endl;
         test_read_write_all_tensix_cores(cluster.get(), 0);
         std::cout << "Finished IO for workload cluster" << std::endl;
@@ -206,8 +206,8 @@ TEST(Multiprocess, WorkloadVSMonitor) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
         tt_device->init_tt_device();
 
-        SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
-        CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
+        SocDescriptor const soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        CoreCoord const arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
         for (int loop = 0; loop < NUM_LOOPS; loop++) {
@@ -234,8 +234,8 @@ TEST(Multiprocess, LongLivedMonitor) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
         tt_device->init_tt_device();
 
-        SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
-        CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
+        SocDescriptor const soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        CoreCoord const arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
         for (int loop = 0; loop < NUM_LOOPS; loop++) {
@@ -247,7 +247,7 @@ TEST(Multiprocess, LongLivedMonitor) {
 
     for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Creating cluster " << i << std::endl;
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> const cluster = std::make_unique<Cluster>();
         std::cout << "Running IO for cluster " << i << std::endl;
         test_read_write_all_tensix_cores(cluster.get(), i);
         std::cout << "Finished IO for cluster " << i << std::endl;
@@ -336,8 +336,8 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
             tt_device->init_tt_device();
 
-            SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
-            CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            SocDescriptor const soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+            CoreCoord const tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
             // Create unique data pattern for this process.
             std::vector<uint32_t> write_data(data_size / sizeof(uint32_t));
@@ -352,7 +352,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
             for (int iter = 0; iter < num_iterations; iter++) {
                 try {
                     // Use different addresses per process to avoid data corruption.
-                    uint64_t process_address = test_address + (process_id * data_size * 2);
+                    uint64_t const process_address = test_address + (process_id * data_size * 2);
 
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
@@ -404,7 +404,7 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     std::cout << "Testing DMA race condition (real fork) on PCI device " << test_device_id << std::endl;
 
     for (int process_id = 0; process_id < NUM_PROCESSES; process_id++) {
-        pid_t pid = fork();
+        pid_t const pid = fork();
         if (pid == 0) {  // Child Process.
             std::cout << "Process " << process_id << " with pid " << pid << ": Starting DMA operations" << std::endl;
 
@@ -412,8 +412,8 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
             tt_device->init_tt_device();
 
-            SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
-            CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            SocDescriptor const soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+            CoreCoord const tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
             // Create unique data pattern for this process.
             std::vector<uint32_t> write_data(data_size / sizeof(uint32_t));
@@ -426,7 +426,7 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
             for (int iter = 0; iter < num_iterations; iter++) {
                 try {
                     // Use different addresses per process to avoid data corruption.
-                    uint64_t process_address = test_address + (process_id * data_size * 2);
+                    uint64_t const process_address = test_address + (process_id * data_size * 2);
 
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
@@ -457,7 +457,7 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     }
 
     // Wait for all process threads to complete.
-    for (pid_t p : pids) {
+    for (pid_t const p : pids) {
         int status;
         waitpid(p, &status, 0);
         if (WIFEXITED(status)) {

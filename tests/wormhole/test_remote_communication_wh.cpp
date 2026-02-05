@@ -30,7 +30,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    ChipId mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
+    ChipId const mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
     LocalChip* local_chip = cluster->get_local_chip(mmio_chip_id);
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
@@ -44,14 +44,14 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     }
     auto eth_connections_chip = cluster_desc->get_ethernet_connections().at(mmio_chip_id);
     for (const auto& [eth_channel, eth_connection] : eth_connections_chip) {
-        CoreCoord logical_eth_core = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        CoreCoord noc0_eth_core =
+        CoreCoord const logical_eth_core = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        CoreCoord const noc0_eth_core =
             cluster->get_soc_descriptor(mmio_chip_id).translate_coord_to(logical_eth_core, CoordSystem::NOC0);
         active_eth_cores.push_back(tt_xy_pair(noc0_eth_core.x, noc0_eth_core.y));
     }
 
-    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
-        EthCoord remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
+    for (ChipId const remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EthCoord const remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
 
         std::unique_ptr<RemoteCommunicationLegacyFirmware> remote_comm =
             std::make_unique<RemoteCommunicationLegacyFirmware>(
@@ -60,7 +60,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id), CoordSystem::TRANSLATED));
 
         for (const CoreCoord& core : cluster->get_soc_descriptor(remote_chip_id).get_cores(CoreType::TENSIX)) {
-            CoreCoord translated_core =
+            CoreCoord const translated_core =
                 cluster->get_soc_descriptor(remote_chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
             remote_comm->write_to_non_mmio(
                 translated_core, data_to_write.data(), address0, data_to_write.size() * sizeof(uint32_t));
@@ -112,13 +112,13 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
         GTEST_SKIP() << "No remote chips found. Test requires at least one remote chip. Skipping test.";
     }
 
-    ChipId local_chip_id = cluster_desc->get_closest_mmio_capable_chip(*remote_chip_id);
-    int physical_device_id = cluster_desc->get_chips_with_mmio().at(local_chip_id);
+    ChipId const local_chip_id = cluster_desc->get_closest_mmio_capable_chip(*remote_chip_id);
+    int const physical_device_id = cluster_desc->get_chips_with_mmio().at(local_chip_id);
     std::unique_ptr<TTDevice> local_tt_device = TTDevice::create(physical_device_id);
     local_tt_device->init_tt_device();
 
-    SocDescriptor local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
-    EthCoord target_chip = cluster_desc->get_chip_locations().at(*remote_chip_id);
+    SocDescriptor const local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
+    EthCoord const target_chip = cluster_desc->get_chip_locations().at(*remote_chip_id);
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
     remote_communication->set_remote_transfer_ethernet_cores(
@@ -127,9 +127,9 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     remote_tt_device->init_tt_device();
 
     // Get a tensix core to test on.
-    SocDescriptor remote_soc_desc(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
+    SocDescriptor const remote_soc_desc(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
     auto tensix_core = *remote_soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED).begin();
-    tt_xy_pair tensix_core_xy = tt_xy_pair(tensix_core.x, tensix_core.y);
+    tt_xy_pair const tensix_core_xy = tt_xy_pair(tensix_core.x, tensix_core.y);
 
     // Test with 2048 bytes (2x the 1024 threshold).
     constexpr uint32_t test_size = 2048;

@@ -86,14 +86,14 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    int frequency_us = result["freq"].as<int>();
-    int telemetry_tag = result["tag"].as<int>();
+    int const frequency_us = result["freq"].as<int>();
+    int const telemetry_tag = result["tag"].as<int>();
 
     std::vector<int> discovered_pci_device_ids = PCIDevice::enumerate_devices();
     std::vector<int> pci_device_ids;
 
     if (result.count("devices")) {
-        for (int device_id : extract_int_vector(result["devices"])) {
+        for (int const device_id : extract_int_vector(result["devices"])) {
             if (std::find(discovered_pci_device_ids.begin(), discovered_pci_device_ids.end(), device_id) ==
                 discovered_pci_device_ids.end()) {
                 std::cerr << "Device ID with pci id " << device_id << " not found in the system." << std::endl;
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::pair<int, std::unique_ptr<ArcTelemetryReader>>> telemetry_readers;
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
 
         auto end_time = std::chrono::steady_clock::now();
         auto time_passed = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-        uint64_t time_to_wait = frequency_us - time_passed;
+        uint64_t const time_to_wait = frequency_us - time_passed;
         if (time_to_wait > 0) {
             std::this_thread::sleep_for(std::chrono::microseconds(time_to_wait));
         }

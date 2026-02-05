@@ -51,9 +51,9 @@ BlackholeTTDevice::~BlackholeTTDevice() {
     if (pci_device_->bar2_uc != nullptr && pci_device_->bar2_uc != MAP_FAILED) {
         auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
 
-        for (size_t region : iatu_regions_) {
-            uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
-            uint64_t region_ctrl_2 = 0;
+        for (size_t const region : iatu_regions_) {
+            uint64_t const iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
+            uint64_t const region_ctrl_2 = 0;
             *reinterpret_cast<volatile uint32_t *>(bar2 + iatu_base + 0x04) = region_ctrl_2;
         }
     }
@@ -61,7 +61,7 @@ BlackholeTTDevice::~BlackholeTTDevice() {
 
 void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint64_t base = region * region_size;
-    uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
+    uint64_t const iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
     auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
 
     if (region_size % (1ULL << 30) != 0 || region_size > (1ULL << 32)) {
@@ -79,15 +79,15 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
     };
 
     uint64_t limit = (base + (region_size - 1)) & 0xffff'ffff;
-    uint32_t base_lo = (base >> 0x00) & 0xffff'ffff;
-    uint32_t base_hi = (base >> 0x20) & 0xffff'ffff;
-    uint32_t target_lo = (target >> 0x00) & 0xffff'ffff;
-    uint32_t target_hi = (target >> 0x20) & 0xffff'ffff;
+    uint32_t const base_lo = (base >> 0x00) & 0xffff'ffff;
+    uint32_t const base_hi = (base >> 0x20) & 0xffff'ffff;
+    uint32_t const target_lo = (target >> 0x00) & 0xffff'ffff;
+    uint32_t const target_hi = (target >> 0x20) & 0xffff'ffff;
 
-    uint32_t region_ctrl_1 = 0;
-    uint32_t region_ctrl_2 = 1 << 31;  // REGION_EN
-    uint32_t region_ctrl_3 = 0;
-    uint32_t limit_hi = 0;
+    uint32_t const region_ctrl_1 = 0;
+    uint32_t const region_ctrl_2 = 1 << 31;  // REGION_EN
+    uint32_t const region_ctrl_3 = 0;
+    uint32_t const limit_hi = 0;
 
     write_iatu_reg(iatu_base + 0x00, region_ctrl_1);
     write_iatu_reg(iatu_base + 0x04, region_ctrl_2);
@@ -141,10 +141,10 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.harvesting_masks.pcie_harvesting_mask = 0;
     if (telemetry->is_entry_available(TelemetryTag::PCIE_USAGE)) {
-        uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
+        uint32_t const pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
 
-        uint32_t pcie0_usage = pcie_usage & 0x3;
-        uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
+        uint32_t const pcie0_usage = pcie_usage & 0x3;
+        uint32_t const pcie1_usage = (pcie_usage >> 2) & 0x3;
 
         const uint32_t pcie_usage_endpoint = 1;
         chip_info.harvesting_masks.pcie_harvesting_mask = 0;
@@ -291,7 +291,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto time_taken = std::chrono::milliseconds(0);
 
-    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t const port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
 

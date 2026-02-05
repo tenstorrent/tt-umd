@@ -46,7 +46,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
-    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+    HugepageMapping const hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
         "read_buffer: Hugepages are not allocated ch: {}."

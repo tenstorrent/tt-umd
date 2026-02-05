@@ -26,7 +26,7 @@ enum class ARCH {
 };
 
 static inline tt::ARCH arch_from_str(const std::string &arch_str) {
-    std::string arch_str_lower = to_lower(arch_str);
+    std::string const arch_str_lower = to_lower(arch_str);
 
     if ((arch_str_lower == "wormhole") || (arch_str_lower == "wormhole_b0")) {
         return tt::ARCH::WORMHOLE_B0;

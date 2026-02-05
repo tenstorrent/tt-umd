@@ -31,7 +31,7 @@ void pack_bits(std::uint64_t &lower, std::uint64_t &upper, std::uint64_t value, 
             upper |= value >> (64 - offset_pos);
         }
     } else {
-        uint64_t upper_delta = value << (offset_pos - 64);
+        uint64_t const upper_delta = value << (offset_pos - 64);
         upper = upper | upper_delta;
     }
 }

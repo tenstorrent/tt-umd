@@ -36,7 +36,7 @@ uint32_t TlbWindow::read32(uint64_t offset) {
 }
 
 void TlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
+    size_t const n = size / sizeof(uint32_t);
     auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
@@ -46,7 +46,7 @@ void TlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
 }
 
 void TlbWindow::read_register(uint64_t offset, void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
+    size_t const n = size / sizeof(uint32_t);
     auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
     auto *dst = static_cast<uint32_t *>(data);
 
@@ -94,8 +94,8 @@ void TlbWindow::read_block_reconfigure(
 
     while (size > 0) {
         configure(config);
-        uint32_t tlb_size = get_size();
-        uint32_t transfer_size = std::min(size, tlb_size);
+        uint32_t const tlb_size = get_size();
+        uint32_t const transfer_size = std::min(size, tlb_size);
 
         read_block(0, buffer_addr, transfer_size);
 
@@ -120,9 +120,9 @@ void TlbWindow::write_block_reconfigure(
 
     while (size > 0) {
         configure(config);
-        uint32_t tlb_size = get_size();
+        uint32_t const tlb_size = get_size();
 
-        uint32_t transfer_size = std::min(size, tlb_size);
+        uint32_t const transfer_size = std::min(size, tlb_size);
 
         write_block(0, buffer_addr, transfer_size);
 
@@ -150,9 +150,9 @@ void TlbWindow::noc_multicast_write_reconfigure(
 
     while (size > 0) {
         configure(config);
-        size_t tlb_size = get_size();
+        size_t const tlb_size = get_size();
 
-        uint32_t transfer_size = std::min(size, tlb_size);
+        uint32_t const transfer_size = std::min(size, tlb_size);
 
         write_block(0, buffer_addr, transfer_size);
 
@@ -189,8 +189,8 @@ void TlbWindow::memcpy_from_device(void *dest, const void *src, std::size_t num_
     // Start by aligning the source (device) pointer.
     const volatile copy_t *sp;
 
-    std::uintptr_t src_addr = reinterpret_cast<std::uintptr_t>(src);
-    unsigned int src_misalignment = src_addr % sizeof(copy_t);
+    std::uintptr_t const src_addr = reinterpret_cast<std::uintptr_t>(src);
+    unsigned int const src_misalignment = src_addr % sizeof(copy_t);
 
     if (src_misalignment != 0) {
         sp = reinterpret_cast<copy_t *>(src_addr - src_misalignment);
@@ -208,7 +208,7 @@ void TlbWindow::memcpy_from_device(void *dest, const void *src, std::size_t num_
 
     // Copy the source-aligned middle.
     copy_t *dp = static_cast<copy_t *>(dest);
-    std::size_t num_words = num_bytes / sizeof(copy_t);
+    std::size_t const num_words = num_bytes / sizeof(copy_t);
 
     for (std::size_t i = 0; i < num_words; i++) {
         *dp++ = *sp++;
@@ -229,8 +229,8 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
     // first partial word.
     volatile copy_t *dp;
 
-    std::uintptr_t dest_addr = reinterpret_cast<std::uintptr_t>(dest);
-    unsigned int dest_misalignment = dest_addr % sizeof(copy_t);
+    std::uintptr_t const dest_addr = reinterpret_cast<std::uintptr_t>(dest);
+    unsigned int const dest_misalignment = dest_addr % sizeof(copy_t);
 
     if (dest_misalignment != 0) {
         // Read-modify-write for the first dest element.
@@ -252,7 +252,7 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
 
     // Copy the destination-aligned middle.
     const copy_t *sp = static_cast<const copy_t *>(src);
-    std::size_t num_words = num_bytes / sizeof(copy_t);
+    std::size_t const num_words = num_bytes / sizeof(copy_t);
 
     for (std::size_t i = 0; i < num_words; i++) {
         *dp++ = *sp++;

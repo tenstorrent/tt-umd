@@ -18,7 +18,7 @@ TEST(PcieDeviceTest, Numa) {
     std::vector<int> nodes;
 
     for (auto device_id : PCIDevice::enumerate_devices()) {
-        PCIDevice device(device_id);
+        PCIDevice const device(device_id);
         nodes.push_back(device.get_numa_node());
     }
 
@@ -28,8 +28,8 @@ TEST(PcieDeviceTest, Numa) {
     // 3. empty vector (no devices enumerated)
 
     if (!nodes.empty()) {
-        bool all_negative_one = std::all_of(nodes.begin(), nodes.end(), [](int node) { return node == -1; });
-        bool all_non_negative = std::all_of(nodes.begin(), nodes.end(), [](int node) { return node >= 0; });
+        bool const all_negative_one = std::all_of(nodes.begin(), nodes.end(), [](int node) { return node == -1; });
+        bool const all_non_negative = std::all_of(nodes.begin(), nodes.end(), [](int node) { return node >= 0; });
 
         EXPECT_TRUE(all_negative_one || all_non_negative)
             << "NUMA nodes should either all be -1 (non-NUMA system) or all be non-negative (NUMA system)"

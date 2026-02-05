@@ -33,10 +33,10 @@ public:
         major(major), minor(minor), patch(patch), pre_release(pre_release) {}
 
     static semver_t from_firmware_bundle_tag(std::uint32_t version) {
-        uint64_t major = (version >> 24) & 0xFF;
-        uint64_t minor = (version >> 16) & 0xFF;
-        uint64_t patch = (version >> 8) & 0xFF;
-        uint64_t pre_release = version & 0xFF;
+        uint64_t const major = (version >> 24) & 0xFF;
+        uint64_t const minor = (version >> 16) & 0xFF;
+        uint64_t const patch = (version >> 8) & 0xFF;
+        uint64_t const pre_release = version & 0xFF;
         return semver_t(major, minor, patch, pre_release);
     }
 
@@ -47,9 +47,9 @@ public:
      * 0xEERRCDDD where E is entity, R is release, C is customer and D is debug.
      */
     static semver_t from_wormhole_eth_firmware_tag(std::uint32_t version) {
-        uint64_t major = (version >> 16) & 0xFF;
-        uint64_t minor = (version >> 12) & 0xF;
-        uint64_t patch = version & 0xFFF;
+        uint64_t const major = (version >> 16) & 0xFF;
+        uint64_t const minor = (version >> 12) & 0xF;
+        uint64_t const patch = version & 0xFFF;
         return semver_t(major, minor, patch);
     }
 
@@ -112,9 +112,9 @@ public:
 private:
     static semver_t parse(const std::string& version_str) {
         std::string version = version_str;
-        size_t pos = version_str.find("-rc.");
-        size_t count = 3;  // -rc length
-        bool ispos = (pos != std::string::npos);
+        size_t const pos = version_str.find("-rc.");
+        size_t const count = 3;  // -rc length
+        bool const ispos = (pos != std::string::npos);
         if (ispos) {
             version.erase(pos, count);
         }

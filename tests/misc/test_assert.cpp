@@ -42,13 +42,13 @@ TEST(Assert, AssertMessage) {
         std::string expected_output;
     };
 
-    std::vector<TestCase> test_cases = {
+    std::vector<TestCase> const test_cases = {
         {"Single argument",
          [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Single message"); },
          "Single message\n"},
         {"With formatting",
          [](std::stringstream& output) {
-             int value = 42;
+             int const value = 42;
              tt::assert::tt_assert_message(output, "Value is {}", value);
          },
          "Value is 42\n"},
@@ -60,9 +60,9 @@ TEST(Assert, AssertMessage) {
          "First\nSecond\nThird\n"},
         {"OStreamJoin",
          [](std::stringstream& output) {
-             int a = 42;
-             std::string b = "test";
-             tt::OStreamJoin<int, std::string> join(a, b);
+             int const a = 42;
+             std::string const b = "test";
+             tt::OStreamJoin<int, std::string> const join(a, b);
              tt::assert::tt_assert_message(output, "Join: {}", join);
          },
          "Join: 42 test\n"},
@@ -88,7 +88,7 @@ TEST(Assert, AssertMessage) {
          "Float: 3.14, Double: 2.718\n"},
         {"String literals and objects",
          [](std::stringstream& output) {
-             std::string str_obj = "object";
+             std::string const str_obj = "object";
              tt::assert::tt_assert_message(output, "Literal: {}, Object: {}", "literal", str_obj);
          },
          "Literal: literal, Object: object\n"},
@@ -108,15 +108,15 @@ TEST(Assert, AssertMessage) {
          "Negative: -42 and -3.14\n"},
         {"Long string",
          [](std::stringstream& output) {
-             std::string long_str(100, 'A');
+             std::string const long_str(100, 'A');
              tt::assert::tt_assert_message(output, "Long: {}", long_str);
          },
          "Long: " + std::string(100, 'A') + "\n"},
         {"Complex OStreamJoin",
          [](std::stringstream& output) {
-             CustomType obj(789);
-             int test_val = 100;
-             tt::OStreamJoin<CustomType, int> join(obj, test_val, " -> ");
+             CustomType const obj(789);
+             int const test_val = 100;
+             tt::OStreamJoin<CustomType, int> const join(obj, test_val, " -> ");
              tt::assert::tt_assert_message(output, "Complex join: {}", join);
          },
          "Complex join: CustomType(789) -> 100\n"}};
@@ -161,7 +161,7 @@ TEST(Assert, MacroIntegration) {
         TT_THROW("Error with value {}", 42);
         FAIL() << "Expected exception";
     } catch (const std::runtime_error& e) {
-        std::string error_msg = e.what();
+        std::string const error_msg = e.what();
         EXPECT_TRUE(error_msg.find("Error with value 42") != std::string::npos);
     }
 
@@ -169,7 +169,7 @@ TEST(Assert, MacroIntegration) {
         TT_ASSERT(false, "Assertion failed with value {}", 123);
         FAIL() << "Expected exception";
     } catch (const std::runtime_error& e) {
-        std::string error_msg = e.what();
+        std::string const error_msg = e.what();
         EXPECT_TRUE(error_msg.find("Assertion failed with value 123") != std::string::npos);
     }
 }

@@ -164,7 +164,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
         return;
     }
 
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    std::lock_guard<std::mutex> const lock(tt_device_io_lock);
     get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
 }
 
@@ -174,7 +174,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
         return;
     }
 
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    std::lock_guard<std::mutex> const lock(tt_device_io_lock);
     get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
@@ -252,7 +252,7 @@ BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_b
 
 uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0;
-    uint32_t high2_addr = 0;
+    uint32_t const high2_addr = 0;
     uint32_t low_addr = 0;
     read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
@@ -301,7 +301,7 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
         throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
     }
 
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    std::lock_guard<std::mutex> const lock(tt_device_io_lock);
     get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
@@ -325,7 +325,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 
     const uint8_t *buffer = static_cast<const uint8_t *>(src);
     PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+    size_t const dmabuf_size = pci_device->get_dma_buffer().size;
 
     tlb_data config{};
     config.local_offset = addr;
@@ -344,7 +344,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
 
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        size_t const transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         dma_h2d(axi_address, buffer, transfer_size);
 
@@ -378,7 +378,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 
     uint8_t *buffer = static_cast<uint8_t *>(dst);
     PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+    size_t const dmabuf_size = pci_device->get_dma_buffer().size;
 
     tlb_data config{};
     config.local_offset = addr;
@@ -397,7 +397,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        size_t const transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         dma_d2h(buffer, axi_address, transfer_size);
 
@@ -433,7 +433,7 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
 
     const uint8_t *buffer = static_cast<const uint8_t *>(src);
     PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+    size_t const dmabuf_size = pci_device->get_dma_buffer().size;
 
     tlb_data config{};
     config.local_offset = addr;
@@ -455,7 +455,7 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
 
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        size_t const transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         dma_h2d(axi_address, buffer, transfer_size);
 

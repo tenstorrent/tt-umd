@@ -56,7 +56,7 @@ bool WormholeGalaxyStabilityTestFixture::skip_tests = false;
 uint32_t WormholeGalaxyStabilityTestFixture::scale_number_of_tests = 1;
 
 TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
-    int seed = 0;
+    int const seed = 0;
 
     assert(cluster != nullptr);
     log_info(LogUMD, "Started MixedRemoteTransfers");

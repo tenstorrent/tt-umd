@@ -136,7 +136,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
     // responsible for initializing the driver with this field set to cleanup after an aborted process.
-    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+    int const pci_device_id = tt_device_->get_pci_device()->get_device_num();
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
@@ -239,7 +239,7 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
     }
 
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    HugepageMapping const hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
     TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
@@ -282,7 +282,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair const translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, translated_core, l1_dest, size);
@@ -293,7 +293,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
+        std::lock_guard<std::mutex> const lock(wc_tlb_lock);
         get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
     }
 }
@@ -308,7 +308,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         l1_src,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair const translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, l1_src, size);
@@ -318,7 +318,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
+        std::lock_guard<std::mutex> const lock(wc_tlb_lock);
         get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
     }
 }
@@ -332,8 +332,8 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 }
 
 void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
-    tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
+    tt_xy_pair const start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
+    tt_xy_pair const end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
     tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
 }
 
@@ -351,7 +351,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
         return;
     }
 
-    std::lock_guard<std::mutex> lock(uc_tlb_lock);
+    std::lock_guard<std::mutex> const lock(uc_tlb_lock);
 
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
@@ -381,7 +381,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         return;
     }
 
-    std::lock_guard<std::mutex> lock(uc_tlb_lock);
+    std::lock_guard<std::mutex> const lock(uc_tlb_lock);
 
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
@@ -438,7 +438,7 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int
 void LocalChip::init_pcie_iatus() {
     // TODO: this should go away soon; KMD knows how to do this at page pinning time.
     for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
-        HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+        HugepageMapping const hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
         size_t region_size = hugepage_map.mapping_size;
 
         if (!hugepage_map.mapping) {
@@ -529,7 +529,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
-        std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
+        std::vector<CoreCoord> const dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     } else {
         // Insert Barrier on all DRAM Cores.
@@ -596,7 +596,7 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
         TT_THROW("noc_multicast_write is only supported on PCIe devices.");
     }
 
-    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    std::lock_guard<std::mutex> const lock(wc_tlb_lock);
 
     get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
         dst,

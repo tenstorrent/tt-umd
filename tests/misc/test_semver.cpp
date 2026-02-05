@@ -54,7 +54,7 @@ TEST(Semver, Valid) {
         {"1.0.0-0A.is.legal", semver_t(1, 0, 0)}};
 
     for (const auto &[version_str, expected] : valid_test_cases) {
-        semver_t actual(version_str);
+        semver_t const actual(version_str);
         EXPECT_EQ(actual.major, expected.major);
         EXPECT_EQ(actual.minor, expected.minor);
         EXPECT_EQ(actual.patch, expected.patch);
@@ -63,7 +63,7 @@ TEST(Semver, Valid) {
 }
 
 TEST(Semver, Invalid) {
-    std::vector<std::string> invalid_test_cases = {
+    std::vector<std::string> const invalid_test_cases = {
         "+invalid",
         "-invalid",
         "-invalid+invalid",

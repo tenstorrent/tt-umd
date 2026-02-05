@@ -72,7 +72,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
 
-        size_t transfer_size = std::min({size, tlb_size});
+        size_t const transfer_size = std::min({size, tlb_size});
 
         tt_device_->dma_h2d_zero_copy(axi_address, buffer, transfer_size);
 
@@ -126,7 +126,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size});
+        size_t const transfer_size = std::min({size, tlb_size});
 
         tt_device_->dma_d2h_zero_copy(buffer, axi_address, transfer_size);
 
@@ -151,7 +151,7 @@ SysmemBuffer::~SysmemBuffer() {
 
 void SysmemBuffer::align_address_and_size() {
     static const auto page_size = sysconf(_SC_PAGESIZE);
-    uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);
+    uint64_t const aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);
     offset_from_aligned_addr_ = reinterpret_cast<uint64_t>(buffer_va_) - aligned_buffer_va;
     buffer_va_ = reinterpret_cast<void*>(aligned_buffer_va);
     mapped_buffer_size_ = (mapped_buffer_size_ + offset_from_aligned_addr_ + page_size - 1) & ~(page_size - 1);

@@ -86,7 +86,7 @@ void WormholeSPITTDevice::get_aligned_params(
     start_addr = (addr / chunk_size) * chunk_size;
 
     // Round up to the nearest chunk boundary.
-    uint32_t end_addr = ((addr + num_bytes + chunk_size - 1) / chunk_size) * chunk_size;
+    uint32_t const end_addr = ((addr + num_bytes + chunk_size - 1) / chunk_size) * chunk_size;
 
     // Calculate number of chunks.
     num_chunks = (end_addr - start_addr) / chunk_size;
@@ -102,10 +102,10 @@ uint32_t WormholeSPITTDevice::get_clock() {
     if (telemetry) {
         // TelemetryTag (unified enum) is only available in firmware >= 18.7
         // For older firmware, wormhole::TelemetryTag should be used.
-        semver_t fw_version = device_->get_firmware_version();
+        semver_t const fw_version = device_->get_firmware_version();
         static const semver_t fw_version_18_7 = semver_t(18, 7, 0);
 
-        int compare_result = semver_t::compare_firmware_bundle(fw_version, fw_version_18_7);
+        int const compare_result = semver_t::compare_firmware_bundle(fw_version, fw_version_18_7);
         if (compare_result < 0) {
             throw std::runtime_error(
                 "Firmware version " + fw_version.to_string() +
@@ -199,7 +199,7 @@ uint8_t WormholeSPITTDevice::read_status(uint8_t register_addr) {
     } while ((val & SPI_SR_RFNE) == 0);
 
     device_->read_from_arc_apb(&val, SPI_DR, sizeof(val));
-    uint8_t read_buf = val & 0xff;
+    uint8_t const read_buf = val & 0xff;
 
     val = spi_ser_slave_disable(0);
     device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
@@ -249,9 +249,9 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
     device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
 
     // Determine board type to figure out which SPI to use.
-    uint64_t board_id = device_->get_board_id();
-    uint32_t upi = (board_id >> (32 + 4)) & 0xFFFFF;
-    bool simple_spi = (upi == 0x35);
+    uint64_t const board_id = device_->get_board_id();
+    uint32_t const upi = (board_id >> (32 + 4)) & 0xFFFFF;
+    bool const simple_spi = (upi == 0x35);
 
     // Write sector lock info.
     if (simple_spi) {
@@ -302,14 +302,14 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     }
 
     std::vector<uint32_t> ret(1);
-    uint32_t rc = messenger->send_message(
+    uint32_t const rc = messenger->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR), ret);
     if (rc != 0 || ret.empty()) {
         throw std::runtime_error("Failed to get SPI dump address on Wormhole.");
     }
 
-    uint32_t spi_dump_addr_offset = ret[0];
-    uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
+    uint32_t const spi_dump_addr_offset = ret[0];
+    uint64_t const spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
     // Get aligned parameters.
     uint32_t start_addr;
@@ -320,10 +320,10 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     std::vector<uint8_t> chunk_buf(wormhole::ARC_SPI_CHUNK_SIZE);
 
     for (uint32_t chunk = 0; chunk < num_chunks; ++chunk) {
-        uint32_t offset = chunk * wormhole::ARC_SPI_CHUNK_SIZE;
-        uint32_t chunk_addr = start_addr + offset;
+        uint32_t const offset = chunk * wormhole::ARC_SPI_CHUNK_SIZE;
+        uint32_t const chunk_addr = start_addr + offset;
 
-        uint32_t spi_read_msg =
+        uint32_t const spi_read_msg =
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
         messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
         device_->read_from_device(
@@ -332,13 +332,13 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         // Copy the relevant portion of the chunk to the output buffer.
         if (offset < start_offset) {
             // First chunk: skip the beginning.
-            uint32_t skip = start_offset - offset;
-            uint32_t copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE - skip, size);
+            uint32_t const skip = start_offset - offset;
+            uint32_t const copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE - skip, size);
             std::memcpy(data, chunk_buf.data() + skip, copy_size);
         } else {
             // Subsequent chunks.
-            uint32_t output_offset = offset - start_offset;
-            uint32_t copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE, size - output_offset);
+            uint32_t const output_offset = offset - start_offset;
+            uint32_t const copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE, size - output_offset);
             std::memcpy(data + output_offset, chunk_buf.data(), copy_size);
         }
     }
@@ -354,7 +354,7 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         throw std::runtime_error("ARC messenger not available for SPI write on Wormhole.");
     }
 
-    uint32_t clock_div = get_clock();
+    uint32_t const clock_div = get_clock();
 
     // Must call init before unlock.
     init(clock_div);
@@ -368,15 +368,15 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
     std::exception_ptr write_exception;
     try {
         std::vector<uint32_t> ret(1);
-        uint32_t rc = messenger->send_message(
+        uint32_t const rc = messenger->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
             ret);
         if (rc != 0 || ret.empty()) {
             throw std::runtime_error("Failed to get SPI dump address on Wormhole.");
         }
 
-        uint32_t spi_dump_addr_offset = ret[0];
-        uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
+        uint32_t const spi_dump_addr_offset = ret[0];
+        uint64_t const spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
         // Get aligned parameters.
         uint32_t start_addr;
@@ -387,11 +387,11 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         std::vector<uint8_t> chunk_buf(wormhole::ARC_SPI_CHUNK_SIZE);
 
         for (uint32_t chunk = 0; chunk < num_chunks; ++chunk) {
-            uint32_t offset = chunk * wormhole::ARC_SPI_CHUNK_SIZE;
-            uint32_t chunk_addr = start_addr + offset;
+            uint32_t const offset = chunk * wormhole::ARC_SPI_CHUNK_SIZE;
+            uint32_t const chunk_addr = start_addr + offset;
 
             // Read the current chunk first.
-            uint32_t spi_read_msg =
+            uint32_t const spi_read_msg =
                 wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
             messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
 
@@ -399,18 +399,18 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
                 chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
 
             // Keep a copy to check if we need to write.
-            std::vector<uint8_t> orig_data = chunk_buf;
+            std::vector<uint8_t> const orig_data = chunk_buf;
 
             // Modify the relevant portion with new data.
             if (offset < start_offset) {
                 // First chunk: skip the beginning.
-                uint32_t skip = start_offset - offset;
-                uint32_t copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE - skip, size);
+                uint32_t const skip = start_offset - offset;
+                uint32_t const copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE - skip, size);
                 std::memcpy(chunk_buf.data() + skip, data, copy_size);
             } else {
                 // Subsequent chunks.
-                uint32_t input_offset = offset - start_offset;
-                uint32_t copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE, size - input_offset);
+                uint32_t const input_offset = offset - start_offset;
+                uint32_t const copy_size = std::min<uint32_t>(wormhole::ARC_SPI_CHUNK_SIZE, size - input_offset);
                 std::memcpy(chunk_buf.data(), data + input_offset, copy_size);
             }
 
@@ -420,7 +420,7 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
                     chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
 
                 if (!skip_write_to_spi) {
-                    uint32_t spi_write_msg =
+                    uint32_t const spi_write_msg =
                         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_WRITE);
                     messenger->send_message(spi_write_msg, ret, {0xFFFF, 0xFFFF});
                 }

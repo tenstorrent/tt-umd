@@ -31,10 +31,10 @@ public:
 
     void verify_noc_id_cores_via_other_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {
-        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
+        CoordSystem const other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
 
         // Set NOC context to this_noc for consistent read operations.
-        NocIdSwitcher this_noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
+        NocIdSwitcher const this_noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
 
         const std::vector<CoreCoord>& cores =
             use_harvested_cores ? cluster_->get_soc_descriptor(chip).get_harvested_cores(core_type, this_noc)
@@ -52,7 +52,7 @@ public:
             EXPECT_EQ(core.y, this_y);
 
             // Represent the read coords in the system from which their regs were read.
-            CoreCoord other_noc_coord(other_x, other_y, core_type, other_noc);
+            CoreCoord const other_noc_coord(other_x, other_y, core_type, other_noc);
 
             // Translate the current from host-side core (which is represented in this_noc) to the other_noc.
             auto other_noc_coord_soc_desc = cluster_->get_soc_descriptor(chip).translate_coord_to(core, other_noc);
@@ -78,7 +78,7 @@ public:
         }
     }
 
-    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {
+    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvesteconst d_cores) {
         CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
 
         const std::vector<CoreCoord>& cores =
@@ -88,12 +88,12 @@ public:
         for (const CoreCoord& core_this_noc : cores) {
             tt_xy_pair other_noc_reg_value_via_this_noc;
             tt_xy_pair other_noc_reg_value_via_other_noc;
-            {
+            {const 
                 NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
                 // Read via this_noc the coordinate of the other_noc (from the NODE_ID reg) for the current core.
                 other_noc_reg_value_via_this_noc = read_noc_id_reg(chip, core_this_noc, get_noc_index(other_noc));
             }
-            {
+            {const 
                 NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
                 // Read via this_noc the coordinate of the other_noc (from the NODE_ID reg) for the current core.
                 other_noc_reg_value_via_other_noc = read_noc_id_reg(chip, core_this_noc, get_noc_index(other_noc));
@@ -144,7 +144,7 @@ private:
         const uint64_t noc_node_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
+            clusterconst _->get_tt_device(0)->get_architecture_implemeconst ntation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
@@ -231,7 +231,7 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
     bool use_differ_test = false;
     if (arch == ARCH::BLACKHOLE) {
         use_differ_test =
-            (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
+            (core_type == CoreType::PCIE || core_type == Corconst eType::ARC || core_type == CoreType::SECURITY ||
              core_type == CoreType::L2CPU);
     } else if (arch == ARCH::WORMHOLE_B0) {
         use_differ_test =

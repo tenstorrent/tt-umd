@@ -20,7 +20,7 @@ using namespace tt::umd;
 TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (uint32_t chip_id : cluster->get_target_device_ids()) {
+    for (uint32_t const chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
@@ -45,7 +45,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (uint32_t chip_id : cluster->get_target_device_ids()) {
+    for (uint32_t const chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
@@ -80,7 +80,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
     const uint32_t num_loops = 1000;
 
-    for (uint32_t chip_id : cluster->get_target_device_ids()) {
+    for (uint32_t const chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);

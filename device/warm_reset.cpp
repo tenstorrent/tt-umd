@@ -98,23 +98,23 @@ int wait_for_pci_bdf_to_reappear(
     while (std::chrono::steady_clock::now() < deadline) {
         // Use glob to find matching paths.
         glob_t glob_result;
-        std::string pattern = fmt::format("/sys/bus/pci/devices/{}/tenstorrent/tenstorrent!*", bdf);
+        std::string const pattern = fmt::format("/sys/bus/pci/devices/{}/tenstorrent/tenstorrent!*", bdf);
 
-        int glob_status = glob(pattern.c_str(), GLOB_NOSORT, nullptr, &glob_result);
+        int const glob_status = glob(pattern.c_str(), GLOB_NOSORT, nullptr, &glob_result);
 
         if (glob_status == 0 && glob_result.gl_pathc > 0) {
             // Extract interface_id from the first match.
-            std::string match_path = glob_result.gl_pathv[0];
-            std::filesystem::path path(match_path);
-            std::string filename = path.filename().string();
+            std::string const match_path = glob_result.gl_pathv[0];
+            std::filesystem::path const path(match_path);
+            std::string const filename = path.filename().string();
 
             // Remove "tenstorrent!" prefix using find().
             const std::string prefix = "tenstorrent!";
             if (filename.find(prefix) == 0) {
-                std::string id_str = filename.substr(prefix.length());
+                std::string const id_str = filename.substr(prefix.length());
                 interface_id = std::stoi(id_str);
 
-                std::string dev_path = fmt::format("/dev/tenstorrent/{}", interface_id);
+                std::string const dev_path = fmt::format("/dev/tenstorrent/{}", interface_id);
                 if (std::filesystem::exists(dev_path)) {
                     device_reappeared = true;
                 }
@@ -168,7 +168,7 @@ void WarmReset::warm_reset_arch_agnostic(
         reset_m3 ? reset_m3_timeout
                  : std::chrono::milliseconds(static_cast<int>(std::max(2.0, 0.4 * pci_devices_info.size()) * 1000));
 
-    std::chrono::duration<double> post_reset_wait_seconds = post_reset_wait;
+    std::chrono::duration<double> const post_reset_wait_seconds = post_reset_wait;
 
     log_debug(tt::LogUMD, "Waiting for {} seconds after reset execution.", post_reset_wait_seconds.count());
     std::this_thread::sleep_for(post_reset_wait);
@@ -186,7 +186,7 @@ void WarmReset::warm_reset_arch_agnostic(
 }
 
 void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
-    std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    std::unordered_set<int> const pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
 
     std::map<int, bool> reset_bits;
@@ -203,7 +203,7 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     while (std::chrono::steady_clock::now() - start < timeout_duration) {
         for (const auto& pci_device_id : pci_device_ids) {
             auto command_byte = PCIDevice::read_command_byte(pci_device_id);
-            bool reset_bit = (command_byte >> 1) & 1;
+            bool const reset_bit = (command_byte >> 1) & 1;
             reset_bits[pci_device_id] = reset_bit;
         }
 
@@ -243,7 +243,7 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
-    std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    std::unordered_set<int> const pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
@@ -426,14 +426,14 @@ static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_co
         return connected_sockets;
     }
 
-    int my_pid = getpid();
+    int const my_pid = getpid();
 
     for (const auto& entry : std::filesystem::directory_iterator(WarmResetCommunication::LISTENER_DIR)) {
         if (!entry.is_socket()) {
             continue;
         }
 
-        std::string filename = entry.path().filename().string();
+        std::string const filename = entry.path().filename().string();
         int target_pid = extract_pid_from_socket_name(filename);
 
         if (target_pid == -1 || target_pid == my_pid) {
@@ -473,14 +473,14 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
         // Create Unique Socket Name: client_<PID>.sock.
         // We use the PID so the Notifier knows who this is.
-        std::string socket_name = "client_" + std::to_string(getpid()) + ".sock";
-        std::filesystem::path socket_path = std::filesystem::path(LISTENER_DIR) / socket_name;
+        std::string const socket_name = "client_" + std::to_string(getpid()) + ".sock";
+        std::filesystem::path const socket_path = std::filesystem::path(LISTENER_DIR) / socket_name;
 
         // Cleanup stale socket if we crashed previously.
         ::unlink(socket_path.c_str());
 
         asio::local::stream_protocol::acceptor acceptor(*io);
-        asio::local::stream_protocol::endpoint endpoint(socket_path.string());
+        asio::local::stream_protocol::endpoint const endpoint(socket_path.string());
 
         acceptor.open(endpoint.protocol(), ec);
         if (ec) {
@@ -593,7 +593,7 @@ void WarmResetCommunication::Notifier::notify_all_listeners(
     }
 
     asio::io_context io;
-    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> active_sockets = get_connected_listeners(io);
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> const active_sockets = get_connected_listeners(io);
 
     if (active_sockets.empty()) {
         return;

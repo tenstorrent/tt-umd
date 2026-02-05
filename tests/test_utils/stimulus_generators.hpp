@@ -282,7 +282,7 @@ public:
     // Generate a sample (transfer type, size, chip, destination, address) based on custom distributions.
     remote_transfer_sample_t generate_sample() {
         // Randomly select a transfer type.
-        RemoteTransferType transfer_type = transfer_type_distribution.generate();
+        RemoteTransferType const transfer_type = transfer_type_distribution.generate();
         assert(transfer_type < 4 && transfer_type >= 0);
         switch (transfer_type) {
             case RemoteTransferType::WRITE: {
@@ -352,7 +352,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
     ClusterDescriptor const& cluster_desc, SocDescriptor const& soc_desc) {
     std::vector<destination_t> core_index_to_location = {};
 
-    for (ChipId chip : cluster_desc.get_all_chips()) {
+    for (ChipId const chip : cluster_desc.get_all_chips()) {
         for (const CoreCoord dram_core : soc_desc.get_cores(CoreType::DRAM)) {
             core_index_to_location.push_back({chip, dram_core});
         }
@@ -363,7 +363,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
 
 // Add a default test harness that can be invoked with custom distributions only.
 static inline void print_command(remote_transfer_sample_t const& command) {
-    RemoteTransferType transfer_type = std::get<0>(command);
+    RemoteTransferType const transfer_type = std::get<0>(command);
     switch (transfer_type) {
         case RemoteTransferType::WRITE: {
             write_transfer_sample_t const& command_args = std::get<write_transfer_sample_t>(std::get<1>(command));
@@ -548,7 +548,7 @@ get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
     assert(cluster != nullptr);
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
     SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
-    std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
+    std::vector<destination_t> const core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
 
     return ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         seed,
@@ -564,7 +564,7 @@ static inline WriteCommandGenerator<
 build_dummy_write_command_generator(Cluster& cluster) {
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
-    std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
+    std::vector<destination_t> const core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         0,
         std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),
@@ -589,7 +589,7 @@ static inline ReadCommandGenerator<
 build_dummy_read_command_generator(Cluster& cluster) {
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
-    std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
+    std::vector<destination_t> const core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         0,
         std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),

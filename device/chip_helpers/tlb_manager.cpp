@@ -89,7 +89,7 @@ Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     TT_ASSERT(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
 
-    int tlb_index = map_core_to_tlb_.at(core);
+    int const tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 

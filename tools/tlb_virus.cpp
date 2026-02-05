@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
         for (int pci_device_id : PCIDevice::enumerate_devices()) {
             auto tt_device = TTDevice::create(pci_device_id);
             tt_device->init_tt_device();
-            tt::ARCH arch = tt_device->get_arch();
+            tt::ARCH const arch = tt_device->get_arch();
             auto pci_device = tt_device->get_pci_device();
             auto arch_impl = tt_device->get_architecture_implementation();
 
@@ -76,8 +76,8 @@ int main(int argc, char* argv[]) {
                 tt::arch_to_str(arch));
 
             // Fetch and log TLB counts per size for this architecture.
-            for (size_t tlb_size : tlb_sizes) {
-                uint32_t total_count = get_tlb_count_for_size(arch_impl, tlb_size);
+            for (size_t const tlb_size : tlb_sizes) {
+                uint32_t const total_count = get_tlb_count_for_size(arch_impl, tlb_size);
                 // Initialize tracking for this device and size.
                 tlb_allocation_summary[pci_device_id][tlb_size] = {0, total_count};
             }

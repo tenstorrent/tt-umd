@@ -25,10 +25,10 @@ inline void export_results(const std::string& title, std::vector<Result> const& 
         std::cout << OUTPUT_ENV_VAR << " not set. Results will not exported." << std::endl;
         return;
     }
-    std::filesystem::path filepath = std::filesystem::path(results_path) / (title + ".json");
+    std::filesystem::path const filepath = std::filesystem::path(results_path) / (title + ".json");
     std::ofstream file(filepath);
     ankerl::nanobench::render(ankerl::nanobench::templates::json(), results, file);
-    std::filesystem::path html_filepath = std::filesystem::path(results_path) / (title + ".html");
+    std::filesystem::path const html_filepath = std::filesystem::path(results_path) / (title + ".html");
     std::ofstream html_file(html_filepath);
     ankerl::nanobench::render(ankerl::nanobench::templates::htmlBoxplot(), results, html_file);
 }

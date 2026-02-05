@@ -35,7 +35,7 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
+    uint64_t const size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
     auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
     builder.Finish(device_cmd);
     return builder;
@@ -69,7 +69,7 @@ inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 
 inline void send_command_to_simulation_host(SimulationHost& host, const flatbuffers::FlatBufferBuilder& flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
-    size_t wr_buffer_size = flat_buffer.GetSize();
+    size_t const wr_buffer_size = flat_buffer.GetSize();
     print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
@@ -90,7 +90,7 @@ RtlSimulationChip::RtlSimulationChip(
 
     // Start simulator process.
     uv_loop_t* loop = uv_default_loop();
-    std::string simulator_path_string = simulator_directory / "run.sh";
+    std::string const simulator_path_string = simulator_directory / "run.sh";
     if (!std::filesystem::exists(simulator_path_string)) {
         TT_THROW("Simulator binary not found at: ", simulator_path_string);
     }
@@ -109,7 +109,7 @@ RtlSimulationChip::RtlSimulationChip(
     child_options.stdio = child_stdio;
 
     uv_process_t child_p;
-    int rv = uv_spawn(loop, &child_p, &child_options);
+    int const rv = uv_spawn(loop, &child_p, &child_options);
     if (rv) {
         TT_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
     } else {
@@ -122,13 +122,13 @@ RtlSimulationChip::RtlSimulationChip(
 }
 
 void RtlSimulationChip::start_device() {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     void* buf_ptr = nullptr;
 
     host.start_host();
 
     log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote...");
-    size_t buf_size = host.recv_from_device(&buf_ptr);
+    size_t const buf_size = host.recv_from_device(&buf_ptr);
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
     TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
@@ -141,25 +141,25 @@ void RtlSimulationChip::close_device() {
 }
 
 void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
-    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    tt_xy_pair const translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     const uint32_t num_elements = size / sizeof(uint32_t);
     const auto* data_ptr = static_cast<const uint32_t*>(src);
-    std::vector<uint32_t> data(data_ptr, data_ptr + num_elements);
+    std::vector<uint32_t> const data(data_ptr, data_ptr + num_elements);
     send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest));
 }
 
 void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock);
-    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    std::lock_guard<std::mutex> const lock(device_lock);
+    tt_xy_pair const translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     void* rd_resp;
 
     // Send read request.
     send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size));
 
     // Get read response.
-    size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
+    size_t const rd_rsp_sz = host.recv_from_device(&rd_resp);
 
     auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
 
@@ -172,7 +172,7 @@ void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1
 }
 
 void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         send_command_to_simulation_host(
@@ -191,9 +191,9 @@ void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& sof
 }
 
 void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
-    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    tt_xy_pair const translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (arch_name == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
@@ -223,9 +223,9 @@ void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selecte
 }
 
 void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    tt_xy_pair const translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     // See the comment in assert_risc_reset for more details.
     if (arch_name == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {

@@ -44,8 +44,8 @@ std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value) {
 }
 
 TensixSoftResetOptions invert_selected_options(TensixSoftResetOptions selected) {
-    uint32_t selected_bits = static_cast<uint32_t>(selected);
-    uint32_t inverted = (~selected_bits) & static_cast<uint32_t>(ALL_TENSIX_SOFT_RESET);
+    uint32_t const selected_bits = static_cast<uint32_t>(selected);
+    uint32_t const inverted = (~selected_bits) & static_cast<uint32_t>(ALL_TENSIX_SOFT_RESET);
     return static_cast<TensixSoftResetOptions>(inverted);
 }
 

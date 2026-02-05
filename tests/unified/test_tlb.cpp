@@ -17,7 +17,7 @@ using namespace tt;
 using namespace tt::umd;
 
 bool is_kmd_version_good() {
-    semver_t kmd_ver = PCIDevice::read_kmd_version();
+    semver_t const kmd_ver = PCIDevice::read_kmd_version();
 
     return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }
@@ -33,9 +33,9 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     uint32_t val = 0;
-    std::vector<CoreCoord> tensix_cores =
+    std::vector<CoreCoord> const tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr);
         val++;
     }
@@ -44,7 +44,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
 
     uint32_t value_check = 0;
 
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         tlb_data config;
         config.local_offset = 0;
         config.x_end = core.x;
@@ -60,7 +60,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         std::unique_ptr<TlbWindow> tlb_window =
             std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
-        uint32_t readback_value = tlb_window->read32(0);
+        uint32_t const readback_value = tlb_window->read32(0);
 
         EXPECT_EQ(readback_value, value_check);
 
@@ -79,9 +79,9 @@ TEST(TestTlb, TestTlbWindowReuse) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     uint32_t val = 0;
-    std::vector<CoreCoord> tensix_cores =
+    std::vector<CoreCoord> const tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr);
         val++;
     }
@@ -92,11 +92,11 @@ TEST(TestTlb, TestTlbWindowReuse) {
 
     // Here it's not important how we have configured the TLB. For every read we will
     // do the reconfigure of the TLB window.
-    tlb_data config{};
+    tlb_data const config{};
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         tlb_data config;
         config.local_offset = 0;
         config.x_end = core.x;
@@ -111,7 +111,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
 
         tlb_window->configure(config);
 
-        uint32_t readback_value = tlb_window->read32(0);
+        uint32_t const readback_value = tlb_window->read32(0);
 
         EXPECT_EQ(readback_value, value_check);
 
@@ -139,7 +139,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         tlb_data config;
         config.local_offset = tlb_base & ~(two_mb_size - 1);
         config.x_end = core.x;
@@ -157,10 +157,10 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
         tlb_window->configure(config);
 
-        uint32_t noc_node_id_val = tlb_window->read32(noc_node_id_tlb_offset & (two_mb_size - 1));
+        uint32_t const noc_node_id_val = tlb_window->read32(noc_node_id_tlb_offset & (two_mb_size - 1));
 
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        uint32_t const x = noc_node_id_val & 0x3F;
+        uint32_t const y = (noc_node_id_val >> 6) & 0x3F;
 
         EXPECT_EQ(core.x, x);
         EXPECT_EQ(core.y, y);
@@ -180,7 +180,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         tlb_data config_write;
         config_write.local_offset = 0;
         config_write.x_end = core.x;
@@ -199,12 +199,12 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
-        tlb_data config_read = config_write;
+        tlb_data const config_read = config_write;
         std::unique_ptr<TlbWindow> tlb_window_read =
             std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
-        uint32_t expect4 = tlb_window_read->read32(0);
-        uint32_t expect0 = tlb_window_read->read32(4);
+        uint32_t const expect4 = tlb_window_read->read32(0);
+        uint32_t const expect0 = tlb_window_read->read32(4);
 
         EXPECT_EQ(expect4, 4);
         EXPECT_EQ(expect0, 0);
@@ -230,7 +230,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
         write_pattern[i] = (i % 256);
     }
 
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         cluster->write_to_device(write_pattern.data(), write_pattern.size(), chip, core, one_mb);
 
         tlb_data config;
@@ -288,7 +288,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
-    for (CoreCoord core : tensix_cores) {
+    for (CoreCoord const core : tensix_cores) {
         tlb_data config;
         config.local_offset = 0;
         config.x_end = core.x;
@@ -346,7 +346,7 @@ TEST(TestTlb, TLBStaticTensix) {
         cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
     }
 
-    Writer writer = cluster->get_static_tlb_writer(0, tensix_core_0);
+    Writer const writer = cluster->get_static_tlb_writer(0, tensix_core_0);
 
     const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {

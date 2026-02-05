@@ -48,16 +48,16 @@ WormholeCoordinateManager::WormholeCoordinateManager(
 }
 
 void WormholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
-    size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
+    size_t const num_harvested_y = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
     for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            CoreCoord const logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
             const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
             const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::tensix_translated_coordinate_start_y;
 
-            CoreCoord translated_coord =
+            CoreCoord const translated_coord =
                 CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
@@ -70,7 +70,7 @@ void WormholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair noc0_core = tensix_cores[y * tensix_grid_size.x + x];
                 const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
-                CoreCoord translated_coord =
+                CoreCoord const translated_coord =
                     CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
                 add_core_translation(translated_coord, noc0_core);

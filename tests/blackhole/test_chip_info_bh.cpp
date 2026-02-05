@@ -13,9 +13,9 @@ using namespace tt;
 using namespace tt::umd;
 
 TEST(BlackholeChipInfo, BasicChipInfo) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 

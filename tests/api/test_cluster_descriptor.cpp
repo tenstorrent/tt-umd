@@ -44,7 +44,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
         // Expect it to be invalid if no devices are found.
         EXPECT_THROW(cluster_desc->get_arch(0), std::runtime_error);
     } else {
-        tt::ARCH arch = cluster_desc->get_arch(0);
+        tt::ARCH const arch = cluster_desc->get_arch(0);
         EXPECT_NE(arch, tt::ARCH::Invalid);
 
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
@@ -54,7 +54,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
             pci_chips_set.insert(pci_device_number);
         }
 
-        std::unordered_map<ChipId, ChipId> chips_with_mmio = cluster_desc->get_chips_with_mmio();
+        std::unordered_map<ChipId, ChipId> const chips_with_mmio = cluster_desc->get_chips_with_mmio();
         std::unordered_set<ChipId> cluster_chips_set;
         for (const auto& [_, pci_device_number] : chips_with_mmio) {
             cluster_chips_set.insert(pci_device_number);
@@ -76,9 +76,9 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
-    std::unordered_map<ChipId, ChipId> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
+    std::unordered_set<ChipId> const all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<ChipId, EthCoord> const eth_chip_coords = cluster_desc->get_chip_locations();
+    std::unordered_map<ChipId, ChipId> const local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
     std::unordered_set<ChipId> local_chips;
     std::unordered_set<ChipId> remote_chips;
 
@@ -91,13 +91,13 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         }
     }
 
-    bool is_baremetal = all_chips.empty();
-    bool is_6u = all_chips.size() == 32;
+    bool const is_baremetal = all_chips.empty();
+    bool const is_6u = all_chips.size() == 32;
     if (!is_baremetal && !is_6u && cluster_desc->get_arch() == tt::ARCH::WORMHOLE_B0) {
         EXPECT_EQ(eth_chip_coords.size(), all_chips.size());
     }
 
-    std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
+    std::unordered_map<ChipId, std::unordered_set<ChipId>> const chips_grouped_by_closest_mmio =
         cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
@@ -127,7 +127,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
         for (int eth_chan = 0;
              eth_chan < architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
              eth_chan++) {
-            bool has_active_link = cluster_desc->ethernet_core_has_active_ethernet_link(chip, eth_chan);
+            bool const has_active_link = cluster_desc->ethernet_core_has_active_ethernet_link(chip, eth_chan);
             std::cout << "Chip " << chip << " channel " << eth_chan << " has active link: " << has_active_link
                       << std::endl;
 
@@ -157,7 +157,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
 }
 
 TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
@@ -222,7 +222,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(count_connections(eth_connections), 0);
 
             for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
+                BoardType const board_type = cluster_desc->get_board_type(chip);
                 EXPECT_TRUE(
                     board_type == BoardType::N150 || board_type == BoardType::P100 || board_type == BoardType::P150)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
@@ -246,7 +246,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(count_connections(eth_connections), 4);
 
             for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
+                BoardType const board_type = cluster_desc->get_board_type(chip);
                 EXPECT_TRUE(board_type == BoardType::N300 || board_type == BoardType::P300)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
             }
@@ -262,7 +262,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(count_connections(eth_connections), 40);
 
             for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
+                BoardType const board_type = cluster_desc->get_board_type(chip);
                 EXPECT_TRUE(board_type == BoardType::N300)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
             }
@@ -278,7 +278,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(count_connections(eth_connections), 512);
 
             for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
+                BoardType const board_type = cluster_desc->get_board_type(chip);
                 EXPECT_TRUE(board_type == BoardType::UBB)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
             }
@@ -295,7 +295,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
             size_t count_n150 = 0;
             for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
+                BoardType const board_type = cluster_desc->get_board_type(chip);
                 EXPECT_TRUE(board_type == BoardType::N150 || board_type == BoardType::GALAXY)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
                 if (board_type == BoardType::N150) {

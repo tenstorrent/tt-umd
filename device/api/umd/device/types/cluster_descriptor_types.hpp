@@ -225,7 +225,7 @@ inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
     {0x47, BoardType::UBB_BLACKHOLE}};
 
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
-    uint64_t upi = (board_id >> 36) & 0xFFFFF;
+    uint64_t const upi = (board_id >> 36) & 0xFFFFF;
 
     auto board_type_it = board_upi_map.find(upi);
     if (board_type_it != board_upi_map.end()) {

@@ -465,6 +465,17 @@ wormhole::EthTrainStatus WormholeTTDevice::read_training_status(tt_xy_pair eth_c
 
     uint32_t training_status;
     read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
+    log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
+
+    if (training_status == static_cast<uint32_t>(wormhole::EthTrainStatus::Fail)) {
+        uint32_t link_err_status;
+        read_from_device(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
+        log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
+        if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
+            return wormhole::EthTrainStatus::NotConnected;
+        }
+    }
+
     return static_cast<wormhole::EthTrainStatus>(training_status);
 }
 

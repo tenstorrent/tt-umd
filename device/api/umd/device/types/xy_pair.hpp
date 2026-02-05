@@ -31,7 +31,7 @@ constexpr bool operator<(const xy_pair &left, const xy_pair &right) {
 }
 
 struct cxy_pair : public xy_pair {
-    cxy_pair() :  chip{} {}
+    cxy_pair() {}
 
     cxy_pair(std::size_t ichip, xy_pair pair) : xy_pair(pair.x, pair.y), chip(ichip) {}
 

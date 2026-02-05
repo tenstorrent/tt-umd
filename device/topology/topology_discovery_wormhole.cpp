@@ -226,6 +226,9 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
+    if (!options.no_wait_for_eth_training) {
+        wait_eth_cores_training(remote_tt_device.get());
+    }
     return remote_tt_device;
 }
 
@@ -354,7 +357,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
             current_retrain_eth_count++;
             bool all_eth_cores_trained = true;
 
-            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+            for (const auto& [asic_id, tt_device] : devices) {
                 auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
                 for (const CoreCoord& eth_core :

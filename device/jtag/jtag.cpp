@@ -5,7 +5,6 @@
 #include "umd/device/jtag/jtag.hpp"
 
 #include <cstdint>
-
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>

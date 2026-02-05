@@ -13,6 +13,7 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -46,7 +47,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
-
+    cluster->set_power_state(DevicePowerState::BUSY);
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
@@ -61,6 +62,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
         });
     }
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 TEST(MicrobenchmarkPCIeDMA, Tensix) {
@@ -71,7 +73,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
-
+    cluster->set_power_state(DevicePowerState::BUSY);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
@@ -86,6 +88,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
         });
     }
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 TEST(MicrobenchmarkPCIeDMA, Ethernet) {
@@ -96,7 +99,7 @@ TEST(MicrobenchmarkPCIeDMA, Ethernet) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
-
+    cluster->set_power_state(DevicePowerState::BUSY);
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
@@ -111,6 +114,7 @@ TEST(MicrobenchmarkPCIeDMA, Ethernet) {
         });
     }
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
@@ -120,6 +124,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
+    cluster->set_power_state(DevicePowerState::BUSY);
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
     const uint64_t LIMIT_BUF_SIZE = ONE_GIB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
@@ -133,6 +138,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
         });
     }
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
@@ -142,6 +148,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
+    cluster->set_power_state(DevicePowerState::BUSY);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
     const uint64_t LIMIT_BUF_SIZE = ONE_MIB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
@@ -155,6 +162,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
         });
     }
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
@@ -164,6 +172,7 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
+    cluster->set_power_state(DevicePowerState::BUSY);
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH)[0];
     const uint64_t LIMIT_BUF_SIZE = 128 * ONE_KIB;
     for (uint64_t buf_size = 4; buf_size <= LIMIT_BUF_SIZE; buf_size *= 2) {
@@ -177,6 +186,7 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
         });
     }
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 // This test measures bandwidth of IO using PCIe DMA engine where user buffer is mapped through IOMMU
@@ -200,7 +210,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
-
+    cluster->set_power_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
@@ -213,6 +223,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
         sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core, ADDRESS);
     });
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 // Test the PCIe DMA controller by using it to write random fixed-size pattern
@@ -227,7 +238,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
 
-    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte");
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte").epochs(1).epochIterations(1000);
     const uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -236,6 +247,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
+    cluster->set_power_state(DevicePowerState::BUSY);
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
@@ -249,6 +261,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }
 
 // This test measures bandwidth of IO using PCIe DMA engine where user buffer is mapped through IOMMU
@@ -275,6 +288,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
+    cluster->set_power_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     void* mapping =
@@ -291,4 +305,5 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     });
     munmap(mapping, BUFFER_SIZE);
     test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 }

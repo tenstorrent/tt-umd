@@ -75,7 +75,7 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
                 tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
                 // This will unmap the hugepage if it was mapped through kmd.
                 // This is a hack for the 4th hugepage channel which is limited to 768MB.
-                size_t const actual_size = (tt_const device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+                size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                          ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                          : HugepageMapping.mapping_size;
                 tt_device_->get_pci_device()->unmap_for_dma(HugepageMapping.mapping, actual_size);
@@ -102,8 +102,8 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     // application might try to use the channels it asked for.  We should
     // just fail early since the error message will be actionable instead of
     // a segfault or memory corruption.
-    uint16_t const pcie_device_id = tconst t_device_->get_pci_device()->get_pci_device_id();
-    uint32_t const pcie_revision = ttconst _device_->get_pci_device()->get_pci_revision();
+    uint16_t const pcie_device_id = tt_device_->get_pci_device()->get_pci_device_id();
+    uint32_t const pcie_revision = tt_device_->get_pci_device()->get_pci_revision();
     num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_channels, pcie_device_id, pcie_revision);
 
     log_debug(
@@ -115,7 +115,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
-    std::string const hugepage_dir = finconst d_hugepage_dir(hugepage_size);
+    std::string const hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
         log_warning(
             LogUMD,
@@ -130,7 +130,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        int const hugepage_fd = openconst _hugepage_file(hugepage_dir, physical_device_id, ch);
+        int const hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
         if (hugepage_fd == -1) {
             // Probably a permissions problem.
             log_warning(
@@ -203,10 +203,10 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
     for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         void *mapping = hugepage_mapping_per_channel.at(ch).mapping;
         size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
-        size_t const actual_size = (tt_const device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+        size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
-        bool map_buffer_to_noc const = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
+        bool const map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
         uint64_t physical_address;
         uint64_t noc_address;
         if (map_buffer_to_noc) {
@@ -295,7 +295,7 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     // Support for more than 1GB host memory accessible per device, via channels.
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *fake_mapping = static_cast<uint8_t *>(iommu_mapping) + ch * HUGEPAGE_REGION_SIZE;
-        size_t const actual_size = (tt_const device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+        size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
@@ -310,7 +310,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         return true;
     }
 
-    bool map_buffer_to_noc const = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
+    bool const map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
 
     sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, map_buffer_to_noc);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
@@ -331,7 +331,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
-        uint64_t device_io_address const = iova + ch * HUGEPAGE_REGION_SIZE;
+        uint64_t const device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel.at(ch).physical_address = device_io_address;
     }
 

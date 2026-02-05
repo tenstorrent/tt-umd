@@ -28,7 +28,7 @@
 
 namespace tt::umd {
 
-SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) : SysmemManager() {
+SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
     pcie_base_ = tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0

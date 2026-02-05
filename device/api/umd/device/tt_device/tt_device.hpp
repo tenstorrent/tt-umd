@@ -19,7 +19,6 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/tt_device_health.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -28,6 +27,16 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+
+enum class TTDeviceInitResult : uint8_t {
+    UNKNOWN = 0,
+    UNINITIALIZED,
+    ARC_STARTUP_FAILED,
+    ARC_MESSENGER_UNAVAILABLE,
+    ARC_TELEMETRY_UNAVAILABLE,
+    FIRMWARE_INFO_PROVIDER_UNAVAILABLE,
+    SUCCESSFUL,
+};
 
 class TTDevice {
 public:

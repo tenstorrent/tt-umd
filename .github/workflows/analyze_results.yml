@@ -13,6 +13,26 @@ on:
       card:
         required: true
         type: string
+      baseline-run-id:
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      arch:
+        required: true
+        type: string
+      ubuntu-docker-version:
+        required: true
+        type: string
+      card:
+        required: true
+        type: string
+      results-run-id:
+        required: true
+        type: string
+      baseline-run-id:
+        required: false
+        type: string
 
 env:
   UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results
@@ -22,7 +42,7 @@ jobs:
     name: Analyze results for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
 
     steps:
       - name: Checkout analysis tools
@@ -32,21 +52,38 @@ jobs:
             tests/microbenchmark/tools/analyze_results.py
           sparse-checkout-cone-mode: false
 
+      - name: Install dependencies for API calls
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends curl jq gh python3-venv
+
+      - name: Create and activate virtual environment
+        run: |
+          python3 -m venv /tmp/venv
+          . /tmp/venv/bin/activate
+          echo "PATH=$PATH" >> $GITHUB_ENV
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+
       - name: Install python dependencies
-        run: python3 -m pip install --no-cache-dir pandas psutil tabulate
+        run: |
+          . /tmp/venv/bin/activate
+          python3 -m pip install --no-cache-dir pandas psutil tabulate
 
       - name: Create benchmark results directory
         run: mkdir -p ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/{base,compare}
 
       - name: Get latest main run ID for "Build and run all benchmarks"
         id: get-main-run
+        if: inputs.baseline-run-id == ''
         continue-on-error: true
         run: |
-          MAIN_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs?branch=main&status=success&per_page=1" \
-            | jq -r '.workflow_runs[] | select(.name == "Build and run all benchmarks") | .id' | head -1)
-          echo "run-id=$MAIN_RUN_ID" >> $GITHUB_OUTPUT
+            MAIN_RUN_ID=$(gh run list -R ${{ github.repository }} \
+            -b main -w 175973905 -s success -L 1 \
+            --json databaseId --jq '.[0].databaseId')
+            echo Found: $MAIN_RUN_ID
+            echo "run-id=$MAIN_RUN_ID" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download baseline JSON benchmark results
         id: download-baseline
@@ -55,7 +92,7 @@ jobs:
         continue-on-error: true
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          run-id: ${{ steps.get-main-run.outputs.run-id }}
+          run-id: ${{ inputs.baseline-run-id != '' && inputs.baseline-run-id || steps.get-main-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 
@@ -70,14 +107,24 @@ jobs:
       - name: Run analysis of benchmark data (with baseline)
         if: steps.download-baseline.outcome == 'success' && steps.download-comparison.outcome == 'success'
         run: |
+          . /tmp/venv/bin/activate
+          echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           python3 tests/microbenchmark/tools/analyze_results.py \
-          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare -c ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
+          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare -c ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base \
+          | tee ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
 
-      - name: Run analysis of benchmark data (comparison only)
+      - name: Run analysis of benchmark data
         if: steps.download-baseline.outcome != 'success' && steps.download-comparison.outcome == 'success'
         run: |
+          . /tmp/venv/bin/activate
+          echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
+          echo "" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           python3 tests/microbenchmark/tools/analyze_results.py \
-          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
+          ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare \
+          | tee -a ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
 
       - name: Cleanup benchmark results directory
         if: always()

@@ -262,6 +262,9 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
+    if (PCIDevice(pci_device_ids.at(0)).get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping test since PCIe DMA is not enabled for Blackhole.";
+    }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;

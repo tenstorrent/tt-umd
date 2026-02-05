@@ -48,12 +48,14 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
         case ARCH::WORMHOLE_B0: {
             semver_t const fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int const compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            int const compare_18_7_bundle_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 
-            int const compare_18_3_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
+            int const compare_18_3_bundle_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
             if (compare_18_3_bundle_result > 0) {
                 return std::make_unique<Wormhole_18_7_FirmwareInfoProvider>(tt_device);
             }
@@ -63,7 +65,8 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
         case ARCH::BLACKHOLE: {
             semver_t const fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int const compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            int const compare_18_7_bundle_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }

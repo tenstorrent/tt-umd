@@ -288,7 +288,8 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
             continue;
         }
 
-        bool const is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+        bool const is_integer =
+            !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
 
         if (is_integer) {
             int device_id = std::stoi(device_token);

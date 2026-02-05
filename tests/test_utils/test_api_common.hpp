@@ -94,7 +94,7 @@ inline bool is_4u_galaxy_configuration(Cluster* cluster) {
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     bool const is_6u_galaxy_configuration = !cluster->get_target_device_ids().empty() &&
-                                      cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
+                                            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
     return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
 }
 

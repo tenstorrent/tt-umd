@@ -191,7 +191,8 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                                   ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_rd_data)
                                   : eth_interface_params.cmd_rd_data;
         uint32_t const resp_rd_ptr = erisc_resp_q_rptr[0] & eth_interface_params.cmd_buf_size_mask;
-        uint32_t const host_dram_block_addr = host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
+        uint32_t const host_dram_block_addr =
+            host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
         uint16_t const host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (use_host_dram && block_size > DATA_WORD_SIZE) {
@@ -471,7 +472,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                     data_block.size() * DATA_WORD_SIZE);
 
             } else {
-                uint32_t const buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
+                uint32_t const buf_address =
+                    eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(data_block.data(), static_cast<const uint8_t*>(src) + offset, transfer_size);
                 local_tt_device_->write_to_device(

@@ -72,7 +72,8 @@ protected:
 
     void wait_for_socket_state(int pid, bool should_exist) {
         std::string const socket_name = "client_" + std::to_string(pid) + ".sock";
-        std::filesystem::path const socket_path = std::filesystem::path(WarmResetCommunication::LISTENER_DIR) / socket_name;
+        std::filesystem::path const socket_path =
+            std::filesystem::path(WarmResetCommunication::LISTENER_DIR) / socket_name;
 
         int retries = 50;  // Wait up to 500ms.
         while (retries--) {

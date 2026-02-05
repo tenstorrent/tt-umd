@@ -76,8 +76,8 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
                 // This will unmap the hugepage if it was mapped through kmd.
                 // This is a hack for the 4th hugepage channel which is limited to 768MB.
                 size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
-                                         ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
-                                         : HugepageMapping.mapping_size;
+                                               ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
+                                               : HugepageMapping.mapping_size;
                 tt_device_->get_pci_device()->unmap_for_dma(HugepageMapping.mapping, actual_size);
             }
             if (HugepageMapping.mapping) {
@@ -204,8 +204,8 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
         void *mapping = hugepage_mapping_per_channel.at(ch).mapping;
         size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
         size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
-                                 ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
-                                 : hugepage_size;
+                                       ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
+                                       : hugepage_size;
         bool const map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
         uint64_t physical_address;
         uint64_t noc_address;
@@ -296,8 +296,8 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *fake_mapping = static_cast<uint8_t *>(iommu_mapping) + ch * HUGEPAGE_REGION_SIZE;
         size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
-                                 ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
-                                 : HUGEPAGE_REGION_SIZE;
+                                       ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
+                                       : HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
     }
 

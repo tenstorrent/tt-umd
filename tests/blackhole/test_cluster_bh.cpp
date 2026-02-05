@@ -392,7 +392,8 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     }
 
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
-        CoreCoord const core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
+        CoreCoord const core =
+            cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
         test_utils::read_data_from_device(cluster, readback_membar_vec, 0, core, 0, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all DRAM
@@ -480,7 +481,8 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     test_utils::safe_test_cluster_start(&cluster);
-    std::vector<uint32_t> const broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    std::vector<uint32_t> const broadcast_sizes = {
+        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t const address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
     std::set<uint32_t> cols_to_exclude = {0, 5};
@@ -558,14 +560,15 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
     bool const virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+                                         cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    std::vector<uint32_t> const broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    std::vector<uint32_t> const broadcast_sizes = {
+        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t const address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};
     std::set<uint32_t> cols_to_exclude = {0, 5};

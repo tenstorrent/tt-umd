@@ -171,7 +171,8 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 
         CoreCoord const translated_from_logical =
             coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
-        CoreCoord const translated_from_noc0 = coordinate_manager->translate_coord_to(noc0_coords, CoordSystem::TRANSLATED);
+        CoreCoord const translated_from_noc0 =
+            coordinate_manager->translate_coord_to(noc0_coords, CoordSystem::TRANSLATED);
 
         EXPECT_EQ(translated_from_logical, expected_translated_coords);
         EXPECT_EQ(translated_from_noc0, expected_translated_coords);

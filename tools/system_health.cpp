@@ -202,7 +202,8 @@ int main(int argc, char* argv[]) {
             cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
 
-            std::string const connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
+            std::string const connection_type =
+                get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {
                 if (eth_connections.at(chip_id).find(chan) != eth_connections.at(chip_id).end()) {
                     const auto& [connected_chip_id, connected_chan] =

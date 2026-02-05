@@ -54,7 +54,8 @@ double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
 
 std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(
     uint32_t num_dram_channels) const {
-    uint32_t const telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
+    uint32_t const telemetry_data =
+        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
 
     // Each dram channel uses 4 bits in the 32-bit value in order to represent the state of DRAM training.
     // That's why we move by 4 bits for each channel to get its status.

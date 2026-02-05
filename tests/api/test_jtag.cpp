@@ -193,7 +193,8 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
     for (const auto& device : device_data_) {
         SocDescriptor const soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
         tt_xy_pair const test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
-        tt_xy_pair const test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
+        tt_xy_pair const test_core_noc_1 =
+            soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
 
         device.tt_device_->write_to_device(
             data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));

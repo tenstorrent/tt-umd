@@ -312,7 +312,8 @@ void CoordinateManager::fill_eth_default_noc0_translated_mapping() {
         const size_t translated_x = noc0_pair.x;
         const size_t translated_y = noc0_pair.y;
 
-        CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, noc0_pair);
     }
@@ -326,7 +327,8 @@ void CoordinateManager::fill_dram_default_noc0_translated_mapping() {
             const size_t translated_x = noc0_pair.x;
             const size_t translated_y = noc0_pair.y;
 
-            CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord =
+                CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
         }
@@ -338,7 +340,8 @@ void CoordinateManager::fill_pcie_default_noc0_translated_mapping() {
         const size_t translated_x = noc0_pair.x;
         const size_t translated_y = noc0_pair.y;
 
-        CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, noc0_pair);
     }
@@ -352,7 +355,8 @@ void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
             const size_t translated_x = noc0_pair.x;
             const size_t translated_y = noc0_pair.y;
 
-            CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord =
+                CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
         }

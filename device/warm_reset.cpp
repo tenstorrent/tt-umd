@@ -593,7 +593,8 @@ void WarmResetCommunication::Notifier::notify_all_listeners(
     }
 
     asio::io_context io;
-    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> const active_sockets = get_connected_listeners(io);
+    std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> const active_sockets =
+        get_connected_listeners(io);
 
     if (active_sockets.empty()) {
         return;

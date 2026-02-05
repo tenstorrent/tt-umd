@@ -563,7 +563,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
         }
     }
 
-    for (YAML::Node const& connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
+    for (YAML::Node const &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
@@ -631,7 +631,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     }
 
     if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
-        for (YAML::Node const& connected_endpoints :
+        for (YAML::Node const &connected_endpoints :
              yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
             TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 

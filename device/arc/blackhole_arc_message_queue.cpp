@@ -56,7 +56,8 @@ void BlackholeArcMessageQueue::push_request(
     }
 
     // Offset in words.
-    uint32_t const request_entry_offset = header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
+    uint32_t const request_entry_offset =
+        header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
     write_words(request.data(), BlackholeArcMessageQueue::entry_len, request_entry_offset);
 
     request_queue_wptr = (request_queue_wptr + 1) % (2 * size);

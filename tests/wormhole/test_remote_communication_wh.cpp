@@ -117,7 +117,8 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     std::unique_ptr<TTDevice> local_tt_device = TTDevice::create(physical_device_id);
     local_tt_device->init_tt_device();
 
-    SocDescriptor const local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
+    SocDescriptor const local_soc_descriptor =
+        SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
     EthCoord const target_chip = cluster_desc->get_chip_locations().at(*remote_chip_id);
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager

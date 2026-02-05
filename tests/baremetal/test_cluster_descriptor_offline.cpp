@@ -219,7 +219,8 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
         // Writes and reads have no effect but we can check that the mock cluster is created successfully.
         std::vector<uint8_t> data(1024, 0);
         for (auto chip_id : mock_cluster_all->get_target_device_ids()) {
-            CoreCoord const any_tensix_core = mock_cluster_all->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+            CoreCoord const any_tensix_core =
+                mock_cluster_all->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
             mock_cluster_all->write_to_device(data.data(), data.size(), chip_id, any_tensix_core, 0);
             mock_cluster_all->read_from_device(data.data(), chip_id, any_tensix_core, 0, data.size());
         }

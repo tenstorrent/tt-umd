@@ -212,7 +212,8 @@ void BlackholeCoordinateManager::translate_l2cpu_coords() {
     for (size_t l2cpu_core_index = 0; l2cpu_core_index < l2cpu_cores.size(); l2cpu_core_index++) {
         const tt_xy_pair& l2cpu_core = l2cpu_cores[l2cpu_core_index];
 
-        CoreCoord const translated_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::TRANSLATED);
         add_core_translation(translated_coord, l2cpu_core);
 
         if (harvesting_masks.l2cpu_harvesting_mask & (1 << l2cpu_core_index)) {
@@ -238,7 +239,8 @@ void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
         CoreCoord const logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
         const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
 
-        CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, noc0_pair);
     }
@@ -272,7 +274,8 @@ void BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
             translated_y = blackhole::pcie_translated_coordinate_start_y;
         }
 
-        CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, noc0_pair);
     }
@@ -283,7 +286,8 @@ void BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
             const size_t translated_x = noc0_pair.x;
             const size_t translated_y = noc0_pair.y;
 
-            CoreCoord const translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord =
+                CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
         }
@@ -303,7 +307,8 @@ void BlackholeCoordinateManager::map_dram_banks(
             CoreCoord const logical_coord = CoreCoord(bank, port, CoreType::DRAM, CoordSystem::LOGICAL);
             const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
 
-            CoreCoord const translated_coord = CoreCoord(x_coord, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord =
+                CoreCoord(x_coord, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
 

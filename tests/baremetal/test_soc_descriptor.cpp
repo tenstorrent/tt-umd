@@ -436,18 +436,18 @@ TEST(SocDescriptor, NocTranslation) {
 
 TEST(SocDescriptor, BoardBasedPCIE) {
     // Expect invalid configuration to throw an exception.
-    EXPECT_ANY_THROW(SocDescriptor soc_desc(
+    EXPECT_ANY_THROW(SocDescriptor const soc_desc(
         test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true,
          .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask, .pcie_harvesting_mask = 0x1},
          .board_type = BoardType::P150}));
-    EXPECT_ANY_THROW(SocDescriptor soc_desc(
+    EXPECT_ANY_THROW(SocDescriptor const soc_desc(
         test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true,
          .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask},
          .board_type = BoardType::P300,
          .asic_location = 0}));
-    EXPECT_ANY_THROW(SocDescriptor soc_desc(
+    EXPECT_ANY_THROW(SocDescriptor const soc_desc(
         test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true,
          .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask},

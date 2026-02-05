@@ -78,7 +78,7 @@ public:
         }
     }
 
-    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvesteconst d_cores) {
+    void verify_noc_ids_differ_by_noc(ChipId chip, CoreType core_type, CoordSystem this_noc, bool const use_harvested_cores) {
         CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
 
         const std::vector<CoreCoord>& cores =
@@ -88,13 +88,13 @@ public:
         for (const CoreCoord& core_this_noc : cores) {
             tt_xy_pair other_noc_reg_value_via_this_noc;
             tt_xy_pair other_noc_reg_value_via_other_noc;
-            {const 
-                NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
+            {
+                NocIdSwitcher const noc_switcher(static_cast<NocId>(get_noc_index(this_noc)));
                 // Read via this_noc the coordinate of the other_noc (from the NODE_ID reg) for the current core.
                 other_noc_reg_value_via_this_noc = read_noc_id_reg(chip, core_this_noc, get_noc_index(other_noc));
             }
-            {const 
-                NocIdSwitcher noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
+            {
+                NocIdSwitcher const noc_switcher(static_cast<NocId>(get_noc_index(other_noc)));
                 // Read via this_noc the coordinate of the other_noc (from the NODE_ID reg) for the current core.
                 other_noc_reg_value_via_other_noc = read_noc_id_reg(chip, core_this_noc, get_noc_index(other_noc));
             }
@@ -144,11 +144,11 @@ private:
         const uint64_t noc_node_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +
-            clusterconst _->get_tt_device(0)->get_architecture_implemeconst ntation()->get_noc_node_id_offset();
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        uint32_t const x = noc_node_id_val & 0x3F;
+        uint32_t const y = (noc_node_id_val >> 6) & 0x3F;
         log_debug(
             tt::LogUMD,
             "Reading noc {} regs for chip {} core ({},{}) from addr {:x}. Result is raw {:x} which corresponds to "
@@ -231,14 +231,14 @@ TEST_P(TestNocValidity, VerifyNocTranslation) {
     bool use_differ_test = false;
     if (arch == ARCH::BLACKHOLE) {
         use_differ_test =
-            (core_type == CoreType::PCIE || core_type == Corconst eType::ARC || core_type == CoreType::SECURITY ||
+            (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::SECURITY ||
              core_type == CoreType::L2CPU);
     } else if (arch == ARCH::WORMHOLE_B0) {
         use_differ_test =
             (core_type == CoreType::PCIE || core_type == CoreType::ARC || core_type == CoreType::ROUTER_ONLY);
     }
 
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+    for (ChipId const chip : get_cluster()->get_target_device_ids()) {
         if (use_differ_test) {
             verify_noc_ids_differ_by_noc(chip, core_type, noc, use_harvested_cores);
         } else {
@@ -263,8 +263,8 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Values(CoordSystem::NOC0, CoordSystem::NOC1),
         ::testing::Values(false, true)),
     [](const ::testing::TestParamInfo<std::tuple<CoreType, CoordSystem, bool>>& info) {
-        CoreType core_type = std::get<0>(info.param);
-        CoordSystem noc = std::get<1>(info.param);
-        bool use_harvested = std::get<2>(info.param);
+        CoreType const core_type = std::get<0>(info.param);
+        CoordSystem const noc = std::get<1>(info.param);
+        bool const use_harvested = std::get<2>(info.param);
         return to_str(core_type) + "_" + to_str(noc) + (use_harvested ? "_Harvested" : "_Normal");
     });

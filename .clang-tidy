@@ -41,7 +41,6 @@ Checks: >
     -cppcoreguidelines-slicing,
     -cppcoreguidelines-special-member-functions,
     -cppcoreguidelines-virtual-class-destructor,
-    -misc-const-correctness,
     -misc-definitions-in-headers,
     -misc-header-include-cycle,
     -misc-include-cleaner,

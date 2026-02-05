@@ -172,8 +172,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
 
         // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
         int distance = std::numeric_limits<int>::max();
-        EthCoord exit_shelf = shelf_to_shelf_connection.source_chip_coord;
-        for (EthCoord next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
+        EthCoord const exit_shelf = shelf_to_shelf_connection.source_chip_coord;
+        for (EthCoord const next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
             TT_ASSERT(
                 exit_shelf.y == location_b.y && exit_shelf.shelf == location_b.shelf &&
                     exit_shelf.rack == location_b.rack,
@@ -184,8 +184,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
                 "Invalid shelf entry coordinates");
 
             // hop onto the next shelf and find distance from there
-            int distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_shelf);
-            int distance_in_next_shelf = get_ethernet_link_coord_distance(next_shelf, location_a);
+            int const distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_shelf);
+            int const distance_in_next_shelf = get_ethernet_link_coord_distance(next_shelf, location_a);
             // no path found
             if (distance_to_exit == std::numeric_limits<int>::max() ||
                 distance_in_next_shelf == std::numeric_limits<int>::max()) {
@@ -263,8 +263,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
 
         // for each rack-to-rack connection at location_a.x, find the distance to location_b, take min
         int distance = std::numeric_limits<int>::max();
-        EthCoord exit_rack = rack_to_rack_connection.source_chip_coord;
-        for (EthCoord next_rack : rack_to_rack_connection.destination_chip_coords) {
+        EthCoord const exit_rack = rack_to_rack_connection.source_chip_coord;
+        for (EthCoord const next_rack : rack_to_rack_connection.destination_chip_coords) {
             TT_ASSERT(
                 exit_rack.x == location_b.x && exit_rack.shelf == location_b.shelf && exit_rack.rack == location_b.rack,
                 "Invalid rack exit coordinates");
@@ -274,8 +274,8 @@ int ClusterDescriptor::get_ethernet_link_coord_distance(const EthCoord &location
                 "Invalid rack entry coordinates");
 
             // hop onto the next rack and find distance from there
-            int distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_rack);
-            int distance_in_next_rack = get_ethernet_link_coord_distance(next_rack, location_a);
+            int const distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_rack);
+            int const distance_in_next_rack = get_ethernet_link_coord_distance(next_rack, location_a);
             // no path found
             if (distance_to_exit == std::numeric_limits<int>::max() ||
                 distance_in_next_rack == std::numeric_limits<int>::max()) {
@@ -563,7 +563,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
         }
     }
 
-    for (YAML::Node  const&connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
+    for (YAML::Node const& connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
@@ -631,7 +631,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     }
 
     if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
-        for (YAML::Node  const&connected_endpoints :
+        for (YAML::Node const& connected_endpoints :
              yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
             TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 

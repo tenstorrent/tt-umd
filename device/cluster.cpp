@@ -239,7 +239,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         return chip;
     } else {
-        ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        ChipId const gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
         const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(

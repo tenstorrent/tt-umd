@@ -134,7 +134,7 @@ TEST(Assert, UnformattableTypes) {
         std::stringstream output;
         EXPECT_THROW(
             {
-                UnformattableType obj(456);
+                UnformattableType const obj(456);
                 tt::assert::tt_assert_message(output, "Unformattable: {}", obj);
             },
             std::runtime_error);

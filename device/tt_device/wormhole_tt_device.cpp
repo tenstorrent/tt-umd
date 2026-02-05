@@ -153,7 +153,7 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
     static constexpr uint64_t DMA_WRITE_DOORBELL_OFF = 0x10;
 
     std::scoped_lock const lock(dma_mutex_);
-    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
+    DmaBuffer  const&dma_buffer = pci_device_->get_const const dma_buffer();
     volatile uint8_t *bar2 = reinterpret_cast<volatile uint8_t *>(pci_device_->bar2_uc);
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
@@ -231,7 +231,7 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
     static constexpr uint64_t DMA_READ_DOORBELL_OFF = 0x30;
 
     std::scoped_lock const lock(dma_mutex_);
-    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
+    DmaBuffer  const&dma_buffer = pci_device_->get_const const dma_buffer();
     volatile uint8_t *bar2 = reinterpret_cast<volatile uint8_t *>(pci_device_->bar2_uc);
     volatile uint32_t *completion = reinterpret_cast<volatile uint32_t *>(dma_buffer.completion);
 
@@ -298,7 +298,7 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_d2h is not applicable for JTAG communication type.");
     }
-    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
+    DmaBuffer  const&dma_buffer = pci_device_->get_const const dma_buffer();
 
     if (size > dma_buffer.size) {
         throw std::runtime_error("DMA size exceeds buffer size");
@@ -312,7 +312,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d is not applicable for JTAG communication type.");
     }
-    DmaBuffer  const&dma_buffer = pci_device_->get_dma_buffer();
+    DmaBuffer  const&dma_buffer = pci_device_->get_const const dma_buffer();
 
     if (size > dma_buffer.size) {
         throw std::runtime_error("DMA size exceeds buffer size");

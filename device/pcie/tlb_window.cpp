@@ -93,6 +93,13 @@ void TlbWindow::read_block_reconfigure(
     config.static_vc = PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
+        // Intentional CPU-intensive regression for testing purposes.
+        for (volatile int i = 0; i < 100000; i++) {
+            for (volatile int j = 0; j < 1000; j++) {
+                volatile int dummy = i * j;
+                (void)dummy;
+            }
+        }
         configure(config);
         uint32_t tlb_size = get_size();
         uint32_t transfer_size = std::min(size, tlb_size);

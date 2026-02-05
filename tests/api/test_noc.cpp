@@ -59,10 +59,11 @@ public:
 
             log_debug(
                 tt::LogUMD,
-                "verify_noc_id_cores_via_other_noc: chip {} core {} this_noc={} read=({},{}) vs other_noc={} "
+                "verify_noc_id_cores_via_other_noc: chip {} core ({},{}) this_noc={} read=({},{}) vs other_noc={} "
                 "read=({},{}) expected=({},{})",
                 chip,
-                core,
+                core.x,
+                core.y,
                 to_str(this_noc),
                 this_x,
                 this_y,
@@ -113,12 +114,17 @@ public:
 
             log_debug(
                 tt::LogUMD,
-                "verify_noc_ids_differ_by_noc: chip {} core {} via_this_noc={} via_other_noc={} expected_other={}",
+                "verify_noc_ids_differ_by_noc: chip {} core ({},{}) via_this_noc=({},{}) via_other_noc=({},{}) "
+                "expected_other=({},{})",
                 chip,
-                core_this_noc,
-                other_noc_reg_value_via_this_noc,
-                other_noc_reg_value_via_other_noc,
-                core_other_noc);
+                core_this_noc.x,
+                core_this_noc.y,
+                other_noc_reg_value_via_this_noc.x,
+                other_noc_reg_value_via_this_noc.y,
+                other_noc_reg_value_via_other_noc.x,
+                other_noc_reg_value_via_other_noc.y,
+                core_other_noc.x,
+                core_other_noc.y);
 
             // Reading via the other NOC returns coordinates matching that NOC's coordinate space.
             EXPECT_EQ(other_noc_reg_value_via_other_noc, core_other_noc);
@@ -145,13 +151,16 @@ private:
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         log_debug(
             tt::LogUMD,
-            "Reading noc {} regs for chip {} core {} from addr {:x}. Result is raw {:x} which corresponds to core {}",
+            "Reading noc {} regs for chip {} core ({},{}) from addr {:x}. Result is raw {:x} which corresponds to "
+            "core ({},{})",
             noc_index,
             chip,
-            core,
+            core.x,
+            core.y,
             noc_node_id_reg_addr,
             noc_node_id_val,
-            tt_xy_pair(x, y));
+            x,
+            y);
         return tt_xy_pair(x, y);
     }
 

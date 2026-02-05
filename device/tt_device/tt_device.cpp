@@ -28,7 +28,6 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
-#include "umd/device/types/tt_device_health.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 

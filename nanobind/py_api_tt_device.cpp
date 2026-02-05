@@ -26,7 +26,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tt_device_health.hpp"
 namespace nb = nanobind;
 
 using namespace tt;

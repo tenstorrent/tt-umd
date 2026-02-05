@@ -365,7 +365,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
             current_retrain_eth_count++;
             bool all_eth_cores_trained = true;
 
-            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+            for (const auto& [asic_id, tt_device] : devices) {
                 auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
                 for (const CoreCoord& eth_core :

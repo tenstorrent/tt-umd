@@ -21,7 +21,7 @@ using namespace tt;
 using namespace tt::umd;
 
 struct tt_multichip_core_addr {
-    tt_multichip_core_addr() : core{}, chip{}, addr{} {}
+    tt_multichip_core_addr() :  chip{}, addr{} {}
 
     tt_multichip_core_addr(ChipId chip, CoreCoord core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
 

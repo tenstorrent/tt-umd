@@ -66,7 +66,9 @@ TTDevice::TTDevice(
 TTDevice::TTDevice() : communication_device_id_(-1), arch(ARCH::Invalid) {}
 
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
+    communication_device_id_(-1),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()) {}
 
 void TTDevice::probe_arc() {
     uint32_t dummy;

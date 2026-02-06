@@ -167,15 +167,16 @@ void TopologyDiscovery::discover_remote_devices() {
 
         verify_fw_bundle_version(tt_device);
 
-        uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
+            const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
+
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
                     LogUMD,
                     "Skipping discovery from device ASIC ID: {} ETH core {}",
                     current_device_asic_id,
                     eth_core.str());
-                channel++;
+
                 continue;
             }
 
@@ -188,12 +189,10 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             if (!is_eth_trained(tt_device, eth_core)) {
-                channel++;
                 continue;
             }
 
             if (!verify_routing_firmware_state(tt_device, eth_core)) {
-                channel++;
                 continue;
             }
 
@@ -209,7 +208,6 @@ void TopologyDiscovery::discover_remote_devices() {
                      {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
                 log_debug(LogUMD, "Remote device outside of UMD cluster {}.", remote_asic_id);
 
-                channel++;
                 continue;
             }
 
@@ -234,7 +232,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 ethernet_connections.push_back(
                     {{current_device_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});
             }
-            channel++;
         }
     }
 

@@ -4,7 +4,13 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <ostream>
 #include <stdexcept>
+#include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"

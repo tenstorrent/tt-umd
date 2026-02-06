@@ -164,7 +164,7 @@ public:
     /**
      * @return PCI device info
      */
-    const PciDeviceInfo get_device_info() const { return info; }
+    PciDeviceInfo get_device_info() const { return info; }
 
     /**
      * @return which NUMA node this device is associated with, or -1 if non-NUMA
@@ -324,6 +324,18 @@ private:
      * Uses ALLOCATE_DMA_BUF IOCTL which allocates physically contiguous memory for DMA transactions.
      */
     bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
+
+    /**
+     * Get all device IDs without considering TT_VISIBLE_DEVICES environment variable.
+     * @return vector of all available device IDs
+     */
+    static std::vector<int> get_all_device_ids();
+
+    /**
+     * Get mapping of BDF to device ID without considering TT_VISIBLE_DEVICES environment variable.
+     * @return map from BDF string to device ID
+     */
+    static std::map<std::string, int> get_bdf_to_device_id_map();
 
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 

@@ -46,8 +46,26 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
+static std::vector<std::string> split_string_by_comma(const std::string& input_string) {
+    std::vector<std::string> device_tokens;
+    std::stringstream ss(input_string);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        token.erase(token.find_last_not_of(" \n\r\t") + 1);
+        token.erase(0, token.find_first_not_of(" \n\r\t"));
+        if (!token.empty()) {
+            device_tokens.push_back(token);
+        }
+    }
+
+    return device_tokens;
+}
+
 // This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
 // active.
+// This ENV variable is used to specify visible devices by PCI BDF (Bus:Device.Function) addresses.
+// Format: comma-separated BDF addresses like "0000:02:00.0,0000:03:00.0"
+// When set, TT_VISIBLE_DEVICES takes precedence over TT_VISIBLE_DEVICES for PCIe devices.
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 static inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {

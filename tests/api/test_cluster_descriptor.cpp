@@ -4,7 +4,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -38,13 +50,13 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
         std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
         std::unordered_set<ChipId> pci_chips_set;
-        for (auto [pci_device_number, _] : pci_device_infos) {
+        for (const auto& [pci_device_number, _] : pci_device_infos) {
             pci_chips_set.insert(pci_device_number);
         }
 
         std::unordered_map<ChipId, ChipId> chips_with_mmio = cluster_desc->get_chips_with_mmio();
         std::unordered_set<ChipId> cluster_chips_set;
-        for (auto [_, pci_device_number] : chips_with_mmio) {
+        for (const auto& [_, pci_device_number] : chips_with_mmio) {
             cluster_chips_set.insert(pci_device_number);
         }
 
@@ -77,8 +89,6 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         if (cluster_desc->is_chip_remote(chip_id)) {
             remote_chips.insert(chip_id);
         }
-
-        auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
     bool is_baremetal = all_chips.empty();
@@ -99,8 +109,8 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 
     auto ethernet_connections = cluster_desc->get_ethernet_connections();
-    for (auto [chip, connections] : ethernet_connections) {
-        for (auto [channel, remote_chip_and_channel] : connections) {
+    for (const auto& [chip, connections] : ethernet_connections) {
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
             std::cout << "Ethernet connection from chip " << chip << " channel " << channel << " to chip "
                       << std::get<0>(remote_chip_and_channel) << " channel " << std::get<1>(remote_chip_and_channel)
                       << std::endl;
@@ -108,7 +118,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 
     auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-    for (auto [chip, mmio_chip] : chips_with_mmio) {
+    for (const auto& [chip, mmio_chip] : chips_with_mmio) {
         std::cout << "Chip " << chip << " has MMIO on PCI id " << mmio_chip << std::endl;
     }
 

@@ -8,6 +8,12 @@
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/.build/default",
             "cacheVariables": {
+                "CMAKE_C_COMPILER": {
+                    "value": "clang-20"
+                },
+                "CMAKE_CXX_COMPILER": {
+                    "value": "clang++-20"
+                },
                 "TT_UMD_BUILD_TESTS": {
                     "value": "TRUE"
                 },
@@ -64,17 +70,14 @@
             }
         },
         {
-            "name": "clang-static-analyzer",
+            "name": "code-analysis",
             "inherits": "default",
             "description": "Run Clang Static Analyzer",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/.build/clang-static-analyzer",
+            "binaryDir": "${sourceDir}/.build/code-analysis",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": {
                     "value": "Debug"
-                },
-                "TT_UMD_BUILD_SIMULATION": {
-                    "value": "FALSE"
                 }
             }
         }

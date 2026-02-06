@@ -7,16 +7,29 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <algorithm>
 #include <asio.hpp>
+#include <atomic>
+#include <cerrno>
 #include <charconv>  // for std::from_chars
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"
@@ -41,10 +54,11 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         pci_device_ids = PCIDevice::enumerate_devices();
     }
 
+    log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        warm_reset_arch_agnostic(pci_device_ids, reset_m3);
+        warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
         // Re-enumerate here as a safety net for potential race conditions where devices disappear
         // between the pre-reset notification and now. Clients are still guaranteed to receive the
@@ -69,6 +83,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         }
     }
 
+    log_info(tt::LogUMD, "Notifying all listeners of completed warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 }
 
@@ -193,7 +208,7 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
         }
 
         for (auto& [pci_device_id, reset_bit] : reset_bits) {
-            if (reset_bit != true) {
+            if (!reset_bit) {
                 all_reset_bits_set = false;
                 break;
             }

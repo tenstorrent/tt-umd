@@ -55,10 +55,6 @@ using namespace tt::umd;
 // N150. N300
 // Galaxy.
 
-constexpr std::uint32_t L1_BARRIER_BASE = 12;
-constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
-constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
-
 std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;

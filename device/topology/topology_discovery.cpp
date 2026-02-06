@@ -197,7 +197,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!is_eth_trained_and_connected(chip, eth_core, channel)) {
+            if (!is_eth_trained_and_connected(tt_device, eth_core, channel)) {
                 channel++;
                 continue;
             }

@@ -172,6 +172,8 @@ protected:
     // to match with all of the other discovered FW bundle versions on all devices.
     std::optional<semver_t> first_fw_bundle_version;
 
+    virtual bool is_eth_trained_and_connected(TTDevice* tt_device, const tt_xy_pair eth_core, uint32_t channel) = 0;
+
 private:
     // Hack used to cache SocDescriptors.
     std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;

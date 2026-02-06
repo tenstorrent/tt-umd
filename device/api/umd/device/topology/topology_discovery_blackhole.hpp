@@ -59,6 +59,8 @@ protected:
     void init_first_device(TTDevice* tt_device) override;
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    bool is_eth_trained_and_connected(TTDevice* tt_device, const tt_xy_pair eth_core, uint32_t channel) override;
 };
 
 }  // namespace tt::umd

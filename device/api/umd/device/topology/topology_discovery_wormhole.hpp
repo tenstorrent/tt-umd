@@ -71,7 +71,7 @@ protected:
 
     bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
-    bool is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) override;
+    bool is_eth_trained_and_connected(TTDevice* tt_device, const tt_xy_pair eth_core, uint32_t channel) override;
 
     EthAddresses eth_addresses;
 

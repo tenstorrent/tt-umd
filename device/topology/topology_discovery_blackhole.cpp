@@ -291,7 +291,8 @@ bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_devi
     return true;
 }
 
-bool TopologyDiscoveryBlackhole::is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) {
+bool TopologyDiscoveryBlackhole::is_eth_trained_and_connected(
+    TTDevice* tt_device, const tt_xy_pair eth_core, uint32_t channel) {
     return true;
 }
 

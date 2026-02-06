@@ -359,11 +359,10 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     return true;
 }
 
-bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(Chip* chip, const tt_xy_pair eth_core, uint32_t channel) {
+bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(
+    TTDevice* tt_device, const tt_xy_pair eth_core, uint32_t channel) {
     uint64_t addr = 0x1200 + (channel * 4);
     uint32_t eth_connection_info;
-
-    TTDevice* tt_device = chip->get_tt_device();
 
     tt_device->wait_eth_core_training(eth_core, std::chrono::milliseconds(5000));
 

@@ -21,7 +21,7 @@
 namespace tt::umd {
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
-    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+    const HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
         "write_buffer: Hugepages are not allocated ch: {}."

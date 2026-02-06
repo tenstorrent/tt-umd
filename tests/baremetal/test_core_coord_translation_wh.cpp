@@ -243,7 +243,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
     // Check translation for all corners of eth cores.
-    std::vector<std::pair<tt_xy_pair, tt_xy_pair>> input_output_eth_pairs = {
+    const std::vector<std::pair<tt_xy_pair, tt_xy_pair>> input_output_eth_pairs = {
         {{1, 0}, {18, 16}}, {{9, 0}, {25, 16}}, {{1, 6}, {18, 17}}, {{9, 6}, {25, 17}}};
 
     for (auto& [input_pair, output_pair] : input_output_eth_pairs) {

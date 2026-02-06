@@ -203,7 +203,7 @@ void TopologyDiscovery::discover_remote_devices() {
                     get_remote_board_id(tt_device, eth_core), get_remote_board_type(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_devices.find(get_remote_asic_id(tt_device, eth_core)) == discovered_devices.end())) {
-                uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
+                const uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_device_asic_id, channel},
                      {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});

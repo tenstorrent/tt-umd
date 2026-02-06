@@ -312,11 +312,11 @@ ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
 
     for (const auto &pair : this->chips_with_mmio) {
         const ChipId &mmio_chip = pair.first;
-        EthCoord mmio_eth_coord = this->chip_locations.at(mmio_chip);
+        const EthCoord mmio_eth_coord = this->chip_locations.at(mmio_chip);
 
         log_debug(LogUMD, "Checking chip{} at {}", mmio_chip, mmio_eth_coord);
 
-        int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
+        const int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
         log_debug(LogUMD, "Distance from chip{} to chip{} is {}", chip, mmio_chip, distance);
         if (distance < min_distance) {
             min_distance = distance;

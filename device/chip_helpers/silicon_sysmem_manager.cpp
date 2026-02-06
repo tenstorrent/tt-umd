@@ -202,7 +202,7 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         void *mapping = hugepage_mapping_per_channel.at(ch).mapping;
-        size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
+        const size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
         size_t const actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                        ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                        : hugepage_size;

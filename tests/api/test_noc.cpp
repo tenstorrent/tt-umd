@@ -80,7 +80,7 @@ public:
 
     void verify_noc_ids_differ_by_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool const use_harvested_cores) {
-        CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
+        const CoordSystem other_noc = (this_noc == CoordSystem::NOC0) ? CoordSystem::NOC1 : CoordSystem::NOC0;
 
         const std::vector<CoreCoord>& cores =
             use_harvested_cores ? cluster_->get_soc_descriptor(chip).get_harvested_cores(core_type, this_noc)

@@ -244,13 +244,13 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
     std::vector<std::string> const opt_2ccx_per_ccd_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
     for (const auto &package : m_package_id_to_devices_map) {
-        int package_id = package.first;
+        const int package_id = package.first;
         auto package_obj = hwloc_get_obj_by_type(m_topology, HWLOC_OBJ_PACKAGE, package_id);
         if (m_debug) {
             print_hwloc_object(package_obj, 0, true, true);
         }
 
-        std::string pkg_cpu_model = hwloc_obj_get_info_by_name(package_obj, "CPUModel");
+        const std::string pkg_cpu_model = hwloc_obj_get_info_by_name(package_obj, "CPUModel");
 
         // First find out if this CPU is supported by CPUSET Allocator at all.
         bool has_supported_cpu = use_any_cpu;

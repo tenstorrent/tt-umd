@@ -134,11 +134,11 @@ RiscType Chip::get_risc_reset_state(CoreCoord core) {
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    uint32_t soft_reset_current_state =
+    const uint32_t soft_reset_current_state =
         get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
-    uint32_t soft_reset_update =
+    const uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
+    const uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     log_debug(
         LogUMD,
         "Asserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
@@ -151,13 +151,13 @@ void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    uint32_t soft_reset_current_state =
+    const uint32_t soft_reset_current_state =
         get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
-    uint32_t soft_reset_update =
+    const uint32_t soft_reset_update =
         get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     // The update variable should be applied in such a way that it clears the bits that are set in the selected_riscs.
     uint32_t const soft_reset_new = soft_reset_current_state & ~soft_reset_update;
-    uint32_t soft_reset_new_with_staggered_start =
+    const uint32_t soft_reset_new_with_staggered_start =
         soft_reset_new |
         (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     log_debug(

@@ -363,8 +363,8 @@ Cluster::Cluster(ClusterOptions options) {
             // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
             // simulation.
             bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
-            temp_full_cluster_desc_ptr =
-                ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+            temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster_with_visible_devices(
+                options.target_devices, arch, noc_translation_enabled);
         }
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }

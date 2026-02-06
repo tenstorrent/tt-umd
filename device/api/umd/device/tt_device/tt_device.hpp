@@ -297,9 +297,7 @@ public:
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void l1_membar(
-        const std::unordered_set<tt_xy_pair> &cores = {},
-        uint32_t barrier_address = 0,
-        CoreType core_type = CoreType::TENSIX);
+        const std::vector<tt_xy_pair> &cores = {}, uint32_t barrier_address = 0, CoreType core_type = CoreType::TENSIX);
 
     /**
      * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write

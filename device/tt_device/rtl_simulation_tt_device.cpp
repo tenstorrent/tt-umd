@@ -240,7 +240,7 @@ void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_p
 }
 
 void RtlSimulationTTDevice::l1_membar(
-    const std::unordered_set<tt_xy_pair>& cores,
+    const std::vector<tt_xy_pair>& cores,
     uint32_t barrier_address,
     CoreType core_type) {  // No-op for simulation device.
 }

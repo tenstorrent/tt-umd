@@ -514,20 +514,19 @@ void TTDevice::set_membar_flag(
 
 void TTDevice::insert_host_to_device_barrier(const std::vector<tt_xy_pair> &cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads.
-    auto lock = lock_manager.acquire_mutex(MutexType::MEM_BARRIER, pci_device_->get_device_num());
+    auto const lock = lock_manager.acquire_mutex(MutexType::MEM_BARRIER, pci_device_->get_device_num());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }
 
-void TTDevice::l1_membar(const std::unordered_set<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
+void TTDevice::l1_membar(const std::vector<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
     if (core_type != CoreType::TENSIX && core_type != CoreType::ETH) {
         TT_THROW("l1_membar only supports TENSIX and ETH core types.");
     }
 
     if (!cores.empty()) {
         // Insert barrier on specific cores with L1.
-        std::vector<tt_xy_pair> cores_to_sync(cores.begin(), cores.end());
-        insert_host_to_device_barrier(cores_to_sync, barrier_address);
+        insert_host_to_device_barrier(cores, barrier_address);
     } else {
         // When no cores specified, cannot perform barrier as we don't have soc_descriptor at TTDevice level.
         // The caller should use Chip-level API for full barrier on all cores.

@@ -105,7 +105,7 @@ void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_
 }
 
 void RemoteWormholeTTDevice::l1_membar(
-    const std::unordered_set<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
+    const std::vector<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
     wait_for_non_mmio_flush();
 }
 

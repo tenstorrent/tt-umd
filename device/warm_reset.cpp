@@ -434,7 +434,7 @@ static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_co
         }
 
         std::string const filename = entry.path().filename().string();
-        int target_pid = extract_pid_from_socket_name(filename);
+        const int target_pid = extract_pid_from_socket_name(filename);
 
         if (target_pid == -1 || target_pid == my_pid) {
             continue;

@@ -270,7 +270,7 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
 
         if (is_bdf) {
             if (bdf_to_device_id_map.find(device_token) != bdf_to_device_id_map.end()) {
-                int device_id = bdf_to_device_id_map[device_token];
+                const int device_id = bdf_to_device_id_map[device_token];
                 filtered_device_ids.insert(device_id);
                 log_debug(
                     LogUMD,
@@ -292,7 +292,7 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
             !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
 
         if (is_integer) {
-            int device_id = std::stoi(device_token);
+            const int device_id = std::stoi(device_token);
             if (std::find(all_device_ids.begin(), all_device_ids.end(), device_id) != all_device_ids.end()) {
                 filtered_device_ids.insert(device_id);
                 log_debug(LogUMD, "Added device id {} because of token filter {}.", device_id, device_token);

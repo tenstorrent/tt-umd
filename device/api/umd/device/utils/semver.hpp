@@ -64,8 +64,8 @@ public:
     }
 
     bool operator<(const semver_t& other) const noexcept {
-        uint64_t pr1 = (pre_release == 0) ? 256 : pre_release;
-        uint64_t pr2 = (other.pre_release == 0) ? 256 : other.pre_release;
+        const uint64_t pr1 = (pre_release == 0) ? 256 : pre_release;
+        const uint64_t pr2 = (other.pre_release == 0) ? 256 : other.pre_release;
         return std::tie(major, minor, patch, pr1) < std::tie(other.major, other.minor, other.patch, pr2);
     }
 

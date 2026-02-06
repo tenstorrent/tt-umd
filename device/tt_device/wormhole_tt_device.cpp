@@ -121,8 +121,8 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), {0, 0});
 
     // Print what just happened.
-    uint32_t peer_region_start = region_id_to_use * region_size;
-    uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
+    const uint32_t peer_region_start = region_id_to_use * region_size;
+    const uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
     log_debug(
         LogUMD,
         "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",

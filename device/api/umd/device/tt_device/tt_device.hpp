@@ -28,6 +28,16 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 
+enum class TTDeviceInitResult {
+    UNKNOWN = 0,
+    UNINITIALIZED,
+    ARC_STARTUP_FAILED,
+    ARC_MESSENGER_UNAVAILABLE,
+    ARC_TELEMETRY_UNAVAILABLE,
+    FIRMWARE_INFO_PROVIDER_UNAVAILABLE,
+    SUCCESSFUL,
+};
+
 class TTDevice {
 public:
     /**
@@ -268,7 +278,8 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    TTDeviceInitResult init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool throw_on_arc_failure = true);
 
     uint64_t get_refclk_counter();
 

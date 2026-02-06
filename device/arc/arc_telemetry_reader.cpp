@@ -26,9 +26,9 @@ ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_devic
 std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(TTDevice* tt_device) {
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            semver_t const fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_fw_bundles_result =
+            int const compare_fw_bundles_result =
                 semver_t::compare_firmware_bundle(fw_bundle_version, new_telemetry_fw_bundle);
             if (compare_fw_bundles_result >= 0) {
                 log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
@@ -51,7 +51,7 @@ void ArcTelemetryReader::initialize_telemetry() {
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at telemetry.h
-    uint32_t tag_table_address = telemetry_table_addr + 2 * sizeof(uint32_t);
+    uint32_t const tag_table_address = telemetry_table_addr + 2 * sizeof(uint32_t);
     std::vector<TelemetryTagEntry> telemetry_tag_entries(entry_count);
     tt_device->read_from_device(
         telemetry_tag_entries.data(), arc_core, tag_table_address, entry_count * sizeof(TelemetryTagEntry));

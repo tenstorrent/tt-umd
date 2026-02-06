@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
 
     ss << std::endl << "Found " << unique_chip_ids.size() << " chips in cluster_descriptor:" << std::endl;
 
-    std::vector<std::string> unexpected_system_states;
+    std::vector<std::string> const unexpected_system_states;
     for (const auto& [chip_id, unique_chip_id] : unique_chip_ids) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         const auto& logical_coord = soc_desc.get_cores(CoreType::ETH, CoordSystem::LOGICAL);
@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
         ss << chip_id_ss.str() << std::endl;
 
         for (uint32_t chan = 0; chan < soc_desc.get_num_eth_channels(); chan++) {
-            CoreCoord translated_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::TRANSLATED);
 
             std::stringstream eth_ss;
 
@@ -202,7 +202,8 @@ int main(int argc, char* argv[]) {
             cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
 
-            std::string connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
+            std::string const connection_type =
+                get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {
                 if (eth_connections.at(chip_id).find(chan) != eth_connections.at(chip_id).end()) {
                     const auto& [connected_chip_id, connected_chan] =
@@ -242,7 +243,7 @@ int main(int argc, char* argv[]) {
     std::cout << chip_info_ss.str();
     std::cout << ss.str();
 
-    std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);
+    std::string const output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);
     std::cout << "Cluster descriptor serialized to " << output_path << std::endl;
 
     return 0;

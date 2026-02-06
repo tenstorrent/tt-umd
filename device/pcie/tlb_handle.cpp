@@ -19,7 +19,7 @@ namespace tt::umd {
 
 TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
     tlb_size(size), tt_device_(tt_device), tlb_mapping(tlb_mapping) {
-    int ret_code = tt_tlb_alloc(
+    int const ret_code = tt_tlb_alloc(
         tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
     if (ret_code != 0) {
@@ -45,7 +45,7 @@ void TlbHandle::configure(const tlb_data& new_config) {
     config.ordering = new_config.ordering;
     config.static_vc = new_config.static_vc;
 
-    int ret_code = tt_tlb_map(tt_device_, tlb_handle_, &config);
+    int const ret_code = tt_tlb_map(tt_device_, tlb_handle_, &config);
 
     if (ret_code != 0) {
         TT_THROW("tt_tlb_map failed with error code {} for TLB size {}.", ret_code, tlb_size);

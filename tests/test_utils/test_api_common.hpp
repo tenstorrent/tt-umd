@@ -54,7 +54,7 @@ public:
         constexpr std::array<uint32_t, 6> ncrisc_program{
             make_counter_program(ncrisc_counter_address | register_instruction)};
 
-        std::vector<RiscCoreProgramConfig> triscs_and_ncrisc{
+        std::vector<RiscCoreProgramConfig> const triscs_and_ncrisc{
             {trisc0_code_address, trisc0_counter_address, trisc0_program, RiscType::TRISC0},
             {trisc1_code_address, trisc1_counter_address, trisc1_program, RiscType::TRISC1},
             {trisc2_code_address, trisc2_counter_address, trisc2_program, RiscType::TRISC2},
@@ -93,8 +93,8 @@ inline bool is_4u_galaxy_configuration(Cluster* cluster) {
 
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
-    bool is_6u_galaxy_configuration = !cluster->get_target_device_ids().empty() &&
-                                      cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
+    bool const is_6u_galaxy_configuration = !cluster->get_target_device_ids().empty() &&
+                                            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
     return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
 }
 

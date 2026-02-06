@@ -41,10 +41,10 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_yaml);
 
-        std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
-        std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
+        std::unordered_set<ChipId> const all_chips = cluster_desc->get_all_chips();
+        std::unordered_map<ChipId, EthCoord> const eth_chip_coords = cluster_desc->get_chip_locations();
 
-        std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
+        std::unordered_map<ChipId, std::unordered_set<ChipId>> const chips_grouped_by_closest_mmio =
             cluster_desc->get_chips_grouped_by_closest_mmio();
 
         // Check that cluster_id is always the same for the same cluster.
@@ -69,14 +69,14 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
         std::stringstream buffer;
         buffer << fdesc.rdbuf();
         fdesc.close();
-        std::string file_content = buffer.str();
+        std::string const file_content = buffer.str();
 
         std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml_content(file_content);
 
-        std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
-        std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
+        std::unordered_set<ChipId> const all_chips = cluster_desc->get_all_chips();
+        std::unordered_map<ChipId, EthCoord> const eth_chip_coords = cluster_desc->get_chip_locations();
 
-        std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
+        std::unordered_map<ChipId, std::unordered_set<ChipId>> const chips_grouped_by_closest_mmio =
             cluster_desc->get_chips_grouped_by_closest_mmio();
 
         // Check that cluster_id is always the same for the same cluster.
@@ -103,9 +103,9 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 
     // Merge into clusters of chips.
     for (const auto& connection : cluster_desc->get_ethernet_connections()) {
-        ChipId chip = connection.first;
+        ChipId const chip = connection.first;
         for (auto [channel, remote_chip_and_channel] : connection.second) {
-            ChipId remote_chip = std::get<0>(remote_chip_and_channel);
+            ChipId const remote_chip = std::get<0>(remote_chip_and_channel);
             chip_clusters.merge(chip, remote_chip);
         }
     }
@@ -115,7 +115,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 
     // Check that get_closes_mmio_capable_chip works.
     for (auto chip : all_chips) {
-        ChipId closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
+        ChipId const closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
         EXPECT_TRUE(chip_clusters.are_same_set(chip, closest_mmio_chip));
     }
 }
@@ -219,7 +219,8 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
         // Writes and reads have no effect but we can check that the mock cluster is created successfully.
         std::vector<uint8_t> data(1024, 0);
         for (auto chip_id : mock_cluster_all->get_target_device_ids()) {
-            CoreCoord any_tensix_core = mock_cluster_all->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+            CoreCoord const any_tensix_core =
+                mock_cluster_all->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
             mock_cluster_all->write_to_device(data.data(), data.size(), chip_id, any_tensix_core, 0);
             mock_cluster_all->read_from_device(data.data(), chip_id, any_tensix_core, 0, data.size());
         }

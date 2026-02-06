@@ -18,6 +18,8 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
         "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
+    SYSTEM INTERFACE
+        "$<TARGET_PROPERTY:picosha2::picosha2,INTERFACE_INCLUDE_DIRECTORIES>"
 )
 target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 

@@ -40,7 +40,7 @@ std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y)
 tt_xy_pair format_node(std::string str) {
     int x_coord;
     int y_coord;
-    std::regex expr("([0-9]+)[-,xX]([0-9]+)");
+    std::regex const expr("([0-9]+)[-,xX]([0-9]+)");
     std::smatch x_y_pair;
 
     if (std::regex_search(str, x_y_pair, expr)) {
@@ -374,7 +374,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
 
 SocDescriptor::SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) :
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
-    SocDescriptorInfo soc_desc_info = SocDescriptor::get_soc_descriptor_info(arch_soc);
+    SocDescriptorInfo const soc_desc_info = SocDescriptor::get_soc_descriptor_info(arch_soc);
     load_from_soc_desc_info(soc_desc_info);
     create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
 }
@@ -514,7 +514,7 @@ std::unordered_set<tt_xy_pair> SocDescriptor::translate_coords_to_xy_pair(
     const std::unordered_set<CoreCoord> &core_coords, const CoordSystem coord_system) const {
     std::unordered_set<tt_xy_pair> translated_xy_pairs;
     for (const auto &core : core_coords) {
-        CoreCoord translated_core = translate_coord_to(core, coord_system);
+        CoreCoord const translated_core = translate_coord_to(core, coord_system);
         translated_xy_pairs.insert({translated_core.x, translated_core.y});
     }
     return translated_xy_pairs;
@@ -523,7 +523,7 @@ std::unordered_set<tt_xy_pair> SocDescriptor::translate_coords_to_xy_pair(
 std::unordered_set<CoreCoord> SocDescriptor::get_eth_cores_for_channels(
     const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
     std::unordered_set<CoreCoord> eth_cores;
-    for (uint32_t channel : eth_channels) {
+    for (uint32_t const channel : eth_channels) {
         eth_cores.insert(get_eth_core_for_channel(channel, coord_system));
     }
     return eth_cores;
@@ -532,8 +532,8 @@ std::unordered_set<CoreCoord> SocDescriptor::get_eth_cores_for_channels(
 std::unordered_set<tt_xy_pair> SocDescriptor::get_eth_xy_pairs_for_channels(
     const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
     std::unordered_set<tt_xy_pair> eth_xy_pairs;
-    for (uint32_t channel : eth_channels) {
-        CoreCoord eth_core = get_eth_core_for_channel(channel, coord_system);
+    for (uint32_t const channel : eth_channels) {
+        CoreCoord const eth_core = get_eth_core_for_channel(channel, coord_system);
         eth_xy_pairs.insert({eth_core.x, eth_core.y});
     }
     return eth_xy_pairs;
@@ -658,9 +658,9 @@ std::filesystem::path SocDescriptor::serialize_to_file(const std::filesystem::pa
 }
 
 std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {
-    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::filesystem::path const temp_path = std::filesystem::temp_directory_path();
     std::string soc_path_dir_template = temp_path / "umd_XXXXXX";
-    std::filesystem::path soc_path_dir = mkdtemp(soc_path_dir_template.data());
+    std::filesystem::path const soc_path_dir = mkdtemp(soc_path_dir_template.data());
     std::filesystem::path soc_path = soc_path_dir / "soc_descriptor.yaml";
 
     return soc_path;

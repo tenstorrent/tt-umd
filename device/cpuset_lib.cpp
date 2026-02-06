@@ -40,7 +40,7 @@ cpuset_allocator::cpuset_allocator() {
     m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") != nullptr;
 
     // Chicken bit to disable this entire feature for debug/comparison.
-    bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") != nullptr;
+    bool const cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") != nullptr;
 
     auto system_tid = std::this_thread::get_id();
     log_debug(LogUMD, "Starting cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
@@ -55,7 +55,7 @@ cpuset_allocator::cpuset_allocator() {
     if (!cpuset_allocator_enable_env) {
         m_enable_cpuset_allocator = false;
     } else {
-        bool is_cpu_supported = init_is_cpu_model_supported();
+        bool const is_cpu_supported = init_is_cpu_model_supported();
 
         if (is_cpu_supported) {
             m_enable_cpuset_allocator &= init_determine_cpuset_allocations();
@@ -113,7 +113,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
     while ((pci_device_obj = hwloc_get_next_pcidev(m_topology, pci_device_obj))) {
         if (hwloc_obj_type_is_io(pci_device_obj->type) &&
             (pci_device_obj->attr->pcidev.vendor_id == TENSTORRENT_VENDOR_ID)) {
-            std::pair<uint16_t, uint16_t> device_id_revision =
+            std::pair<uint16_t, uint16_t> const device_id_revision =
                 std::make_pair(pci_device_obj->attr->pcidev.device_id, pci_device_obj->attr->pcidev.revision);
             m_num_tt_device_by_pci_device_id_map[device_id_revision] += 1;
 
@@ -232,25 +232,25 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
         return false;
     }
 
-    bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") != nullptr;
+    bool const use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") != nullptr;
 
     log_debug(LogUMD, "Inside cpuset_allocator::check_if_cpu_model_supported()");
 
     // Supported CPU Models for enabling CPUSET Allocator.  Keep the list small to production machines to start.
-    std::vector<std::string> supported_cpu_models = {
+    std::vector<std::string> const supported_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
 
     // CPU Models that have L3 per CCX and 2 CCX per CCD.
-    std::vector<std::string> opt_2ccx_per_ccd_cpu_models = {
+    std::vector<std::string> const opt_2ccx_per_ccd_cpu_models = {
         "AMD EPYC 7352 24-Core Processor", "AMD EPYC 7532 32-Core Processor"};
     for (const auto &package : m_package_id_to_devices_map) {
-        int package_id = package.first;
+        const int package_id = package.first;
         auto package_obj = hwloc_get_obj_by_type(m_topology, HWLOC_OBJ_PACKAGE, package_id);
         if (m_debug) {
             print_hwloc_object(package_obj, 0, true, true);
         }
 
-        std::string pkg_cpu_model = hwloc_obj_get_info_by_name(package_obj, "CPUModel");
+        const std::string pkg_cpu_model = hwloc_obj_get_info_by_name(package_obj, "CPUModel");
 
         // First find out if this CPU is supported by CPUSET Allocator at all.
         bool has_supported_cpu = use_any_cpu;
@@ -347,7 +347,7 @@ bool cpuset_allocator::init_determine_cpuset_allocations() {
                 // Hack for maximum number of slots per device.
                 // if (m_physical_device_id_to_cpusets_map.at(physical_device_id).size() < 2){
                 m_physical_device_id_to_cpusets_map.at(physical_device_id).push_back(obj->cpuset);
-                int num_cpus = hwloc_get_nbobjs_inside_cpuset_by_type(m_topology, obj->cpuset, HWLOC_OBJ_CORE);
+                int const num_cpus = hwloc_get_nbobjs_inside_cpuset_by_type(m_topology, obj->cpuset, HWLOC_OBJ_CORE);
                 m_num_cpu_cores_allocated_per_tt_device.at(physical_device_id) += num_cpus;
                 // }
 
@@ -577,7 +577,7 @@ hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pci_d
 }
 
 int cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision) {
-    std::pair<uint16_t, uint16_t> device_id_revision = std::make_pair(device_id, revision);
+    std::pair<uint16_t, uint16_t> const device_id_revision = std::make_pair(device_id, revision);
 
     if (m_num_tt_device_by_pci_device_id_map.find(device_id_revision) != m_num_tt_device_by_pci_device_id_map.end()) {
         return m_num_tt_device_by_pci_device_id_map.at(device_id_revision);

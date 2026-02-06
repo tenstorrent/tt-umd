@@ -38,7 +38,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     }
 
     // Galaxy Setup.
-    std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+    std::shared_ptr<ClusterDescriptor> const cluster_desc = Cluster::create_cluster_descriptor();
     std::set<ChipId> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
     std::set<ChipId> target_devices_th2 = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
 
@@ -80,8 +80,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t write_size = vector_to_write_th1.size() * 4;
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t const write_size = vector_to_write_th1.size() * 4;
+        std::uint32_t const address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(
@@ -105,8 +105,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t write_size = vector_to_write_th2.size() * 4;
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t const write_size = vector_to_write_th2.size() * 4;
+        std::uint32_t const address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(
@@ -140,7 +140,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     }
 
     // Galaxy Setup.
-    std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+    std::shared_ptr<ClusterDescriptor> const cluster_desc = Cluster::create_cluster_descriptor();
     std::set<ChipId> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
     std::set<ChipId> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
 
@@ -182,7 +182,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = 0x4000000;
+        std::uint32_t const address = 0x4000000;
         for (const auto& chip : target_devices_th1) {
             for (const CoreCoord& core : device.get_soc_descriptor(0).get_cores(CoreType::DRAM)) {
                 device.write_to_device(
@@ -202,7 +202,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = 0x5000000;
+        std::uint32_t const address = 0x5000000;
         for (const auto& chip : target_devices_th2) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(
@@ -239,9 +239,9 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     std::vector<uint32_t> large_vector(20000, 0xbeef1234);
 
     std::thread th1 = std::thread([&] {
-        ChipId mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
+        ChipId const mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = 0x0;
+        std::uint32_t const address = 0x0;
         device.write_to_device(
             large_vector.data(),
             large_vector.size() * sizeof(std::uint32_t),
@@ -262,7 +262,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t const address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(

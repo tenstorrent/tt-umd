@@ -18,7 +18,7 @@ inline void safe_test_cluster_start(Cluster* cluster) {
     static std::once_flag init_flag;
     std::call_once(init_flag, [&]() { mtx.initialize(); });
 
-    std::lock_guard<RobustMutex> lock(mtx);
+    std::lock_guard<RobustMutex> const lock(mtx);
 
     auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
     std::array<uint32_t, 12> brisc_program_default{};
@@ -40,7 +40,7 @@ inline void safe_test_cluster_start(Cluster* cluster) {
 
     for (auto& chip_id : cluster->get_target_device_ids()) {
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-        std::unordered_set<CoreCoord> all_tensix_cores_translated{tensix_cores.begin(), tensix_cores.end()};
+        std::unordered_set<CoreCoord> const all_tensix_cores_translated{tensix_cores.begin(), tensix_cores.end()};
 
         for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
             cluster->assert_risc_reset(chip_id, tensix_core_translated, RiscType::ALL_TENSIX);

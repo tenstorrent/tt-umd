@@ -47,7 +47,7 @@ uint32_t get_num_hugepages() {
 uint32_t get_available_num_host_mem_channels(
     const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id) {
     // To minimally support hybrid dev systems with mix of ARCH, get only devices matching current ARCH's device_id.
-    uint32_t total_num_tt_mmio_devices = tt::cpuset::cpuset_allocator::get_num_tt_pci_devices();
+    uint32_t const total_num_tt_mmio_devices = tt::cpuset::cpuset_allocator::get_num_tt_pci_devices();
     uint32_t num_tt_mmio_devices_for_arch =
         tt::cpuset::cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(device_id, revision_id);
     uint32_t total_hugepages = get_num_hugepages();
@@ -115,7 +115,7 @@ std::string find_hugepage_dir(std::size_t pagesize) {
 
     for (std::string line; std::getline(proc_mounts, line);) {
         if (std::smatch mount_match; std::regex_match(line, mount_match, hugetlbfs_mount_re)) {
-            std::string options = mount_match[3];
+            std::string const options = mount_match[3];
             if (std::smatch pagesize_match; std::regex_search(options, pagesize_match, pagesize_re)) {
                 std::size_t mount_page_size = std::stoull(pagesize_match[1]);
                 switch (pagesize_match[2].str()[0]) {

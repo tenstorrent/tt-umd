@@ -43,7 +43,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     auto bench =
         ankerl::nanobench::Bench().title("IOMMU_MapDifferentSizes").unit("byte").epochs(NUM_EPOCHS).epochIterations(1);
     std::vector<Result> results;
-    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    ankerl::nanobench::detail::PerformanceCounters const pc;  // Empty perf. counters just to fill in args.
 
     static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t MAPPING_SIZE_LIMIT = ONE_GIB;
@@ -105,7 +105,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     ankerl::nanobench::Result map_result(bench.config());
     bench.name("Unmap 2M");
     ankerl::nanobench::Result unmap_result(bench.config());
-    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    ankerl::nanobench::detail::PerformanceCounters const pc;  // Empty perf. counters just to fill in args.
     for (int i = 0; i < NUM_EPOCHS; i++) {
         void* mapping = mmap(
             nullptr,
@@ -162,7 +162,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     ankerl::nanobench::Result map_result(bench.config());
     bench.name("Unmap 1G");
     ankerl::nanobench::Result unmap_result(bench.config());
-    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    ankerl::nanobench::detail::PerformanceCounters const pc;  // Empty perf. counters just to fill in args.
     for (int i = 0; i < NUM_EPOCHS; i++) {
         void* mapping = mmap(
             nullptr,

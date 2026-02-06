@@ -32,22 +32,22 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     jtag(std::move(jtag_device)) {
     jtag->close_jlink();
 
-    std::unordered_set<int> visible_devices = get_jtag_visible_devices(jtag_target_devices);
+    std::unordered_set<int> const visible_devices = get_jtag_visible_devices(jtag_target_devices);
 
     for (int jlink_id : visible_devices) {
-        uint32_t status = jtag->open_jlink_by_serial_wrapper(jlink_id);
+        uint32_t const status = jtag->open_jlink_by_serial_wrapper(jlink_id);
         if (status != 0) {
             continue;
         }
 
         jlink_devices.push_back(jlink_id);
-        uint32_t efuse = jtag->read_axi(WORMHOLE_ARC_EFUSE_HARVESTING);
+        uint32_t const efuse = jtag->read_axi(WORMHOLE_ARC_EFUSE_HARVESTING);
 
-        uint32_t bad_mem_bits = efuse & 0x3FF;
-        uint32_t bad_logic_bits = (efuse >> 10) & 0x3FF;
+        uint32_t const bad_mem_bits = efuse & 0x3FF;
+        uint32_t const bad_logic_bits = (efuse >> 10) & 0x3FF;
 
         /* each set bit inidicates a bad row */
-        uint32_t bad_row_bits = (bad_mem_bits | bad_logic_bits);
+        uint32_t const bad_row_bits = (bad_mem_bits | bad_logic_bits);
 
         /* efuse_harvesting is the raw harvesting value from the efuse, it is
          * used for creating device soc descriptor, as UMD expects value in this
@@ -67,12 +67,12 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
 
     if (actual_path.empty()) {
         char buffer[PATH_MAX + 1];
-        ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+        ssize_t const len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
 
         if (len != -1) {
             buffer[len] = '\0';
-            std::string path(buffer);
-            std::string::size_type pos = path.find_last_of('/');
+            std::string const path(buffer);
+            std::string::size_type const pos = path.find_last_of('/');
             actual_path = path.substr(0, pos);
         }
     }
@@ -207,7 +207,7 @@ void JtagDevice::write(
     const uint32_t chunk_size = sizeof(uint32_t);
 
     while (size > 0) {
-        uint32_t transfer_size = std::min(size, chunk_size);
+        uint32_t const transfer_size = std::min(size, chunk_size);
 
         // JTAG protocol doesn't require address alignment to word size (4 bytes).
         if (transfer_size == sizeof(uint32_t)) {
@@ -256,7 +256,7 @@ void JtagDevice::read(
     const uint32_t chunk_size = sizeof(uint32_t);
 
     while (size > 0) {
-        uint32_t transfer_size = std::min(size, chunk_size);
+        uint32_t const transfer_size = std::min(size, chunk_size);
 
         // JTAG protocol doesn't require address alignment to word size (4 bytes).
         auto result = read32(chip_id, noc_x, noc_y, addr, noc_id);

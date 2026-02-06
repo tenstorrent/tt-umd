@@ -54,13 +54,14 @@ double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
 
 std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_training_status(
     uint32_t num_dram_channels) const {
-    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
+    uint32_t const telemetry_data =
+        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DDR_STATUS);
 
     // Each dram channel uses 4 bits in the 32-bit value in order to represent the state of DRAM training.
     // That's why we move by 4 bits for each channel to get its status.
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; ++dram_channel) {
-        uint8_t status = (telemetry_data >> (dram_channel * 4)) & 0xF;
+        uint8_t const status = (telemetry_data >> (dram_channel * 4)) & 0xF;
 
         switch (status) {
             case wormhole::WormholeDramTrainingStatus::TrainingNone:
@@ -82,7 +83,7 @@ std::vector<DramTrainingStatus> Wormhole_18_3_FirmwareInfoProvider::get_dram_tra
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_max_clock_freq() const {
-    uint32_t aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::AICLK);
+    uint32_t const aiclk_telemetry = tt_device->get_arc_telemetry_reader()->read_entry(wormhole::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 

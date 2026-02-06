@@ -89,7 +89,7 @@ bool is_ipmitool_ready() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> const umd_cluster = std::make_unique<Cluster>(); }
 
 TEST(ApiClusterTest, OpenChipsByPciId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -102,7 +102,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
                         "This test is intended to be run on all systems apart from 6U.";
     }
 
-    int total_combinations = 1 << pci_device_ids.size();
+    int const total_combinations = 1 << pci_device_ids.size();
 
     for (uint32_t combination = 0; combination < total_combinations; combination++) {
         std::unordered_set<int> target_pci_device_ids;
@@ -118,7 +118,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         }
         std::cout << std::endl;
 
-        std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
+        std::string const value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
 
         if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
             ASSERT_TRUE(false) << "Failed to unset environment variable.";
@@ -164,7 +164,7 @@ TEST(ApiClusterTest, OpenChipsByBDF) {
                         "This test is intended to be run on all systems apart from 6U.";
     }
 
-    int total_combinations = 1 << pci_bdf_addresses.size();
+    int const total_combinations = 1 << pci_bdf_addresses.size();
 
     for (uint32_t combination = 0; combination < total_combinations; combination++) {
         std::vector<std::string> target_bdf_addresses;
@@ -219,7 +219,7 @@ TEST(ApiClusterTest, OpenChipsByBDFWormhole6U) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
     }
 
-    std::string bdf_value = "0000:01:00.0, 0000:02:00.0, 0000:03:00.0, 0000:04:00.0";
+    std::string const bdf_value = "0000:01:00.0, 0000:02:00.0, 0000:03:00.0, 0000:04:00.0";
 
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
         ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
@@ -240,14 +240,14 @@ TEST(ApiClusterTest, OpenChipsByBDFWormhole6U) {
 TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // First, pregenerate a cluster descriptor and save it to a file.
     // This will run topology discovery and touch all the devices.
-    std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
+    std::filesystem::path const cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
 
     // Now, the user can create the cluster descriptor without touching the devices.
     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
     // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
     // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
     // connections.
-    std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
+    std::unordered_set<ChipId> const all_chips = cluster_desc->get_all_chips();
     std::unordered_map<ChipId, ChipId> chips_with_pcie = cluster_desc->get_chips_with_mmio();
     auto eth_connections = cluster_desc->get_ethernet_connections();
 
@@ -293,7 +293,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 
     // 1. Simplest constructor. Creates Cluster with all the chips available.
     umd_cluster = std::make_unique<Cluster>();
-    bool chips_available = !umd_cluster->get_target_device_ids().empty();
+    bool const chips_available = !umd_cluster->get_target_device_ids().empty();
     umd_cluster = nullptr;
 
     if (chips_available) {
@@ -305,9 +305,9 @@ TEST(ApiClusterTest, DifferentConstructors) {
         umd_cluster = nullptr;
 
         // 3. Constructor taking a custom soc descriptor in addition.
-        tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
+        tt::ARCH const device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
-        std::string sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
+        std::string const sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
             .sdesc_path = sdesc_path,
         });
@@ -318,12 +318,12 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
     // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
     // created Cluster class.
-    std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
+    std::filesystem::path const cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
     umd_cluster = std::make_unique<Cluster>();
     umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
+    std::unique_ptr<ClusterDescriptor> const cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .cluster_descriptor = cluster_desc.get(),
     });
@@ -341,7 +341,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     // Initialize random data.
-    size_t data_size = 1024;
+    size_t const data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
     for (int i = 0; i < data_size; i++) {
         data[i] = i % 256;
@@ -354,7 +354,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord const any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -367,7 +367,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord const any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -383,7 +383,7 @@ TEST(ApiClusterTest, RemoteFlush) {
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
-    size_t data_size = 1024;
+    size_t const data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
 
     // Setup memory barrier addresses.
@@ -420,7 +420,7 @@ TEST(ApiClusterTest, RemoteFlush) {
 }
 
 TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -431,7 +431,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     });
 
     // Initialize random data.
-    size_t data_size = 1024;
+    size_t const data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
     for (int i = 0; i < data_size; i++) {
         data[i] = i % 256;
@@ -444,7 +444,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord const any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -485,7 +485,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses.
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
-        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        std::vector<CoreCoord> const tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
         for (int loop = 0; loop < num_loops; loop++) {
             for (auto& core : tensix_cores) {
                 cluster->write_to_device(
@@ -515,7 +515,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    for (ChipId chip : umd_cluster->get_target_device_ids()) {
+    for (ChipId const chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
 
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
@@ -578,7 +578,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     auto get_expected_clock_val = [&cluster](ChipId chip_id, bool busy) {
-        tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
+        tt::ARCH const arch = cluster->get_cluster_description()->get_arch(chip_id);
         if (arch == tt::ARCH::WORMHOLE_B0) {
             return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
         } else if (arch == tt::ARCH::BLACKHOLE) {
@@ -615,7 +615,7 @@ TEST(TestCluster, DISABLED_WarmResetScratch) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
 
-    uint32_t write_test_data = 0xDEADBEEF;
+    uint32_t const write_test_data = 0xDEADBEEF;
 
     auto chip_id = *cluster->get_target_device_ids().begin();
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
@@ -740,7 +740,7 @@ TEST(TestCluster, WarmReset) {
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
+            RiscType const select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
             // Set all riscs to reset state.
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
@@ -785,7 +785,7 @@ TEST(TestCluster, DeassertResetBrisc) {
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
+            RiscType const select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
@@ -849,7 +849,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
+            RiscType const select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
 
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
@@ -897,8 +897,8 @@ TEST(TestCluster, SocDescriptorSerialize) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
 
-        std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-        SocDescriptor soc(
+        std::filesystem::path const file_path = soc_descriptor.serialize_to_file();
+        SocDescriptor const soc(
             file_path.string(),
             {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
              .harvesting_masks = soc_descriptor.harvesting_masks});
@@ -1151,7 +1151,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
     test_utils::safe_test_cluster_start(cluster.get());
 
     // Initialize random data.
-    size_t data_size = 1024;
+    size_t const data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
     for (int i = 0; i < data_size; i++) {
         data[i] = i % 256;
@@ -1160,7 +1160,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord const any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         cluster->write_to_device(data.data(), data_size, chip_id, any_core, write_address);
 
@@ -1183,7 +1183,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
-    ClusterOptions options = GetParam();
+    ClusterOptions const options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
     if (cluster->get_target_device_ids().empty()) {
@@ -1316,15 +1316,15 @@ TEST(TestCluster, SysmemReadWrite) {
         };
 
         for (size_t i = 0; i < 8192; ++i) {
-            uint64_t address = random_address_between(0, ONE_GIG);
+            uint64_t const address = random_address_between(0, ONE_GIG);
             test_offsets.push_back(address);
         }
 
         // Read test - read the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
+        for (uint64_t const test_offset : test_offsets) {
+            uint64_t const aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t const device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t const noc_addr = base_address + device_offset;
             uint32_t expected = 0;
             uint32_t value = 0;
 
@@ -1355,18 +1355,18 @@ TEST(TestCluster, SysmemReadWrite) {
         }
 
         // Write test - zero out the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
+        for (uint64_t const test_offset : test_offsets) {
+            uint64_t const aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t const device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t const noc_addr = base_address + device_offset;
             uint32_t value = 0;
             cluster.write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
             cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
         }
 
         // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+        for (uint64_t const test_offset : test_offsets) {
+            uint64_t const aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
             uint32_t value = 0xffffffff;
             std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
             EXPECT_EQ(value, 0);
@@ -1488,7 +1488,7 @@ TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
     // Corrupt a part of ERISC FW code.
     std::cout << fmt::format("Corrupting ETH core {} firmware.", first_eth_core.str()) << std::endl;
     const erisc_firmware::HashedAddressRange& range = eth_fw_hashes->find(eth_fw_version.value())->second;
-    size_t start_addr = range.start_address;
+    size_t const start_addr = range.start_address;
     std::vector<uint32_t> ebreak_instr_vector(32, 0x00100073);
 
     first_chip->assert_risc_reset(RiscType::ALL);

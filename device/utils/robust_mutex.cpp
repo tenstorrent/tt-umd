@@ -67,7 +67,7 @@ public:
     CriticalSectionScopeGuard(int fd, pthread_mutex_t* pthread_mutex, std::string_view mutex_name) :
         fd_(fd), pthread_mutex_(pthread_mutex), mutex_name_(mutex_name) {
         TT_ASSERT(flock(fd_, LOCK_EX) == 0, "flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
-        int err = pthread_mutex_lock(pthread_mutex_);
+        int const err = pthread_mutex_lock(pthread_mutex_);
         if (err != 0) {
             // Try to unlock the flock without handling further exceptions.
             flock(fd_, LOCK_UN);
@@ -77,7 +77,7 @@ public:
 
     ~CriticalSectionScopeGuard() noexcept {
         // Use best effort to unlock the mutex and the flock and report warnings if something fails.
-        int err = pthread_mutex_unlock(pthread_mutex_);
+        int const err = pthread_mutex_unlock(pthread_mutex_);
         if (err != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
             log_warning(
@@ -198,10 +198,10 @@ void RobustMutex::initialize() {
     // The critical_section object will get destroyed at the end of this block or when an exception is thrown, so the
     // critical section will be released automatically.
     {
-        CriticalSectionScopeGuard critical_section(shm_fd_, &multithread_mutex_, mutex_name_);
+        CriticalSectionScopeGuard const critical_section(shm_fd_, &multithread_mutex_, mutex_name_);
 
         // Resize file if needed.
-        bool file_was_resized = resize_shm_file();
+        bool const file_was_resized = resize_shm_file();
 
         // We now open the mutex in the shared memory file.
         open_pthread_mutex();
@@ -244,7 +244,7 @@ void RobustMutex::initialize() {
 }
 
 void RobustMutex::open_shm_file() {
-    std::string shm_file_name = std::string(UMD_LOCK_PREFIX) + std::string(mutex_name_);
+    std::string const shm_file_name = std::string(UMD_LOCK_PREFIX) + std::string(mutex_name_);
 
     // Store old mask and clear processes umask.
     // This will have an effect that the created files which back up named mutexes will have all permissions. This is
@@ -268,7 +268,7 @@ void RobustMutex::open_shm_file() {
 
 bool RobustMutex::resize_shm_file() {
     size_t file_size = get_file_size(shm_fd_);
-    size_t target_file_size = sizeof(pthread_mutex_wrapper);
+    size_t const target_file_size = sizeof(pthread_mutex_wrapper);
     bool file_was_truncated = false;
 
     // Report warning if the file size is not as expected, but continue with the initialization.
@@ -369,7 +369,7 @@ void RobustMutex::unlock() {
     // Clear the owner TID and PID before unlocking.
     mutex_wrapper_ptr_->owner_tid = 0;
     mutex_wrapper_ptr_->owner_pid = 0;
-    int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
+    int const err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         TT_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     }
@@ -389,7 +389,7 @@ void RobustMutex::lock() {
     while (lock_res != 0) {
         if (lock_res == EOWNERDEAD) {
             // Process crashed before unlocking the mutex. Recover it.
-            int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
+            int const err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
             if (err != 0) {
                 TT_THROW(fmt::format(
                     "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));

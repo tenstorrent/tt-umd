@@ -211,7 +211,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
 }
 
 TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4) {
-    int seed = 0;
+    int const seed = 0;
 
     log_info(LogUMD, "Started WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4");
 
@@ -338,13 +338,13 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
 }
 
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWritesSmallReads) {
-    int seed = 0;
+    int const seed = 0;
 
     log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersLargeWritesSmallReads");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;
-    std::vector<remote_transfer_sample_t> command_history1;
+    std::vector<remote_transfer_sample_t> const command_history1;
 
     auto write_size_generator =
         ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(

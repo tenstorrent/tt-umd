@@ -149,15 +149,15 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
-    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && system_mem_available;
+    bool const system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
+    bool const use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && system_mem_available;
     // Print a warning in case of missing perf for larger transfers.
     if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
         log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
     }
 
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
-    uint32_t max_block_size =
+    uint32_t const max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     uint32_t offset = 0;
@@ -175,13 +175,13 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
         }
 
-        uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
+        uint32_t const req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
         if ((core_src + offset) & 0x1F) {  // address not 32-byte aligned
             block_size = DATA_WORD_SIZE;   // 4 byte aligned block
         } else {
             block_size = offset + max_block_size > size_in_bytes ? size_in_bytes - offset : max_block_size;
             // Align up to 4 bytes.
-            uint32_t alignment_mask = sizeof(uint32_t) - 1;
+            uint32_t const alignment_mask = sizeof(uint32_t) - 1;
             block_size = (block_size + alignment_mask) & ~alignment_mask;
         }
         uint32_t req_flags = block_size > DATA_WORD_SIZE
@@ -190,9 +190,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         uint32_t resp_flags = block_size > DATA_WORD_SIZE
                                   ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_rd_data)
                                   : eth_interface_params.cmd_rd_data;
-        uint32_t resp_rd_ptr = erisc_resp_q_rptr[0] & eth_interface_params.cmd_buf_size_mask;
-        uint32_t host_dram_block_addr = host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
-        uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
+        uint32_t const resp_rd_ptr = erisc_resp_q_rptr[0] & eth_interface_params.cmd_buf_size_mask;
+        uint32_t const host_dram_block_addr =
+            host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
+        uint16_t const host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (use_host_dram && block_size > DATA_WORD_SIZE) {
             req_flags |= eth_interface_params.cmd_data_block_dram;
@@ -264,7 +265,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
         tt_driver_atomics::lfence();
-        uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
+        uint32_t const flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
         std::vector<std::uint32_t> erisc_resp_flags = std::vector<uint32_t>(1);
         do {
             local_tt_device_->read_from_device(
@@ -278,7 +279,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
         if (erisc_resp_flags[0] == resp_flags) {
             tt_driver_atomics::lfence();
-            uint32_t data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
+            uint32_t const data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
             if (block_size == DATA_WORD_SIZE) {
                 std::vector<std::uint32_t> erisc_resp_data = std::vector<uint32_t>(1);
                 local_tt_device_->read_from_device(
@@ -300,7 +301,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                     sysmem_manager_->read_from_sysmem(
                         host_dram_channel, data_block.data(), host_dram_block_addr, block_size);
                 } else {
-                    uint32_t buf_address =
+                    uint32_t const buf_address =
                         eth_interface_params.eth_routing_data_buffer_addr + resp_rd_ptr * max_block_size;
                     size_buffer_to_capacity(data_block, block_size);
                     local_tt_device_->read_from_device(
@@ -371,15 +372,15 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     // Broadcast requires block writes to host dram
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
-    bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
-    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && system_mem_available;
+    bool const system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
+    bool const use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && system_mem_available;
     // Print a warning in case of missing perf for larger transfers.
     if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
         log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
     }
 
     TT_ASSERT(!broadcast || system_mem_available, "Broadcasts not available without system memory.");
-    uint32_t max_block_size =
+    uint32_t const max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
@@ -419,7 +420,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         //  to poll rd pointer in every iteration.
         // full = is_non_mmio_cmd_q_full((erisc_q_ptrs[0] + 1) & CMD_BUF_PTR_MASK, erisc_q_rptr[0]);
 
-        uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
+        uint32_t const req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
         if ((core_dest + offset) & 0x1F) {  // address not 32-byte aligned
             block_size = DATA_WORD_SIZE;    // 4 byte aligned
         } else {
@@ -427,12 +428,12 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             block_size = offset + max_block_size > size_in_bytes + 32 * broadcast ? size_in_bytes - offset
                                                                                   : max_block_size - 32 * broadcast;
             // Explictly align block_size to 4 bytes, in case the input buffer is not uint32_t aligned.
-            uint32_t alignment_mask = sizeof(uint32_t) - 1;
+            uint32_t const alignment_mask = sizeof(uint32_t) - 1;
             block_size = (block_size + alignment_mask) & ~alignment_mask;
         }
         // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size < block_size
         // in the last block
-        uint64_t transfer_size =
+        uint64_t const transfer_size =
             std::min(block_size, size_in_bytes - offset);  // Host side data size that needs to be copied
         // Use block mode for broadcast.
         uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE))
@@ -444,10 +445,10 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             req_flags |= eth_interface_params.cmd_broadcast;
         }
 
-        uint32_t host_dram_block_addr =
+        uint32_t const host_dram_block_addr =
             host_address_params.eth_routing_buffers_start +
             (active_eth_core_idx * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
-        uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
+        uint16_t const host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (req_flags & eth_interface_params.cmd_data_block) {
             // Copy data to sysmem or device DRAM for Block mode.
@@ -471,7 +472,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                     data_block.size() * DATA_WORD_SIZE);
 
             } else {
-                uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
+                uint32_t const buf_address =
+                    eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(data_block.data(), static_cast<const uint8_t*>(src) + offset, transfer_size);
                 local_tt_device_->write_to_device(
@@ -568,7 +570,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
             auto start_time = std::chrono::steady_clock::now();
 
             // wait for all queues to be empty.
-            for (tt_xy_pair& core : remote_transfer_eth_cores_) {
+            for (tt_xy_pair const& core : remote_transfer_eth_cores_) {
                 do {
                     local_tt_device_->read_from_device(
                         erisc_q_ptrs.data(),
@@ -581,7 +583,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
-            for (tt_xy_pair& core : remote_transfer_eth_cores_) {
+            for (tt_xy_pair const& core : remote_transfer_eth_cores_) {
                 do {
                     local_tt_device_->read_from_device(
                         erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8);

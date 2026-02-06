@@ -24,21 +24,21 @@
 using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
-    uint64_t address = 0x0;
+    uint64_t const address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
 
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 
-        ChipInfo chip_info = tt_device->get_chip_info();
+        ChipInfo const chip_info = tt_device->get_chip_info();
 
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor const soc_desc(tt_device->get_arch(), chip_info);
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tt_xy_pair const tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
@@ -51,22 +51,22 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 }
 
 TEST(ApiTTDeviceTest, TTDeviceRegIO) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<uint32_t> data_write0 = {1};
     std::vector<uint32_t> data_write1 = {2};
     std::vector<uint32_t> data_read(data_write0.size(), 0);
 
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
-        uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
+        uint64_t const address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
 
-        ChipInfo chip_info = tt_device->get_chip_info();
+        ChipInfo const chip_info = tt_device->get_chip_info();
 
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor const soc_desc(tt_device->get_arch(), chip_info);
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tt_xy_pair const tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
         tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -81,12 +81,12 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 }
 
 TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    for (int pci_device_id : pci_device_ids) {
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 
-        BoardType board_type = tt_device->get_board_type();
+        BoardType const board_type = tt_device->get_board_type();
 
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
@@ -96,7 +96,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
 }
 
 TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
@@ -104,12 +104,12 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     const uint64_t address_thread1 = address_thread0 + data_write.size() * sizeof(uint32_t);
     const uint32_t num_loops = 1000;
 
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
-        ChipInfo chip_info = tt_device->get_chip_info();
+        ChipInfo const chip_info = tt_device->get_chip_info();
 
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor const soc_desc(tt_device->get_arch(), chip_info);
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -172,7 +172,7 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
 
-    uint64_t address = 0x0;
+    uint64_t const address = 0x0;
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);
@@ -180,9 +180,9 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
     tt_device->init_tt_device();
 
-    SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
+    SocDescriptor const soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
 
-    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    tt_xy_pair const tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // send to core 15, 15 which will hang the NOC
     tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
@@ -235,10 +235,10 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         pattern_buf[i] = (uint8_t)(i % 256);
     }
 
-    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+    for (ChipId const remote_chip_id : cluster->get_target_remote_device_ids()) {
         TTDevice* remote_tt_device = cluster->get_chip(remote_chip_id)->get_tt_device();
 
-        std::vector<CoreCoord> tensix_cores =
+        std::vector<CoreCoord> const tensix_cores =
             cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
@@ -282,17 +282,17 @@ TEST(ApiTTDeviceTest, MulticastIO) {
         xy_end = {4, 6};
     }
 
-    uint64_t address = 0x0;
+    uint64_t const address = 0x0;
     std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    std::vector<uint8_t> data_read(data_write.size(), 0);
+    std::vector<uint8_t> const data_read(data_write.size(), 0);
 
-    for (int pci_device_id : pci_device_ids) {
+    for (int const pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
             for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
-                tt_xy_pair tensix_core = {x, y};
+                tt_xy_pair const tensix_core = {x, y};
 
                 std::vector<uint8_t> zeros(data_write.size(), 0);
                 tt_device->write_to_device(zeros.data(), tensix_core, address, zeros.size());
@@ -308,7 +308,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
             for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
-                tt_xy_pair tensix_core = {x, y};
+                tt_xy_pair const tensix_core = {x, y};
 
                 std::vector<uint8_t> readback(data_write.size());
                 tt_device->read_from_device(readback.data(), tensix_core, address, readback.size());

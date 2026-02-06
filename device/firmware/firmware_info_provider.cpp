@@ -46,14 +46,16 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
 
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            semver_t const fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            int const compare_18_7_bundle_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 
-            int compare_18_3_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
+            int const compare_18_3_bundle_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
             if (compare_18_3_bundle_result > 0) {
                 return std::make_unique<Wormhole_18_7_FirmwareInfoProvider>(tt_device);
             }
@@ -61,9 +63,10 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
             return std::make_unique<Wormhole_18_3_FirmwareInfoProvider>(tt_device);
         }
         case ARCH::BLACKHOLE: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            semver_t const fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            int const compare_18_7_bundle_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
@@ -165,7 +168,7 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
     // Example: 0b 00 00 00 00 00 00 01 10
     // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained and don't
     // have errors. If some channel is harvested the bits are always going to be zero.
-    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
+    uint32_t const telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {
         if (telemetry_data & (1 << (2 * channel))) {

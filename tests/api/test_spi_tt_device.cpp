@@ -32,22 +32,22 @@ std::unordered_map<ChipId, std::unique_ptr<TTDevice>> setup_spi_test_devices() {
     auto [cluster_desc, _] = TopologyDiscovery::discover({});
     std::unordered_map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
 
-    for (ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+    for (ChipId const chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         std::cout << "Setting up device " << chip_id << " local: " << cluster_desc->is_chip_mmio_capable(chip_id)
                   << std::endl;
 
         if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-            int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
+            int const physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
             auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe);
             tt_device->init_tt_device();
             tt_devices[chip_id] = std::move(tt_device);
         } else {
-            ChipId closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+            ChipId const closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
             std::unique_ptr<TTDevice>& local_tt_device = tt_devices.at(closest_mmio_chip_id);
 
-            SocDescriptor local_soc_descriptor =
+            SocDescriptor const local_soc_descriptor =
                 SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
-            EthCoord target_chip = cluster_desc->get_chip_locations().at(chip_id);
+            EthCoord const target_chip = cluster_desc->get_chip_locations().at(chip_id);
             auto remote_communication = RemoteCommunication::create_remote_communication(
                 local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
             remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
@@ -82,14 +82,14 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIRead) {
         spi_impl->read(SPI_BOARD_INFO_ADDR, read_data.data(), read_data.size());
 
         std::cout << "Read board info: ";
-        for (uint8_t byte : read_data) {
+        for (uint8_t const byte : read_data) {
             std::cout << std::dec << (int)byte << " ";
         }
         std::cout << std::endl;
 
         // Verify we got some data (board info shouldn't be all zeros).
         bool has_data = false;
-        for (uint8_t byte : read_data) {
+        for (uint8_t const byte : read_data) {
             if (byte != 0) {
                 has_data = true;
                 break;

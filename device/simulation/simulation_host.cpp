@@ -25,7 +25,7 @@
 namespace tt::umd {
 
 bool is_port_free(int port) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int const sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         return false;
     }
@@ -35,7 +35,7 @@ bool is_port_free(int port) {
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
 
-    bool free = (bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
+    bool const free = (bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
     close(sock);
     return free;
 }
@@ -89,7 +89,7 @@ void SimulationHost::init() {
     // Open socket and create listener (server mode).
     log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
-    int rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
+    int const rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
     TT_ASSERT(rv == 0, "Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr);
 }
 
@@ -100,7 +100,7 @@ SimulationHost::~SimulationHost() {
 
 void SimulationHost::start_host() {
     // Start listening for connections from client.
-    int rv = nng_listener_start(*host_listener, 0);
+    int const rv = nng_listener_start(*host_listener, 0);
     if (rv != 0) {
         log_error(tt::LogEmulationDriver, "Failed to start listener: {}", nng_strerror(rv));
         return;

@@ -23,7 +23,7 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
     });
 
     for (const ChipId& chip : cluster->get_target_device_ids()) {
-        tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip);
+        tt::ARCH const arch = cluster->get_cluster_description()->get_arch(chip);
 
         uint32_t upper_limit_num_cores;
         if (arch == tt::ARCH::WORMHOLE_B0) {

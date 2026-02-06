@@ -17,7 +17,7 @@ namespace tt::umd {
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
+    SocDescriptor const soc_descriptor = SocDescriptor(soc_desc_path);
     return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor);
 }
 
@@ -35,7 +35,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
     // Start simulator process.
     uv_loop_t* loop = uv_default_loop();
-    std::string simulator_path_string = simulator_directory / "run.sh";
+    std::string const simulator_path_string = simulator_directory / "run.sh";
     if (!std::filesystem::exists(simulator_path_string)) {
         TT_THROW("Simulator binary not found at: ", simulator_path_string);
     }
@@ -54,7 +54,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     child_options.stdio = child_stdio;
 
     uv_process_t child_p;
-    int rv = uv_spawn(loop, &child_p, &child_options);
+    int const rv = uv_spawn(loop, &child_p, &child_options);
     if (rv) {
         TT_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
     } else {
@@ -75,7 +75,7 @@ static inline flatbuffers::FlatBufferBuilder _create_flatbuffer(
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
+    uint64_t const size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
     auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
     builder.Finish(device_cmd);
     return builder;
@@ -110,19 +110,19 @@ static inline void _print_flatbuffer(const DeviceRequestResponse* buf) {
 static inline void _send_command_to_simulation_host(
     SimulationHost& host, const flatbuffers::FlatBufferBuilder& flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
-    size_t wr_buffer_size = flat_buffer.GetSize();
+    size_t const wr_buffer_size = flat_buffer.GetSize();
     _print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
 void RtlSimulationTTDevice::start_host_communication() {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     void* buf_ptr = nullptr;
 
     host.start_host();
 
     log_info(LogUMD, "Waiting for ack msg from remote...");
-    size_t buf_size = host.recv_from_device(&buf_ptr);
+    size_t const buf_size = host.recv_from_device(&buf_ptr);
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
     TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
@@ -135,23 +135,23 @@ void RtlSimulationTTDevice::close_device() {
 }
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     log_debug(LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     const uint32_t num_elements = size / sizeof(uint32_t);
     const auto* data_ptr = static_cast<const uint32_t*>(mem_ptr);
-    std::vector<std::uint32_t> data(data_ptr, data_ptr + num_elements);
+    std::vector<std::uint32_t> const data(data_ptr, data_ptr + num_elements);
     _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr));
 }
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     void* rd_resp;
 
     // Send read request.
     _send_command_to_simulation_host(host, _create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
 
     // Get read response.
-    size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
+    size_t const rd_rsp_sz = host.recv_from_device(&rd_resp);
 
     auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
 
@@ -164,7 +164,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
 }
 
 void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
-    std::lock_guard<std::mutex> lock(device_lock);
+    std::lock_guard<std::mutex> const lock(device_lock);
     if (!deassert) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         _send_command_to_simulation_host(

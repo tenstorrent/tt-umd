@@ -140,7 +140,7 @@ CoreCoord CoordinateManager::translate_coord_to(
             to_str(core_coord.coord_system)));
     }
 
-    tt_xy_pair noc0_coord = noc0_coord_it->second;
+    tt_xy_pair const noc0_coord = noc0_coord_it->second;
     auto coord_it = from_noc0_map.find({noc0_coord, target_coord_system});
     if (coord_it == from_noc0_map.end()) {
         throw std::runtime_error(fmt::format(
@@ -169,7 +169,7 @@ CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSyst
 
 CoreCoord CoordinateManager::translate_coord_to(
     const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
-    CoreCoord core_coord = get_coord_at(core, input_coord_system);
+    CoreCoord const core_coord = get_coord_at(core, input_coord_system);
     return translate_coord_to(core_coord, target_coord_system);
 }
 
@@ -177,8 +177,8 @@ void CoordinateManager::translate_tensix_coords() {
     if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.y) {
         harvesting_masks.tensix_harvesting_mask = 0;
     }
-    size_t grid_size_x = tensix_grid_size.x;
-    size_t grid_size_y = tensix_grid_size.y;
+    size_t const grid_size_x = tensix_grid_size.x;
+    size_t const grid_size_y = tensix_grid_size.y;
 
     size_t logical_y = 0;
     for (size_t y = 0; y < grid_size_y; y++) {
@@ -186,7 +186,7 @@ void CoordinateManager::translate_tensix_coords() {
             for (size_t x = 0; x < grid_size_x; x++) {
                 const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
 
-                CoreCoord logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
+                CoreCoord const logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, tensix_core);
             }
             logical_y++;
@@ -201,8 +201,8 @@ void CoordinateManager::translate_tensix_coords() {
 }
 
 void CoordinateManager::fill_tensix_default_noc0_translated_mapping() {
-    for (tt_xy_pair noc0_core : tensix_cores) {
-        CoreCoord translated_coord = CoreCoord(noc0_core, CoreType::TENSIX, CoordSystem::TRANSLATED);
+    for (tt_xy_pair const noc0_core : tensix_cores) {
+        CoreCoord const translated_coord = CoreCoord(noc0_core, CoreType::TENSIX, CoordSystem::TRANSLATED);
         add_core_translation(translated_coord, noc0_core);
     }
 }
@@ -212,7 +212,7 @@ void CoordinateManager::translate_dram_coords() {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
             const tt_xy_pair dram_core = dram_cores[x * dram_grid_size.y + y];
 
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord const logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
 
             add_core_translation(logical_coord, dram_core);
         }
@@ -229,7 +229,7 @@ void CoordinateManager::translate_eth_coords() {
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
         const tt_xy_pair eth_core = eth_cores[eth_channel];
 
-        CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        CoreCoord const logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
 
         add_core_translation(logical_coord, eth_core);
     }
@@ -246,7 +246,7 @@ void CoordinateManager::translate_arc_coords() {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
             const tt_xy_pair arc_core = arc_cores[x * arc_grid_size.y + y];
 
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            CoreCoord const logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
 
             add_core_translation(logical_coord, arc_core);
         }
@@ -263,7 +263,7 @@ void CoordinateManager::translate_pcie_coords() {
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const tt_xy_pair pcie_core = pcie_cores[x * pcie_grid_size.y + y];
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            CoreCoord const logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
 
             add_core_translation(logical_coord, pcie_core);
         }
@@ -279,8 +279,8 @@ void CoordinateManager::translate_pcie_coords() {
 void CoordinateManager::translate_router_coords() {
     // Just do identity mapping for translated router coordinates.
     // No logical coordinates available for router cores.
-    for (tt_xy_pair router_core : router_cores) {
-        CoreCoord translated_coord = CoreCoord(router_core, CoreType::ROUTER_ONLY, CoordSystem::TRANSLATED);
+    for (tt_xy_pair const router_core : router_cores) {
+        CoreCoord const translated_coord = CoreCoord(router_core, CoreType::ROUTER_ONLY, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, router_core);
     }
@@ -289,8 +289,8 @@ void CoordinateManager::translate_router_coords() {
 void CoordinateManager::translate_security_coords() {
     // Just do identity mapping for translated SECURITY coordinates.
     // No logical coordinates available for SECURITY cores.
-    for (tt_xy_pair security_core : security_cores) {
-        CoreCoord translated_coord = CoreCoord(security_core, CoreType::SECURITY, CoordSystem::TRANSLATED);
+    for (tt_xy_pair const security_core : security_cores) {
+        CoreCoord const translated_coord = CoreCoord(security_core, CoreType::SECURITY, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, security_core);
     }
@@ -299,8 +299,8 @@ void CoordinateManager::translate_security_coords() {
 void CoordinateManager::translate_l2cpu_coords() {
     // Just do identity mapping for translated L2CPU coordinates.
     // No logical coordinates available for L2CPU cores.
-    for (tt_xy_pair l2cpu_core : l2cpu_cores) {
-        CoreCoord translated_coord = CoreCoord(l2cpu_core, CoreType::L2CPU, CoordSystem::TRANSLATED);
+    for (tt_xy_pair const l2cpu_core : l2cpu_cores) {
+        CoreCoord const translated_coord = CoreCoord(l2cpu_core, CoreType::L2CPU, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, l2cpu_core);
     }
@@ -312,7 +312,8 @@ void CoordinateManager::fill_eth_default_noc0_translated_mapping() {
         const size_t translated_x = noc0_pair.x;
         const size_t translated_y = noc0_pair.y;
 
-        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, noc0_pair);
     }
@@ -321,12 +322,13 @@ void CoordinateManager::fill_eth_default_noc0_translated_mapping() {
 void CoordinateManager::fill_dram_default_noc0_translated_mapping() {
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord const logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
             const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
             const size_t translated_x = noc0_pair.x;
             const size_t translated_y = noc0_pair.y;
 
-            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord =
+                CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
         }
@@ -338,7 +340,8 @@ void CoordinateManager::fill_pcie_default_noc0_translated_mapping() {
         const size_t translated_x = noc0_pair.x;
         const size_t translated_y = noc0_pair.y;
 
-        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+        CoreCoord const translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, noc0_pair);
     }
@@ -347,12 +350,13 @@ void CoordinateManager::fill_pcie_default_noc0_translated_mapping() {
 void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            CoreCoord const logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
             const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
             const size_t translated_x = noc0_pair.x;
             const size_t translated_y = noc0_pair.y;
 
-            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
+            CoreCoord const translated_coord =
+                CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
 
             add_core_translation(translated_coord, noc0_pair);
         }
@@ -371,7 +375,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
     uint32_t pos = 0;
     while (tensix_harvesting_physical_layout > 0) {
         if (tensix_harvesting_physical_layout & 1) {
-            uint32_t sorted_position =
+            uint32_t const sorted_position =
                 std::find(
                     sorted_harvesting_locations.begin(), sorted_harvesting_locations.end(), harvesting_locations[pos]) -
                 sorted_harvesting_locations.begin();
@@ -444,7 +448,7 @@ std::vector<CoreCoord> CoordinateManager::get_all_noc0_cores(const CoreType core
     const std::vector<tt_xy_pair>& noc0_pairs = get_noc0_pairs(core_type);
     std::vector<CoreCoord> noc0_cores;
     for (const tt_xy_pair& core : noc0_pairs) {
-        CoreCoord core_coord(core.x, core.y, core_type, CoordSystem::NOC0);
+        CoreCoord const core_coord(core.x, core.y, core_type, CoordSystem::NOC0);
         noc0_cores.push_back(core_coord);
     }
     return noc0_cores;
@@ -457,7 +461,7 @@ std::vector<CoreCoord> CoordinateManager::get_tensix_cores() const {
         if (std::find(harvested_y_coords.begin(), harvested_y_coords.end(), y) == harvested_y_coords.end()) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
-                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
+                CoreCoord const core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
 
                 unharvested_tensix_cores.push_back(core_coord);
             }
@@ -473,7 +477,7 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_tensix_cores() const {
         if (std::find(harvested_y_coords.begin(), harvested_y_coords.end(), y) != harvested_y_coords.end()) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
-                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
+                CoreCoord const core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
 
                 harvested_tensix_cores.push_back(core_coord);
             }

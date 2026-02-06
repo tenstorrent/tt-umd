@@ -47,7 +47,7 @@ void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
 
     std::ostringstream oss;
     oss << t;
-    std::string format_str = oss.str();
+    std::string const format_str = oss.str();
 
     size_t placeholder_count = 0;
     size_t pos = 0;
@@ -72,7 +72,7 @@ void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
     // constexpr has to be present since build fails compiler detects
     // that certain objects with unformattable types will be used here.
     if constexpr ((fmt::is_formattable<Ts>::value && ...)) {
-        std::string formatted = fmt::format(fmt::runtime(format_str), ts...);
+        std::string const formatted = fmt::format(fmt::runtime(format_str), ts...);
         os << formatted << std::endl;
     } else {
         throw std::runtime_error("Failed to format string: " + format_str + ", arguments not formattable by fmt.");

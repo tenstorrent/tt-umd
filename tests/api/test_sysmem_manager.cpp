@@ -19,12 +19,12 @@ using namespace tt::umd;
 const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
 TEST(ApiSysmemManager, BasicIO) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
 
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+    for (int const pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> const tt_device = TTDevice::create(pci_device_id);
 
-        std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+        std::unique_ptr<TLBManager> const tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
         // Initializes system memory with one channel.
         std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), 1);

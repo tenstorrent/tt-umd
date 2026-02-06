@@ -47,7 +47,7 @@ void BlackholeArcMessageQueue::push_request(
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        uint32_t request_queue_rptr = read_word(request_rptr_offset);
+        uint32_t const request_queue_rptr = read_word(request_rptr_offset);
         if (abs((int)request_queue_rptr - (int)request_queue_wptr) % (2 * size) != size) {
             break;
         }
@@ -56,7 +56,8 @@ void BlackholeArcMessageQueue::push_request(
     }
 
     // Offset in words.
-    uint32_t request_entry_offset = header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
+    uint32_t const request_entry_offset =
+        header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
     write_words(request.data(), BlackholeArcMessageQueue::entry_len, request_entry_offset);
 
     request_queue_wptr = (request_queue_wptr + 1) % (2 * size);
@@ -71,7 +72,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        uint32_t response_queue_wptr = read_word(response_wptr_offset);
+        uint32_t const response_queue_wptr = read_word(response_wptr_offset);
 
         if (response_queue_rptr != response_queue_wptr) {
             break;
@@ -80,7 +81,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
         utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
-    uint32_t response_entry_offset =
+    uint32_t const response_entry_offset =
         header_len + (size + (response_queue_rptr % size)) * BlackholeArcMessageQueue::entry_len;
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> response;
     read_words(response.data(), BlackholeArcMessageQueue::entry_len, response_entry_offset);
@@ -140,11 +141,11 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
         tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
     }
 
-    uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
-    uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
+    uint32_t const queue_base_addr = queue_control_block & 0xFFFFFFFF;
+    uint32_t const num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
 
-    uint32_t msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
-    uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
+    uint32_t const msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
+    uint32_t const msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
 
     return std::make_unique<BlackholeArcMessageQueue>(tt_device, msg_queue_base, num_entries_per_queue, arc_core);
 }

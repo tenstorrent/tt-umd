@@ -56,7 +56,7 @@ static void set_barrier_params(Cluster& cluster) {
 }
 
 TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+    std::unique_ptr<Cluster> const umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .sdesc_path = "tests/soc_descs/wormhole_b0_one_dram_one_tensix_no_eth.yaml",
     });
 }
@@ -64,7 +64,7 @@ TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
 TEST(SiliconDriverWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
-        Cluster cluster(ClusterOptions{
+        Cluster const cluster(ClusterOptions{
             .perform_harvesting = false,
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
@@ -171,7 +171,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 
     test_utils::safe_test_cluster_start(&cluster);
 
-    std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
+    std::vector<uint32_t> const unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (auto chip_id : cluster.get_target_device_ids()) {
         for (const auto& size : unaligned_sizes) {
             std::vector<uint8_t> write_vec(size, 0);
@@ -358,7 +358,8 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     }
 
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
-        CoreCoord core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
+        CoreCoord const core =
+            cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
         test_utils::read_data_from_device(cluster, readback_membar_vec, 0, core, 0, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all DRAM
@@ -387,7 +388,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         vec2.at(i) = vec1.size() + i;
     }
     std::thread th1 = std::thread([&] {
-        std::uint32_t address = base_addr;
+        std::uint32_t const address = base_addr;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -402,7 +403,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     });
 
     std::thread th2 = std::thread([&] {
-        std::uint32_t address = base_addr + vec1.size() * 4;
+        std::uint32_t const address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -445,8 +446,9 @@ TEST(SiliconDriverWH, DISABLED_BroadcastWrite) {
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     test_utils::safe_test_cluster_start(&cluster);
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::vector<uint32_t> const broadcast_sizes = {
+        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t const address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
     std::set<uint32_t> cols_to_exclude = {0, 5};
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
@@ -521,16 +523,17 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
 
     test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
-    bool virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+    bool const virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
+                                         cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::vector<uint32_t> const broadcast_sizes = {
+        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t const address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};
     std::set<uint32_t> cols_to_exclude = {0, 5};
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
@@ -609,16 +612,16 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     set_barrier_params(cluster);
 
     // Address of the reset unit in ARC core:
-    uint64_t arc_reset_noc = 0x880030000ULL;
+    uint64_t const arc_reset_noc = 0x880030000ULL;
 
     // Offset to the scratch registers in the reset unit:
-    uint64_t scratch_offset = 0x60;
+    uint64_t const scratch_offset = 0x60;
 
     // Map a TLB to the reset unit in ARC core:
     cluster.configure_tlb(0, ARC_CORE, 1 << 20, arc_reset_noc);
 
     // Address of the scratch register in the reset unit:
-    uint64_t addr = arc_reset_noc + scratch_offset;
+    uint64_t const addr = arc_reset_noc + scratch_offset;
 
     uint32_t value0 = 0;
     uint32_t value1 = 0;
@@ -652,7 +655,7 @@ TEST(SiliconDriverWH, DMA1) {
     Cluster cluster;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
-    size_t dram_count = soc_descriptor.get_num_dram_channels();
+    size_t const dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
@@ -661,7 +664,7 @@ TEST(SiliconDriverWH, DMA1) {
 
     // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
     // and TLB reassignment.
-    size_t buf_size = 0x1080000;
+    size_t const buf_size = 0x1080000;
 
     // Keep track of the patterns we wrote to DRAM so we can verify them later.
     std::vector<std::vector<uint8_t>> patterns;
@@ -701,7 +704,7 @@ TEST(SiliconDriverWH, DMA2) {
     Cluster cluster;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
-    size_t dram_count = soc_descriptor.get_num_dram_channels();
+    size_t const dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
@@ -718,7 +721,7 @@ TEST(SiliconDriverWH, DMA2) {
     std::random_device rd;
     std::mt19937 rng(rd());
     std::uniform_int_distribution<size_t> size_dist(MIN_BUF_SIZE, MAX_BUF_SIZE);
-    std::uniform_int_distribution<uint64_t> addr_dist(MIN_ADDR, MAX_ADDR);
+    std::uniform_int_distribution<uint64_t> const addr_dist(MIN_ADDR, MAX_ADDR);
 
     // Structure to keep track of the operations.
     struct DmaOpInfo {
@@ -735,8 +738,8 @@ TEST(SiliconDriverWH, DMA2) {
         // First, write a different random pattern to a random address on each DRAM core.
         for (const auto& core : dram_cores) {
             // Generate random size and address.
-            size_t size = size_dist(rng) & ~0x3ULL;
-            uint64_t addr = 0;
+            size_t const size = size_dist(rng) & ~0x3ULL;
+            uint64_t const addr = 0;
 
             // Generate a random pattern of the specified size.
             std::vector<uint8_t> pattern(size);
@@ -772,8 +775,8 @@ TEST(SiliconDriverWH, DMA2) {
         // First, write a different random pattern to a random address on each DRAM core.
         for (const auto& dram_core : dram_cores) {
             // Generate random size and address.
-            size_t size = size_dist(rng) & ~0x3ULL;
-            uint64_t addr = 0;
+            size_t const size = size_dist(rng) & ~0x3ULL;
+            uint64_t const addr = 0;
 
             // Generate a random pattern of the specified size.
             std::vector<uint8_t> pattern(size);
@@ -819,9 +822,9 @@ TEST(SiliconDriverWH, DMA3) {
     const ChipId chip = 0;
     Cluster cluster;
 
-    CoreCoord eth_core = CoreCoord(21, 17, CoreType::ETH, CoordSystem::TRANSLATED);
+    CoreCoord const eth_core = CoreCoord(21, 17, CoreType::ETH, CoordSystem::TRANSLATED);
 
-    size_t buf_size = 768;
+    size_t const buf_size = 768;
 
     std::vector<uint8_t> zeros(buf_size, 1);
     cluster.write_to_device(zeros.data(), zeros.size(), chip, eth_core, 254304);

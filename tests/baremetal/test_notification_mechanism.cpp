@@ -33,7 +33,7 @@ public:
         auto pre_future = pre_reset_promise.get_future();
         auto post_future = post_reset_promise.get_future();
 
-        bool success = WarmResetCommunication::Monitor::start_monitoring(
+        bool const success = WarmResetCommunication::Monitor::start_monitoring(
             [&]() { pre_reset_promise.set_value(); }, [&]() { post_reset_promise.set_value(); });
 
         if (!success) {
@@ -71,12 +71,13 @@ protected:
     }
 
     void wait_for_socket_state(int pid, bool should_exist) {
-        std::string socket_name = "client_" + std::to_string(pid) + ".sock";
-        std::filesystem::path socket_path = std::filesystem::path(WarmResetCommunication::LISTENER_DIR) / socket_name;
+        std::string const socket_name = "client_" + std::to_string(pid) + ".sock";
+        std::filesystem::path const socket_path =
+            std::filesystem::path(WarmResetCommunication::LISTENER_DIR) / socket_name;
 
         int retries = 50;  // Wait up to 500ms.
         while (retries--) {
-            bool currently_exists = std::filesystem::exists(socket_path);
+            bool const currently_exists = std::filesystem::exists(socket_path);
 
             // If the current state matches the desired state, we are done.
             if (currently_exists == should_exist) {
@@ -108,9 +109,9 @@ TEST_P(WarmResetTimingTest, MultiProcess) {
     std::vector<pid_t> child_pids;
 
     for (int i = 0; i < NUM_CHILDREN; ++i) {
-        pid_t pid = fork();
+        pid_t const pid = fork();
         if (pid == 0) {
-            int result = WarmResetNotificationTest::run_child_monitor_logic();
+            int const result = WarmResetNotificationTest::run_child_monitor_logic();
             _exit(result);
         }
         ASSERT_GT(pid, 0);
@@ -120,14 +121,14 @@ TEST_P(WarmResetTimingTest, MultiProcess) {
     // Allow startup of processes.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    std::chrono::milliseconds sleep_duration_ms = std::chrono::milliseconds(GetParam());
+    std::chrono::milliseconds const sleep_duration_ms = std::chrono::milliseconds(GetParam());
 
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(1000));
     std::this_thread::sleep_for(sleep_duration_ms);
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 
     // Verify.
-    for (pid_t pid : child_pids) {
+    for (pid_t const pid : child_pids) {
         int status;
         waitpid(pid, &status, 0);
         ASSERT_TRUE(WIFEXITED(status));
@@ -141,7 +142,7 @@ TEST_F(WarmResetNotificationTest, NotifierIgnoresStaleSockets) {
 
     // Create a fake socket file (just a regular empty file, or a bound socket with no listener)
     // Let's make it tricky: A file that looks like a socket name but is just a file.
-    std::string fake_socket = std::string(WarmResetCommunication::LISTENER_DIR) + "/client_99999.sock";
+    std::string const fake_socket = std::string(WarmResetCommunication::LISTENER_DIR) + "/client_99999.sock";
     std::ofstream ofs(fake_socket);
     ofs.close();
 
@@ -154,13 +155,13 @@ TEST_F(WarmResetNotificationTest, NotifierIgnoresStaleSockets) {
 }
 
 TEST_F(WarmResetNotificationTest, ResilientToClientFailure) {
-    pid_t good_pid = fork();
+    pid_t const good_pid = fork();
     if (good_pid == 0) {
         // This client behaves nicely.
         _exit(run_child_monitor_logic());
     }
 
-    pid_t bad_pid = fork();
+    pid_t const bad_pid = fork();
     if (bad_pid == 0) {
         // This client starts monitoring but then crashes/exits immediately
         // leaving a valid socket file but no process reading it.
@@ -187,19 +188,19 @@ TEST_F(WarmResetNotificationTest, ResilientToClientFailure) {
 }
 
 TEST_F(WarmResetNotificationTest, MonitorCanRestart) {
-    bool first_valid_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
+    bool const first_valid_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
     ASSERT_TRUE(first_valid_start);
 
     wait_for_socket_state(getpid(), true);
 
-    bool double_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
+    bool const double_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
     ASSERT_FALSE(double_start);
 
     WarmResetCommunication::Monitor::stop_monitoring();
 
     wait_for_socket_state(getpid(), false);
 
-    bool second_valid_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
+    bool const second_valid_start = WarmResetCommunication::Monitor::start_monitoring([]() {}, []() {});
     ASSERT_TRUE(second_valid_start);
 
     wait_for_socket_state(getpid(), true);
@@ -241,10 +242,10 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     auto params = GetParam();
     tt::umd::test_utils::MultiProcessPipe pipe(1);
 
-    pid_t pid = fork();
+    pid_t const pid = fork();
 
     if (pid == 0) {
-        int result = run_child_monitor_logic(
+        int const result = run_child_monitor_logic(
             std::chrono::duration_cast<std::chrono::seconds>(params.pre_wait),
             std::chrono::duration_cast<std::chrono::seconds>(params.post_wait),
             [&]() { pipe.signal_ready_from_child(0); });
@@ -256,7 +257,7 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     if (params.should_trigger_pre) {
         // SAFETY CHECK: Ensure the background thread actually created the socket.
         // This is much better than a hardcoded sleep.
-        std::string socket_path =
+        std::string const socket_path =
             std::string(WarmResetCommunication::LISTENER_DIR) + "/client_" + std::to_string(pid) + ".sock";
 
         // Quick spin-wait (usually exits instantly).

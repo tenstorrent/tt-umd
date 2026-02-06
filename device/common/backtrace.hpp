@@ -46,8 +46,8 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void *cal
         array.at(1) = caller_address;
     }
 
-    size_t s = ::backtrace(array.data(), size);
-    std::unique_ptr<char *, decltype(&free)> strings(backtrace_symbols(array.data(), s), &free);
+    size_t const s = ::backtrace(array.data(), size);
+    std::unique_ptr<char *, decltype(&free)> const strings(backtrace_symbols(array.data(), s), &free);
 
     if (strings == nullptr) {
         std::cout << "backtrace_symbols error." << std::endl;

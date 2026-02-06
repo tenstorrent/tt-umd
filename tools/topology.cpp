@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
 
-    std::unordered_set<int> device_ids = {};
+    std::unordered_set<int> const device_ids = {};
     IODeviceType device_type = IODeviceType::PCIe;
 
     if (result["jtag"].as<bool>()) {
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", device_type);
 
     if (result.count("logical_devices")) {
-        std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
+        std::unordered_set<int> const logical_device_ids = extract_int_set(result["logical_devices"]);
 
         cluster_descriptor =
             ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get(), logical_device_ids);

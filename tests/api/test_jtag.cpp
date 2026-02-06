@@ -96,9 +96,9 @@ std::vector<ApiJtagDeviceTest::DeviceData> ApiJtagDeviceTest::device_data_;
 bool ApiJtagDeviceTest::setup_successful_ = false;
 
 TEST_F(ApiJtagDeviceTest, JTagIOBasic) {
-    uint64_t address = 0x0;
+    uint64_t const address = 0x0;
 
-    std::vector<uint32_t> data_write = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+    std::vector<uint32_t> const data_write = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
 
     for (const auto& device : device_data_) {
         check_io(device, address, data_write);
@@ -106,9 +106,9 @@ TEST_F(ApiJtagDeviceTest, JTagIOBasic) {
 }
 
 TEST_F(ApiJtagDeviceTest, JtagIOUnalignedAddress) {
-    uint64_t address = 0x3;
+    uint64_t const address = 0x3;
 
-    std::vector<uint32_t> data_write = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+    std::vector<uint32_t> const data_write = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
 
     for (const auto& device : device_data_) {
         check_io(device, address, data_write);
@@ -116,18 +116,18 @@ TEST_F(ApiJtagDeviceTest, JtagIOUnalignedAddress) {
 }
 
 TEST_F(ApiJtagDeviceTest, JtagIOLessThanWordSize) {
-    uint64_t address = 0x4;
+    uint64_t const address = 0x4;
 
-    std::vector<uint8_t> data_write = {10, 20, 30};
+    std::vector<uint8_t> const data_write = {10, 20, 30};
     for (const auto& device : device_data_) {
         check_io(device, address, data_write);
     }
 }
 
 TEST_F(ApiJtagDeviceTest, JtagIOLessThanWordSizeUnalignedAddress) {
-    uint64_t address = 0x3;
+    uint64_t const address = 0x3;
 
-    std::vector<uint8_t> data_write = {10, 20, 30};
+    std::vector<uint8_t> const data_write = {10, 20, 30};
     for (const auto& device : device_data_) {
         check_io(device, address, data_write);
     }
@@ -138,13 +138,13 @@ TEST_F(ApiJtagDeviceTest, JtagIOLessThanWordSizeUnalignedAddress) {
  * Use translated coordinates to check if JTAG targets the correct core.
  */
 TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> const pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "PCI device enumeration failed. Cannot run JTAG Translated Coords Test.";
     }
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
-    uint64_t address = 0x0;
+    uint64_t const address = 0x0;
     bool read_occured = false;
 
     // Test shouldn't last long since there's a limited number of PCIe devices on the system.
@@ -155,9 +155,9 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
         }
         pci_tt_device->init_tt_device();
 
-        ChipInfo chip_info = pci_tt_device->get_chip_info();
+        ChipInfo const chip_info = pci_tt_device->get_chip_info();
 
-        tt_xy_pair tensix_core =
+        tt_xy_pair const tensix_core =
             SocDescriptor(pci_tt_device->get_arch(), chip_info).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         // clear the memory first with zeros.
@@ -166,7 +166,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
         pci_tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
         for (const auto& device : device_data_) {
-            ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
+            ChipInfo const jtag_chip_info = device.tt_device_->get_chip_info();
             // Since we can have multiple chips with their own jlink,
             // we have to find the one which direct connection to PCIe link.
             if (jtag_chip_info.board_id == chip_info.board_id &&
@@ -188,16 +188,17 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
 TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
     std::vector<uint32_t> data_write = {11, 22, 33, 44, 55, 66, 77, 88, 99, 111};
     std::vector<uint32_t> data_read(data_write.size(), 0);
-    uint64_t address = 0x0;
+    uint64_t const address = 0x0;
 
     for (const auto& device : device_data_) {
-        SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
-        tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
-        tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
+        SocDescriptor const soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
+        tt_xy_pair const test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
+        tt_xy_pair const test_core_noc_1 =
+            soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
 
         device.tt_device_->write_to_device(
             data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));
-        NocIdSwitcher noc1_switcher(NocId::NOC1);
+        NocIdSwitcher const noc1_switcher(NocId::NOC1);
         device.tt_device_->read_from_device(
             data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t));
         ASSERT_EQ(data_write, data_read);
@@ -218,7 +219,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
         std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
 
     // Initialize random data.
-    size_t data_size = 10;
+    size_t const data_size = 10;
     std::vector<uint8_t> data(data_size, 0);
     for (int i = 0; i < data_size; i++) {
         data[i] = i % 256;
@@ -227,7 +228,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord const any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 

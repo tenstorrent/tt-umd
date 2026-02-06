@@ -72,6 +72,21 @@ public:
         const std::unordered_set<ChipId> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled);
 
     /**
+     * Creates a mock cluster descriptor with TT_VISIBLE_DEVICES environment variable support.
+     * Parses TT_VISIBLE_DEVICES for logical IDs and BDFs, filters devices including all chips on
+     * same boards as visible devices, and re-enumerates logical IDs from 0 to N-1.
+     *
+     * @param all_logical_device_ids All logical device IDs available for mock cluster.
+     * @param arch Architecture of the mock cluster.
+     * @param noc_translation_enabled Whether NOC translation is enabled.
+     * @return Unique pointer to the created cluster descriptor with filtered and re-enumerated devices.
+     */
+    static std::unique_ptr<ClusterDescriptor> create_mock_cluster_with_visible_devices(
+        const std::unordered_set<ChipId> &all_logical_device_ids,
+        tt::ARCH arch,
+        bool noc_translation_enabled);
+
+    /**
      * Creates a constrained cluster descriptor that only contains the chips specified in target_chip_ids.
      * @param full_cluster_desc Pointer to the full cluster descriptor from which the constrained descriptor will be
      * created.

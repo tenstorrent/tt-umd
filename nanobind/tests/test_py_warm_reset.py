@@ -54,5 +54,5 @@ class TestWarmReset(unittest.TestCase):
         # Verify that the device is back online
         options = tt_umd.TopologyDiscoveryOptions()
         # Our 6U has instable eth links, so this will ensure having full links after this test.
-        options.retrain_eth_count = 2
+        # options.retrain_eth_count = 2
         tt_umd.TopologyDiscovery.discover(options)

@@ -65,19 +65,11 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>())
         .def_static(
-            "enumerate_devices",
-            [](std::unordered_set<int> pci_target_devices = {}) {
-                return PCIDevice::enumerate_devices(pci_target_devices);
-            },
-            nb::arg("pci_target_devices") = std::unordered_set<int>{},
-            "Enumerates PCI devices, optionally filtering by target devices.")
+            "enumerate_devices", []() { return PCIDevice::enumerate_devices(); }, "Enumerates PCI devices.")
         .def_static(
             "enumerate_devices_info",
-            [](std::unordered_set<int> pci_target_devices = {}) {
-                return PCIDevice::enumerate_devices_info(pci_target_devices);
-            },
-            nb::arg("pci_target_devices") = std::unordered_set<int>{},
-            "Enumerates PCI device information, optionally filtering by target devices.")
+            []() { return PCIDevice::enumerate_devices_info(); },
+            "Enumerates PCI device information.")
         .def("get_device_info", &PCIDevice::get_device_info)
         .def("get_device_num", &PCIDevice::get_device_num)
         .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")

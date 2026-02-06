@@ -70,7 +70,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, tt
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
         // from the ClusterOptions will work correctly on 6U.
         // Note that the board_id will still be reported properly in the cluster descriptor, since it is
         // fetched through another function when cluster descriptor is being filled up.

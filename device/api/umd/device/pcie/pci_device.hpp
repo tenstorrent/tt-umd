@@ -128,12 +128,12 @@ public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
-    static std::vector<int> enumerate_devices(const std::unordered_set<int> &pci_target_devices = {});
+    static std::vector<int> enumerate_devices();
 
     /**
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
-    static std::map<int, PciDeviceInfo> enumerate_devices_info(const std::unordered_set<int> &pci_target_devices = {});
+    static std::map<int, PciDeviceInfo> enumerate_devices_info();
 
     /**
      * Read device information from sysfs.

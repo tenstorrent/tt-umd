@@ -158,15 +158,14 @@ void TopologyDiscovery::discover_remote_devices() {
         devices_to_discover.erase(it);
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
+        verify_fw_bundle_version(tt_device);
+
         if (options.no_remote_discovery) {
             continue;
         }
 
         std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-
-        verify_fw_bundle_version(tt_device);
-
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
 

@@ -287,6 +287,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         &eth_fw_version_read, eth_core, eth_l1_mem::address_map::FW_VERSION_ADDR, sizeof(uint32_t));
 
     semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+    uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
@@ -307,9 +308,10 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for device {} ETH core {}, found: {}.",
-            get_local_asic_id(tt_device, eth_core),
+            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+            current_device_asic_id,
             eth_core.str(),
+            expected_eth_fw_version->to_string(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
@@ -319,9 +321,11 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
-                "ETH FW version hash check failed for device {} ETH core {}",
-                get_local_asic_id(tt_device, eth_core),
-                eth_core.str());
+                "ETH FW hash check failed for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+                current_device_asic_id,
+                eth_core.str(),
+                expected_eth_fw_version->to_string(),
+                eth_fw_version.to_string());
             eth_fw_problem = true;
         }
     }

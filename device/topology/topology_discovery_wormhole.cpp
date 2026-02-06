@@ -283,7 +283,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t eth_fw_version_read;
-    tt_device->read_from_device(
+    tt_device->read_from_device_wc(
         &eth_fw_version_read, eth_core, eth_l1_mem::address_map::FW_VERSION_ADDR, sizeof(uint32_t));
 
     semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
@@ -368,7 +368,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained_and_connected(Chip* chip, const t
     tt_device->wait_eth_core_training(eth_core, std::chrono::milliseconds(5000));
 
     while (true) {
-        tt_device->read_from_device(&eth_connection_info, eth_core, addr, sizeof(uint32_t));
+        tt_device->read_from_device_wc(&eth_connection_info, eth_core, addr, sizeof(uint32_t));
 
         // std::cout << "eth core " << eth_core.x << "," << eth_core.y << " channel " << channel
         //           << " eth_connection_info: " << eth_connection_info << std::endl;

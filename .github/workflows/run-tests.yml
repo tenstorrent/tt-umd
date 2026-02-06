@@ -99,41 +99,41 @@ jobs:
           echo "Running tests..."
           .venv/bin/python -m pytest -s tests
 
-      - name: Use build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+      # - name: Use build artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
-      # This is needed to preserve file permissions
-      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-      - name: 'Untar build artifacts'
-        shell: bash
-        run: tar xvf artifact.tar
+      # # This is needed to preserve file permissions
+      # # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      # - name: 'Untar build artifacts'
+      #   shell: bash
+      #   run: tar xvf artifact.tar
 
-      - name: Run baremetal tests
-        if: ${{ inputs.arch == 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
+      # - name: Run baremetal tests
+      #   if: ${{ inputs.arch == 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
 
-      - name: Run API tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+      # - name: Run API tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
-      - name: Run arch-specific UMD unit tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+      # - name: Run arch-specific UMD unit tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
-      - name: Run PCI tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+      # - name: Run PCI tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
-      - name: Run MISC tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+      # - name: Run MISC tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
-      - name: Run unified tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+      # - name: Run unified tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

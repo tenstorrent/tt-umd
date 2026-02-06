@@ -22,6 +22,10 @@ if(TT_UMD_BUILD_SIMULATION)
         COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
         VERBATIM
     )
+
+    # Add FlatBuffers header to the code analysis target
+    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
 
 if(TT_UMD_BUILD_STATIC)

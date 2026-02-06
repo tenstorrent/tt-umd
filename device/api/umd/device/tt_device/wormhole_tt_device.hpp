@@ -49,7 +49,7 @@ public:
 
     void l1_membar(const std::unordered_set<tt_xy_pair> &cores = {}) override;
 
-    ~WormholeTTDevice() override{};
+    ~WormholeTTDevice() override = default;
 
 protected:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);

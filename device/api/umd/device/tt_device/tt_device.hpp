@@ -297,6 +297,19 @@ public:
 
     virtual void l1_membar(const std::unordered_set<tt_xy_pair> &cores = {}) = 0;
 
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

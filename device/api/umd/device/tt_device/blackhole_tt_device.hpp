@@ -51,6 +51,9 @@ public:
 
     void l1_membar(const std::unordered_set<tt_xy_pair> &cores = {}) override;
 
+    void dma_multicast_write(
+        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

@@ -29,7 +29,7 @@ public:
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
 
-    ~LocalChip();
+    ~LocalChip() override;
 
     bool is_mmio_capable() const override;
 
@@ -56,6 +56,7 @@ public:
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);

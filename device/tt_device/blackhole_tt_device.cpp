@@ -9,8 +9,14 @@
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -386,6 +392,11 @@ void BlackholeTTDevice::l1_membar(const std::unordered_set<tt_xy_pair> &cores) {
         // The caller should use Chip-level API for full barrier on all cores.
         TT_THROW("l1_membar with empty cores set is not supported at TTDevice level. Use Chip-level API instead.");
     }
+}
+
+void BlackholeTTDevice::dma_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
 }
 
 }  // namespace tt::umd

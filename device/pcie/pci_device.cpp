@@ -272,19 +272,26 @@ std::vector<int> PCIDevice::enumerate_devices() {
 
     for (const auto &device_token : device_tokens) {
         // Check if token is BDF format (contains colon and dot).
-        bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
+        bool is_bdf = (device_token.find(':') != std::string::npos || device_token.find('.') != std::string::npos) &&
+                      (device_token.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
 
         if (is_bdf) {
-            if (bdf_to_device_id_map.find(device_token) != bdf_to_device_id_map.end()) {
-                int device_id = bdf_to_device_id_map[device_token];
-                filtered_device_ids.insert(device_id);
-                log_debug(
-                    LogUMD,
-                    "Added device id {} with BDF {} because of token filter {}.",
-                    device_id,
-                    device_token,
-                    device_token);
-            } else {
+            bool matched_bdf_pattern = false;
+            for (const auto &bdf_to_device_id : bdf_to_device_id_map) {
+                if (bdf_to_device_id.first.find(device_token) != std::string::npos) {
+                    int device_id = bdf_to_device_id.second;
+                    filtered_device_ids.insert(device_id);
+                    log_debug(
+                        LogUMD,
+                        "Added device id {} with BDF {} because of token filter {}.",
+                        device_id,
+                        bdf_to_device_id.first,
+                        device_token);
+                    matched_bdf_pattern = true;
+                }
+            }
+
+            if (!matched_bdf_pattern) {
                 TT_THROW(
                     "Invalid BDF identifier in TT_VISIBLE_DEVICES: {}. Valid device identifiers are either integers or "
                     "part of the BDF string.",

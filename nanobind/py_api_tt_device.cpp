@@ -266,9 +266,8 @@ void bind_tt_device(nb::module_ &m) {
                CoreType core_type) -> void {
                 std::vector<tt_xy_pair> xy_cores;
                 xy_cores.reserve(cores.size());
-                for (const auto &core : cores) {
-                    xy_cores.push_back(
-                        tt_xy_pair{static_cast<uint32_t>(std::get<0>(core)), static_cast<uint32_t>(std::get<1>(core))});
+                for (const auto &[x, y] : cores) {
+                    xy_cores.push_back(tt_xy_pair{static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
                 }
                 self.l1_membar(xy_cores, barrier_address, core_type);
             },
@@ -282,9 +281,8 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, const std::vector<std::tuple<int, int>> &cores, uint32_t barrier_address) -> void {
                 std::vector<tt_xy_pair> xy_cores;
                 xy_cores.reserve(cores.size());
-                for (const auto &core : cores) {
-                    xy_cores.push_back(
-                        tt_xy_pair{static_cast<uint32_t>(std::get<0>(core)), static_cast<uint32_t>(std::get<1>(core))});
+                for (const auto &[x, y] : cores) {
+                    xy_cores.push_back(tt_xy_pair{static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
                 }
                 self.l1_membar(xy_cores, barrier_address, CoreType::TENSIX);
             },

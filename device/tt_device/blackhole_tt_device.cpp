@@ -288,7 +288,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
-    while (read_port_status(eth_core) == blackhole::port_status_e::PORT_UNKNOWN) {
+    while (read_eth_core_training_status(eth_core) == EthTrainStatus::Ongoing) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -302,11 +302,11 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     return time_taken;
 }
 
-blackhole::port_status_e BlackholeTTDevice::read_port_status(tt_xy_pair eth_core) {
+EthTrainStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-    return static_cast<blackhole::port_status_e>(port_status_val);
+    return static_cast<EthTrainStatus>(port_status_val);
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {

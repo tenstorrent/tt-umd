@@ -259,6 +259,25 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
+            "l1_membar",
+            [](TTDevice &self,
+               const std::vector<std::tuple<int, int>> &cores,
+               uint32_t barrier_address,
+               CoreType core_type) -> void {
+                std::vector<tt_xy_pair> xy_cores;
+                xy_cores.reserve(cores.size());
+                for (const auto &core : cores) {
+                    xy_cores.push_back(
+                        tt_xy_pair{static_cast<uint32_t>(std::get<0>(core)), static_cast<uint32_t>(std::get<1>(core))});
+                }
+                self.l1_membar(xy_cores, barrier_address, core_type);
+            },
+            nb::arg("cores"),
+            nb::arg("barrier_address"),
+            nb::arg("core_type") = CoreType::TENSIX,
+            "Insert a memory barrier on the specified L1 cores. Cores should be a list of (x, y) tuples in translated "
+            "coordinates.")
+        .def(
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,

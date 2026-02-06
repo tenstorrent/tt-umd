@@ -172,8 +172,8 @@ void TopologyDiscovery::discover_remote_devices() {
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
                     LogUMD,
-                    "Skipping discovery from device {} ETH core {}",
-                    get_local_asic_id(tt_device, eth_core),
+                    "Skipping discovery from device ASIC ID: {} ETH core {}",
+                    current_device_asic_id,
                     eth_core.str());
                 channel++;
                 continue;
@@ -396,7 +396,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
                 fmt::format(
                     "Firmware bundle version mismatch for device {}: expected {}, got {}",
                     get_asic_id(tt_device),
-                    first_fw_bundle_version.value().to_string(),
+                    first_fw_bundle_version->to_string(),
                     fw_bundle_version.to_string()));
             return false;
         }

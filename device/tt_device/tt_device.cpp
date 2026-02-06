@@ -484,24 +484,25 @@ TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
 void TTDevice::set_membar_flag(
     const std::vector<tt_xy_pair> &cores, const uint32_t barrier_value, const uint32_t barrier_addr) {
     tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered.
-    std::unordered_set<tt_xy_pair> cores_synced = {};
-    std::vector<uint32_t> barrier_val_vec = {barrier_value};
+    std::vector<bool> cores_synced(cores.size(), false);
+    size_t num_synced = 0;
     for (const auto &core : cores) {
-        write_to_device(barrier_val_vec.data(), core, barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
+        write_to_device(&barrier_value, core, barrier_addr, sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed.
-    while (cores_synced.size() != cores.size()) {
-        for (const auto &core : cores) {
-            if (cores_synced.find(core) == cores_synced.end()) {
+    while (num_synced != cores.size()) {
+        for (size_t i = 0; i < cores.size(); ++i) {
+            if (!cores_synced[i]) {
                 uint32_t readback_val;
-                read_from_device(&readback_val, core, barrier_addr, sizeof(std::uint32_t));
+                read_from_device(&readback_val, cores[i], barrier_addr, sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
-                    cores_synced.insert(core);
+                    cores_synced[i] = true;
+                    ++num_synced;
                 } else {
                     log_trace(
                         LogUMD,
                         "Waiting for core {} to receive mem bar flag {} in function",
-                        core.str(),
+                        cores[i].str(),
                         barrier_value);
                 }
             }

@@ -205,7 +205,7 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
     for (int n : PCIDevice::enumerate_devices()) {
         // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
         // to check if the device is in the pci_target_devices set.
-        if (pci_target_devices.find(n) == pci_target_devices.end()) {
+        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
             continue;
         }
 

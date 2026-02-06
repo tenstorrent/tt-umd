@@ -266,7 +266,8 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
 
     for (const auto &device_token : device_tokens) {
         // Check if token is BDF format (contains colon and dot).
-        bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
+        bool is_bdf = (device_token.find(':') != std::string::npos || device_token.find('.') != std::string::npos) &&
+                      (device_token.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
 
         if (is_bdf) {
             bool matched_bdf_pattern = false;

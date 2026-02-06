@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
+#include "assert.hpp"
 #include "fmt/ranges.h"
 
 namespace tt::umd::utils {

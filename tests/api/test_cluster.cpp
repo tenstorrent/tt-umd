@@ -1539,3 +1539,18 @@ TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
     }
     std::cout << "Completed warm reset." << std::endl;
 }
+
+TEST(TestCluster, ETHRepro) {
+    WarmReset::warm_reset();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    auto remote = cluster->get_remote_chip(*cluster->get_target_remote_device_ids().begin());
+    auto dram_core = remote->get_soc_descriptor().get_dram_core_for_channel(0, 0);
+    std::cout << "Stressing ETH IO." << std::endl;
+    std::vector<uint8_t> v(100, 0);
+    for (int i = 0; i < 10000; i++) {
+        remote->read_from_device(dram_core, v.data(), 0x0, 100);
+    }
+}

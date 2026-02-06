@@ -396,8 +396,8 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
                 fmt::format(
                     "Firmware bundle version mismatch for device {}: expected {}, got {}",
                     get_asic_id(tt_device),
-                    fw_bundle_version.to_string(),
-                    tt_device->get_firmware_version().to_string()));
+                    first_fw_bundle_version.value().to_string(),
+                    fw_bundle_version.to_string()));
             return false;
         }
         return true;

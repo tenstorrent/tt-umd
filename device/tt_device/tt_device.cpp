@@ -65,32 +65,30 @@ void TTDevice::probe_arc() {
 }
 
 TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
-    last_init_result_ = TTDeviceInitResult::UNINITIALIZED;
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
-        last_init_result_ = TTDeviceInitResult::ARC_STARTUP_FAILED;
         if (throw_on_arc_failure) {
             throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
         } else {
-            return last_init_result_;
+            return TTDeviceInitResult::ARC_STARTUP_FAILED;
         }
     }
     try {
         arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     } catch (const std::runtime_error &e) {
-        return (last_init_result_ = TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE);
+        return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
     }
     try {
         telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     } catch (const std::runtime_error &e) {
-        return (last_init_result_ = TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE);
+        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
     }
     try {
         firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     } catch (const std::runtime_error &e) {
-        return (last_init_result_ = TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE);
+        return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
     }
-    return (last_init_result_ = TTDeviceInitResult::SUCCESSFUL);
+    return TTDeviceInitResult::SUCCESSFUL;
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
@@ -119,8 +117,6 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
             return nullptr;
     }
 }
-
-TTDeviceInitResult TTDevice::get_last_init_result() const { return last_init_result_; }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {

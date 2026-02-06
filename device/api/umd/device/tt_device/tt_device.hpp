@@ -28,7 +28,7 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 
-enum class TTDeviceInitResult : uint8_t {
+enum class TTDeviceInitResult {
     UNKNOWN = 0,
     UNINITIALIZED,
     ARC_STARTUP_FAILED,
@@ -319,8 +319,6 @@ public:
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
-    TTDeviceInitResult get_last_init_result() const;
-
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -341,8 +339,6 @@ protected:
     tt_xy_pair arc_core;
 
 private:
-    TTDeviceInitResult last_init_result_ = TTDeviceInitResult::UNINITIALIZED;
-
     void probe_arc();
 
     TlbWindow *get_cached_tlb_window();

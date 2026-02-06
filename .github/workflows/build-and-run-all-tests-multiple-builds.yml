@@ -23,7 +23,7 @@ on:
         required: true
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
-  pull_request:
+  # pull_request:
   push:
     branches: ["main"]
 

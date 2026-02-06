@@ -47,7 +47,10 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    void l1_membar(const std::unordered_set<tt_xy_pair> &cores = {}) override;
+    void l1_membar(
+        const std::unordered_set<tt_xy_pair> &cores = {},
+        uint32_t barrier_address = 0,
+        CoreType core_type = CoreType::TENSIX) override;
 
     ~WormholeTTDevice() override = default;
 

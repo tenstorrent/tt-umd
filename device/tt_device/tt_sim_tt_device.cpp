@@ -328,7 +328,8 @@ void TTSimTTDevice::close_simulator_binary() {
     }
 }
 
-void TTSimTTDevice::l1_membar(const std::unordered_set<tt_xy_pair>& cores) {
+void TTSimTTDevice::l1_membar(
+    const std::unordered_set<tt_xy_pair>& cores, uint32_t barrier_addres, CoreType core_type) {
     // No-op for simulation device.
 }
 

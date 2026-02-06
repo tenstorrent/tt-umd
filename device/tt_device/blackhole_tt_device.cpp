@@ -379,14 +379,16 @@ void BlackholeTTDevice::insert_host_to_device_barrier(
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }
 
-void BlackholeTTDevice::l1_membar(const std::unordered_set<tt_xy_pair> &cores) {
-    auto l1_address_params = architecture_impl_->get_l1_address_params();
+void BlackholeTTDevice::l1_membar(
+    const std::unordered_set<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
+    if (core_type != CoreType::TENSIX && core_type != CoreType::ETH) {
+        TT_THROW("l1_membar only supports TENSIX and ETH core types.");
+    }
+
     if (!cores.empty()) {
         // Insert barrier on specific cores with L1.
-        // At TTDevice level, we assume all cores passed use tensix_l1_barrier_base.
-        // For ETH cores, the caller should use the Chip-level API which can distinguish core types.
         std::vector<tt_xy_pair> cores_to_sync(cores.begin(), cores.end());
-        insert_host_to_device_barrier(cores_to_sync, l1_address_params.tensix_l1_barrier_base);
+        insert_host_to_device_barrier(cores_to_sync, barrier_address);
     } else {
         // When no cores specified, cannot perform barrier as we don't have soc_descriptor at TTDevice level.
         // The caller should use Chip-level API for full barrier on all cores.

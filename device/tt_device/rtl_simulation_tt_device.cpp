@@ -239,7 +239,10 @@ void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_p
     throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::l1_membar(const std::unordered_set<tt_xy_pair>& cores) {  // No-op for simulation device.
+void RtlSimulationTTDevice::l1_membar(
+    const std::unordered_set<tt_xy_pair>& cores,
+    uint32_t barrier_address,
+    CoreType core_type) {  // No-op for simulation device.
 }
 
 void RtlSimulationTTDevice::dma_multicast_write(

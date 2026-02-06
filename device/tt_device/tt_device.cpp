@@ -26,6 +26,7 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
@@ -478,6 +479,60 @@ TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
 
     cached_pcie_dma_tlb_window->configure(config);
     return cached_pcie_dma_tlb_window.get();
+}
+
+void TTDevice::set_membar_flag(
+    const std::vector<tt_xy_pair> &cores, const uint32_t barrier_value, const uint32_t barrier_addr) {
+    tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered.
+    std::unordered_set<tt_xy_pair> cores_synced = {};
+    std::vector<uint32_t> barrier_val_vec = {barrier_value};
+    for (const auto &core : cores) {
+        write_to_device(barrier_val_vec.data(), core, barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
+    }
+    tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed.
+    while (cores_synced.size() != cores.size()) {
+        for (const auto &core : cores) {
+            if (cores_synced.find(core) == cores_synced.end()) {
+                uint32_t readback_val;
+                read_from_device(&readback_val, core, barrier_addr, sizeof(std::uint32_t));
+                if (readback_val == barrier_value) {
+                    cores_synced.insert(core);
+                } else {
+                    log_trace(
+                        LogUMD,
+                        "Waiting for core {} to receive mem bar flag {} in function",
+                        core.str(),
+                        barrier_value);
+                }
+            }
+        }
+    }
+    // Ensure that reads or writes after this do not get reordered.
+    // Reordering can cause races where data gets transferred before the barrier has returned.
+    tt_driver_atomics::mfence();
+}
+
+void TTDevice::insert_host_to_device_barrier(const std::vector<tt_xy_pair> &cores, const uint32_t barrier_addr) {
+    // Ensure that this memory barrier is atomic across processes/threads.
+    auto lock = lock_manager.acquire_mutex(MutexType::MEM_BARRIER, pci_device_->get_device_num());
+    set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
+    set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
+}
+
+void TTDevice::l1_membar(const std::unordered_set<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
+    if (core_type != CoreType::TENSIX && core_type != CoreType::ETH) {
+        TT_THROW("l1_membar only supports TENSIX and ETH core types.");
+    }
+
+    if (!cores.empty()) {
+        // Insert barrier on specific cores with L1.
+        std::vector<tt_xy_pair> cores_to_sync(cores.begin(), cores.end());
+        insert_host_to_device_barrier(cores_to_sync, barrier_address);
+    } else {
+        // When no cores specified, cannot perform barrier as we don't have soc_descriptor at TTDevice level.
+        // The caller should use Chip-level API for full barrier on all cores.
+        TT_THROW("l1_membar with empty cores set is not supported at TTDevice level. Use Chip-level API instead.");
+    }
 }
 
 }  // namespace tt::umd

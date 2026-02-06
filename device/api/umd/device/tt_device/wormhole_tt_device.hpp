@@ -47,11 +47,6 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    void l1_membar(
-        const std::unordered_set<tt_xy_pair> &cores = {},
-        uint32_t barrier_address = 0,
-        CoreType core_type = CoreType::TENSIX) override;
-
     ~WormholeTTDevice() override = default;
 
 protected:
@@ -73,10 +68,6 @@ private:
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
     bool is_hardware_hung() override;
-
-    void set_membar_flag(
-        const std::vector<tt_xy_pair> &cores, const uint32_t barrier_value, const uint32_t barrier_addr);
-    void insert_host_to_device_barrier(const std::vector<tt_xy_pair> &cores, const uint32_t barrier_addr);
 
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 

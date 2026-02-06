@@ -49,11 +49,6 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    void l1_membar(
-        const std::unordered_set<tt_xy_pair> &cores = {},
-        uint32_t barrier_address = 0,
-        CoreType core_type = CoreType::TENSIX) override;
-
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
@@ -69,9 +64,6 @@ private:
     int get_pcie_x_coordinate();
 
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
-
-    void set_membar_flag(const std::vector<tt_xy_pair> &cores, uint32_t barrier_value, uint32_t barrier_addr);
-    void insert_host_to_device_barrier(const std::vector<tt_xy_pair> &cores, uint32_t barrier_addr);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

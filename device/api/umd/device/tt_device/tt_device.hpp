@@ -299,7 +299,7 @@ public:
     virtual void l1_membar(
         const std::unordered_set<tt_xy_pair> &cores = {},
         uint32_t barrier_address = 0,
-        CoreType core_type = CoreType::TENSIX) = 0;
+        CoreType core_type = CoreType::TENSIX);
 
     /**
      * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
@@ -339,6 +339,11 @@ private:
     TlbWindow *get_cached_tlb_window();
 
     TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
+
+    void set_membar_flag(
+        const std::vector<tt_xy_pair> &cores, const uint32_t barrier_value, const uint32_t barrier_addr);
+
+    void insert_host_to_device_barrier(const std::vector<tt_xy_pair> &cores, const uint32_t barrier_addr);
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 

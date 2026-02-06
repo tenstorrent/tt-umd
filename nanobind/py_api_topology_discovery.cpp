@@ -42,6 +42,7 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_ethernet_connections", &ClusterDescriptor::get_ethernet_connections)
         .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids)
         .def("get_io_device_type", &ClusterDescriptor::get_io_device_type)
+        .def("serialize", &ClusterDescriptor::serialize, "Serializes the cluster descriptor to a YAML string.")
         .def(
             "serialize_to_file",
             [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {

@@ -521,17 +521,17 @@ void TTDevice::insert_host_to_device_barrier(const std::vector<tt_xy_pair> &core
 
 void TTDevice::l1_membar(const std::vector<tt_xy_pair> &cores, uint32_t barrier_address, CoreType core_type) {
     if (core_type != CoreType::TENSIX && core_type != CoreType::ETH) {
-        TT_THROW("l1_membar only supports TENSIX and ETH core types.");
+        TT_THROW("l1_membar only supports TENSIX and ETH core types at TTDevice level.");
     }
 
-    if (!cores.empty()) {
-        // Insert barrier on specific cores with L1.
-        insert_host_to_device_barrier(cores, barrier_address);
-    } else {
+    if (cores.empty()) {
         // When no cores specified, cannot perform barrier as we don't have soc_descriptor at TTDevice level.
         // The caller should use Chip-level API for full barrier on all cores.
         TT_THROW("l1_membar with empty cores set is not supported at TTDevice level. Use Chip-level API instead.");
     }
+
+    // Insert barrier on specific cores with L1.
+    insert_host_to_device_barrier(cores, barrier_address);
 }
 
 }  // namespace tt::umd

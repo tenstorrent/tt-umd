@@ -350,8 +350,6 @@ inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
 inline constexpr uint32_t ETH_LINK_ERR_STATUS_ADDR = 0x1440;
 inline constexpr uint32_t ETH_TRIGGER_RETRAIN_VAL = 1;
 inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
-inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
-inline constexpr uint32_t ETH_TRIGGER_RETRAIN_VAL = 1;
 inline constexpr semver_t MIN_ETH_FW_VERSION_FOR_RETRAIN = semver_t(7, 2, 0);
 
 }  // namespace wormhole

@@ -17,7 +17,7 @@
 
 namespace tt::umd::utils {
 
-static std::optional<std::string> get_env_var_value(const char* env_var_name) {
+static inline std::optional<std::string> get_env_var_value(const char* env_var_name) {
     const char* env_var = std::getenv(env_var_name);
     if (!env_var) {
         return std::nullopt;
@@ -25,7 +25,7 @@ static std::optional<std::string> get_env_var_value(const char* env_var_name) {
     return std::string(env_var);
 }
 
-static std::optional<std::unordered_set<int>> get_unordered_set_from_string(const std::string& input) {
+static inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(const std::string& input) {
     std::unordered_set<int> result_set;
     std::stringstream ss(input);
     std::string token;
@@ -46,7 +46,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
-static std::vector<std::string> split_string_by_comma(const std::string& input_string) {
+static inline std::vector<std::string> split_string_by_comma(const std::string& input_string) {
     std::vector<std::string> device_tokens;
     std::stringstream ss(input_string);
     std::string token;

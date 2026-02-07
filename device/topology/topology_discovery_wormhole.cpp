@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
@@ -354,6 +355,55 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
         TT_THROW(message);
     }
     return true;
+}
+
+void TopologyDiscoveryWormhole::retrain_eth_cores() {
+    if (!options.no_wait_for_eth_training && options.retrain_eth_count > 0) {
+        // Retrain ETH cores on Wormhole B0 devices if needed.
+        uint32_t current_retrain_eth_count = 0;
+        while (current_retrain_eth_count < options.retrain_eth_count) {
+            current_retrain_eth_count++;
+            bool all_eth_cores_trained = true;
+
+            for (const auto& [asic_id, tt_device] : devices) {
+                auto wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
+
+                for (const CoreCoord& eth_core :
+                     get_soc_descriptor(tt_device.get())
+                         .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
+                    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
+                    if (wormhole_tt_device->read_training_status(eth_core) == wormhole::EthTrainStatus::Fail) {
+                        if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
+                            log_warning(
+                                LogUMD,
+                                "ETH FW version {} is older than minimum version needed for retraining {}",
+                                eth_fw_version.to_string(),
+                                wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN.to_string());
+                            return;
+                        }
+
+                        log_info(
+                            LogUMD,
+                            "Retraining ETH core {} on device {}, iteration {}.",
+                            eth_core.str(),
+                            asic_id,
+                            current_retrain_eth_count);
+                        wormhole_tt_device->retrain_eth_core(eth_core);
+                        all_eth_cores_trained = false;
+                    }
+                }
+            }
+
+            if (all_eth_cores_trained) {
+                break;
+            }
+
+            for (const auto& [asic_id, tt_device] : devices_to_discover) {
+                log_debug(LogUMD, "Waiting for ETH cores to finish training after retrain on device {}.", asic_id);
+                wait_eth_cores_training(tt_device.get());
+            }
+        }
+    }
 }
 
 }  // namespace tt::umd

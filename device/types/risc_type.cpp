@@ -4,6 +4,9 @@
 
 #include "umd/device/types/risc_type.hpp"
 
+#include <cstdint>
+#include <string>
+
 namespace tt::umd {
 
 std::string RiscTypeToString(RiscType value) {

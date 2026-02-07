@@ -4,7 +4,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -241,18 +253,40 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             break;
         }
 
-        // This covers T3K.
+        // This covers Wormhole T3K (Loudbox and Quietbox), as well as Blackhole loudbox.
         case 8: {
-            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-            EXPECT_EQ(chips_with_mmio.size(), 4);
+            switch (cluster_desc->get_arch()) {
+                case tt::ARCH::WORMHOLE_B0: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 4);
 
-            auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(count_connections(eth_connections), 40);
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 40);
 
-            for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
-                EXPECT_TRUE(board_type == BoardType::N300)
-                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::N300)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                case tt::ARCH::BLACKHOLE: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 8);
+
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 40);
+
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::P150)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                default: {
+                    throw std::runtime_error("Unexpected architecture for 8-chip cluster descriptor.");
+                }
             }
             break;
         }

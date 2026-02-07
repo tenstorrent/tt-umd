@@ -7,16 +7,29 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <algorithm>
 #include <asio.hpp>
+#include <atomic>
+#include <cerrno>
 #include <charconv>  // for std::from_chars
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"
@@ -131,7 +144,7 @@ void WarmReset::warm_reset_arch_agnostic(
     std::chrono::milliseconds reset_m3_timeout,
     bool secondary_bus_reset) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
-    auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
 
     std::map<int, std::string> pci_bdfs;
     for (auto& pci_device_info : pci_devices_info) {

@@ -69,7 +69,7 @@ struct ClusterOptions {
      * setting specific simulated masks per device.
      */
     HarvestingMasks simulated_harvesting_masks = {};
-    std::unordered_map<ChipId, HarvestingMasks> simulated_harvesting_masks_per_chip = {};
+    std::unordered_map<ChipId, HarvestingMasks> simulated_harvesting_masks_per_chip;
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
      * descriptor based on architecture will be used.
@@ -80,7 +80,7 @@ struct ClusterOptions {
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
      */
-    std::unordered_set<ChipId> target_devices = {};
+    std::unordered_set<ChipId> target_devices;
 
     /**
      * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
@@ -239,7 +239,7 @@ public:
      *
      * @param device_params Object specifying initialization configuration.
      */
-    void start_device(const DeviceParams& DeviceParams);
+    void start_device(const DeviceParams& device_params);
 
     /**
      * To be called at the end of a run.
@@ -459,7 +459,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -715,15 +715,15 @@ private:
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     // State variables.
-    std::set<ChipId> all_chip_ids_ = {};
-    std::set<ChipId> remote_chip_ids_ = {};
-    std::set<ChipId> local_chip_ids_ = {};
+    std::set<ChipId> all_chip_ids_;
+    std::set<ChipId> remote_chip_ids_;
+    std::set<ChipId> local_chip_ids_;
     std::unordered_map<ChipId, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
 
-    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache = {};
+    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
     std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.

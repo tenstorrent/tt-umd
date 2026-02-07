@@ -4,6 +4,15 @@
 
 #include "umd/device/chip/mock_chip.hpp"
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");

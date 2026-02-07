@@ -38,6 +38,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
     for (const auto& cluster_desc_name : {
              "2x2_n300_cluster_desc.yaml",
              "6u_cluster_desc.yaml",
+             "blackhole_8xP150.yaml",
              "blackhole_P100.yaml",
              "blackhole_P150.yaml",
              "blackhole_P300_first_mmio.yaml",

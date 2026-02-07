@@ -2,21 +2,28 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/topology/topology_discovery.hpp"
+#include "api/umd/device/topology/topology_discovery.hpp"
 
+#include <algorithm>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
-#include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -151,24 +158,24 @@ void TopologyDiscovery::discover_remote_devices() {
         devices_to_discover.erase(it);
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
+        verify_fw_bundle_version(tt_device);
+
         if (options.no_remote_discovery) {
             continue;
         }
 
         std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-
-        verify_fw_bundle_version(tt_device);
-
-        uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
+            const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
+
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
                     LogUMD,
-                    "Skipping discovery from device {} ETH core {}",
-                    get_local_asic_id(tt_device, eth_core),
+                    "Skipping discovery from device ASIC ID: {} ETH core {}",
+                    current_device_asic_id,
                     eth_core.str());
-                channel++;
+
                 continue;
             }
 
@@ -181,12 +188,10 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             if (!is_eth_trained(tt_device, eth_core)) {
-                channel++;
                 continue;
             }
 
             if (!verify_routing_firmware_state(tt_device, eth_core)) {
-                channel++;
                 continue;
             }
 
@@ -202,7 +207,6 @@ void TopologyDiscovery::discover_remote_devices() {
                      {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
                 log_debug(LogUMD, "Remote device outside of UMD cluster {}.", remote_asic_id);
 
-                channel++;
                 continue;
             }
 
@@ -227,7 +231,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 ethernet_connections.push_back(
                     {{current_device_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});
             }
-            channel++;
         }
     }
 
@@ -389,8 +392,8 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
                 fmt::format(
                     "Firmware bundle version mismatch for device {}: expected {}, got {}",
                     get_asic_id(tt_device),
-                    fw_bundle_version.to_string(),
-                    tt_device->get_firmware_version().to_string()));
+                    first_fw_bundle_version->to_string(),
+                    fw_bundle_version.to_string()));
             return false;
         }
         return true;

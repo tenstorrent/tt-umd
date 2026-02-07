@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <stdint.h>
 
 namespace eth_l1_mem {

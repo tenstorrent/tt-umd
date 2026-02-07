@@ -50,7 +50,7 @@ public:
 
     EthTrainStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
-    ~WormholeTTDevice() override{};
+    ~WormholeTTDevice() override = default;
 
 protected:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);

@@ -4,8 +4,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <iostream>
+#include <memory>
+#include <ostream>
+#include <sstream>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"

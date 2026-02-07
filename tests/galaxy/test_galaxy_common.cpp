@@ -4,6 +4,9 @@
 
 #include "test_galaxy_common.hpp"
 
+#include <cstdint>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
 
 void move_data(

@@ -10,13 +10,25 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
+#include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <map>
+#include <memory>
 #include <optional>
+#include <set>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "assert.hpp"
@@ -190,7 +202,13 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
 }
 
 static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
+        // to check if the device is in the pci_target_devices set.
+        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
+            continue;
+        }
+
         log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
@@ -227,7 +245,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci_target_devices) {
+std::vector<int> PCIDevice::enumerate_devices() {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -235,28 +253,87 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
         return device_ids;
     }
 
-    std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return get_all_device_ids();
+    }
 
-    for (const auto &entry : std::filesystem::directory_iterator(path)) {
-        std::string filename = entry.path().filename().string();
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return device_ids;
+    }
 
-        // TODO: this will skip any device that has a non-numeric name, which
-        // is probably what we want longer-term (i.e. a UUID or something).
-        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
-            int pci_device_id = std::stoi(filename);
-            if (visible_devices.empty() || visible_devices.find(pci_device_id) != visible_devices.end()) {
-                device_ids.push_back(pci_device_id);
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::vector<int> all_device_ids = get_all_device_ids();
+    std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+
+    std::set<int> filtered_device_ids;
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = (device_token.find(':') != std::string::npos || device_token.find('.') != std::string::npos) &&
+                      (device_token.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
+
+        if (is_bdf) {
+            bool matched_bdf_pattern = false;
+            for (const auto &bdf_to_device_id : bdf_to_device_id_map) {
+                if (bdf_to_device_id.first.find(device_token) != std::string::npos) {
+                    int device_id = bdf_to_device_id.second;
+                    filtered_device_ids.insert(device_id);
+                    log_debug(
+                        LogUMD,
+                        "Added device id {} with BDF {} because of token filter {}.",
+                        device_id,
+                        bdf_to_device_id.first,
+                        device_token);
+                    matched_bdf_pattern = true;
+                }
             }
+
+            if (!matched_bdf_pattern) {
+                TT_THROW(
+                    "Invalid BDF identifier in TT_VISIBLE_DEVICES: {}. Valid device identifiers are either integers or "
+                    "part of the BDF string.",
+                    device_token);
+            }
+
+            continue;
         }
+
+        bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+
+        if (is_integer) {
+            int device_id = std::stoi(device_token);
+            if (std::find(all_device_ids.begin(), all_device_ids.end(), device_id) != all_device_ids.end()) {
+                filtered_device_ids.insert(device_id);
+                log_debug(LogUMD, "Added device id {} because of token filter {}.", device_id, device_token);
+            } else {
+                TT_THROW(
+                    "Invalid device ID in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                    "part of the BDF string.",
+                    device_token);
+            }
+
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
+        }
+    }
+
+    for (const int &filtered_device_id : filtered_device_ids) {
+        device_ids.push_back(filtered_device_id);
     }
 
     std::sort(device_ids.begin(), device_ids.end());
     return device_ids;
 }
 
-std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unordered_set<int> &pci_target_devices) {
+std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
     std::map<int, PciDeviceInfo> infos;
-    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+    for (int n : PCIDevice::enumerate_devices()) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
@@ -832,5 +909,48 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
+
+std::vector<int> PCIDevice::get_all_device_ids() {
+    std::vector<int> device_ids;
+    std::string path = "/dev/tenstorrent/";
+
+    if (!std::filesystem::exists(path)) {
+        return device_ids;
+    }
+
+    // Enumerate all devices, ignoring TT_VISIBLE_DEVICES.
+    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+        std::string filename = entry.path().filename().string();
+        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
+            int pci_device_id = std::stoi(filename);
+            device_ids.push_back(pci_device_id);
+        }
+    }
+
+    std::sort(device_ids.begin(), device_ids.end());
+    return device_ids;
+}
+
+std::map<std::string, int> PCIDevice::get_bdf_to_device_id_map() {
+    std::map<std::string, int> bdf_to_device_id;
+
+    for (int device_id : get_all_device_ids()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", device_id).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            PciDeviceInfo device_info = read_device_info(fd);
+            bdf_to_device_id[device_info.pci_bdf] = device_id;
+        } catch (...) {
+            // Ignore failed reads and continue with next device.
+        }
+
+        close(fd);
+    }
+
+    return bdf_to_device_id;
+}
 
 }  // namespace tt::umd

@@ -4,7 +4,14 @@
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"

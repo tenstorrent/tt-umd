@@ -440,8 +440,16 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     timeout_ms.count(),
                     eth_core.x,
                     eth_core.y));
+            } else {
+                // We don't want to throw on 6u systems, but log a warning so it is visible.
+                log_warning(
+                    LogUMD,
+                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+                    timeout_ms.count(),
+                    eth_core.x,
+                    eth_core.y);
+                break;
             }
-            break;
         }
     }
     return time_taken_heartbeat + time_taken_port;

@@ -456,8 +456,25 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
 }
 
 EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+    uint32_t retrain_status;
+    read_from_device(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
+    // If core is in retrain state, then training status is not valid as the training is ongoing.
+    if (retrain_status == wormhole::ETH_TRIGGER_RETRAIN_VAL) {
+        log_trace(LogUMD, "Core {} is in retrain state, training is ongoing.", eth_core.str());
+        return EthTrainingStatus::IN_PROGRESS;
+    }
     uint32_t training_status;
     read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
+    log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
+
+    if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
+        uint32_t link_err_status;
+        read_from_device(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
+        log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
+        if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
+            return EthTrainingStatus::NOT_CONNECTED;
+        }
+    }
     return static_cast<EthTrainingStatus>(training_status);
 }
 

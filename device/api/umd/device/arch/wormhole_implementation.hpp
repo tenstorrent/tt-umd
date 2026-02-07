@@ -340,6 +340,15 @@ inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
 // This constant is tied to the wormhole eth fw layout, so it's arch specific.
 inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
+inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
+inline constexpr uint32_t ETH_LINK_ERR_STATUS_ADDR = 0x1440;
+inline constexpr uint32_t ETH_TRIGGER_RETRAIN_VAL = 1;
+
+// Not connected:     LINK_INACTIVE_TIMEOUT_SIGDET: 11
+// Not connected:     LINK_INACTIVE_TIMEOUT_PG_RCV: 12
+// Unused:        LINK_INACTIVE_PORT_NOT_POPULATED: 13
+// Port disabled:    LINK_INACTIVE_PORT_MASKED_OFF: 14.
+inline constexpr uint32_t ETH_LINK_UNUSED_ERROR_CODE_RANGE_START = 11;
 
 }  // namespace wormhole
 

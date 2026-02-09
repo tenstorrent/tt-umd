@@ -4,18 +4,65 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
+#include <unistd.h>
+
 #include <algorithm>
+#include <atomic>
+#include <csetjmp>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <utility>
 
 #include "noc_access.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/exceptions.hpp"
 
 namespace tt::umd {
+
+static thread_local sigjmp_buf point __attribute__((tls_model("initial-exec")));
+static thread_local volatile sig_atomic_t jump_set __attribute__((tls_model("initial-exec"))) = 0;
+
+void sigbus_handler(int sig) {
+    if (jump_set) {
+        siglongjmp(point, 1);
+    } else {
+        _exit(sig);
+    }
+}
+
+struct ScopedJumpGuard {
+    ScopedJumpGuard() {
+        jump_set = 1;
+        std::atomic_signal_fence(std::memory_order_seq_cst);
+    }
+
+    ~ScopedJumpGuard() {
+        std::atomic_signal_fence(std::memory_order_seq_cst);
+        jump_set = 0;
+    }
+};
+
+/* static */ void TlbWindow::set_sigbus_safe_handler(bool set_safe_handler) {
+    if (set_safe_handler) {
+        struct sigaction sa;
+        sa.sa_handler = sigbus_handler;
+        sigemptyset(&sa.sa_mask);
+        // SA_NODEFER: Don't block SIGBUS after we longjmp out.
+        sa.sa_flags = SA_NODEFER;
+
+        if (sigaction(SIGBUS, &sa, nullptr) == -1) {
+            perror("sigaction");
+            _exit(1);
+        }
+        return;
+    }
+    signal(SIGBUS, SIG_DFL);
+}
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
     tlb_data aligned_config = config;
@@ -161,6 +208,53 @@ void TlbWindow::noc_multicast_write_reconfigure(
 
         config.local_offset = addr;
     }
+}
+
+template <typename Func, typename... Args>
+decltype(auto) TlbWindow::execute_safe(Func &&func, Args &&...args) {
+    if (sigsetjmp(point, 1) == 0) {
+        ScopedJumpGuard guard;
+        return std::invoke(std::forward<Func>(func), this, std::forward<Args>(args)...);
+    } else {
+        std::atomic_signal_fence(std::memory_order_seq_cst);
+        jump_set = 0;
+        throw SigbusError("SIGBUS signal detected: Device access failed.");
+    }
+}
+
+void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { execute_safe(&TlbWindow::write32, offset, value); }
+
+uint32_t TlbWindow::safe_read32(uint64_t offset) { return execute_safe(&TlbWindow::read32, offset); }
+
+void TlbWindow::safe_write_register(uint64_t offset, const void *data, size_t size) {
+    execute_safe(&TlbWindow::write_register, offset, data, size);
+}
+
+void TlbWindow::safe_read_register(uint64_t offset, void *data, size_t size) {
+    execute_safe(&TlbWindow::read_register, offset, data, size);
+}
+
+void TlbWindow::safe_write_block(uint64_t offset, const void *data, size_t size) {
+    execute_safe(&TlbWindow::write_block, offset, data, size);
+}
+
+void TlbWindow::safe_read_block(uint64_t offset, void *data, size_t size) {
+    execute_safe(&TlbWindow::read_block, offset, data, size);
+}
+
+void TlbWindow::safe_write_block_reconfigure(
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    execute_safe(&TlbWindow::write_block_reconfigure, mem_ptr, core, addr, size, ordering);
+}
+
+void TlbWindow::safe_read_block_reconfigure(
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    execute_safe(&TlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, ordering);
+}
+
+void TlbWindow::safe_noc_multicast_write_reconfigure(
+    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    execute_safe(&TlbWindow::safe_noc_multicast_write_reconfigure, dst, size, core_start, core_end, addr, ordering);
 }
 
 TlbHandle &TlbWindow::handle_ref() const { return *tlb_handle; }

@@ -236,6 +236,9 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
+    if (!options.no_wait_for_eth_training) {
+        wait_eth_cores_training(remote_tt_device.get());
+    }
     return remote_tt_device;
 }
 

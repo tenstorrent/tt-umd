@@ -188,7 +188,7 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
 bool TopologyDiscoveryBlackhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    return tt_device->read_eth_core_training_status(translated_eth_core) == EthTrainStatus::Success;
+    return tt_device->read_eth_core_training_status(translated_eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {

@@ -219,7 +219,7 @@ std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
     throw std::runtime_error("Waiting for ETH core training is not supported in RTL simulation device.");
 }
 
-EthTrainStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
     throw std::runtime_error("Reading ETH core training status is not supported in RTL simulation device.");
 }
 

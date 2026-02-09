@@ -272,7 +272,7 @@ bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t
 }
 
 bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return tt_device->read_eth_core_training_status(eth_core) == EthTrainStatus::Success;
+    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {

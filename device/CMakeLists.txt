@@ -78,6 +78,9 @@ target_sources(
         types/tlb.cpp
         cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
+        tt_device/protocol/pcie_protocol.cpp
+        tt_device/protocol/jtag_protocol.cpp
+        tt_device/protocol/remote_protocol.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp

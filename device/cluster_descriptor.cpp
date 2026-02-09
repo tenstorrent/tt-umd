@@ -197,8 +197,74 @@ std::unordered_set<ChipId> filter_chip_collection(
     return filtered_collection;
 }
 
+std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_devices(
+    const ClusterDescriptor *full_cluster_desc) {
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::unordered_set<ChipId> target_chip_ids;
+
+    auto chip_bdfs = full_cluster_desc->get_chip_pci_bdfs();
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
+
+        if (is_bdf) {
+            for (const auto &[chip, bdf] : chip_bdfs) {
+                if (bdf == device_token) {
+                    target_chip_ids.insert(chip);
+                    log_debug(
+                        LogUMD,
+                        "Added chip id {} with BDF {} because of token filter {}.",
+                        chip,
+                        device_token,
+                        device_token);
+                }
+            }
+            continue;
+        }
+
+        bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+
+        if (is_integer) {
+            if (std::find(
+                    full_cluster_desc->get_all_chips().begin(),
+                    full_cluster_desc->get_all_chips().end(),
+                    std::stoi(device_token)) != full_cluster_desc->get_all_chips().end()) {
+                target_chip_ids.insert(std::stoi(device_token));
+                log_debug(
+                    LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
+            } else {
+                TT_THROW(
+                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
+                    "the cluster.",
+                    device_token);
+            }
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
+        }
+    }
+
+    return target_chip_ids;
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
-    const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
+    const ClusterDescriptor *full_cluster_desc) {
+    std::unordered_set<ChipId> target_chip_ids = get_target_chip_ids_from_visible_devices(full_cluster_desc);
+
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);

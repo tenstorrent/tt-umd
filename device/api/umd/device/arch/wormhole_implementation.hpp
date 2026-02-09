@@ -338,6 +338,7 @@ inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
+// This constant is tied to the wormhole eth fw layout, so it's arch specific.
 inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
 
 }  // namespace wormhole

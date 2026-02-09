@@ -64,6 +64,7 @@ public:
 
 private:
     uint64_t bar0_base = 0;
+    uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
     std::recursive_mutex device_lock;
 

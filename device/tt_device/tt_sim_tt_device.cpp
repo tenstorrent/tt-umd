@@ -36,6 +36,18 @@ TTSimTTDevice::TTSimTTDevice(
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
     communicator_->initialize();
     libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
+    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+        // Compute physical address of BAR0 from PCI config registers.
+        bar0_base = communicator_->pci_config_read32(0, 0x10);
+        bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
+        bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
+
+        if (libttsim_pci_device_id == WH_PCIE_DEVICE_ID) {
+            tlb_region_size_ = 16 * 1024 * 1024;
+        } else {
+            tlb_region_size_ = 2 * 1024 * 1024;
+        }
+    }
 }
 
 TTSimTTDevice::~TTSimTTDevice() = default;
@@ -47,10 +59,10 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    if (tlb_region_size) {  // if set, split into requests that do not span TLB regions
+    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
         while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
-            pfn_libttsim_tile_wr_bytes(core.x, core.y, addr, mem_ptr, cur_size);
+            uint32_t cur_size = std::min(size, tlb_region_size_ - uint32_t(addr & (tlb_region_size_ - 1)));
+            communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, cur_size);
             addr += cur_size;
             mem_ptr = reinterpret_cast<const uint8_t*>(mem_ptr) + cur_size;
             size -= cur_size;
@@ -62,10 +74,10 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (tlb_region_size) {  // if set, split into requests that do not span TLB regions
+    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
         while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size - uint32_t(addr & (tlb_region_size - 1)));
-            pfn_libttsim_tile_rd_bytes(core.x, core.y, addr, mem_ptr, cur_size);
+            uint32_t cur_size = std::min(size, tlb_region_size_ - uint32_t(addr & (tlb_region_size_ - 1)));
+            communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, cur_size);
             addr += cur_size;
             mem_ptr = reinterpret_cast<uint8_t*>(mem_ptr) + cur_size;
             size -= cur_size;

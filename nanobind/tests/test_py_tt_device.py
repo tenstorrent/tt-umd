@@ -306,9 +306,6 @@ class TestTTDevice(unittest.TestCase):
             )
             dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
 
-        tt_umd.TTDevice.use_noc1(False)
-        print("Set use_noc1 back to False")
-
         tt_umd.set_thread_noc_id(tt_umd.NocId.NOC0)
         print("Set thread NocId back to NOC0")
 

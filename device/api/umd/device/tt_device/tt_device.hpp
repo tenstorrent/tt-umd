@@ -331,9 +331,9 @@ protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
-    int communication_device_id_;
+    int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    tt::ARCH arch;
+    tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;

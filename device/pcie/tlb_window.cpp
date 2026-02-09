@@ -4,6 +4,8 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <atomic>
 #include <csetjmp>

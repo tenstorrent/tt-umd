@@ -32,8 +32,8 @@
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
-#include "disjoint_set.hpp"
 #include "common/utils.hpp"
+#include "disjoint_set.hpp"
 
 namespace tt::umd {
 
@@ -196,8 +196,74 @@ std::unordered_set<ChipId> filter_chip_collection(
     return filtered_collection;
 }
 
+std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_devices(
+    const ClusterDescriptor *full_cluster_desc) {
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::unordered_set<ChipId> target_chip_ids;
+
+    auto chip_bdfs = full_cluster_desc->get_chip_pci_bdfs();
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
+
+        if (is_bdf) {
+            for (const auto &[chip, bdf] : chip_bdfs) {
+                if (bdf == device_token) {
+                    target_chip_ids.insert(chip);
+                    log_debug(
+                        LogUMD,
+                        "Added chip id {} with BDF {} because of token filter {}.",
+                        chip,
+                        device_token,
+                        device_token);
+                }
+            }
+            continue;
+        }
+
+        bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+
+        if (is_integer) {
+            if (std::find(
+                    full_cluster_desc->get_all_chips().begin(),
+                    full_cluster_desc->get_all_chips().end(),
+                    std::stoi(device_token)) != full_cluster_desc->get_all_chips().end()) {
+                target_chip_ids.insert(std::stoi(device_token));
+                log_debug(
+                    LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
+            } else {
+                TT_THROW(
+                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
+                    "the cluster.",
+                    device_token);
+            }
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
+        }
+    }
+
+    return target_chip_ids;
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
-    const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
+    const ClusterDescriptor *full_cluster_desc) {
+    std::unordered_set<ChipId> target_chip_ids = get_target_chip_ids_from_visible_devices(full_cluster_desc);
+
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
@@ -264,7 +330,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     return desc;
 }
 
-// Utility functions for TT_VISIBLE_DEVICES support in mock clusters
+// Utility functions for TT_VISIBLE_DEVICES support in mock clusters.
 
 /**
  * Generate deterministic BDF string for mock device logical IDs.
@@ -272,10 +338,10 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
  */
 static std::string generate_mock_bdf(ChipId logical_id) {
     // Use a deterministic formula to generate BDF for mock devices
-    // Start from bus 0x04 and increment device number based on logical ID
+    // Start from bus 0x04 and increment device number based on logical ID.
     uint8_t bus = 0x04 + (logical_id / 8);  // 8 devices per bus
-    uint8_t device = logical_id % 8;         // device number within bus
-    uint8_t function = 0;                    // always use function 0
+    uint8_t device = logical_id % 8;        // device number within bus
+    uint8_t function = 0;                   // always use function 0
 
     return fmt::format("{:04x}:{:02x}:{:02x}.{}", 0, bus, device, function);
 }
@@ -300,9 +366,7 @@ static std::map<std::string, ChipId> get_mock_bdf_to_device_id_map(
  * Parse TT_VISIBLE_DEVICES environment variable for mock devices.
  * Similar to PCIDevice::enumerate_devices() but adapted for mock context.
  */
-static std::unordered_set<ChipId> get_mock_visible_devices(
-    const std::unordered_set<ChipId> &all_logical_device_ids) {
-
+static std::unordered_set<ChipId> get_mock_visible_devices(const std::unordered_set<ChipId> &all_logical_device_ids) {
     const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
     if (!tt_visible_devices_env) {
         return {};  // Return empty set if not specified - means use all devices
@@ -334,7 +398,8 @@ static std::unordered_set<ChipId> get_mock_visible_devices(
                     device_token);
             } else {
                 TT_THROW(
-                    "Invalid BDF identifier in TT_VISIBLE_DEVICES for mock devices: {}. Valid mock device identifiers are either integers or "
+                    "Invalid BDF identifier in TT_VISIBLE_DEVICES for mock devices: {}. Valid mock device identifiers "
+                    "are either integers or "
                     "BDF strings generated by mock cluster.",
                     device_token);
             }
@@ -350,13 +415,15 @@ static std::unordered_set<ChipId> get_mock_visible_devices(
                 log_debug(LogUMD, "Mock: Added device id {} because of token filter {}.", device_id, device_token);
             } else {
                 TT_THROW(
-                    "Invalid device ID in TT_VISIBLE_DEVICES for mock devices: {}. Valid mock device identifiers are either integers or "
+                    "Invalid device ID in TT_VISIBLE_DEVICES for mock devices: {}. Valid mock device identifiers are "
+                    "either integers or "
                     "BDF strings generated by mock cluster.",
                     device_token);
             }
         } else {
             TT_THROW(
-                "Invalid device identifier in TT_VISIBLE_DEVICES for mock devices: {}. Valid mock device identifiers are either integers or "
+                "Invalid device identifier in TT_VISIBLE_DEVICES for mock devices: {}. Valid mock device identifiers "
+                "are either integers or "
                 "BDF strings generated by mock cluster.",
                 device_token);
         }
@@ -371,12 +438,10 @@ static std::unordered_set<ChipId> get_mock_visible_devices(
  * This function implements board filtering logic for mock devices.
  */
 static std::unordered_set<ChipId> get_devices_with_same_boards_mock(
-    const std::unordered_set<ChipId> &visible_devices,
-    const std::unordered_set<ChipId> &all_devices) {
-
+    const std::unordered_set<ChipId> &visible_devices, const std::unordered_set<ChipId> &all_devices) {
     // For mock devices, we simulate simple board topology:
     // Each device represents its own board, so no additional devices need to be included
-    // This matches the current mock cluster behavior where each logical ID is independent
+    // This matches the current mock cluster behavior where each logical ID is independent.
     std::unordered_set<ChipId> board_filtered_devices;
 
     for (ChipId visible_device : visible_devices) {
@@ -393,39 +458,41 @@ static std::unordered_set<ChipId> get_devices_with_same_boards_mock(
  * Creates a new cluster descriptor with remapped logical IDs.
  */
 static std::unique_ptr<ClusterDescriptor> re_enumerate_logical_ids(
-    std::unique_ptr<ClusterDescriptor> cluster_desc,
-    const std::unordered_set<ChipId> &filtered_devices) {
-
+    std::unique_ptr<ClusterDescriptor> cluster_desc, const std::unordered_set<ChipId> &filtered_devices) {
     if (filtered_devices.empty()) {
         return cluster_desc;
     }
 
-    // Create ordered list of old logical IDs for consistent re-enumeration
+    // Create ordered list of old logical IDs for consistent re-enumeration.
     std::vector<ChipId> old_ids(filtered_devices.begin(), filtered_devices.end());
     std::sort(old_ids.begin(), old_ids.end());
 
-    // Create mapping from old to new IDs
+    // Create mapping from old to new IDs.
     std::unordered_map<ChipId, ChipId> old_to_new_id_map;
     for (size_t i = 0; i < old_ids.size(); ++i) {
         old_to_new_id_map[old_ids[i]] = static_cast<ChipId>(i);
     }
 
-    // Create new cluster descriptor with re-enumerated IDs
+    // Create new cluster descriptor with re-enumerated IDs.
     std::unordered_set<ChipId> new_device_ids;
     for (size_t i = 0; i < old_ids.size(); ++i) {
         new_device_ids.insert(static_cast<ChipId>(i));
     }
 
-    // Get the architecture from the original cluster (all chips should have same arch)
+    // Get the architecture from the original cluster (all chips should have same arch).
     tt::ARCH arch = cluster_desc->get_arch(*filtered_devices.begin());
     bool noc_translation_enabled = cluster_desc->get_noc_translation_table_en().begin()->second;
 
-    // Create new cluster with re-enumerated IDs
+    // Create new cluster with re-enumerated IDs.
     std::unique_ptr<ClusterDescriptor> new_cluster_desc =
         ClusterDescriptor::create_mock_cluster(new_device_ids, arch, noc_translation_enabled);
 
-    log_info(LogUMD, "Mock cluster: Re-enumerated {} devices from IDs {} to sequential IDs 0-{}",
-             filtered_devices.size(), fmt::join(old_ids, ","), old_ids.size() - 1);
+    log_info(
+        LogUMD,
+        "Mock cluster: Re-enumerated {} devices from IDs {} to sequential IDs 0-{}",
+        filtered_devices.size(),
+        fmt::join(old_ids, ","),
+        old_ids.size() - 1);
 
     return new_cluster_desc;
 }
@@ -475,31 +542,35 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster_with_visible_devices(
-    const std::unordered_set<ChipId> &all_logical_device_ids,
-    tt::ARCH arch,
-    bool noc_translation_enabled) {
-
-    // Parse TT_VISIBLE_DEVICES if set
+    const std::unordered_set<ChipId> &all_logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
+    // Parse TT_VISIBLE_DEVICES if set.
     std::unordered_set<ChipId> visible_devices = get_mock_visible_devices(all_logical_device_ids);
     if (visible_devices.empty()) {
-        // No TT_VISIBLE_DEVICES specified or empty, fall back to original behavior
-        log_debug(LogUMD, "No TT_VISIBLE_DEVICES specified for mock cluster, using all {} devices",
-                  all_logical_device_ids.size());
+        // No TT_VISIBLE_DEVICES specified or empty, fall back to original behavior.
+        log_debug(
+            LogUMD,
+            "No TT_VISIBLE_DEVICES specified for mock cluster, using all {} devices",
+            all_logical_device_ids.size());
         return create_mock_cluster(all_logical_device_ids, arch, noc_translation_enabled);
     }
 
-    log_info(LogUMD, "Mock cluster: TT_VISIBLE_DEVICES filtering {} devices from total {}",
-             visible_devices.size(), all_logical_device_ids.size());
+    log_info(
+        LogUMD,
+        "Mock cluster: TT_VISIBLE_DEVICES filtering {} devices from total {}",
+        visible_devices.size(),
+        all_logical_device_ids.size());
 
-    // Get all devices on same boards as visible devices
-    std::unordered_set<ChipId> board_filtered_devices = get_devices_with_same_boards_mock(visible_devices, all_logical_device_ids);
+    // Get all devices on same boards as visible devices.
+    std::unordered_set<ChipId> board_filtered_devices =
+        get_devices_with_same_boards_mock(visible_devices, all_logical_device_ids);
 
     log_debug(LogUMD, "Mock cluster: After board filtering, using {} devices", board_filtered_devices.size());
 
-    // Create cluster with board-filtered devices using original IDs
-    std::unique_ptr<ClusterDescriptor> cluster_desc = create_mock_cluster(board_filtered_devices, arch, noc_translation_enabled);
+    // Create cluster with board-filtered devices using original IDs.
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        create_mock_cluster(board_filtered_devices, arch, noc_translation_enabled);
 
-    // Re-enumerate logical IDs from 0 to N-1
+    // Re-enumerate logical IDs from 0 to N-1.
     return re_enumerate_logical_ids(std::move(cluster_desc), board_filtered_devices);
 }
 
@@ -514,7 +585,7 @@ void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
     static const uint16_t kMockBusIds[4] = {0x00b1, 0x00ca, 0x0031, 0x004b};
     this->chip_to_bus_id.insert({logical_id, kMockBusIds[logical_id % 4]});
 
-    // Generate deterministic BDF for TT_VISIBLE_DEVICES BDF support
+    // Generate deterministic BDF for TT_VISIBLE_DEVICES BDF support.
     std::string bdf = generate_mock_bdf(logical_id);
     this->chip_pci_bdfs.insert({logical_id, bdf});
 

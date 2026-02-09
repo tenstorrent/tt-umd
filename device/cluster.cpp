@@ -364,39 +364,13 @@ Cluster::Cluster(ClusterOptions options) {
             // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
             // simulation.
             bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
-            temp_full_cluster_desc_ptr =
-                ClusterDescriptor::create_mock_cluster_with_visible_devices(options.target_devices, arch, noc_translation_enabled);
+            temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster_with_visible_devices(
+                options.target_devices, arch, noc_translation_enabled);
         }
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
 
-    // If target devices were passed, we want to honour it by constraining the cluster descriptor to only include the
-    // chips in the target devices. Note that we can skip this step in case of mock cluster descriptor, since it was
-    // already created using the target devices.
-    if (!options.target_devices.empty() && options.chip_type == ChipType::SILICON) {
-        // If target devices are passed create constrained cluster descriptor which only contains the chips to be in
-        // this Cluster.
-        cluster_desc =
-            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
-#ifdef TT_UMD_BUILD_SIMULATION
-    } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
-        // Filter devices only when a cluster descriptor is passed for simulation.
-        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = utils::get_visible_devices(options.target_devices);
-        if (!visible_devices.empty()) {
-            cluster_desc =
-                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
-        } else {
-            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
-        }
-#endif
-    } else {
-        // If no target devices are passed, we can use the full cluster.
-        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
-        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
-        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
-        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
-    }
+    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc);
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {

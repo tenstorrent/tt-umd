@@ -156,7 +156,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
 
     // Create with just two PCI chips.
     std::unique_ptr<ClusterDescriptor> constrained_cluster_desc =
-        cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1});
+        cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get());
 
     EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 2);
@@ -172,7 +172,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     // EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 2);.
 
     // Create with one card which is one PCI and one remote chip.
-    constrained_cluster_desc = cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 4});
+    constrained_cluster_desc = cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get());
 
     EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 1);
     EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 2);
@@ -183,7 +183,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 2);
 
     // Create with two cards, 4 chips.
-    constrained_cluster_desc = cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1, 4, 5});
+    constrained_cluster_desc = cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get());
 
     EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 4);

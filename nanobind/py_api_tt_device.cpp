@@ -55,7 +55,7 @@ void bind_tt_device(nb::module_ &m) {
 
     m.def(
         "raise_sigbus_error_for_testing",
-        []() { throw tt::SigbusError("This is a test exception from C++"); },
+        []() { throw SigbusError("This is a test exception from C++"); },
         "A helper function to verify SigbusError propagation");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")

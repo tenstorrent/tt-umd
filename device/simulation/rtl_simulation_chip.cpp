@@ -31,7 +31,7 @@ static const std::vector<RiscType> RISC_TYPES_DMS = {
     RiscType::DM7};
 
 inline flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw, const std::vector<uint32_t>& vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
@@ -67,7 +67,7 @@ inline static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::FlatBufferBuilder flat_buffer) {
+inline void send_command_to_simulation_host(SimulationHost& host, const flatbuffers::FlatBufferBuilder& flat_buffer) {
     uint8_t* wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
     print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
@@ -75,8 +75,11 @@ inline void send_command_to_simulation_host(SimulationHost& host, flatbuffers::F
 }
 
 RtlSimulationChip::RtlSimulationChip(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id) {
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
+    SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 
     if (!std::filesystem::exists(simulator_directory)) {
@@ -99,7 +102,7 @@ RtlSimulationChip::RtlSimulationChip(
     child_stdio[2].flags = UV_INHERIT_FD;
     child_stdio[2].data.fd = 2;
 
-    uv_process_options_t child_options = {0};
+    uv_process_options_t child_options = {nullptr};
     child_options.file = simulator_path_string.c_str();
     child_options.flags = UV_PROCESS_DETACHED;
     child_options.stdio_count = 3;
@@ -141,8 +144,9 @@ void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_
     std::lock_guard<std::mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-    std::vector<std::uint32_t> data(
-        static_cast<const uint32_t*>(src), static_cast<const uint32_t*>(src) + size / sizeof(uint32_t));
+    const uint32_t num_elements = size / sizeof(uint32_t);
+    const auto* data_ptr = static_cast<const uint32_t*>(src);
+    std::vector<uint32_t> data(data_ptr, data_ptr + num_elements);
     send_command_to_simulation_host(host, create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest));
 }
 

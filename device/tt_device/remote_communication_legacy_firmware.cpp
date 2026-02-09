@@ -4,17 +4,21 @@
 
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <cstring>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -120,7 +124,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     routing_cmd_t* new_cmd;
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
-    new_cmd = reinterpret_cast<routing_cmd_t*>(&erisc_command[0]);
+    new_cmd = reinterpret_cast<routing_cmd_t*>(erisc_command.data());
 
     const tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
@@ -145,14 +149,19 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && sysmem_manager_ != nullptr;
+    bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
+    bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && system_mem_available;
+    // Print a warning in case of missing perf for larger transfers.
+    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
+        log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
+    }
+
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     uint32_t offset = 0;
     uint32_t block_size;
-    uint32_t buffer_id = 0;
 
     auto start = std::chrono::steady_clock::now();
     while (offset < size_in_bytes) {
@@ -199,7 +208,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
+        new_cmd->flags |= (is_selected_noc1() ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
@@ -358,20 +367,25 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 
     routing_cmd_t* new_cmd;
 
-    uint32_t buffer_id = 0;
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
 
     // Broadcast requires block writes to host dram
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
-    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && sysmem_manager_ != nullptr;
-    TT_ASSERT(!(broadcast && sysmem_manager_ == nullptr), "Broadcasts not available without system memory.");
+    bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
+    bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && system_mem_available;
+    // Print a warning in case of missing perf for larger transfers.
+    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
+        log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
+    }
+
+    TT_ASSERT(!broadcast || system_mem_available, "Broadcasts not available without system memory.");
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
-    new_cmd = reinterpret_cast<routing_cmd_t*>(&erisc_command[0]);
+    new_cmd = reinterpret_cast<routing_cmd_t*>(erisc_command.data());
     local_tt_device_->read_from_device(
         erisc_q_ptrs.data(),
         remote_transfer_ethernet_core,
@@ -424,9 +438,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE))
                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_req | timestamp)
                                  : eth_interface_params.cmd_wr_req;
-        uint32_t resp_flags = block_size > DATA_WORD_SIZE
-                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_ack)
-                                  : eth_interface_params.cmd_wr_ack;
         timestamp = 0;
 
         if (broadcast) {
@@ -442,9 +453,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             // Copy data to sysmem or device DRAM for Block mode.
             if (use_host_dram) {
                 req_flags |= eth_interface_params.cmd_data_block_dram;
-                resp_flags |= eth_interface_params.cmd_data_block_dram;
                 size_buffer_to_capacity(data_block, block_size);
-                memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
+                memcpy(data_block.data(), static_cast<const uint8_t*>(src) + offset, transfer_size);
                 if (broadcast) {
                     // Write broadcast header to sysmem.
                     sysmem_manager_->write_to_sysmem(
@@ -463,7 +473,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             } else {
                 uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
-                memcpy(&data_block[0], static_cast<const uint8_t*>(src) + offset, transfer_size);
+                memcpy(data_block.data(), static_cast<const uint8_t*>(src) + offset, transfer_size);
                 local_tt_device_->write_to_device(
                     data_block.data(), remote_transfer_ethernet_core, buf_address, data_block.size() * DATA_WORD_SIZE);
             }
@@ -498,7 +508,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         }
 
         new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
+        new_cmd->flags |= (is_selected_noc1() ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_host_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }

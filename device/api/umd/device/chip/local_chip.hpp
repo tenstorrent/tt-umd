@@ -20,7 +20,7 @@ public:
     // cannot have simple constructors as they require the base class to be constructed first.
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
-        std::string sdesc_path = "",
+        const std::string& sdesc_path = "",
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
@@ -29,7 +29,7 @@ public:
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
 
-    ~LocalChip();
+    ~LocalChip() override;
 
     bool is_mmio_capable() const override;
 
@@ -56,6 +56,7 @@ public:
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
@@ -70,7 +71,7 @@ public:
     int get_clock() override;
     int get_numa_node() override;
 
-    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
+    std::unique_lock<RobustMutex> acquire_mutex(const std::string& mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
@@ -96,8 +97,6 @@ private:
     void initialize_default_chip_mutexes();
     void initialize_membars();
 
-    void check_pcie_device_initialized();
-    int test_setup_interface();
     void init_pcie_iatus();
 
     void set_membar_flag(
@@ -108,14 +107,11 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
-    TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex wc_tlb_lock;
     std::mutex uc_tlb_lock;
-    std::mutex pcie_dma_lock;
 };
 }  // namespace tt::umd

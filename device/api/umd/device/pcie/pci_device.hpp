@@ -27,6 +27,8 @@ class semver_t;
 struct PciDeviceInfo {
     uint16_t vendor_id;
     uint16_t device_id;
+    uint16_t subsystem_vendor_id;
+    uint16_t subsystem_id;
     uint16_t pci_domain;
     uint16_t pci_bus;
     uint16_t pci_device;
@@ -126,12 +128,19 @@ public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
-    static std::vector<int> enumerate_devices(std::unordered_set<int> pci_target_devices = {});
+    static std::vector<int> enumerate_devices();
 
     /**
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
-    static std::map<int, PciDeviceInfo> enumerate_devices_info(std::unordered_set<int> pci_target_devices = {});
+    static std::map<int, PciDeviceInfo> enumerate_devices_info();
+
+    /**
+     * Read device information from sysfs.
+     * @param fd Integer corresponding to the character device descriptor of the PCI device.
+     * @return PciDeviceInfo struct containing the device information.
+     */
+    static PciDeviceInfo read_device_info(int fd);
 
     /**
      * PCI device constructor.
@@ -155,7 +164,7 @@ public:
     /**
      * @return PCI device info
      */
-    const PciDeviceInfo get_device_info() const { return info; }
+    PciDeviceInfo get_device_info() const { return info; }
 
     /**
      * @return which NUMA node this device is associated with, or -1 if non-NUMA
@@ -262,7 +271,7 @@ public:
     /**
      * Reset device via ioctl.
      */
-    static void reset_device_ioctl(std::unordered_set<int> pci_target_devices, TenstorrentResetDevice flag);
+    static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.
@@ -315,6 +324,18 @@ private:
      * Uses ALLOCATE_DMA_BUF IOCTL which allocates physically contiguous memory for DMA transactions.
      */
     bool try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size);
+
+    /**
+     * Get all device IDs without considering TT_VISIBLE_DEVICES environment variable.
+     * @return vector of all available device IDs
+     */
+    static std::vector<int> get_all_device_ids();
+
+    /**
+     * Get mapping of BDF to device ID without considering TT_VISIBLE_DEVICES environment variable.
+     * @return map from BDF string to device ID
+     */
+    static std::map<std::string, int> get_bdf_to_device_id_map();
 
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 

@@ -9,12 +9,21 @@
 #include <fmt/std.h>     // Needed to format thread_id
 
 #include <algorithm>
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <iostream>
 #include <regex>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
-#include "cpuset_lib.hpp"
 #include "umd/device/cluster.hpp"
 
 namespace tt::cpuset {
@@ -28,10 +37,10 @@ namespace fs = std::filesystem;
 // Constructor for singleton class cpu id allocator.
 cpuset_allocator::cpuset_allocator() {
     m_pid = getpid();
-    m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") ? true : false;
+    m_debug = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") != nullptr;
 
     // Chicken bit to disable this entire feature for debug/comparison.
-    bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") ? true : false;
+    bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") != nullptr;
 
     auto system_tid = std::this_thread::get_id();
     log_debug(LogUMD, "Starting cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
@@ -98,7 +107,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
     log_debug(LogUMD, "Starting cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
     m_num_tt_device_by_pci_device_id_map.clear();
 
-    hwloc_obj_t pci_device_obj = NULL;
+    hwloc_obj_t pci_device_obj = nullptr;
     const std::regex tt_device_re("tenstorrent!([0-9]+)");
 
     while ((pci_device_obj = hwloc_get_next_pcidev(m_topology, pci_device_obj))) {
@@ -165,7 +174,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
                 auto numa_nodeset = get_numa_nodeset_from_device(pci_device_obj, physical_device_id);
                 m_physical_device_id_to_numa_nodeset_map.insert({physical_device_id, numa_nodeset});
 
-                if (numa_nodeset == 0x0) {
+                if (numa_nodeset == nullptr) {
                     log_warning(
                         LogUMD,
                         "Could not find NumaNodeSet for TT Device (physical_device_id: {} pci_bus_id: {})",
@@ -180,7 +189,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
         }
     }
 
-    if (m_all_tt_devices.size() == 0) {
+    if (m_all_tt_devices.empty()) {
         log_warning(
             LogUMD, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TENSTORRENT_VENDOR_ID);
         return false;
@@ -223,7 +232,7 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
         return false;
     }
 
-    bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") ? true : false;
+    bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") != nullptr;
 
     log_debug(LogUMD, "Inside cpuset_allocator::check_if_cpu_model_supported()");
 
@@ -244,7 +253,7 @@ bool cpuset_allocator::init_is_cpu_model_supported() {
         std::string pkg_cpu_model = hwloc_obj_get_info_by_name(package_obj, "CPUModel");
 
         // First find out if this CPU is supported by CPUSET Allocator at all.
-        bool has_supported_cpu = use_any_cpu ? true : false;
+        bool has_supported_cpu = use_any_cpu;
 
         for (auto &supported_cpu_model : supported_cpu_models) {
             has_supported_cpu |= (pkg_cpu_model.find(supported_cpu_model) != std::string::npos);
@@ -415,7 +424,7 @@ bool cpuset_allocator::bind_area_memory_nodeset(ChipId physical_device_id, const
 
     auto target_nodeset = m_physical_device_id_to_numa_nodeset_map.at(physical_device_id);
 
-    if (target_nodeset != 0) {
+    if (target_nodeset != nullptr) {
         if (hwloc_set_area_membind(
                 m_topology,
                 addr,
@@ -466,7 +475,7 @@ int cpuset_allocator::_get_num_tt_pci_devices() {
 /////////////////////////////////////////////////////////////////////////
 
 std::string cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj) {
-    std::string pci_bus_id_str = "";
+    std::string pci_bus_id_str;
 
     if (hwloc_obj_type_is_io(pci_device_obj->type)) {
         auto attrs = pci_device_obj->attr->pcidev;
@@ -523,7 +532,7 @@ int cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, Chi
 }
 
 hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pci_device_obj, ChipId physical_device_id) {
-    hwloc_nodeset_t nodeset = 0x0;
+    hwloc_nodeset_t nodeset = nullptr;
 
     // Currently an issue in non-EPYC machines where PCI devices are directly under Machine, and not any NumaNodes.
     // As quick workaround, skip this if there is only single numanode since returning 1 seems fine.
@@ -616,8 +625,8 @@ void cpuset_allocator::print_hwloc_nodeset(hwloc_obj_t &obj) {
 }
 
 void cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool verbose, bool show_cpuids) {
-    char type[32], attr[1024];
-
+    char type[32];
+    char attr[1024];
     hwloc_obj_type_snprintf(type, sizeof(type), obj, verbose);
     printf("%*s%s", 2 * depth, "", type);
     if (obj->os_index != (unsigned)-1) {

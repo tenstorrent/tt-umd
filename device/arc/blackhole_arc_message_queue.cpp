@@ -4,10 +4,18 @@
 
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
+#include "noc_access.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -44,8 +52,7 @@ void BlackholeArcMessageQueue::push_request(
             break;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     // Offset in words.
@@ -70,8 +77,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
             break;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        utils::check_timeout(now, timeout_ms, "Timeout waiting for ARC msg request queue.");
+        utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
     uint32_t response_entry_offset =
@@ -120,7 +126,7 @@ uint32_t BlackholeArcMessageQueue::send_message(
 
 std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     TTDevice* tt_device, const size_t queue_index) {
-    const tt_xy_pair arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
+    const tt_xy_pair arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), is_selected_noc1());
 
     uint32_t queue_control_block_addr;
     tt_device->read_from_arc_apb(&queue_control_block_addr, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));
@@ -136,7 +142,6 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
 
     uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
     uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
-    uint32_t num_queues = (queue_control_block >> 40) & 0xFF;
 
     uint32_t msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
     uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;

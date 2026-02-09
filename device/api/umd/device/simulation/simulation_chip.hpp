@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
@@ -22,11 +23,12 @@ public:
 
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
-        size_t num_chips);
+        size_t num_chips,
+        int num_host_mem_channels = 0);
 
-    virtual ~SimulationChip() = default;
+    ~SimulationChip() override = default;
 
     // Common interface methods - most have simple implementations.
     int get_num_host_channels() override;
@@ -46,6 +48,7 @@ public:
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
@@ -71,20 +74,24 @@ public:
         uint32_t* return_4 = nullptr) override;
 
     // Pure virtual methods that derived classes must implement.
-    virtual void start_device() override = 0;
-    virtual void close_device() override = 0;
+    void start_device() override = 0;
+    void close_device() override = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    virtual void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
-    virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override = 0;
-    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
+    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override = 0;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 
 protected:
-    SimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+    SimulationChip(
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
 
     // Simulator directory.
     // Common state variables.
@@ -92,6 +99,8 @@ protected:
     tt::ARCH arch_name;
     ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
+
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

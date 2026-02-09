@@ -4,7 +4,16 @@
 
 #include "umd/device/chip/remote_chip.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -20,8 +29,8 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
-    std::set<uint32_t> remote_transfer_eth_channels,
-    std::string sdesc_path) {
+    const std::set<uint32_t>& remote_transfer_eth_channels,
+    const std::string& sdesc_path) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -39,13 +48,14 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     } else {
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
-    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
-    std::set<uint32_t> remote_transfer_eth_channels,
+    const std::set<uint32_t>& remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
@@ -58,12 +68,13 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
-    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
 }
 
 RemoteChip::RemoteChip(
     SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
+    Chip(remote_tt_device->get_chip_info(), std::move(soc_descriptor)), local_chip_(local_chip) {
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
     // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
@@ -99,11 +110,11 @@ void RemoteChip::close_device() {
 }
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    tt_device_->write_to_device(src, translate_chip_coord_to_translated(core), l1_dest, size);
+    tt_device_->write_to_device(src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
 void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    tt_device_->read_from_device(dest, translate_chip_coord_to_translated(core), l1_src, size);
+    tt_device_->read_from_device(dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size);
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -120,6 +131,10 @@ void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord cor
 
 void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
+}
+
+void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_multicast_write is not available for this chip.");
 }
 
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

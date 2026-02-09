@@ -4,26 +4,28 @@
 
 #include "umd/device/utils/robust_mutex.hpp"
 
-#include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
+#include <fcntl.h>        // O_RDWR, O_CREATE
+#include <pthread.h>      // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
+#include <sys/file.h>     // flock
+#include <sys/mman.h>     // shm_open, shm_unlink, mmap, munmap,
+#include <sys/stat.h>     // for fstat
+#include <sys/syscall.h>  // SYS_gettid
+#include <unistd.h>       // ftruncate, close, getpid, syscall
 
-#include "assert.hpp"
-// PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED.
-#include <errno.h>     // errno, ENOENT
-#include <fcntl.h>     // O_RDWR, O_CREATE
-#include <pthread.h>   // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
-#include <sys/file.h>  // flock
-#include <sys/stat.h>  // for fstat
-#include <time.h>      // clock_gettime, timespec
-#include <unistd.h>    // ftruncate, close, gettid
-
+#include <cerrno>  // errno, ENOENT
 #include <chrono>
+#include <cstdint>
+#include <ctime>  // clock_gettime, timespec
 #include <functional>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
+
+#include "assert.hpp"
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.
@@ -123,7 +125,7 @@ void* get_tsan_mutex_id(std::string mutex_name) {
 }
 #endif
 
-static void tsan_annotate_mutex_init(const std::string& name) {
+static void tsan_annotate_mutex_init(const std::string& mutex_name) {
 #ifdef __SANITIZE_THREAD__
     // Register this mutex name in the TSAN tracking storage.
     // This ensures all threads using the same mutex name will use the same
@@ -135,21 +137,21 @@ static void tsan_annotate_mutex_init(const std::string& name) {
 #endif
 }
 
-static void tsan_annotate_mutex_acquire(const std::string& name) {
+static void tsan_annotate_mutex_acquire(const std::string& mutex_name) {
 #ifdef __SANITIZE_THREAD__
     // Inform TSAN that we've acquired the mutex, establishing a happens-before relationship.
     // This must be called AFTER the actual lock acquisition so TSAN sees that we now have
     // the synchronization point established by the previous owner's __tsan_release.
-    __tsan_acquire(get_tsan_mutex_id(name));
+    __tsan_acquire(get_tsan_mutex_id(mutex_name));
 #endif
 }
 
-static void tsan_annotate_mutex_release(const std::string& name) {
+static void tsan_annotate_mutex_release(const std::string& mutex_name) {
 #ifdef __SANITIZE_THREAD__
     // Inform TSAN that we're releasing the mutex, establishing a happens-before relationship.
     // This must be called BEFORE the actual unlock so TSAN sees the release before other
     // threads/processes can acquire the lock.
-    __tsan_release(get_tsan_mutex_id(name));
+    __tsan_release(get_tsan_mutex_id(mutex_name));
 #endif
 }
 
@@ -305,7 +307,7 @@ bool RobustMutex::resize_shm_file() {
 
 void RobustMutex::open_pthread_mutex() {
     // Create a pthread_mutex based on the shared memory file descriptor.
-    void* addr = mmap(NULL, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
+    void* addr = mmap(nullptr, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
     TT_ASSERT(addr != MAP_FAILED, "mmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     mutex_wrapper_ptr_ = static_cast<pthread_mutex_wrapper*>(addr);
 }
@@ -414,7 +416,7 @@ void RobustMutex::lock() {
     }
 
     // lock_res is 0, so this is a success case.
-    mutex_wrapper_ptr_->owner_tid = gettid();
+    mutex_wrapper_ptr_->owner_tid = static_cast<pid_t>(::syscall(SYS_gettid));
     mutex_wrapper_ptr_->owner_pid = getpid();
 
     tsan_annotate_mutex_acquire(mutex_name_);

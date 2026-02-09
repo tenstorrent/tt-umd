@@ -151,7 +151,7 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;  // TODO: Copied from wormhole. Need to verify.
+inline constexpr uint32_t STATIC_TLB_SIZE = 2 * 1024 * 1024;  // TODO: Copied from blackhole. Need to verify.
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};  // TODO: Copied from wormhole. Need to verify.
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from wormhole. Need to verify.
@@ -301,7 +301,7 @@ inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
 
 }  // namespace grendel
 
@@ -392,10 +392,6 @@ public:
 
     uint32_t get_num_eth_channels() const override { return grendel::NUM_ETH_CHANNELS; }
 
-    uint32_t get_static_tlb_cfg_addr() const override { return grendel::STATIC_TLB_CFG_ADDR; }
-
-    uint32_t get_static_tlb_size() const override { return grendel::STATIC_TLB_SIZE; }
-
     uint32_t get_read_checking_offset() const override { return grendel::BH_NOC_NODE_ID_OFFSET; }
 
     uint32_t get_reg_tlb() const override { return grendel::REG_TLB; }
@@ -451,6 +447,13 @@ public:
         return {grendel::TLB_BASE_4G, grendel::TLB_COUNT_4G};
     }
 
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static constexpr size_t one_gb = 1024ULL * one_mb;
+        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
+        return tlb_sizes;
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
@@ -459,11 +462,11 @@ public:
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
-    virtual uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
+    uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
-    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 2MB
+    size_t get_cached_tlb_size() const override { return grendel::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return true; }
 };

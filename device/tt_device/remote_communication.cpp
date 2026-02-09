@@ -4,7 +4,10 @@
 
 #include "umd/device/tt_device/remote_communication.hpp"
 
+#include <memory>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
 
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"
@@ -27,6 +30,7 @@ std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communic
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:
+            // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
         default:
             throw std::runtime_error("Remote communication is not supported for this architecture.");

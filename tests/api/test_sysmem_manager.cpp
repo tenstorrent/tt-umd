@@ -5,8 +5,14 @@
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 using namespace tt::umd;
 
@@ -21,7 +27,7 @@ TEST(ApiSysmemManager, BasicIO) {
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
         // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), 1);
 
         sysmem->pin_or_map_sysmem_to_device();
 
@@ -110,8 +116,6 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 }
 
 TEST(ApiSysmemManager, SysmemBufferUnaligned) {
-    const auto page_size = sysconf(_SC_PAGESIZE);
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

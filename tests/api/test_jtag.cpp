@@ -4,8 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
 #include <memory>
+#include <ostream>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "umd/device/cluster.hpp"
@@ -15,6 +23,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 using namespace tt;
@@ -34,7 +43,7 @@ protected:
         }
 
         auto potential_jlink_devices = Jtag(JtagDevice::jtag_library_path.c_str()).enumerate_jlink();
-        if (!potential_jlink_devices.size()) {
+        if (potential_jlink_devices.empty()) {
             log_warning(tt::LogUMD, "There are no Jlink devices connected..");
             return;
         }
@@ -188,10 +197,9 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
 
         device.tt_device_->write_to_device(
             data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));
-        TTDevice::use_noc1(true);
+        NocIdSwitcher noc1_switcher(NocId::NOC1);
         device.tt_device_->read_from_device(
             data_read.data(), test_core_noc_1, address, data_read.size() * sizeof(uint32_t));
-        TTDevice::use_noc1(false);
         ASSERT_EQ(data_write, data_read);
         std::fill(data_read.begin(), data_read.end(), 0);
     }
@@ -208,8 +216,6 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
 
     std::unique_ptr<Cluster> umd_cluster =
         std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
-
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 10;

@@ -35,13 +35,14 @@ static const std::vector<std::pair<semver_t, semver_t>> WH_ERISC_FW_VERSION_MAP 
     {{18, 12, 0}, {7, 1, 0}},
     {{19, 0, 0}, {7, 2, 0}},
     {{19, 4, 0}, {7, 3, 0}},
-    {{19, 4, 1}, {7, 2, 0}}};
+    {{19, 4, 1}, {7, 2, 0}},
+    {{19, 5, 0}, {7, 5, 0}}};
 static const std::vector<std::pair<semver_t, semver_t>> BH_ERISC_FW_VERSION_MAP = {
     {{18, 5, 0}, {1, 4, 1}},
     {{18, 6, 0}, {1, 4, 2}},
     {{18, 9, 0}, {1, 5, 0}},
     {{18, 10, 0}, {1, 6, 0}},
-    {{18, 12, 0}, {1, 7, 0}},
+    {{18, 12, 1}, {1, 7, 0}},
     {{19, 3, 0}, {1, 7, 1}}};
 
 struct HashedAddressRange {
@@ -54,6 +55,9 @@ static const std::unordered_map<semver_t, HashedAddressRange> WH_ERISC_FW_HASHES
     {{7, 0, 0}, {0x2000, 0x6b5c, "3fb53365b7e07107f447b87faa3781558e3dbba0e942af2e54e985a0b64360c8"}},
     {{7, 1, 0}, {0x2000, 0x6a90, "7b3abf5258f1d95ffe0e6e69bf7638a31130607da3ba2474400e306967dddbbf"}},
     {{7, 2, 0}, {0x2000, 0x6b9c, "49983136ba696a83411e607f4fd7f1abdba6c650269e12904b2da71d19fdd1ee"}},
+    {{7, 3, 0}, {0x2000, 0x6b38, "b2136da243d43af4a3181c65d135d0835e698786cc72d346e7578be2a7130ed6"}},
+    {{7, 4, 0}, {0x2000, 0x6af4, "ee2e7b1b4b8c8fd798e582d645516a7d626495bc88429da1dac38e905cf54695"}},
+    {{7, 5, 0}, {0x2000, 0x6bcc, "316d28873339992f5526e2994c2323d3b2bec6dcc04f3bdae52d9a9a5d351efa"}},
 };
 
 static const std::unordered_map<semver_t, HashedAddressRange> BH_ERISC_FW_HASHES = {

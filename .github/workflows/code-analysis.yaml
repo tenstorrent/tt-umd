@@ -1,0 +1,137 @@
+name: "Code Analysis"
+
+on:
+  schedule:
+    # Run daily at 6 PM PST (2 AM UTC next day)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  code-analysis:
+    name: 🔬 Code Analysis
+    runs-on: tt-ubuntu-2204-xlarge-stable
+    container:
+      image: harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      volumes:
+        - ${{ github.workspace }}:/work
+    defaults:
+      run:
+        shell: bash
+        working-directory: /work
+    env:
+      BUILD_DIR: /work/.build
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Configure git safe.directory
+        run: git config --global --add safe.directory /work
+
+      - name: Setup clang symlinks for CodeChecker
+        run: |
+          for tool in clang clang++ clang-tidy; do
+            update-alternatives --install /usr/bin/$tool $tool /usr/bin/${tool}-20 100 || true
+          done
+
+      - name: 🔧 CMake configure
+        run: cmake --preset code-analysis
+
+      - name: 🔨 Generate simulation sources
+        run: cmake --build "$BUILD_DIR/code-analysis" --target umd_all_generated_files
+
+      - name: Install CodeChecker
+        run: |
+          # Pre-install CodeChecker in the container's venv using uv.
+          # Pin to a specific version for reproducibility.
+          uv pip install codechecker==6.27.1
+
+      - name: 🔬 Analyze with CodeChecker
+        run: |
+          set -euo pipefail
+          mkdir -p "$BUILD_DIR/codechecker-reports"
+
+          CodeChecker analyze \
+            "$BUILD_DIR/code-analysis/compile_commands.json" \
+            --output "$BUILD_DIR/codechecker-reports" \
+            --jobs $(nproc) \
+            --config /work/.codechecker.json \
+            || echo "⚠️ Analysis completed with warnings"
+
+          echo "✅ Generated $(find "$BUILD_DIR/codechecker-reports" -name "*.plist" | wc -l) plist files"
+
+      - name: Generate JSON and HTML reports
+        run: |
+          set -euo pipefail
+
+          # JSON report (CodeChecker parse can fail if no issues - that's OK)
+          CodeChecker parse "$BUILD_DIR/codechecker-reports" \
+            --export json --output "$BUILD_DIR/codechecker_issues.json" || true
+
+          # Ensure valid JSON exists for downstream consumers
+          [ -s "$BUILD_DIR/codechecker_issues.json" ] || \
+            echo '{"version": 1, "reports": []}' > "$BUILD_DIR/codechecker_issues.json"
+
+          echo "✅ JSON report: $(jq '.reports | length' "$BUILD_DIR/codechecker_issues.json") issues"
+
+          # HTML report
+          mkdir -p "$BUILD_DIR/codechecker_html"
+          CodeChecker parse "$BUILD_DIR/codechecker-reports" \
+            --export html --output "$BUILD_DIR/codechecker_html" || true
+
+      - name: Upload JSON report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-JSON-Report
+          path: ${{ env.BUILD_DIR }}/codechecker_issues.json
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-HTML-Report
+          path: ${{ env.BUILD_DIR }}/codechecker_html
+
+      - name: Upload raw analysis results (for fixit)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CodeChecker-Analysis-Results
+          path: ${{ env.BUILD_DIR }}/codechecker-reports
+          retention-days: 7
+
+  publish-analysis-results:
+    name: 📄 Publish Analysis Results
+    needs: [code-analysis]
+    if: always() && needs.code-analysis.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download CodeChecker HTML report
+        uses: actions/download-artifact@v4
+        with:
+          name: CodeChecker-HTML-Report
+          path: site
+
+      - name: Download CodeChecker JSON report
+        uses: actions/download-artifact@v4
+        with:
+          name: CodeChecker-JSON-Report
+          path: site
+
+      - name: Add .nojekyll
+        run: touch site/.nojekyll
+
+      - name: Publish to GitHub Pages (requires PAT secret)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.CLANGSA_RESULTS_PAT }}
+          external_repository: tenstorrent/tt-umd-code-analysis-results
+          publish_branch: gh-pages
+          publish_dir: site
+          force_orphan: true
+          commit_message: >-
+            Update CSA reports from ${{ github.repository }} @ ${{ github.sha }}

@@ -4,13 +4,18 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
@@ -39,8 +44,6 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
     const uint8_t* buffer = reinterpret_cast<const uint8_t*>(get_device_io_addr(offset));
 
-    PCIDevice* pci_device = tt_device_->get_pci_device().get();
-
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
     // proper coordinates.
@@ -50,10 +53,11 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
-    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
+    TlbWindow* tlb_window = get_cached_tlb_window();
+    tlb_window->configure(config);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -93,8 +97,6 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
     validate(offset);
     uint8_t* buffer = reinterpret_cast<uint8_t*>(get_device_io_addr(offset));
-    PCIDevice* pci_device = tt_device_->get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
@@ -105,11 +107,12 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
 
-    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
+    TlbWindow* tlb_window = get_cached_tlb_window();
+    tlb_window->configure(config);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -148,7 +151,6 @@ SysmemBuffer::~SysmemBuffer() {
 
 void SysmemBuffer::align_address_and_size() {
     static const auto page_size = sysconf(_SC_PAGESIZE);
-    uint64_t unaligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_);
     uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);
     offset_from_aligned_addr_ = reinterpret_cast<uint64_t>(buffer_va_) - aligned_buffer_va;
     buffer_va_ = reinterpret_cast<void*>(aligned_buffer_va);
@@ -168,6 +170,15 @@ void SysmemBuffer::validate(const size_t offset) const {
     if (offset >= buffer_size_) {
         TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {#:x}", offset, buffer_size_);
     }
+}
+
+TlbWindow* SysmemBuffer::get_cached_tlb_window() {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window = std::make_unique<TlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(
+            tlb_manager_->get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        return cached_tlb_window.get();
+    }
+    return cached_tlb_window.get();
 }
 
 }  // namespace tt::umd

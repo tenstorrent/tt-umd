@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
@@ -42,7 +45,8 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 
         std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
 
-        uint32_t response = bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+        [[maybe_unused]] uint32_t response =
+            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
 
         // Wait for telemetry to update AICLK.
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));

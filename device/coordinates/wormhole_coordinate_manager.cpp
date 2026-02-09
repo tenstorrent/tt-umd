@@ -4,6 +4,10 @@
 
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 namespace tt::umd {
 
 WormholeCoordinateManager::WormholeCoordinateManager(

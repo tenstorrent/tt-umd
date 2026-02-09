@@ -4,7 +4,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -38,13 +50,13 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
         std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
         std::unordered_set<ChipId> pci_chips_set;
-        for (auto [pci_device_number, _] : pci_device_infos) {
+        for (const auto& [pci_device_number, _] : pci_device_infos) {
             pci_chips_set.insert(pci_device_number);
         }
 
         std::unordered_map<ChipId, ChipId> chips_with_mmio = cluster_desc->get_chips_with_mmio();
         std::unordered_set<ChipId> cluster_chips_set;
-        for (auto [_, pci_device_number] : chips_with_mmio) {
+        for (const auto& [_, pci_device_number] : chips_with_mmio) {
             cluster_chips_set.insert(pci_device_number);
         }
 
@@ -77,8 +89,12 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         if (cluster_desc->is_chip_remote(chip_id)) {
             remote_chips.insert(chip_id);
         }
+    }
 
-        auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
+    bool is_baremetal = all_chips.empty();
+    bool is_6u = all_chips.size() == 32;
+    if (!is_baremetal && !is_6u && cluster_desc->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        EXPECT_EQ(eth_chip_coords.size(), all_chips.size());
     }
 
     std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio =
@@ -93,8 +109,8 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 
     auto ethernet_connections = cluster_desc->get_ethernet_connections();
-    for (auto [chip, connections] : ethernet_connections) {
-        for (auto [channel, remote_chip_and_channel] : connections) {
+    for (const auto& [chip, connections] : ethernet_connections) {
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
             std::cout << "Ethernet connection from chip " << chip << " channel " << channel << " to chip "
                       << std::get<0>(remote_chip_and_channel) << " channel " << std::get<1>(remote_chip_and_channel)
                       << std::endl;
@@ -102,7 +118,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 
     auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-    for (auto [chip, mmio_chip] : chips_with_mmio) {
+    for (const auto& [chip, mmio_chip] : chips_with_mmio) {
         std::cout << "Chip " << chip << " has MMIO on PCI id " << mmio_chip << std::endl;
     }
 
@@ -142,7 +158,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
 
 TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.size() == 0) {
+    if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -192,7 +208,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
     auto all_chips = cluster_desc->get_all_chips();
 
-    if (all_chips.size() == 0) {
+    if (all_chips.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -237,18 +253,40 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             break;
         }
 
-        // This covers T3K.
+        // This covers Wormhole T3K (Loudbox and Quietbox), as well as Blackhole loudbox.
         case 8: {
-            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-            EXPECT_EQ(chips_with_mmio.size(), 4);
+            switch (cluster_desc->get_arch()) {
+                case tt::ARCH::WORMHOLE_B0: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 4);
 
-            auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(count_connections(eth_connections), 40);
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 40);
 
-            for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
-                EXPECT_TRUE(board_type == BoardType::N300)
-                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::N300)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                case tt::ARCH::BLACKHOLE: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 8);
+
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 40);
+
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::P150)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                default: {
+                    throw std::runtime_error("Unexpected architecture for 8-chip cluster descriptor.");
+                }
             }
             break;
         }

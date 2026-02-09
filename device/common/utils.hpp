@@ -13,6 +13,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
 
@@ -49,11 +50,29 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
+static std::vector<std::string> split_string_by_comma(const std::string& input_string) {
+    std::vector<std::string> device_tokens;
+    std::stringstream ss(input_string);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        token.erase(token.find_last_not_of(" \n\r\t") + 1);
+        token.erase(0, token.find_first_not_of(" \n\r\t"));
+        if (!token.empty()) {
+            device_tokens.push_back(token);
+        }
+    }
+
+    return device_tokens;
+}
+
 // This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
 // active.
+// This ENV variable is used to specify visible devices by PCI BDF (Bus:Device.Function) addresses.
+// Format: comma-separated BDF addresses like "0000:02:00.0,0000:03:00.0"
+// When set, TT_VISIBLE_DEVICES takes precedence over TT_VISIBLE_DEVICES for PCIe devices.
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
-static std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
+static inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
     const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
     return target_devices.empty() && env_var_value.has_value()
                ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
@@ -71,18 +90,34 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
-static void check_timeout(
+enum class TimeoutAction { Throw, Return };
+
+/**
+ * Throw std::runtime_error or return true if `timeout` amount of time has elapsed since `start_time`.
+ * @param start_time Point in time when the measured event started.
+ * @param timeout Time expected for event to complete.
+ * @param error_msg Error message to log or pass to std::runtime_error.
+ * @param action Decide which action (throw or return false) is done when timeout elapses.
+ */
+static inline bool check_timeout(
     const std::chrono::steady_clock::time_point start_time,
     const std::chrono::milliseconds timeout,
-    const std::string& error_msg) {
+    const std::string& error_msg,
+    TimeoutAction action = TimeoutAction::Throw) {
+    // A timeout of 0 can never time out.
     if (timeout.count() == 0) {
-        return;
+        return false;
     }
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
     if (elapsed > timeout) {
-        throw std::runtime_error(error_msg);
+        if (action == TimeoutAction::Throw) {
+            throw std::runtime_error(error_msg);
+        }
+        log_warning(LogUMD, error_msg);
+        return true;
     }
+    return false;
 }
 
 class MultiProcessPipe {
@@ -99,10 +134,19 @@ public:
         child_pipes.resize(num_children);
         for (int i = 0; i < num_children; ++i) {
             if (pipe(child_pipes[i].data()) == -1) {
+                int saved_errno = errno;
+                for (int j = 0; j < i; ++j) {
+                    close(child_pipes[j][PIPE_READ]);
+                    close(child_pipes[j][PIPE_WRITE]);
+                }
+                errno = saved_errno;
                 throw std::runtime_error("Failed to create synchronization pipe");
             }
         }
     }
+
+    MultiProcessPipe(const MultiProcessPipe&) = delete;
+    MultiProcessPipe& operator=(const MultiProcessPipe&) = delete;
 
     ~MultiProcessPipe() {
         for (auto& p : child_pipes) {

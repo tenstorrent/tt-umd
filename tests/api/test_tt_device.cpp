@@ -4,7 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <stdexcept>
 #include <thread>
+#include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
@@ -215,7 +220,9 @@ TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -332,6 +339,9 @@ bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32
 
 class ApiTTDeviceParamTest : public ::testing::TestWithParam<int> {};
 
+// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
+// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
+// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
 TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -412,6 +422,9 @@ TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
 
 INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, ApiTTDeviceParamTest, ::testing::Values(0, 10, 50, 100, 500, 1000));
 
+// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
+// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
+// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
 TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -467,6 +480,9 @@ TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
     EXPECT_EQ(caught_sigbus, 2);
 }
 
+// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
+// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
+// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
 TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

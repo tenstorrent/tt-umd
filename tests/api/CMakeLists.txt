@@ -5,7 +5,9 @@ set(API_TESTS_SRCS
     test_tlb_manager.cpp
     test_software_harvesting.cpp
     test_sysmem_manager.cpp
+    test_simulation_sysmem_manager.cpp
     test_tt_device.cpp
+    test_spi_tt_device.cpp
     test_noc.cpp
     test_jtag.cpp
     test_arc_telemetry.cpp

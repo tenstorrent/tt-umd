@@ -56,6 +56,8 @@ public:
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void dma_multicast_write(
+        void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
     virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;
@@ -120,9 +122,6 @@ public:
     // Probably also moved to LocalChip.
     DeviceDramAddressParams dram_address_params;
     DeviceL1AddressParams l1_address_params;
-
-    // TODO: To be removed once we properly refactor usage of NOC1 coords.
-    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
 protected:
     void wait_chip_to_be_ready();

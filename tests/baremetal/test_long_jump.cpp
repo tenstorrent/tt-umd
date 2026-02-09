@@ -5,6 +5,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <atomic>
 #include <csetjmp>
@@ -70,7 +71,7 @@ public:
         }
     }
 
-    void safe_execute(std::function<void()> operation) {
+    void safe_execute(const std::function<void()>& operation) {
         if (sigsetjmp(point, 1) == 0) {
             ScopedJumpGuard guard;
             operation();
@@ -154,6 +155,7 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
     };
 
     std::vector<std::thread> threads;
+    threads.reserve(10);
     for (int i = 0; i < 10; ++i) {
         threads.emplace_back(thread_work, i);
     }
@@ -210,6 +212,7 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
     };
 
     std::vector<std::thread> threads;
+    threads.reserve(NUMBER_OF_THREADS);
     for (int i = 0; i < NUMBER_OF_THREADS; ++i) {
         threads.emplace_back(thread_work, i);
     }
@@ -270,6 +273,7 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
             };
 
             std::vector<std::thread> threads;
+            threads.reserve(NUM_THREADS_PER_PROCESS);
             for (int t = 0; t < NUM_THREADS_PER_PROCESS; ++t) {
                 threads.emplace_back(thread_work, t);
             }

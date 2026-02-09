@@ -1,29 +1,13 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
 option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
 set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
-
-include(cmake/compilers.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-
-if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
-    message(STATUS "Setting C and C++ compiler from environment variables")
-    set(CMAKE_C_COMPILER $ENV{CMAKE_C_COMPILER})
-    set(CMAKE_CXX_COMPILER $ENV{CMAKE_CXX_COMPILER})
-endif()
-
-if(CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
-    message(STATUS "Using specifed C++ compiler: ${CMAKE_CXX_COMPILER}")
-    message(STATUS "Using specifed C compiler: ${CMAKE_C_COMPILER}")
-else()
-    message(STATUS "No C or C++ compiler specified, defaulting to Clang-17")
-    FIND_AND_SET_CLANG17()
-endif()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Generate compile_commands.json for IDEs and tools
 
 # Read version from VERSION file
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION)
@@ -42,8 +26,6 @@ project(
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-CHECK_COMPILERS()
-include(check_libcpp)
 
 include(GNUInstallDirs)
 set(MASTER_PROJECT OFF)
@@ -105,6 +87,10 @@ endif()
 
 add_subdirectory(third_party)
 
+# Create a target that aggregates all generated files needed for code analysis.
+# Subdirectories can add dependencies to this target as needed.
+add_custom_target(umd_all_generated_files)
+
 # Configure clang-tidy AFTER third_party so dependencies are not linted
 option(TT_UMD_ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
 if(TT_UMD_ENABLE_CLANG_TIDY)
@@ -112,7 +98,7 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
         CLANG_TIDY_EXE
         NAMES
             clang-tidy
-            clang-tidy-17
+            clang-tidy-20
     )
     # These flags are needed because clang-tidy might reference warning options in
     # .clang-tidy config file that aren't supported by your actual compiler
@@ -130,17 +116,16 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
 endif()
 
 # Enable all warnings and treat them as errors
-# Ignore unused variables and functions since there is no harm.
-# TODO: Re-enable sign-compare
 add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
-    -Wno-unused-variable
-    -Wno-unused-function
-    -Wno-unused-but-set-variable
     -Wno-sign-compare
+    -Wno-unused-function
 )
+
+# Fixed this warning on clang, but not yet gcc
+add_compile_options("$<$<NOT:$<CXX_COMPILER_ID:Clang>>:-Wno-unused-but-set-variable>")
 
 # Conditionally add -Wno-maybe-uninitialized for GCC
 # If this is left enabled it produces a hard to track down issue in stimulus_generators.hpp with ConstrainedTemplateTemplateGenerator

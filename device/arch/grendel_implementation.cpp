@@ -4,7 +4,10 @@
 
 #include "umd/device/arch/grendel_implementation.hpp"
 
+#include <cstdint>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
 #include "blackhole/eth_interface.h"
@@ -227,11 +230,11 @@ RiscType grendel_implementation::get_soft_reset_risc_type(uint32_t soft_reset_re
 }
 
 namespace grendel {
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
-    return (noc_translation_enabled || !umd_use_noc1) ? grendel::ARC_CORES_NOC0[0]
-                                                      : tt_xy_pair(
-                                                            grendel::NOC0_X_TO_NOC1_X[grendel::ARC_CORES_NOC0[0].x],
-                                                            grendel::NOC0_Y_TO_NOC1_Y[grendel::ARC_CORES_NOC0[0].y]);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1) {
+    return (noc_translation_enabled || !use_noc1) ? grendel::ARC_CORES_NOC0[0]
+                                                  : tt_xy_pair(
+                                                        grendel::NOC0_X_TO_NOC1_X[grendel::ARC_CORES_NOC0[0].x],
+                                                        grendel::NOC0_Y_TO_NOC1_Y[grendel::ARC_CORES_NOC0[0].y]);
 }
 }  // namespace grendel
 

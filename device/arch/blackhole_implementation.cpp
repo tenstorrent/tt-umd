@@ -4,7 +4,10 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 
+#include <cstdint>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
 #include "blackhole/eth_interface.h"
@@ -187,12 +190,11 @@ RiscType blackhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_
 }
 
 namespace blackhole {
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
-    return (noc_translation_enabled || !umd_use_noc1)
-               ? blackhole::ARC_CORES_NOC0[0]
-               : tt_xy_pair(
-                     blackhole::NOC0_X_TO_NOC1_X[blackhole::ARC_CORES_NOC0[0].x],
-                     blackhole::NOC0_Y_TO_NOC1_Y[blackhole::ARC_CORES_NOC0[0].y]);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1) {
+    return (noc_translation_enabled || !use_noc1) ? blackhole::ARC_CORES_NOC0[0]
+                                                  : tt_xy_pair(
+                                                        blackhole::NOC0_X_TO_NOC1_X[blackhole::ARC_CORES_NOC0[0].x],
+                                                        blackhole::NOC0_Y_TO_NOC1_Y[blackhole::ARC_CORES_NOC0[0].y]);
 }
 }  // namespace blackhole
 

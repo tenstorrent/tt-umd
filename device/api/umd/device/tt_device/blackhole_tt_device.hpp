@@ -15,11 +15,12 @@ namespace tt::umd {
 
 class BlackholeTTDevice : public TTDevice {
 public:
-    ~BlackholeTTDevice();
+    ~BlackholeTTDevice() override;
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    bool wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) noexcept override;
 
     uint32_t get_clock() override;
 
@@ -47,6 +48,9 @@ public:
 
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+
+    void dma_multicast_write(
+        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);

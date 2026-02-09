@@ -86,16 +86,30 @@ private:
 
 // Helper function to detect if the cluster is a 4U Galaxy configuration.
 inline bool is_4u_galaxy_configuration(Cluster* cluster) {
-    return cluster != nullptr && cluster->get_target_remote_device_ids().size() > 0 &&
+    return cluster != nullptr && !cluster->get_target_remote_device_ids().empty() &&
            cluster->get_cluster_description()->get_board_type(*cluster->get_target_remote_device_ids().begin()) ==
-               BoardType::GALAXY;
+               tt::BoardType::GALAXY;
 }
 
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
-    bool is_6u_galaxy_configuration = cluster->get_target_device_ids().size() > 0 &&
-                                      cluster->get_cluster_description()->get_board_type(0) == BoardType::UBB;
+    bool is_6u_galaxy_configuration = !cluster->get_target_device_ids().empty() &&
+                                      cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
     return is_6u_galaxy_configuration || is_4u_galaxy_configuration(cluster);
 }
+
+inline bool has_remote_chips() {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        return false;
+    }
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    tt_device->init_tt_device();
+
+    auto board_type = tt_device->get_board_type();
+    return board_type == tt::BoardType::N300 || board_type == tt::BoardType::GALAXY;
+}
+
+inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
 
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};

@@ -4,9 +4,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
@@ -25,8 +29,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -114,18 +117,17 @@ void run_data_mover_test(
     auto target_devices = device.get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
-    auto it = std::find(target_devices.begin(), target_devices.end(), sender_core.chip);
+    auto it = target_devices.find(sender_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Sender core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
-    it = std::find(target_devices.begin(), target_devices.end(), receiver_core.chip);
+    it = target_devices.find(receiver_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -219,25 +221,26 @@ TEST(GalaxyDataMovement, TwoChipMoveData4) {
 }
 
 void run_data_broadcast_test(
-    uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
+    uint32_t vector_size,
+    tt_multichip_core_addr sender_core,
+    const std::vector<tt_multichip_core_addr>& receiver_cores) {
     Cluster device;
     auto target_devices = device.get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
-    auto it = std::find(target_devices.begin(), target_devices.end(), sender_core.chip);
+    auto it = target_devices.find(sender_core.chip);
     ASSERT_TRUE(it != target_devices.end())
         << "Sender core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
     for (const auto& receiver_core : receiver_cores) {
-        it = std::find(target_devices.begin(), target_devices.end(), receiver_core.chip);
+        it = target_devices.find(receiver_core.chip);
         ASSERT_TRUE(it != target_devices.end())
             << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
     }
 
     test::utils::set_barrier_params(device);
 
-    DeviceParams default_params;
-    device.start_device(default_params);
+    test_utils::safe_test_cluster_start(&device);
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);

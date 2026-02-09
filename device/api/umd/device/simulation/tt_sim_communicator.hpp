@@ -17,7 +17,7 @@ namespace tt::umd {
  *
  * This class can be used independently of TTSimTTDevice for direct simulator communication.
  */
-class TTSimCommunicator {
+class TTSimCommunicator final {
 public:
     /**
      * Constructor for TTSimCommunicator.

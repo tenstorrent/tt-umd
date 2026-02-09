@@ -100,20 +100,6 @@ public:
      */
     void advance_clock(uint32_t n_clocks);
 
-    /**
-     * Get the PCI device ID detected during initialization.
-     *
-     * @return PCI device ID
-     */
-    uint32_t get_device_id() const { return libttsim_pci_device_id_; }
-
-    /**
-     * Get the TLB region size determined during initialization.
-     *
-     * @return TLB region size in bytes (0 if not set)
-     */
-    uint32_t get_tlb_region_size() const { return tlb_region_size_; }
-
 private:
     // Library management.
     void create_simulator_binary();
@@ -144,10 +130,6 @@ private:
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
-
-    // Device state.
-    uint32_t libttsim_pci_device_id_ = 0;
-    uint32_t tlb_region_size_ = 0;
 
     // Thread safety.
     mutable std::mutex device_lock_;

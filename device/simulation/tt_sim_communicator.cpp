@@ -52,19 +52,6 @@ void TTSimCommunicator::initialize() {
     }
 
     pfn_libttsim_init_();
-
-    // Read the PCI ID (first 32 bits of PCI config space).
-    uint32_t pci_id = pfn_libttsim_pci_config_rd32_(0, 0);
-    uint32_t vendor_id = pci_id & 0xFFFF;
-    libttsim_pci_device_id_ = pci_id >> 16;
-    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id_);
-    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
-
-    if (libttsim_pci_device_id_ == 0x401E) {  // WH: use 16MiB TLB regions
-        tlb_region_size_ = 0x1000000;
-    } else if (libttsim_pci_device_id_ == 0xB140) {  // BH: use 2MiB TLB regions
-        tlb_region_size_ = 0x200000;
-    }
 }
 
 void TTSimCommunicator::shutdown() {
@@ -76,45 +63,12 @@ void TTSimCommunicator::shutdown() {
 void TTSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core ({},{})", size, addr, x, y);
-
-    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
-        uint64_t current_addr = addr;
-        const uint8_t *current_data = reinterpret_cast<const uint8_t *>(data);
-        uint32_t remaining_size = size;
-
-        while (remaining_size) {
-            uint32_t cur_size =
-                std::min(remaining_size, tlb_region_size_ - uint32_t(current_addr & (tlb_region_size_ - 1)));
-            pfn_libttsim_tile_wr_bytes_(x, y, current_addr, current_data, cur_size);
-            current_addr += cur_size;
-            current_data += cur_size;
-            remaining_size -= cur_size;
-        }
-    } else {
-        pfn_libttsim_tile_wr_bytes_(x, y, addr, data, size);
-    }
+    pfn_libttsim_tile_wr_bytes_(x, y, addr, data, size);
 }
 
 void TTSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
-
-    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
-        uint64_t current_addr = addr;
-        uint8_t *current_data = reinterpret_cast<uint8_t *>(data);
-        uint32_t remaining_size = size;
-
-        while (remaining_size) {
-            uint32_t cur_size =
-                std::min(remaining_size, tlb_region_size_ - uint32_t(current_addr & (tlb_region_size_ - 1)));
-            pfn_libttsim_tile_rd_bytes_(x, y, current_addr, current_data, cur_size);
-            current_addr += cur_size;
-            current_data += cur_size;
-            remaining_size -= cur_size;
-        }
-    } else {
-        pfn_libttsim_tile_rd_bytes_(x, y, addr, data, size);
-    }
-    pfn_libttsim_clock_(10);
+    pfn_libttsim_tile_rd_bytes_(x, y, addr, data, size);
 }
 
 void TTSimCommunicator::pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size) {

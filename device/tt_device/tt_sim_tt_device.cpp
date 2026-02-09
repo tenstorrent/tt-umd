@@ -35,7 +35,13 @@ TTSimTTDevice::TTSimTTDevice(
     chip_id_(chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
     communicator_->initialize();
+    // Read the PCI ID (first 32 bits of PCI config space).
+    uint32_t pci_id = communicator_->pci_config_read32(0, 0);
+    uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
+    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
+    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+
     if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
         // Compute physical address of BAR0 from PCI config registers.
         bar0_base = communicator_->pci_config_read32(0, 0x10);
@@ -119,8 +125,7 @@ void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_r
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
-    uint32_t device_id = communicator_->get_device_id();
-    if (device_id == 0xFEED) {  // QSR
+    if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
         reset_value &=
@@ -139,8 +144,8 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
-    uint32_t device_id = communicator_->get_device_id();
-    if (device_id == 0xFEED) {  // QSR
+
+    if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
         reset_value |=

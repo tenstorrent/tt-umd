@@ -30,8 +30,8 @@
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api) {
     arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
 }
 

@@ -31,8 +31,8 @@ namespace tt::umd {
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
-WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
@@ -440,8 +440,16 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     timeout_ms.count(),
                     actual_eth_core.x,
                     actual_eth_core.y));
+            } else {
+                // We don't want to throw on 6u systems, but log a warning so it is visible.
+                log_warning(
+                    LogUMD,
+                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+                    timeout_ms.count(),
+                    actual_eth_core.x,
+                    actual_eth_core.y);
+                break;
             }
-            break;
         }
     }
     return time_taken_heartbeat + time_taken_port;

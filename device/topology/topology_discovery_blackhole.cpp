@@ -4,8 +4,13 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -65,7 +70,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, tt
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
         // from the ClusterOptions will work correctly on 6U.
         // Note that the board_id will still be reported properly in the cluster descriptor, since it is
         // fetched through another function when cluster descriptor is being filled up.
@@ -215,34 +220,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
     }
 }
 
-void TopologyDiscoveryBlackhole::init_topology_discovery() {
-    int device_id = 0;
-    switch (options.io_device_type) {
-        case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                return;
-            }
-            // JTAG devices (j-links) are referred to with their index within a vector
-            // that's stored inside of a JtagDevice object.
-            // That index is completely different from the actual JTAG device id.
-            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
-            break;
-        }
-        case IODeviceType::PCIe: {
-            std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-            if (pci_device_ids.empty()) {
-                return;
-            }
-            device_id = pci_device_ids[0];
-            break;
-        }
-        default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
-    }
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-    tt_device->init_tt_device();
+void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 
@@ -260,6 +238,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     tt_device->read_from_device(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
     tt_device->read_from_device(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
     semver_t eth_fw_version = semver_t(major, minor, patch);
+    uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
@@ -281,21 +260,24 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for device {} ETH core {}, found: {}.",
-            get_local_asic_id(tt_device, eth_core),
+            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+            current_device_asic_id,
             eth_core.str(),
+            expected_eth_fw_version->to_string(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
 
     if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
+        if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
-                "ETH FW version hash check failed for device {} ETH core {}",
-                get_local_asic_id(tt_device, eth_core),
-                eth_core.str());
+                "ETH FW hash check failed for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+                current_device_asic_id,
+                eth_core.str(),
+                expected_eth_fw_version->to_string(),
+                eth_fw_version.to_string());
             eth_fw_problem = true;
         }
     }

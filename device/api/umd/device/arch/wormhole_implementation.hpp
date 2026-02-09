@@ -305,10 +305,13 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0x100088000},
-     {CoreType::PCIE, 0xFFFB30000},
-     {CoreType::ARC, 0xFFFB30000},
+     {CoreType::PCIE, 0xFFFB20000},
+     {CoreType::ARC, 0xFFFB20000},
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
+
+constexpr std::array<uint64_t, 3> DRAM_NOC0_CONTROL_REG_ADDR_BASE_MAP = {0x100080000, 0x100090000, 0x1000A0000};
+constexpr std::array<uint64_t, 3> DRAM_NOC1_CONTROL_REG_ADDR_BASE_MAP = {0x100088000, 0x100098000, 0x1000A8000};
 
 inline constexpr uint64_t ARC_NOC_RESET_UNIT_BASE_ADDR = 0x880030000;
 // Offset of NOC node id registers on ARC core which are
@@ -483,7 +486,7 @@ public:
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
-    virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
+    uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

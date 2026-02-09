@@ -4,8 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
 #include <memory>
+#include <ostream>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "umd/device/cluster.hpp"
@@ -208,8 +216,6 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
 
     std::unique_ptr<Cluster> umd_cluster =
         std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
-
-    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 10;

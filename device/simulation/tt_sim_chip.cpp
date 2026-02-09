@@ -34,7 +34,7 @@ TTSimChip::TTSimChip(
     tt_device_ = std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary);
 }
 
-TTSimChip::~TTSimChip() {}
+TTSimChip::~TTSimChip() = default;
 
 void TTSimChip::start_device() { tt_device_->start_device(); }
 

@@ -4,13 +4,16 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <algorithm>
 #include <chrono>
-#include <csetjmp>
-#include <csignal>
+#include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -60,7 +63,7 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {}
 
-TTDevice::TTDevice() {}
+TTDevice::TTDevice() = default;
 
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
     architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
@@ -70,14 +73,31 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
+TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
-        throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start", arc_core.x, arc_core.y));
+        if (throw_on_arc_failure) {
+            throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
+        } else {
+            return TTDeviceInitResult::ARC_STARTUP_FAILED;
+        }
     }
-    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    try {
+        arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    } catch (const std::runtime_error &e) {
+        return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
+    }
+    try {
+        telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    } catch (const std::runtime_error &e) {
+        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
+    }
+    try {
+        firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    } catch (const std::runtime_error &e) {
+        return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
+    }
+    return TTDeviceInitResult::SUCCESSFUL;
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -286,7 +306,9 @@ IODeviceType TTDevice::get_communication_device_type() const { return communicat
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
 uint64_t TTDevice::get_refclk_counter() {
-    uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
+    uint32_t high1_addr = 0;
+    uint32_t high2_addr = 0;
+    uint32_t low_addr = 0;
     read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
     read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
@@ -433,6 +455,64 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         dma_d2h(buffer, axi_address, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    }
+}
+
+void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (get_communication_device_type() != IODeviceType::PCIe) {
+        TT_THROW(
+            "DMA operations are not supported for {} devices.", DeviceTypeToString.at(get_communication_device_type()));
+    }
+
+    if (get_pci_device()->get_dma_buffer().buffer == nullptr) {
+        log_warning(
+            LogUMD,
+            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) multicast "
+            "write.",
+            get_communication_device_id());
+
+        noc_multicast_write(src, size, core_start, core_end, addr);
+        return;
+    }
+
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+
+    const uint8_t *buffer = static_cast<const uint8_t *>(src);
+    PCIDevice *pci_device = get_pci_device().get();
+    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_start = core_start.x;
+    config.y_start = core_start.y;
+    config.x_end = core_end.x;
+    config.y_end = core_end.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = get_architecture_implementation()->get_static_vc();
+    config.mcast = true;
+    TlbWindow *tlb_window = get_cached_pcie_dma_tlb_window(config);
+
+    auto axi_address_base =
+        get_architecture_implementation()->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id()).tlb_offset;
+
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    while (size > 0) {
+        auto tlb_size = tlb_window->get_size();
+
+        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+
+        dma_h2d(axi_address, buffer, transfer_size);
 
         size -= transfer_size;
         addr += transfer_size;

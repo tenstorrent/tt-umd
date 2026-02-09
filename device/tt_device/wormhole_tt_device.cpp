@@ -5,9 +5,16 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -38,7 +45,6 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    init_tt_device();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -50,16 +56,10 @@ WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implem
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
-    uint32_t niu_cfg;
-    // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
-    // We use DRAM core (0, 0) to read this information, but it can be read from any core.
-    // TODO: read this information from PCIE BAR.
-    const tt_xy_pair dram_core = is_selected_noc1()
-                                     ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0])
-                                     : tt_xy_pair(0, 0);
-    const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
-    read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
-
+    uint32_t niu_cfg = 0x0;
+    constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
+    constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
+    read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof niu_cfg);
     return (niu_cfg & (1 << 14)) != 0;
 }
 
@@ -440,8 +440,16 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     timeout_ms.count(),
                     eth_core.x,
                     eth_core.y));
+            } else {
+                // We don't want to throw on 6u systems, but log a warning so it is visible.
+                log_warning(
+                    LogUMD,
+                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+                    timeout_ms.count(),
+                    eth_core.x,
+                    eth_core.y);
+                break;
             }
-            break;
         }
     }
     return time_taken_heartbeat + time_taken_port;
@@ -478,11 +486,11 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
     // Post codes.
     constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
-    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_START = 0xC0DE0030;
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    auto start = std::chrono::steady_clock::now();
+    const auto start = std::chrono::steady_clock::now();
+    constexpr auto spin_limit = std::chrono::microseconds(1000);
     while (true) {
         uint32_t bar_read_arc_reset_scratch_status;
 
@@ -552,6 +560,18 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             return true;
         }
 
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        // If we are within the first 200us, busy-wait (continue).
+        // This burns CPU, but guarantees we catch the status change instantly in this interval.
+        if (elapsed < spin_limit) {
+            // Optional: For 0ms timeouts, check manually here without strings.
+            if (elapsed > timeout_ms) {
+                return false;
+            }
+            continue;
+        }
+
         if (utils::check_timeout(
                 start,
                 timeout_ms,
@@ -568,9 +588,10 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             return false;
         }
 
-        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
-        // polling hardware state that changes on the order of milliseconds.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
+        // actual duration will be longer due to OS scheduling and jitter.
+        // This prevents 100% CPU usage during longer hardware initialization.
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 }
 

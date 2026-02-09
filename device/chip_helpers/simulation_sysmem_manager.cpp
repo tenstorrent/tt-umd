@@ -7,8 +7,11 @@
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
@@ -17,8 +20,8 @@
 
 namespace tt::umd {
 
-SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) : SysmemManager() {
-    init_sysmem(num_host_mem_channels);
+SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) {
+    SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
@@ -51,7 +54,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 
 bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 
-SimulationSysmemManager::~SimulationSysmemManager() { unpin_or_unmap_sysmem(); }
+SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
 void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
 

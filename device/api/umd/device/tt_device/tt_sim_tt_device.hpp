@@ -47,6 +47,8 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
+    void dma_multicast_write(
+        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
     void close_device();
     void start_device();
@@ -69,11 +71,15 @@ private:
     void (*pfn_libttsim_init)() = nullptr;
     void (*pfn_libttsim_exit)() = nullptr;
     uint32_t (*pfn_libttsim_pci_config_rd32)(uint32_t bus_device_function, uint32_t offset) = nullptr;
+    void (*pfn_libttsim_pci_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_pci_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
+    uint64_t bar0_base = 0;
+    uint32_t tlb_region_size = 0;
 
-    std::mutex device_lock;
+    std::recursive_mutex device_lock;
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;

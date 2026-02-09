@@ -4,7 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <stdexcept>
 #include <thread>
+#include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"

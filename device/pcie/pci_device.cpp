@@ -314,7 +314,13 @@ std::vector<int> PCIDevice::enumerate_devices() {
                     all_device_ids.size() - 1);
             }
 
-            filtered_device_ids.insert(logical_device_id);
+            log_debug(
+                LogUMD,
+                "Added device id {} because of token filter {}.",
+                all_device_ids[logical_device_id],
+                device_token);
+
+            filtered_device_ids.insert(all_device_ids[logical_device_id]);
 
         } else {
             TT_THROW(

@@ -244,7 +244,7 @@ TEST(ApiClusterTest, OpenChipsByBDFWormhole6USameChip) {
         GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
     }
 
-    if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
+    if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
     }
 

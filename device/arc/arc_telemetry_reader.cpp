@@ -21,7 +21,8 @@ static const tt::umd::semver_t new_telemetry_fw_bundle = tt::umd::semver_t(18, 4
 
 namespace tt::umd {
 
-ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_device) {}
+ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) :
+    telemetry_table_addr(0), entry_count(0), telemetry_values_addr(0), tt_device(tt_device) {}
 
 std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(TTDevice* tt_device) {
     switch (tt_device->get_arch()) {

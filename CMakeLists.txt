@@ -121,7 +121,6 @@ add_compile_options(
     -Wall
     -Werror
     -Wno-sign-compare
-    -Wno-unused-function
 )
 
 # Fixed this warning on clang, but not yet gcc

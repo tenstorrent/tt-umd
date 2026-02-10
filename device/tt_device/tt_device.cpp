@@ -46,12 +46,13 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()),
-    use_safe_api_(use_safe_api),
-    device_protocol_(std::make_unique<PcieProtocol>(pci_device_, architecture_impl_.get(), use_safe_api_)) {
+    arch(architecture_impl_->get_architecture()) {
+    auto pcie_protocol = std::make_unique<PcieProtocol>(pci_device_, architecture_impl_.get(), use_safe_api);
+    pcie_capabilities_ = pcie_protocol.get();
+    device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-    if (use_safe_api_) {
+    if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
 }
@@ -65,7 +66,7 @@ TTDevice::TTDevice(
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()),
-    device_protocol_(std::make_unique<JtagProtocol>(jtag_device_, use_safe_api_)) {}
+    device_protocol_(std::make_unique<JtagProtocol>(jtag_device_, communication_device_id_)) {}
 
 TTDevice::TTDevice() = default;
 
@@ -173,30 +174,14 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("write_regs is not applicable for JTAG communication type.");
-    }
-    while (word_len-- != 0) {
-        *dest++ = *src++;
-    }
-}
-
-TlbWindow *TTDevice::get_cached_tlb_window() {
-    if (cached_tlb_window == nullptr) {
-        cached_tlb_window = std::make_unique<TlbWindow>(
-            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC));
-        return cached_tlb_window.get();
-    }
-    return cached_tlb_window.get();
+    pcie_capabilities_->write_regs(dest, src, word_len);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 
@@ -236,23 +221,9 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
     }
 }
 
-void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
-    const uint32_t bar0_offset = 0x1FD00000;
-    if (addr < bar0_offset) {
-        throw std::runtime_error("Write Invalid BAR address for this device.");
-    }
-    addr -= bar0_offset;
-    *reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(get_pci_device()->bar0) + addr) = data;
-}
+void TTDevice::bar_write32(uint32_t addr, uint32_t data) { pcie_capabilities_->bar_write32(addr, data); }
 
-uint32_t TTDevice::bar_read32(uint32_t addr) {
-    const uint32_t bar0_offset = 0x1FD00000;
-    if (addr < bar0_offset) {
-        throw std::runtime_error("Read Invalid BAR address for this device.");
-    }
-    addr -= bar0_offset;
-    return *reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(get_pci_device()->bar0) + addr);
-}
+uint32_t TTDevice::bar_read32(uint32_t addr) { return pcie_capabilities_->bar_read32(addr); }
 
 ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
 
@@ -319,187 +290,31 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        throw std::runtime_error("noc_multicast_write is not applicable for JTAG communication type.");
-    }
-
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
+    pcie_capabilities_->noc_multicast_write(dst, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
-    if (get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
-            "DMA operations are not supported for {} devices.", DeviceTypeToString.at(get_communication_device_type()));
-    }
-
-    if (get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) write.",
-            get_communication_device_id());
-        write_to_device(src, core, addr, size);
-        return;
-    }
-
-    auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-
-    const uint8_t *buffer = static_cast<const uint8_t *>(src);
-    PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = get_architecture_implementation()->get_static_vc();
-    TlbWindow *tlb_window = get_cached_pcie_dma_tlb_window(config);
-
-    auto axi_address_base =
-        get_architecture_implementation()->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id()).tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        dma_h2d(axi_address, buffer, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
+    pcie_capabilities_->dma_write_to_device(src, size, core, addr);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    if (get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
-            "DMA operations are not supported for {} devices.", DeviceTypeToString.at(get_communication_device_type()));
-    }
-
-    if (get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) read.",
-            get_communication_device_id());
-        read_from_device(dst, core, addr, size);
-        return;
-    }
-
-    auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-
-    uint8_t *buffer = static_cast<uint8_t *>(dst);
-    PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = get_architecture_implementation()->get_static_vc();
-    TlbWindow *tlb_window = get_cached_pcie_dma_tlb_window(config);
-
-    auto axi_address_base =
-        get_architecture_implementation()->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id()).tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        dma_d2h(buffer, axi_address, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
+    pcie_capabilities_->dma_read_from_device(dst, size, core, addr);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    if (get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
-            "DMA operations are not supported for {} devices.", DeviceTypeToString.at(get_communication_device_type()));
-    }
-
-    if (get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) multicast "
-            "write.",
-            get_communication_device_id());
-
-        noc_multicast_write(src, size, core_start, core_end, addr);
-        return;
-    }
-
-    auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-
-    const uint8_t *buffer = static_cast<const uint8_t *>(src);
-    PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_start = core_start.x;
-    config.y_start = core_start.y;
-    config.x_end = core_end.x;
-    config.y_end = core_end.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = get_architecture_implementation()->get_static_vc();
-    config.mcast = true;
-    TlbWindow *tlb_window = get_cached_pcie_dma_tlb_window(config);
-
-    auto axi_address_base =
-        get_architecture_implementation()->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id()).tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        dma_h2d(axi_address, buffer, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
+    pcie_capabilities_->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
-TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
-    if (cached_pcie_dma_tlb_window == nullptr) {
-        cached_pcie_dma_tlb_window =
-            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
-        return cached_pcie_dma_tlb_window.get();
-    }
+void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { pcie_capabilities_->dma_d2h(dst, src, size); }
 
-    cached_pcie_dma_tlb_window->configure(config);
-    return cached_pcie_dma_tlb_window.get();
+void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    pcie_capabilities_->dma_d2h_zero_copy(dst, src, size);
+}
+
+void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) { pcie_capabilities_->dma_h2d(dst, src, size); }
+
+void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    pcie_capabilities_->dma_h2d_zero_copy(dst, src, size);
 }
 
 }  // namespace tt::umd

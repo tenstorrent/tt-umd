@@ -86,28 +86,4 @@ bool RemoteWormholeTTDevice::is_hardware_hung() {
     return remote_communication_->get_local_device()->is_hardware_hung();
 }
 
-void RemoteWormholeTTDevice::noc_multicast_write(
-    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    // TODO: implement multicast over remote communication.
-    // For now, we fallback to unicast for all cores.
-    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
-        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            write_to_device(dst, tt_xy_pair(x, y), addr, size);
-        }
-    }
-}
-
-void RemoteWormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA write to device not supported for remote Wormhole device.");
-}
-
-void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA read from device not supported for remote Wormhole device.");
-}
-
-void RemoteWormholeTTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    throw std::runtime_error("DMA multicast write not supported for remote Wormhole device.");
-}
-
 }  // namespace tt::umd

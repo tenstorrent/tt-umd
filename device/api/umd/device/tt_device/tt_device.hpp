@@ -19,6 +19,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/lock_manager.hpp"
@@ -79,7 +80,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+    void dma_d2h(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from device to host.
@@ -89,7 +90,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -99,7 +100,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+    void dma_h2d(uint32_t dst, const void *src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -109,7 +110,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
+    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -128,7 +129,7 @@ public:
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -309,9 +310,9 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
-    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
-    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -350,25 +351,10 @@ protected:
 private:
     void probe_arc();
 
-    TlbWindow *get_cached_tlb_window();
-
-    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
-
-    template <bool safe>
-    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    template <bool safe>
-    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
-
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
-
     std::mutex tt_device_io_lock;
 
-    bool use_safe_api_ = false;
-
     std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
+    PcieInterface *pcie_capabilities_ = nullptr;
 };
 
 }  // namespace tt::umd

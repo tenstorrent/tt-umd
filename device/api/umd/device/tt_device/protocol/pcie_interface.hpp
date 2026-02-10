@@ -11,6 +11,8 @@ namespace tt::umd {
 
 class PcieInterface {
 public:
+    // virtual ~PcieInterface() = default;
+
     virtual PCIDevice *get_pci_device() = 0;
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) = 0;
@@ -82,37 +84,10 @@ public:
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(
+        void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
 
     virtual void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) = 0;
-
-    /**
-     * Configures a PCIe Address Translation Unit (iATU) region.
-     *
-     * Device software expects to be able to access memory that is shared with
-     * the host using the following NOC addresses at the PCIe core:
-     * - GS: 0x0
-     * - WH: 0x8_0000_0000
-     * - BH: 0x1000_0000_0000_0000
-     * Without iATU configuration, these map to host PA 0x0.
-     *
-     * While modern hardware supports IOMMU with flexible IOVA mapping, we must
-     * maintain the iATU configuration to satisfy software that has hard-coded
-     * the above NOC addresses rather than using driver-provided IOVAs.
-     *
-     * This interface is only intended to be used for configuring sysmem with
-     * either 1GB hugepages or a compatible scheme.
-     *
-     * @param region iATU region index (0-15)
-     * @param target DMA address (PA or IOVA) to map to
-     * @param region_size size of the mapping window; must be (1 << 30)
-     *
-     * NOTE: Programming the iATU from userspace is architecturally incorrect:
-     * - iATU should be managed by KMD to ensure proper cleanup on process exit
-     * - Multiple processes can corrupt each other's iATU configurations
-     * We should fix this!
-     */
-    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size) = 0;
 
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
 

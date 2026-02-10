@@ -176,22 +176,6 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, b
     }
 }
 
-void RtlSimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
-}
-
-void RtlSimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
-}
-
-void RtlSimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
-}
-
-void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
-}
-
 void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in RTL simulation device.");
 }
@@ -229,19 +213,6 @@ uint32_t RtlSimulationTTDevice::get_min_clock_freq() {
 
 bool RtlSimulationTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("Getting NOC translation status is not supported in RTL simulation device.");
-}
-
-void RtlSimulationTTDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA write to device not supported for RTL simulation device.");
-}
-
-void RtlSimulationTTDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA read from device not supported for RTL simulation device.");
-}
-
-void RtlSimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    throw std::runtime_error("DMA multicast write not supported for RTL simulation device.");
 }
 
 }  // namespace tt::umd

@@ -33,10 +33,6 @@ public:
 
     bool is_hardware_hung() override { return false; }
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
-    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;

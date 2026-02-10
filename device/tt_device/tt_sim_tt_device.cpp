@@ -194,22 +194,6 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
     }
 }
 
-void TTSimTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
 void TTSimTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in TTSim simulation device.");
 }

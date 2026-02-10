@@ -65,16 +65,28 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
+    /**
+     * Get the TTSimCommunicator for low-level device operations.
+     * @return Pointer to TTSimCommunicator
+     */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
     SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+
+    /**
+     * Get the architecture implementation.
+     * @return Pointer to architecture implementation
+     */
+    const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
+
+    uint64_t bar0_base = 0;
+    uint64_t tlb_registers_base = 0;
 
 private:
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
 
-    uint64_t bar0_base = 0;
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
     std::recursive_mutex device_lock;

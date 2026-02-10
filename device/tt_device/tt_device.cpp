@@ -23,6 +23,8 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/protocol/jtag_protocol.hpp"
+#include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -45,7 +47,8 @@ TTDevice::TTDevice(
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()),
-    use_safe_api_(use_safe_api) {
+    use_safe_api_(use_safe_api),
+    device_protocol_(std::make_unique<PcieProtocol>(pci_device_, architecture_impl_.get(), use_safe_api_)) {
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
     if (use_safe_api_) {
@@ -61,7 +64,8 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()),
+    device_protocol_(std::make_unique<JtagProtocol>(jtag_device_, use_safe_api_)) {}
 
 TTDevice::TTDevice() = default;
 
@@ -105,7 +109,6 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
-
         switch (jtag_device->get_jtag_arch(device_number)) {
             case ARCH::WORMHOLE_B0:
                 return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
@@ -187,50 +190,14 @@ TlbWindow *TTDevice::get_cached_tlb_window() {
     return cached_tlb_window.get();
 }
 
-template <bool safe>
-void TTDevice::read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    if constexpr (safe) {
-        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
-    } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
-    }
-}
-
-template <bool safe>
-void TTDevice::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    if constexpr (safe) {
-        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
-    } else {
-        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
-    }
-}
-
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (use_safe_api_) {
-        read_from_device_impl<true>(mem_ptr, core, addr, size);
-        return;
-    }
-    read_from_device_impl<false>(mem_ptr, core, addr, size);
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (use_safe_api_) {
-        write_to_device_impl<true>(mem_ptr, core, addr, size);
-        return;
-    }
-    write_to_device_impl<false>(mem_ptr, core, addr, size);
+    std::lock_guard<std::mutex> lock(tt_device_io_lock);
+    device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

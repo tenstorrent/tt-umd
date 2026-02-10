@@ -18,6 +18,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/lock_manager.hpp"
@@ -366,6 +367,8 @@ private:
     std::mutex tt_device_io_lock;
 
     bool use_safe_api_ = false;
+
+    std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
 };
 
 }  // namespace tt::umd

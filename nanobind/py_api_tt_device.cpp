@@ -44,6 +44,15 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     return TTDevice::create(std::move(remote_communication));
 }
 
+// Create remote wormhole device from explicit EthCoord (rack, shelf, x, y). Does not set
+// remote transfer ethernet cores; caller must call set_remote_transfer_ethernet_cores.
+std::unique_ptr<TTDevice> create_remote_wormhole_tt_device_from_coord(
+    TTDevice *local_chip, int rack, int shelf, int x, int y) {
+    EthCoord target_chip{0, x, y, rack, shelf};
+    auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    return TTDevice::create(std::move(remote_communication));
+}
+
 void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType")
         .value("PCIe", IODeviceType::PCIe)
@@ -424,4 +433,16 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("remote_chip_id"),
         nb::rv_policy::take_ownership,
         "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
+
+    m.def(
+        "create_remote_wormhole_tt_device_from_coord",
+        &create_remote_wormhole_tt_device_from_coord,
+        nb::arg("local_chip"),
+        nb::arg("rack"),
+        nb::arg("shelf"),
+        nb::arg("x"),
+        nb::arg("y"),
+        nb::rv_policy::take_ownership,
+        "Creates a RemoteWormholeTTDevice for communication with a remote chip at (rack, shelf, x, y). "
+        "Does not set remote transfer ethernet cores; caller must set them explicitly.");
 }

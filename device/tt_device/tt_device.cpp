@@ -33,7 +33,7 @@
 namespace tt::umd {
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
-    TlbWindow::set_sigbus_safe_handler(set_safe_handler);
+    // TlbWindow: :set_sigbus_safe_handler(set_safe_handler);.
 }
 
 TTDevice::TTDevice(
@@ -196,7 +196,7 @@ void TTDevice::read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t ad
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
+        // get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
     }
@@ -211,7 +211,7 @@ void TTDevice::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
+        // get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
     }

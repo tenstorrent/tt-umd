@@ -62,8 +62,22 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
-private:
+    /**
+     * Get the architecture implementation.
+     * @return Pointer to architecture implementation
+     */
+    const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
+
+    /**
+     * Get the TTSimCommunicator for low-level device operations.
+     * @return Pointer to TTSimCommunicator
+     */
+    TTSimCommunicator *get_communicator() const { return communicator_.get(); }
+
     uint64_t bar0_base = 0;
+    uint64_t tlb_registers_base = 0;
+
+private:
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
     std::recursive_mutex device_lock;

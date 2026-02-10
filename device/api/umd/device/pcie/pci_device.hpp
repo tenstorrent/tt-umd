@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"

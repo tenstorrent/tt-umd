@@ -10,7 +10,10 @@ namespace tt::umd {
 
 PcieProtocol::PcieProtocol(
     std::shared_ptr<PCIDevice> pci_device, architecture_implementation *architecture_impl, bool use_safe_api) :
-    pci_device_(std::move(pci_device)), architecture_impl_(architecture_impl), use_safe_api_(use_safe_api) {}
+    pci_device_(std::move(pci_device)),
+    communication_device_id_(pci_device_->get_device_num()),
+    architecture_impl_(architecture_impl),
+    use_safe_api_(use_safe_api) {}
 
 void PcieProtocol::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (use_safe_api_) {

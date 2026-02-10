@@ -40,6 +40,8 @@ private:
 
     std::shared_ptr<PCIDevice> pci_device_;
 
+    int communication_device_id_ = -1;
+
     architecture_implementation *architecture_impl_ = nullptr;
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;

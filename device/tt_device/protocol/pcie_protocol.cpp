@@ -8,6 +8,10 @@
 
 namespace tt::umd {
 
+PcieProtocol::PcieProtocol(
+    std::shared_ptr<PCIDevice> pci_device, architecture_implementation *architecture_impl, bool use_safe_api) :
+    pci_device_(std::move(pci_device)), architecture_impl_(architecture_impl), use_safe_api_(use_safe_api) {}
+
 void PcieProtocol::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (use_safe_api_) {
         write_to_device_impl<true>(mem_ptr, core, addr, size);
@@ -43,6 +47,15 @@ void PcieProtocol::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, ui
 }
 
 std::shared_ptr<PCIDevice> PcieProtocol::get_pci_device() { return pci_device_; }
+
+TlbWindow *PcieProtocol::get_cached_tlb_window() {
+    if (cached_tlb_window == nullptr) {
+        cached_tlb_window = std::make_unique<TlbWindow>(
+            get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC));
+        return cached_tlb_window.get();
+    }
+    return cached_tlb_window.get();
+}
 
 TlbWindow *PcieProtocol::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {

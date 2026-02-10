@@ -6,6 +6,7 @@
 #pragma once
 
 #include "device_protocol.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 
@@ -13,7 +14,10 @@ namespace tt::umd {
 
 class PcieProtocol : public DeviceProtocol {
 public:
-    PcieProtocol(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
+    PcieProtocol(
+        std::shared_ptr<PCIDevice> pci_device, architecture_implementation *architecture_impl, bool use_safe_api);
+
+    PcieProtocol() = delete;
 
     virtual ~PcieProtocol() = default;
 
@@ -34,11 +38,13 @@ private:
 
     TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
 
+    std::shared_ptr<PCIDevice> pci_device_;
+
+    architecture_implementation *architecture_impl_ = nullptr;
+
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
-
-    std::shared_ptr<PCIDevice> pci_device_;
 
     bool use_safe_api_ = false;
 };

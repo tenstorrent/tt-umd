@@ -260,6 +260,17 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
     return target_chip_ids;
 }
 
+std::unordered_set<ChipId> ClusterDescriptor::get_chips_from_same_boards(
+    const std::unordered_set<ChipId> &chips) const {
+    std::unordered_set<ChipId> chips_from_same_boards;
+    for (const auto &chip_id : chips) {
+        uint64_t board_id = get_board_id_for_chip(chip_id);
+        std::unordered_set<ChipId> chips_on_same_board = get_board_chips(board_id);
+        chips_from_same_boards.insert(chips_on_same_board.begin(), chips_on_same_board.end());
+    }
+    return chips_from_same_boards;
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
     std::unordered_set<ChipId> visible_chips = get_target_chip_ids_from_visible_devices(full_cluster_desc);
@@ -269,6 +280,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     for (const auto &chip_id : target_chip_ids) {
         visible_chips.insert(chip_id);
     }
+
+    visible_chips = full_cluster_desc->get_chips_from_same_boards(visible_chips);
 
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 

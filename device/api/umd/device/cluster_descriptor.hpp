@@ -142,6 +142,8 @@ public:
      */
     uint64_t get_board_id_for_chip(const ChipId chip) const;
 
+    std::unordered_set<ChipId> get_chips_from_same_boards(const std::unordered_set<ChipId> &chips) const;
+
     /**
      * Returns the map of logical chip IDs and information on whether NOC translation table is enabled for that chip.
      */

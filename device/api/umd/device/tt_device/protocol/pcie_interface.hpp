@@ -11,8 +11,6 @@ namespace tt::umd {
 
 class PcieInterface {
 public:
-    // virtual ~PcieInterface() = default;
-
     virtual PCIDevice *get_pci_device() = 0;
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) = 0;

@@ -17,7 +17,6 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -64,7 +63,7 @@ public:
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
-    std::shared_ptr<PCIDevice> get_pci_device();
+    PCIDevice *get_pci_device();
     std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
@@ -328,6 +327,8 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    PcieInterface *get_pcie_interface();
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

@@ -153,9 +153,16 @@ std::unique_ptr<TTDevice> TTDevice::create(
     }
 }
 
+PcieInterface *TTDevice::get_pcie_interface() {
+    if (pcie_capabilities_ == nullptr) {
+        throw std::runtime_error("TTDevice was built with a non-PCIe protocol.");
+    }
+    return pcie_capabilities_;
+}
+
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
+PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
 
 std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
 
@@ -174,7 +181,7 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
-    pcie_capabilities_->write_regs(dest, src, word_len);
+    get_pcie_interface()->write_regs(dest, src, word_len);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
@@ -221,9 +228,9 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
     }
 }
 
-void TTDevice::bar_write32(uint32_t addr, uint32_t data) { pcie_capabilities_->bar_write32(addr, data); }
+void TTDevice::bar_write32(uint32_t addr, uint32_t data) { get_pcie_interface()->bar_write32(addr, data); }
 
-uint32_t TTDevice::bar_read32(uint32_t addr) { return pcie_capabilities_->bar_read32(addr); }
+uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
 
 ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
 
@@ -290,31 +297,31 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    pcie_capabilities_->noc_multicast_write(dst, size, core_start, core_end, addr);
+    get_pcie_interface()->noc_multicast_write(dst, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
-    pcie_capabilities_->dma_write_to_device(src, size, core, addr);
+    get_pcie_interface()->dma_write_to_device(src, size, core, addr);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    pcie_capabilities_->dma_read_from_device(dst, size, core, addr);
+    get_pcie_interface()->dma_read_from_device(dst, size, core, addr);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    pcie_capabilities_->dma_multicast_write(src, size, core_start, core_end, addr);
+    get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { pcie_capabilities_->dma_d2h(dst, src, size); }
+void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
 
 void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    pcie_capabilities_->dma_d2h_zero_copy(dst, src, size);
+    get_pcie_interface()->dma_d2h_zero_copy(dst, src, size);
 }
 
-void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) { pcie_capabilities_->dma_h2d(dst, src, size); }
+void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) { get_pcie_interface()->dma_h2d(dst, src, size); }
 
 void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    pcie_capabilities_->dma_h2d_zero_copy(dst, src, size);
+    get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
 }
 
 }  // namespace tt::umd

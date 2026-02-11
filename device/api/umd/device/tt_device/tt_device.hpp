@@ -18,10 +18,10 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -64,7 +64,7 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
-    std::shared_ptr<JtagDevice> get_jtag_device();
+    JtagDevice *get_jtag_device();
 
     tt::ARCH get_arch();
 
@@ -330,6 +330,8 @@ public:
 
     PcieInterface *get_pcie_interface();
 
+    JtagInterface *get_jtag_interface();
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -338,7 +340,6 @@ protected:
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
@@ -351,11 +352,9 @@ protected:
 
 private:
     void probe_arc();
-
-    std::mutex tt_device_io_lock;
-
     std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
     PcieInterface *pcie_capabilities_ = nullptr;
+    JtagInterface *jtag_capabilities_ = nullptr;
 };
 
 }  // namespace tt::umd

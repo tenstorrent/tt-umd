@@ -29,7 +29,6 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -50,8 +49,6 @@ TTDevice::TTDevice(
     auto pcie_protocol = std::make_unique<PcieProtocol>(pci_device_, architecture_impl_.get(), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
-    // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
-    lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
@@ -65,8 +62,11 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()),
-    device_protocol_(std::make_unique<JtagProtocol>(jtag_device_, communication_device_id_)) {}
+    arch(architecture_impl_->get_architecture()) {
+    auto jtag_protocol = std::make_unique<JtagProtocol>(jtag_device_, communication_device_id_);
+    jtag_capabilities_ = jtag_protocol.get();
+    device_protocol_ = std::move(jtag_protocol);
+}
 
 TTDevice::TTDevice() = default;
 
@@ -160,11 +160,18 @@ PcieInterface *TTDevice::get_pcie_interface() {
     return pcie_capabilities_;
 }
 
+JtagInterface *TTDevice::get_jtag_interface() {
+    if (jtag_capabilities_ == nullptr) {
+        throw std::runtime_error("TTDevice was built with a non-JTAG protocol.");
+    }
+    return jtag_capabilities_;
+}
+
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
 
-std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
+JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 

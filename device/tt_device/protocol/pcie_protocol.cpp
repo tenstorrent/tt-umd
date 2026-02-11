@@ -17,7 +17,9 @@ PcieProtocol::PcieProtocol(
     pci_device_(std::move(pci_device)),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(architecture_impl),
-    use_safe_api_(use_safe_api) {}
+    use_safe_api_(use_safe_api) {
+    lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, IODeviceType::PCIe);
+}
 
 void PcieProtocol::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(pcie_io_lock);

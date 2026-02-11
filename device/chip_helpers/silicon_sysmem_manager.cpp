@@ -50,7 +50,7 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
     }
 }
 
-SiliconSysmemManager::~SiliconSysmemManager() { unpin_or_unmap_sysmem(); }
+SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {

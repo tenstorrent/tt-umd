@@ -129,7 +129,7 @@ public:
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.

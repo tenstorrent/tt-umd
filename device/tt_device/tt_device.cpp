@@ -63,12 +63,10 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {}
 
-TTDevice::TTDevice() : communication_device_id_(-1), arch(ARCH::Invalid) {}
+TTDevice::TTDevice() = default;
 
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    communication_device_id_(-1),
-    architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
 void TTDevice::probe_arc() {
     uint32_t dummy;

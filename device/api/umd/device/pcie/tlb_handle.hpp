@@ -12,17 +12,20 @@
 
 namespace tt::umd {
 
+// Forward declaration.
+class PCIDevice;
+
 class TlbHandle {
 public:
     /**
      * Constructor for TlbHandle.
      * Allocates a TLB from KMD of the specified size and maps it to the user space.
      *
-     * @param tt_device Pointer to the tt_device structure representing the PCI device.
+     * @param pci_device Reference to the PCIDevice.
      * @param size Size of the TLB to allocate.
      * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
      */
-    TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
+    TlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     ~TlbHandle() noexcept;
 
@@ -65,7 +68,7 @@ private:
     uint8_t* tlb_base;
     size_t tlb_size;
     tlb_data tlb_config;
-    tt_device_t* tt_device_;
+    PCIDevice& pci_device_;
     TlbMapping tlb_mapping;
     tt_tlb_t* tlb_handle_ = nullptr;
 };

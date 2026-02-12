@@ -264,6 +264,14 @@ public:
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     /**
+     * Configure TLB register in user space by writing directly to BAR0.
+     *
+     * @param tlb_index The TLB index/ID to configure
+     * @param tlb_config The TLB configuration data
+     */
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
+
+    /**
      * Read command byte.
      */
     static uint8_t read_command_byte(const int pci_device_num);
@@ -291,9 +299,16 @@ public:
      */
     static bool is_arch_agnostic_reset_supported();
 
+    /**
+     * Get the tt_device handle for low-level operations.
+     * @return Pointer to the tt_device handle
+     */
+    tt_device_t *get_tt_device_handle() const { return tt_device_handle; }
+
 public:
     // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
     void *bar0 = nullptr;
+    void *tlb_config_space = nullptr;
     // We only map 3MB of BAR0, which covers NOC2AXI access and ARC CSM memory.
     static constexpr size_t bar0_size = 3 * (1 << 20);
 

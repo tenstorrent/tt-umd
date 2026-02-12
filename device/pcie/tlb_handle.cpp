@@ -14,13 +14,16 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "umd/device/pcie/pci_device.hpp"
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
-    tlb_size(size), tt_device_(tt_device), tlb_mapping(tlb_mapping) {
+TlbHandle::TlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping) :
+    tlb_size(size), pci_device_(pci_device), tlb_mapping(tlb_mapping) {
+    tt_device_t* tt_device = pci_device_.get_tt_device_handle();
+
     int ret_code = tt_tlb_alloc(
-        tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
+        tt_device, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
     if (ret_code != 0) {
         TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
@@ -34,22 +37,11 @@ TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_m
 TlbHandle::~TlbHandle() noexcept { free_tlb(); }
 
 void TlbHandle::configure(const tlb_data& new_config) {
-    tt_noc_addr_config_t config{};
-    config.addr = new_config.local_offset;
-    config.x_end = new_config.x_end;
-    config.y_end = new_config.y_end;
-    config.x_start = new_config.x_start;
-    config.y_start = new_config.y_start;
-    config.noc = new_config.noc_sel;
-    config.mcast = new_config.mcast;
-    config.ordering = new_config.ordering;
-    config.static_vc = new_config.static_vc;
-
-    int ret_code = tt_tlb_map(tt_device_, tlb_handle_, &config);
-
-    if (ret_code != 0) {
-        TT_THROW("tt_tlb_map failed with error code {} for TLB size {}.", ret_code, tlb_size);
-    }
+    // Use PCIDevice's configure_tlb method instead of KMD ioctl calls
+    // This configures TLB registers directly in user space via BAR0.
+    tlb_data cfg_data = new_config;
+    cfg_data.local_offset = cfg_data.local_offset / get_size();
+    pci_device_.configure_tlb(tlb_id, cfg_data);
 
     tlb_config = new_config;
 }
@@ -62,7 +54,7 @@ const tlb_data& TlbHandle::get_config() const { return tlb_config; }
 
 TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
 
-void TlbHandle::free_tlb() noexcept { tt_tlb_free(tt_device_, tlb_handle_); }
+void TlbHandle::free_tlb() noexcept { tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_); }
 
 int TlbHandle::get_tlb_id() const { return tlb_id; }
 

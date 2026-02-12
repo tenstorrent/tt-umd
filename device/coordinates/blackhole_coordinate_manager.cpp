@@ -159,7 +159,7 @@ void BlackholeCoordinateManager::translate_dram_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_dram_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_dram_noc0_translated_mapping();
     } else {
         fill_dram_default_noc0_translated_mapping();
     }

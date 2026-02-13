@@ -211,8 +211,9 @@ uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
-    if (get_architecture_impl()->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
-        (tlb_size == tlb_1mb_size_ || tlb_size == tlb_2mb_size_)) {
+        const auto* arch_impl = get_architecture_impl();
+    if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
+        (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
         throw std::runtime_error("TLBs of 1MB and 2MB are not supported in TTSim for Wormhole architecture.");
     }
 
@@ -244,10 +245,12 @@ void TTSimTlbManager::initialize_architecture_config() {
         // Wormhole B0 configuration.
         tlb_reg_size_bytes_ = 8;  // wormhole::TLB_CFG_REG_SIZE_BYTES
 
-        tlb_1mb_size_ = 1024 * 1024;        // 1MB
-        tlb_2mb_size_ = 2 * 1024 * 1024;    // 2MB
-        tlb_16mb_size_ = 16 * 1024 * 1024;  // 16MB
-        tlb_4gb_size_ = 0;                  // Not supported
+        const auto* arch_impl = get_architecture_impl();
+        const auto& tlb_sizes = arch_impl->get_tlb_sizes();
+        tlb_1mb_size_ = tlb_sizes[0];   // 1MB
+        tlb_2mb_size_ = tlb_sizes[1];   // 2MB
+        tlb_16mb_size_ = tlb_sizes[2];  // 16MB
+        tlb_4gb_size_ = 0;              // Not supported
 
         tlb_1mb_count_ = 156;
         tlb_2mb_count_ = 10;
@@ -269,10 +272,12 @@ void TTSimTlbManager::initialize_architecture_config() {
         // Blackhole configuration.
         tlb_reg_size_bytes_ = 12;  // blackhole::TLB_CFG_REG_SIZE_BYTES
 
-        tlb_1mb_size_ = 0;                                   // Not supported
-        tlb_2mb_size_ = 2 * 1024 * 1024;                     // 2MB
-        tlb_16mb_size_ = 0;                                  // Not supported
-        tlb_4gb_size_ = 4ULL * 1024ULL * 1024ULL * 1024ULL;  // 4GB
+        const auto* arch_impl = get_architecture_impl();
+        const auto& tlb_sizes = arch_impl->get_tlb_sizes();
+        tlb_1mb_size_ = 0;             // Not supported
+        tlb_2mb_size_ = tlb_sizes[0];  // 2MB
+        tlb_16mb_size_ = 0;            // Not supported
+        tlb_4gb_size_ = tlb_sizes[1];  // 4GB (second element in Blackhole tlb_sizes)
 
         tlb_1mb_count_ = 0;
         tlb_2mb_count_ = 202;

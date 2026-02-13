@@ -1245,15 +1245,15 @@ TEST(ClusterReadWriteL1Test, DISABLED_TTSimReadWriteL1) {
 
         cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-        // cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-        // EXPECT_EQ(zero_data, readback_data);.
+        EXPECT_EQ(zero_data, readback_data);
 
-        // cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-        // cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-        // EXPECT_EQ(data, readback_data);.
+        EXPECT_EQ(data, readback_data);
     }
 }
 

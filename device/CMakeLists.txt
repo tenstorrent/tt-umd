@@ -66,7 +66,6 @@ target_sources(
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
         pcie/silicon_tlb_window.cpp
-        pcie/tlb_handle.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
         coordinates/coordinate_manager.cpp

@@ -8,7 +8,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <exception>
 #include <stdexcept>
 #include <vector>
 
@@ -60,10 +62,6 @@ static constexpr uint8_t SPI_RD_STATUS_CMD = 0x05;
 static constexpr uint8_t SPI_WR_STATUS_CMD = 0x01;
 
 static constexpr uint32_t SPI_DUMP_ADDR_CORRECTION = 0x10000000;
-
-// SPI Address Constants.
-static constexpr uint32_t SPI_BOARD_INFO_ADDR = 0x20108;
-static constexpr uint32_t SPI_SPARE_AREA_ADDR = 0x20134;
 
 static inline uint32_t spi_ctrl0_spi_scph(uint32_t scph) { return (scph << 6) & 0x1; }
 
@@ -282,11 +280,7 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
     device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Wait for lock operation to complete.
-    uint8_t status_val;
-    uint8_t prev_status = 0;
-    uint32_t status_count = 0;
-    bool first_status = true;
-    while (((status_val = read_status(SPI_RD_STATUS_CMD)) & 0x1) == 0x1) {
+    while ((read_status(SPI_RD_STATUS_CMD) & 0x1) == 0x1) {
     }
 }
 
@@ -318,7 +312,9 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
     // Get aligned parameters.
-    uint32_t start_addr, num_chunks, start_offset;
+    uint32_t start_addr;
+    uint32_t num_chunks;
+    uint32_t start_offset;
     get_aligned_params(addr, size, wormhole::ARC_SPI_CHUNK_SIZE, start_addr, num_chunks, start_offset);
 
     std::vector<uint8_t> chunk_buf(wormhole::ARC_SPI_CHUNK_SIZE);
@@ -383,7 +379,9 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         uint64_t spi_dump_addr = wormhole::ARC_CSM_OFFSET_NOC + (spi_dump_addr_offset - SPI_DUMP_ADDR_CORRECTION);
 
         // Get aligned parameters.
-        uint32_t start_addr, num_chunks, start_offset;
+        uint32_t start_addr;
+        uint32_t num_chunks;
+        uint32_t start_offset;
         get_aligned_params(addr, size, wormhole::ARC_SPI_CHUNK_SIZE, start_addr, num_chunks, start_offset);
 
         std::vector<uint8_t> chunk_buf(wormhole::ARC_SPI_CHUNK_SIZE);

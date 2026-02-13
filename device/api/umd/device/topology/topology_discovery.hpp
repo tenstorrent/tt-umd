@@ -22,7 +22,7 @@ class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
     // Path to custom SoC descriptor when creating devices. See ClusterOptions.
-    std::string soc_descriptor_path = "";
+    std::string soc_descriptor_path;
 
     // I/O device type to use when discovering. See ClusterOptions.
     IODeviceType io_device_type = IODeviceType::PCIe;
@@ -67,7 +67,7 @@ protected:
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     virtual void wait_eth_cores_training(
-        TTDevice* tt_device, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+        TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
@@ -126,7 +126,8 @@ protected:
 
     TTDevice* get_tt_device(const uint64_t asic_id);
 
-    virtual void init_topology_discovery();
+    // Configure some TopologyDiscovery paramaters from first discovered device.
+    virtual void init_first_device(TTDevice* tt_device) = 0;
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
@@ -153,7 +154,7 @@ protected:
     std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_device;
 
     // It's required to know which chip should be used for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id = {};
+    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
     TopologyDiscoveryOptions options;
 

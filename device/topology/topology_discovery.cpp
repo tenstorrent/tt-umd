@@ -2,23 +2,31 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/topology/topology_discovery.hpp"
+#include "api/umd/device/topology/topology_discovery.hpp"
 
+#include <algorithm>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
-#include "api/umd/device/topology/topology_discovery.hpp"
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -65,7 +73,6 @@ TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : 
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
-    init_topology_discovery();
     get_connected_devices();
     discover_remote_devices();
     log_debug(LogUMD, "Completed topology discovery.");
@@ -82,8 +89,6 @@ TopologyDiscovery::discover(const TopologyDiscoveryOptions& options) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     return std::make_pair(std::move(cluster_desc), std::move(td->devices));
 }
-
-void TopologyDiscovery::init_topology_discovery() {}
 
 void TopologyDiscovery::get_connected_devices() {
     std::vector<int> local_device_ids;
@@ -104,7 +109,13 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-        tt_device->init_tt_device();
+        // When coming out of reset, devices can take on the order of minutes to become ready.
+        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+
+        // Check some things on first discovered MMIO device.
+        if (devices_to_discover.empty()) {
+            init_first_device(tt_device.get());
+        }
 
         if (!options.no_wait_for_eth_training) {
             wait_eth_cores_training(tt_device.get());
@@ -147,24 +158,24 @@ void TopologyDiscovery::discover_remote_devices() {
         devices_to_discover.erase(it);
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
+        verify_fw_bundle_version(tt_device);
+
         if (options.no_remote_discovery) {
             continue;
         }
 
         std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-
-        verify_fw_bundle_version(tt_device);
-
-        uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
+            const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
+
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
                     LogUMD,
-                    "Skipping discovery from device {} ETH core {}",
-                    get_local_asic_id(tt_device, eth_core),
+                    "Skipping discovery from device ASIC ID: {} ETH core {}",
+                    current_device_asic_id,
                     eth_core.str());
-                channel++;
+
                 continue;
             }
 
@@ -177,12 +188,10 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             if (!is_eth_trained(tt_device, eth_core)) {
-                channel++;
                 continue;
             }
 
             if (!verify_routing_firmware_state(tt_device, eth_core)) {
-                channel++;
                 continue;
             }
 
@@ -198,7 +207,6 @@ void TopologyDiscovery::discover_remote_devices() {
                      {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
                 log_debug(LogUMD, "Remote device outside of UMD cluster {}.", remote_asic_id);
 
-                channel++;
                 continue;
             }
 
@@ -223,7 +231,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 ethernet_connections.push_back(
                     {{current_device_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});
             }
-            channel++;
         }
     }
 
@@ -234,11 +241,33 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
     std::map<uint64_t, ChipId> asic_id_to_chip_id;
     ChipId chip_id = 0;
-    for (const auto& [current_device_asic_id, tt_device] : devices) {
-        if (!tt_device->is_remote()) {
-            asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
-            cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+
+    if (!devices.empty() && devices.begin()->second->get_communication_device_type() == IODeviceType::PCIe) {
+        std::vector<std::pair<std::string, uint64_t>> sorted_device_bdfs;
+        for (const auto& [current_device_asic_id, tt_device] : devices) {
+            if (!tt_device->is_remote()) {
+                sorted_device_bdfs.emplace_back(
+                    tt_device->get_pci_device()->get_device_info().pci_bdf, current_device_asic_id);
+            }
+        }
+
+        std::sort(sorted_device_bdfs.begin(), sorted_device_bdfs.end());
+
+        for (const auto& [bdf, asic_id] : sorted_device_bdfs) {
+            log_debug(LogUMD, "Sorted device PCI BDF: {}, ASIC ID: {}", bdf, asic_id);
+
+            asic_id_to_chip_id.emplace(asic_id, chip_id);
+            cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
+            cluster_desc->chip_pci_bdfs.emplace(chip_id, bdf);
             chip_id++;
+        }
+    } else {
+        for (const auto& [current_device_asic_id, tt_device] : devices) {
+            if (!tt_device->is_remote()) {
+                asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
+                cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+                chip_id++;
+            }
         }
     }
 
@@ -303,7 +332,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
 
     const uint32_t num_eth_channels = get_soc_descriptor(devices.begin()->second.get()).get_cores(CoreType::ETH).size();
-    for (auto [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
+    for (const auto& [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);
@@ -363,8 +392,8 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
                 fmt::format(
                     "Firmware bundle version mismatch for device {}: expected {}, got {}",
                     get_asic_id(tt_device),
-                    fw_bundle_version.to_string(),
-                    tt_device->get_firmware_version().to_string()));
+                    first_fw_bundle_version->to_string(),
+                    fw_bundle_version.to_string()));
             return false;
         }
         return true;

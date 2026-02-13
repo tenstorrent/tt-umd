@@ -7,16 +7,29 @@
 #include <fmt/color.h>
 #include <glob.h>
 
+#include <algorithm>
 #include <asio.hpp>
+#include <atomic>
+#include <cerrno>
 #include <charconv>  // for std::from_chars
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"
@@ -76,7 +89,7 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
 
 int wait_for_pci_bdf_to_reappear(
     const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
-    log_debug(tt::LogUMD, "Waiting for devices to reappear on pci bus.");
+    log_debug(tt::LogUMD, "Waiting for device {} to reappear on pci bus.", bdf);
 
     auto deadline = std::chrono::steady_clock::now() + timeout_ms;
     bool device_reappeared = false;
@@ -131,7 +144,7 @@ void WarmReset::warm_reset_arch_agnostic(
     std::chrono::milliseconds reset_m3_timeout,
     bool secondary_bus_reset) {
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
-    auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_device_id_set);
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
 
     std::map<int, std::string> pci_bdfs;
     for (auto& pci_device_info : pci_devices_info) {
@@ -195,7 +208,7 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
         }
 
         for (auto& [pci_device_id, reset_bit] : reset_bits) {
-            if (reset_bit != true) {
+            if (!reset_bit) {
                 all_reset_bits_set = false;
                 break;
             }

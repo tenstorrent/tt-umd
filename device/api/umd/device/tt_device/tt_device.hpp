@@ -28,6 +28,16 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 
+enum class TTDeviceInitResult {
+    UNKNOWN = 0,
+    UNINITIALIZED,
+    ARC_STARTUP_FAILED,
+    ARC_MESSENGER_UNAVAILABLE,
+    ARC_TELEMETRY_UNAVAILABLE,
+    FIRMWARE_INFO_PROVIDER_UNAVAILABLE,
+    SUCCESSFUL,
+};
+
 class TTDevice {
 public:
     /**
@@ -268,7 +278,8 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    TTDeviceInitResult init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool throw_on_arc_failure = true);
 
     uint64_t get_refclk_counter();
 
@@ -294,6 +305,19 @@ public:
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

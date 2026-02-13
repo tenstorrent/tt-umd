@@ -6,8 +6,13 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
@@ -95,7 +100,7 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, tt_
 uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
         // from the ClusterOptions will work correctly on 6U.
         // Note that the board_id will still be reported properly in the cluster descriptor, since it is
         // fetched through another function when cluster descriptor is being filled up.
@@ -250,40 +255,7 @@ uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_
 
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
-void TopologyDiscoveryWormhole::init_topology_discovery() {
-    std::vector<int> device_ids;
-    switch (options.io_device_type) {
-        case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                TT_THROW("Topology discovery initialisation failed, no JTAG devices were found..");
-            }
-            // JTAG devices (j-links) are referred to with their index within a vector
-            // that's stored inside of a JtagDevice object.
-            // That index is completely different from the actual JTAG device id.
-            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
-            break;
-        }
-        case IODeviceType::PCIe: {
-            auto pci_device_ids = PCIDevice::enumerate_devices();
-            if (pci_device_ids.empty()) {
-                return;
-            }
-            device_ids = pci_device_ids;
-            break;
-        }
-        default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
-    }
-
-    for (auto& device_id : device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-        // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-    }
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
-    tt_device->init_tt_device();
+void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses =
         TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());
@@ -291,7 +263,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
 
 bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
     // Since at the moment we don't want to go outside of single host on 6U,
-    // we just check for board ids that are discovered from pci_target_devices.
+    // we just check for board ids that are discovered from TT_VISIBLE_DEVICES.
     if (is_running_on_6u) {
         return board_ids.find(board_id) != board_ids.end();
     }
@@ -315,13 +287,13 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         &eth_fw_version_read, eth_core, eth_l1_mem::address_map::FW_VERSION_ADDR, sizeof(uint32_t));
 
     semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+    uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version =
-            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::WORMHOLE_B0);
-        if (options.predict_eth_fw_version && expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
             log_debug(
@@ -336,21 +308,24 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for device {} ETH core {}, found: {}.",
-            get_local_asic_id(tt_device, eth_core),
+            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+            current_device_asic_id,
             eth_core.str(),
+            expected_eth_fw_version->to_string(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
 
     if (options.verify_eth_fw_hash) {
         auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
+        if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
-                "ETH FW version hash check failed for device {} ETH core {}",
-                get_local_asic_id(tt_device, eth_core),
-                eth_core.str());
+                "ETH FW hash check failed for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+                current_device_asic_id,
+                eth_core.str(),
+                expected_eth_fw_version->to_string(),
+                eth_fw_version.to_string());
             eth_fw_problem = true;
         }
     }

@@ -4,14 +4,18 @@
 
 #include <gtest/gtest.h>
 
+#include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "test_wh_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -54,8 +58,6 @@ bool WormholeNebulaX2TestFixture::skip_tests = false;
 uint32_t WormholeNebulaX2TestFixture::scale_number_of_tests = 1;
 
 TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MixedRemoteTransfersMediumSmall");
 
     std::vector<remote_transfer_sample_t> command_history;
@@ -85,8 +87,6 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
 }
 
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
@@ -182,8 +182,6 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
 }
 
 TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MixedRemoteTransfersLarge");
 
     assert(cluster != nullptr);
@@ -245,8 +243,6 @@ TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinS
 }
 
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersLMS");
 
     assert(cluster != nullptr);

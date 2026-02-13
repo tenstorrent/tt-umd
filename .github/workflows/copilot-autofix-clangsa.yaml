@@ -26,7 +26,7 @@ jobs:
       - name: Checkout results repo
         uses: actions/checkout@v4
         with:
-          repository: blozano-tt/umd-clangsa-results
+          repository: tenstorrent/tt-umd-code-analysis-results
           ref: gh-pages
           path: clangsa-results
           token: ${{ secrets.CLANGSA_RESULTS_PAT }}
@@ -188,3 +188,29 @@ jobs:
             REPO="${{ github.repository }}"
             echo "⚠️ No PR created. Check [Copilot dashboard](https://github.com/$REPO/copilot)." >> "$SUMMARY"
           fi
+
+  notify-slack:
+    name: 📢 Notify Slack
+    runs-on: ubuntu-latest
+    needs: copilot-autofix
+    # TODO: Enable after discussing with team
+    if: false && always() && needs.copilot-autofix.outputs.pr-created == 'true'
+
+    steps:
+      - name: Send Slack notification
+        run: |
+          cat << EOF > /tmp/slack_message.txt
+          🤖 Copilot Autofix: ClangSA PR Created
+
+          PR: ${{ needs.copilot-autofix.outputs.pr-url }}
+
+          Copilot has created a PR to fix a Clang Static Analyzer issue.
+          Please review when ready.
+          EOF
+
+          jq -n --arg msg "$(cat /tmp/slack_message.txt)" \
+            '{umd_github_message: $msg}' > /tmp/payload.json
+
+          curl -X POST "${{ secrets.COPILOT_AUTOFIX_SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json

@@ -4,7 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <stdexcept>
 #include <thread>
+#include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
@@ -14,6 +19,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/exceptions.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -311,5 +317,234 @@ TEST(ApiTTDeviceTest, MulticastIO) {
                 EXPECT_EQ(data_write, readback);
             }
         }
+    }
+}
+
+bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, int device_id) {
+    if (expected.size() != actual.size()) {
+        std::cerr << "Device " << device_id << ": Size mismatch! Expected " << expected.size() << " but got "
+                  << actual.size() << std::endl;
+        return false;
+    }
+
+    for (size_t i = 0; i < expected.size(); i++) {
+        if (expected[i] != actual[i]) {
+            std::cerr << "Device " << device_id << ": Data mismatch at index " << i << "! Expected " << expected[i]
+                      << " but got " << actual[i] << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+class ApiTTDeviceParamTest : public ::testing::TestWithParam<int> {};
+
+// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
+// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
+// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
+TEST_P(ApiTTDeviceParamTest, DISABLED_SafeApiHandlesReset) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    int delay_us = GetParam();
+    std::atomic<bool> sigbus_caught{false};
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
+
+    tt_xy_pair tensix_core;
+
+    for (int pci_device_id : pci_device_ids) {
+        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+
+        tt_devices[pci_device_id]->init_tt_device();
+
+        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
+
+        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+
+        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    }
+
+    std::thread background_reset_thread([&]() {
+        std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
+        WarmReset::warm_reset();
+    });
+
+    auto start_time = std::chrono::steady_clock::now();
+    auto timeout = std::chrono::seconds(5);
+
+    try {
+        while (!sigbus_caught) {
+            if (std::chrono::steady_clock::now() - start_time > timeout) {
+                break;
+            }
+
+            for (int i = 0; i < 100; ++i) {
+                for (int pci_device_id : pci_device_ids) {
+                    tt_devices[pci_device_id]->write_to_device(
+                        data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+                    tt_devices[pci_device_id]->read_from_device(
+                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+                    verify_data(data_write, data_read, pci_device_id);
+
+                    data_read = std::vector<uint32_t>(data_write.size(), 0);
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
+    } catch (const SigbusError& e) {
+        sigbus_caught = true;
+    } catch (const std::exception& e) {
+        if (background_reset_thread.joinable()) {
+            background_reset_thread.join();
+        }
+        FAIL() << "Caught unexpected exception: " << e.what();
+    }
+
+    if (background_reset_thread.joinable()) {
+        background_reset_thread.join();
+    }
+
+    if (sigbus_caught) {
+        SUCCEED() << "Successfully triggered SIGBUS within timeout.";
+    } else {
+        FAIL() << "Timed out after 5 seconds without hitting SIGBUS. Reset did not invalidate mappings in time.";
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, ApiTTDeviceParamTest, ::testing::Values(0, 10, 50, 100, 500, 1000));
+
+// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
+// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
+// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
+TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiThreaded) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
+
+    tt_xy_pair tensix_core;
+
+    for (int pci_device_id : pci_device_ids) {
+        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+
+        tt_devices[pci_device_id]->init_tt_device();
+
+        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
+
+        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+
+        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    }
+
+    std::atomic<int> caught_sigbus{0};
+
+    auto worker = [&](int id) {
+        try {
+            // This thread hammers the device and waits for the reset to kill it.
+            while (true) {
+                tt_devices[pci_device_ids[0]]->read_from_device(
+                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
+        } catch (const SigbusError& e) {
+            caught_sigbus++;
+        } catch (const std::exception& e) {
+        }
+    };
+
+    std::thread t1(worker, 1);
+    std::thread t2(worker, 2);
+
+    // Trigger the reset after a small delay.
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    WarmReset::warm_reset();
+
+    t1.join();
+    t2.join();
+
+    EXPECT_EQ(caught_sigbus, 2);
+}
+
+// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
+// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
+// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
+TEST(ApiTTDeviceTest, DISABLED_SafeApiMultiProcess) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr int NUM_CHILDREN = 3;
+    utils::MultiProcessPipe pipes(NUM_CHILDREN);
+    std::vector<pid_t> pids;
+
+    for (int i = 0; i < NUM_CHILDREN; ++i) {
+        pid_t pid = fork();
+        if (pid == 0) {  // Child Process
+
+            uint64_t address = 0x0;
+            std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            std::vector<uint32_t> data_read(data_write.size(), 0);
+            std::map<int, std::unique_ptr<TTDevice>> tt_devices;
+
+            tt_xy_pair tensix_core;
+
+            for (int pci_device_id : pci_device_ids) {
+                tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+
+                tt_devices[pci_device_id]->init_tt_device();
+
+                ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
+
+                SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+
+                tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            }
+
+            pipes.signal_ready_from_child(i);
+
+            try {
+                // The "Hammer" loop.
+                while (true) {
+                    tt_devices[pci_device_ids[0]]->read_from_device(
+                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                    std::this_thread::sleep_for(std::chrono::microseconds(100));
+                }
+            } catch (const SigbusError& e) {
+                std::exit(0);  // Success: SIGBUS was isolated and caught
+            } catch (const std::exception& e) {
+                std::exit(1);  // Error: Wrong exception
+            }
+            std::exit(2);  // Error: Timed out/Loop exited without signal
+        }
+        pids.push_back(pid);
+    }
+
+    pipes.wait_for_all_children(20);
+
+    // Parent triggers the reset that affects ALL windows on that PCIe link.
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    WarmReset::warm_reset();
+
+    for (pid_t p : pids) {
+        int status;
+        waitpid(p, &status, 0);
+        EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << p << " failed.";
     }
 }

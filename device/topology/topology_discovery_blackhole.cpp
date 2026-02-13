@@ -4,8 +4,13 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -14,6 +19,7 @@
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
@@ -65,7 +71,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, tt
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
         // from the ClusterOptions will work correctly on 6U.
         // Note that the board_id will still be reported properly in the cluster descriptor, since it is
         // fetched through another function when cluster descriptor is being filled up.
@@ -131,14 +137,6 @@ tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, 
         "bug.");
 }
 
-uint32_t TopologyDiscoveryBlackhole::read_port_status(TTDevice* tt_device, tt_xy_pair eth_core) {
-    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
-        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    uint8_t port_status;
-    tt_device->read_from_device(&port_status, translated_eth_core, 0x7CC04, sizeof(port_status));
-    return port_status;
-}
-
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
@@ -188,7 +186,9 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
 }
 
 bool TopologyDiscoveryBlackhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return read_port_status(tt_device, eth_core) == blackhole::port_status_e::PORT_UP;
+    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    return tt_device->read_eth_core_training_status(translated_eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 void TopologyDiscoveryBlackhole::patch_eth_connections() {
@@ -233,6 +233,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     tt_device->read_from_device(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
     tt_device->read_from_device(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
     semver_t eth_fw_version = semver_t(major, minor, patch);
+    uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
@@ -254,21 +255,24 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for device {} ETH core {}, found: {}.",
-            get_local_asic_id(tt_device, eth_core),
+            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+            current_device_asic_id,
             eth_core.str(),
+            expected_eth_fw_version->to_string(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
 
     if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
+        if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
-                "ETH FW version hash check failed for device {} ETH core {}",
-                get_local_asic_id(tt_device, eth_core),
-                eth_core.str());
+                "ETH FW hash check failed for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+                current_device_asic_id,
+                eth_core.str(),
+                expected_eth_fw_version->to_string(),
+                eth_fw_version.to_string());
             eth_fw_problem = true;
         }
     }

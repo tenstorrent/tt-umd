@@ -7,10 +7,25 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
+#include <limits>
+#include <map>
 #include <memory>
+#include <set>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api/umd/device/arch/blackhole_implementation.hpp"
 #include "api/umd/device/arch/grendel_implementation.hpp"
@@ -353,7 +368,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
 
 template <typename T>
 std::unordered_map<ChipId, T> filter_chip_collection(
-    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::unordered_map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::unordered_map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -366,7 +381,7 @@ std::unordered_map<ChipId, T> filter_chip_collection(
 
 template <typename T>
 std::map<ChipId, T> filter_chip_collection(
-    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> chips) {
+    const std::map<ChipId, T> &collection, const std::unordered_set<ChipId> &chips) {
     std::map<ChipId, T> filtered_collection;
     for (const auto &[chip_id, val] : collection) {
         auto it = chips.find(chip_id);
@@ -404,7 +419,7 @@ std::unordered_set<ChipId> filter_chip_collection(
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
@@ -475,7 +490,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     const std::unordered_set<ChipId> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
-    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     BoardType board_type;
     HarvestingMasks harvesting_masks{0, 0, 0, 0};
@@ -750,19 +765,19 @@ void ClusterDescriptor::merge_cluster_ids() {
     DisjointSet<ChipId> chip_sets;
     for (const auto &[chip, _] : chip_locations) {
         chip_sets.add_item(chip);
-        log_debug(LogUMD, "Adding chip {} to disjoint set", chip);
+        log_trace(LogUMD, "Adding chip {} to disjoint set", chip);
     }
 
     for (const auto &[chip, chan_to_chip_chan_map] : ethernet_connections) {
         for (const auto &[chan, dest_chip_chan_tuple] : chan_to_chip_chan_map) {
             chip_sets.merge(chip, std::get<0>(dest_chip_chan_tuple));
-            log_debug(LogUMD, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
+            log_trace(LogUMD, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
         }
     }
 
     for (const auto &[chip, chip_eth_coords] : chip_locations) {
         chip_locations[chip].cluster_id = chip_sets.get_set(chip);
-        log_debug(LogUMD, "Chip {} belongs to cluster {}", chip, chip_sets.get_set(chip));
+        log_trace(LogUMD, "Chip {} belongs to cluster {}", chip, chip_sets.get_set(chip));
     }
 }
 
@@ -969,7 +984,7 @@ ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
     return this->ethernet_connections_to_remote_devices;
 }
 
-const EthCoord ClusterDescriptor::get_chip_location(const ChipId chip) const {
+EthCoord ClusterDescriptor::get_chip_location(const ChipId chip) const {
     if (chip_locations.find(chip) == chip_locations.end()) {
         return {0, 0, 0, 0};
     }
@@ -999,7 +1014,7 @@ const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio
 
 const std::unordered_set<ChipId> &ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
-const std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
+std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
     std::vector<ChipId> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(

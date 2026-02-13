@@ -23,6 +23,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 namespace nb = nanobind;
 

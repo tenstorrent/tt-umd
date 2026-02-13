@@ -24,6 +24,27 @@ namespace tt::umd {
 // Firmware version from which Blackhole SPI write requires unlock (0xC2) before and lock (0xC3) after.
 static const semver_t BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
 
+// SCRATCH_RAM[10] buffer info layout: lower 24 bits = address offset, upper 8 bits = size (power of 2).
+constexpr uint32_t BH_SPI_ADDR_MASK_24_BITS = 0xFFFFFF;
+constexpr uint32_t BH_SPI_ARC_ADDR_OFFSET = 0x10000000;
+constexpr unsigned BH_SPI_SIZE_SHIFT_BITS = 24;
+constexpr uint32_t BH_SPI_SIZE_MASK_8_BITS = 0xFF;
+
+struct SpiBufferInfo {
+    uint32_t addr;
+    uint32_t size;
+};
+
+// Reads SPI dump buffer address and size from SCRATCH_RAM[10]. addr is ARC physical address (bytes),
+// size is buffer size in bytes (2^upper_8_bits from register).
+static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
+    uint32_t buffer_info;
+    device->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
+    uint32_t buffer_addr = (buffer_info & BH_SPI_ADDR_MASK_24_BITS) + BH_SPI_ARC_ADDR_OFFSET;
+    uint32_t buffer_size = 1u << ((buffer_info >> BH_SPI_SIZE_SHIFT_BITS) & BH_SPI_SIZE_MASK_8_BITS);
+    return {buffer_addr, buffer_size};
+}
+
 BlackholeSPITTDevice::BlackholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_device) {}
 
 void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
@@ -36,19 +57,13 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         throw std::runtime_error("ARC messenger not available for SPI read on Blackhole.");
     }
 
-    // Get SPI buffer info from SCRATCH_RAM[10]
-    // The Rust code reads from spi_buffer_addr which is arc_ss.reset_unit.SCRATCH_RAM[10].
-    uint32_t buffer_info;
-    device_->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
-
-    // Parse buffer info: lower 24 bits = address offset, upper 8 bits = size (as power of 2).
-    uint32_t buffer_addr = (buffer_info & 0xFFFFFF) + 0x10000000;  // magic offset to translate
-    uint32_t buffer_size = 1 << ((buffer_info >> 24) & 0xFF);
+    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
 
     size_t bytes_read = 0;
     while (bytes_read < size) {
+        size_t remaining = size - bytes_read;
         uint32_t chunk_addr = addr + bytes_read;
-        uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(size - bytes_read), buffer_size);
+        uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(remaining), buffer_size);
 
         // Request ARC to read chunk into dump buffer using READ_EEPROM (0x19).
         std::vector<uint32_t> read_ret;
@@ -64,6 +79,8 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         // Read data from buffer.
         device_->read_from_device(data + bytes_read, device_->get_arc_core(), buffer_addr, chunk_size);
         bytes_read += chunk_size;
+        // Guard against bytes_read exceeding size (e.g. if device returned more than requested).
+        bytes_read = std::min(bytes_read, size);
     }
 }
 
@@ -77,14 +94,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         throw std::runtime_error("ARC messenger not available for SPI write on Blackhole.");
     }
 
-    // Get SPI buffer info from SCRATCH_RAM[10]
-    // The Rust code reads from spi_buffer_addr which is arc_ss.reset_unit.SCRATCH_RAM[10].
-    uint32_t buffer_info;
-    device_->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
-
-    // Parse buffer info: lower 24 bits = address offset, upper 8 bits = size (as power of 2).
-    uint32_t buffer_addr = (buffer_info & 0xFFFFFF) + 0x10000000;  // magic offset to translate
-    uint32_t buffer_size = 1 << ((buffer_info >> 24) & 0xFF);
+    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
 
     // Since BH_SPI_LOCK_REQUIRED_SINCE_FW, SPI write must be accompanied by unlock (0xC2) before and lock (0xC3) after.
     semver_t fw_version = device_->get_firmware_version();
@@ -102,8 +112,9 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 
     size_t bytes_written = 0;
     while (bytes_written < size) {
+        size_t remaining = size - bytes_written;
         uint32_t chunk_addr = addr + bytes_written;
-        uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(size - bytes_written), buffer_size);
+        uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(remaining), buffer_size);
 
         // Write data to buffer first.
         device_->write_to_device(data + bytes_written, device_->get_arc_core(), buffer_addr, chunk_size);
@@ -131,6 +142,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         }
 
         bytes_written += chunk_size;
+        bytes_written = std::min(bytes_written, size);
     }
 
     if (need_lock_unlock) {

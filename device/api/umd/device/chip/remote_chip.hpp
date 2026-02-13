@@ -6,7 +6,6 @@
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 
 namespace tt::umd {
 class LocalChip;

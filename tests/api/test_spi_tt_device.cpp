@@ -17,7 +17,6 @@
 #include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"
 
@@ -49,7 +48,7 @@ std::unordered_map<ChipId, std::unique_ptr<TTDevice>> setup_spi_test_devices() {
                 SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
             EthCoord target_chip = cluster_desc->get_chip_locations().at(chip_id);
             auto remote_communication = RemoteCommunication::create_remote_communication(
-                local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
+                local_tt_device->get_mmio_protocol(), target_chip, nullptr);  // nullptr for sysmem_manager
             remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
             std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));

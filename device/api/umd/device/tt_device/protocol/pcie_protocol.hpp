@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "device_protocol.hpp"
+#include "mmio_protocol.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -14,7 +14,7 @@
 
 namespace tt::umd {
 
-class PcieProtocol final : public DeviceProtocol, public PcieInterface {
+class PcieProtocol final : public MmioProtocol, public PcieInterface {
 public:
     explicit PcieProtocol(
         std::shared_ptr<PCIDevice> pci_device, architecture_implementation *architecture_impl, bool use_safe_api);
@@ -27,6 +27,13 @@ public:
     void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+
+    /* MmioProtocol */
+    tt::ARCH get_arch() override;
+
+    int get_communication_device_id() const override;
+
+    architecture_implementation *get_architecture_implementation() override;
 
     /* PcieInterface */
     PCIDevice *get_pci_device() override;

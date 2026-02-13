@@ -57,6 +57,12 @@ void PcieProtocol::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, ui
     }
 }
 
+tt::ARCH PcieProtocol::get_arch() { return architecture_impl_->get_architecture(); }
+
+int PcieProtocol::get_communication_device_id() const { return pci_device_->get_device_num(); }
+
+architecture_implementation *PcieProtocol::get_architecture_implementation() { return architecture_impl_; }
+
 PCIDevice *PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 TlbWindow *PcieProtocol::get_cached_tlb_window() {

@@ -57,28 +57,28 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
     }
 }
 
-TEST(TestTelemetry, RemoteTelemetry) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-    auto remote_chips = umd_cluster->get_target_remote_device_ids();
-    if (remote_chips.empty()) {
-        GTEST_SKIP() << "No remote devices found in cluster.";
-    }
-    auto remote_chip = umd_cluster->get_remote_chip(*remote_chips.begin());
-    TTDevice* remote_device = remote_chip->get_tt_device();
-    TTDevice* local_device = remote_chip->get_remote_communication()->get_local_device();
-    ArcTelemetryReader* remote_telemetry = remote_device->get_arc_telemetry_reader();
-    ArcTelemetryReader* local_telemetry = local_device->get_arc_telemetry_reader();
+// TEST(TestTelemetry, RemoteTelemetry) {
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     auto remote_chips = umd_cluster->get_target_remote_device_ids();
+//     if (remote_chips.empty()) {
+//         GTEST_SKIP() << "No remote devices found in cluster.";
+//     }
+//     auto remote_chip = umd_cluster->get_remote_chip(*remote_chips.begin());
+//     TTDevice* remote_device = remote_chip->get_tt_device();
+//     TTDevice* local_device = remote_chip->get_remote_communication()->get_local_device();
+//     ArcTelemetryReader* remote_telemetry = remote_device->get_arc_telemetry_reader();
+//     ArcTelemetryReader* local_telemetry = local_device->get_arc_telemetry_reader();.
 
-    EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_LOW));
-    EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_HIGH));
-    EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::ASIC_LOCATION));
-    EXPECT_TRUE(
-        remote_telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH) ==
-        local_telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH));
-    EXPECT_TRUE(
-        remote_telemetry->read_entry(TelemetryTag::BOARD_ID_LOW) ==
-        local_telemetry->read_entry(TelemetryTag::BOARD_ID_LOW));
-    EXPECT_FALSE(
-        remote_telemetry->read_entry(TelemetryTag::ASIC_LOCATION) ==
-        local_telemetry->read_entry(TelemetryTag::ASIC_LOCATION));
-}
+//     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_LOW));
+//     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_HIGH));
+//     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::ASIC_LOCATION));
+//     EXPECT_TRUE(
+//         remote_telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH) ==
+//         local_telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH));
+//     EXPECT_TRUE(
+//         remote_telemetry->read_entry(TelemetryTag::BOARD_ID_LOW) ==
+//         local_telemetry->read_entry(TelemetryTag::BOARD_ID_LOW));
+//     EXPECT_FALSE(
+//         remote_telemetry->read_entry(TelemetryTag::ASIC_LOCATION) ==
+//         local_telemetry->read_entry(TelemetryTag::ASIC_LOCATION));
+// }

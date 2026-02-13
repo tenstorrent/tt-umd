@@ -20,6 +20,7 @@
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -48,8 +49,7 @@ public:
      */
     static std::unique_ptr<TTDevice> create(
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(
         std::shared_ptr<PCIDevice> pci_device,
@@ -59,12 +59,17 @@ public:
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
+
     PCIDevice *get_pci_device();
     JtagDevice *get_jtag_device();
+    RemoteCommunication *get_remote_communication();
 
     tt::ARCH get_arch();
 
@@ -263,8 +268,6 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
-    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
-
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -332,6 +335,10 @@ public:
 
     JtagInterface *get_jtag_interface();
 
+    RemoteInterface *get_remote_interface();
+
+    MmioProtocol *get_mmio_protocol();
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -353,8 +360,11 @@ protected:
 private:
     void probe_arc();
     std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
+    /* Temporary solution for MmioProtocol */
+    MmioProtocol *mmio_protocol_ = nullptr;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
+    RemoteInterface *remote_capabilites_ = nullptr;
 };
 
 }  // namespace tt::umd

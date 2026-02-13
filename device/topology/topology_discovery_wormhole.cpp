@@ -230,7 +230,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     EthCoord remote_device_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
 
     std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
+        RemoteCommunication::create_remote_communication(gateway_device->get_mmio_protocol(), remote_device_eth_coord);
     remote_communication->set_remote_transfer_ethernet_cores(
         get_soc_descriptor(gateway_device)
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));

@@ -25,7 +25,8 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/protocol/remote_protocol.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -48,6 +49,7 @@ TTDevice::TTDevice(
     arch(architecture_impl_->get_architecture()) {
     auto pcie_protocol = std::make_unique<PcieProtocol>(pci_device_, architecture_impl_.get(), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
+    mmio_protocol_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
@@ -63,9 +65,20 @@ TTDevice::TTDevice(
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    auto jtag_protocol = std::make_unique<JtagProtocol>(jtag_device_, communication_device_id_);
+    auto jtag_protocol =
+        std::make_unique<JtagProtocol>(jtag_device_, communication_device_id_, architecture_impl.get());
+    mmio_protocol_ = jtag_protocol.get();
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
+}
+
+TTDevice::TTDevice(
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    std::unique_ptr<architecture_implementation> architecture_impl) :
+    architecture_impl_(std::move(architecture_impl)) {
+    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
+    remote_capabilites_ = remote_protocol.get();
+    device_protocol_ = std::move(remote_protocol);
 }
 
 TTDevice::TTDevice() = default;
@@ -132,21 +145,13 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
-    std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) {
-    switch (remote_communication->get_local_device()->get_arch()) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+    switch (remote_communication->get_mmio_protocol()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
-            // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
-            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
-                return std::unique_ptr<RemoteWormholeTTDevice>(
-                    new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
-            }
-            return std::unique_ptr<RemoteWormholeTTDevice>(
-                new RemoteWormholeTTDevice(std::move(remote_communication), use_safe_api));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
-            return nullptr;
+            throw std::runtime_error("Remote TTDevice creation is not supported for Blackhole.");
         }
         default:
             throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
@@ -167,11 +172,27 @@ JtagInterface *TTDevice::get_jtag_interface() {
     return jtag_capabilities_;
 }
 
+RemoteInterface *TTDevice::get_remote_interface() {
+    if (remote_capabilites_ == nullptr) {
+        throw std::runtime_error("TTDevice was built with a non-Remote protocol.");
+    }
+    return remote_capabilites_;
+}
+
+MmioProtocol *TTDevice::get_mmio_protocol() {
+    if (mmio_protocol_ == nullptr) {
+        throw std::runtime_error("TTDevice was built with a Remote protocol.");
+    }
+    return mmio_protocol_;
+}
+
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
 
 JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
+
+RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 

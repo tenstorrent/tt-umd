@@ -4,10 +4,14 @@
 
 #pragma once
 
+#include <memory>
 #include <set>
 #include <unordered_set>
 
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/mmio_protocol.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -16,11 +20,11 @@ class SysmemManager;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr);
+    RemoteCommunication(MmioProtocol* mmio_protocol, SysmemManager* sysmem_manager = nullptr);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        MmioProtocol* mmio_protocol, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
 
     // Target core should be in translated coords.
     // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should
@@ -47,7 +51,7 @@ public:
     // The cores should be in translated coordinates.
     void set_remote_transfer_ethernet_cores(const std::unordered_set<tt_xy_pair>& cores);
 
-    TTDevice* get_local_device();
+    MmioProtocol* get_mmio_protocol();
 
     // Get the active eth core that will be used for the next remote communication.
     // Which core is used for remote communication can change.
@@ -60,7 +64,7 @@ protected:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    TTDevice* local_tt_device_;
+    MmioProtocol* mmio_protocol_;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };

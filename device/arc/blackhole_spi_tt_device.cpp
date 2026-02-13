@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -22,8 +23,30 @@
 
 namespace tt::umd {
 
+namespace {
+
+// Reads a protobuf varint from data at pos, advances pos. Returns nullopt if incomplete or out of bounds.
+std::optional<uint32_t> read_varint(const uint8_t* data, size_t size, size_t& pos) {
+    uint32_t value = 0;
+    int shift = 0;
+    while (pos < size && shift < 32) {
+        uint8_t byte = data[pos++];
+        value |= static_cast<uint32_t>(byte & 0x7F) << shift;
+        if (!(byte & 0x80)) {
+            return value;
+        }
+        shift += 7;
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
 // Firmware version from which Blackhole SPI write requires unlock (0xC2) before and lock (0xC3) after.
 static const semver_t BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
+
+// Maximum boot filesystem entries to scan; safety limit to avoid infinite loop on corrupted table.
+constexpr uint32_t BOOT_FS_MAX_ENTRIES_SCAN = 1000;
 
 // SCRATCH_RAM[10] buffer info layout: lower 24 bits = address offset, upper 8 bits = size (power of 2).
 constexpr uint32_t BH_SPI_ADDR_MASK_24_BITS = 0xFFFFFF;
@@ -46,20 +69,20 @@ static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
     return {buffer_addr, buffer_size};
 }
 
-// Template member function implementation
+// Template member function implementation.
 template <typename Reader>
 std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(Reader&& reader, const std::string& tag_name) {
     uint32_t curr_addr = 0;
     uint32_t entry_count = 0;
 
     while (true) {
-        if (entry_count >= 1000) {
+        if (entry_count >= BOOT_FS_MAX_ENTRIES_SCAN) {
             std::cout << "Safety exit, tag not found" << std::endl;
             return std::nullopt;
         }
 
         TtBootFsFd fd{};
-        std::forward<Reader>(reader)(curr_addr, sizeof(TtBootFsFd), reinterpret_cast<uint8_t*>(&fd));
+        std::invoke(std::forward<Reader>(reader), curr_addr, sizeof(TtBootFsFd), reinterpret_cast<uint8_t*>(&fd));
 
         if (fd.flags.invalid()) {
             std::cout << "Found invalid entry (end of table), tag not found" << std::endl;
@@ -79,50 +102,26 @@ std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(Reader&& reader
 std::optional<uint32_t> BlackholeSPITTDevice::extract_protobuf_uint32_field(
     const uint8_t* data, size_t size, uint32_t field_number) {
     size_t pos = 0;
-    // field_number with wire type 0 (varint)
-    // uint32_t target_key = (field_number << 3) | 0;
 
     while (pos < size) {
-        // Read key (field number + wire type)
-        if (pos >= size) {
+        std::optional<uint32_t> key_opt = read_varint(data, size, pos);
+        if (!key_opt.has_value()) {
             break;
         }
-        uint32_t key = data[pos++];
-
-        // Handle multi-byte varint keys (unlikely for small field numbers)
-        if (key & 0x80) {
-            key = (key & 0x7F);
-            if (pos >= size) {
-                break;
-            }
-            key |= (data[pos++] & 0x7F) << 7;
-        }
-
+        uint32_t key = *key_opt;
         uint32_t wire_type = key & 0x7;
         uint32_t field_num = key >> 3;
 
         if (field_num == field_number && wire_type == 0) {
-            // Found our field - read the varint value
-            uint32_t value = 0;
-            int shift = 0;
-            while (pos < size && shift < 32) {
-                uint8_t byte = data[pos++];
-                value |= static_cast<uint32_t>(byte & 0x7F) << shift;
-                if (!(byte & 0x80)) {
-                    return value;
-                }
-                shift += 7;
-            }
-            return std::nullopt;  // Incomplete varint
+            return read_varint(data, size, pos);
         }
 
-        // Skip this field based on wire type
+        // Skip this field based on wire type.
         switch (wire_type) {
             case 0:  // Varint
-                while (pos < size && (data[pos] & 0x80)) {
-                    pos++;
+                if (!read_varint(data, size, pos).has_value()) {
+                    return std::nullopt;
                 }
-                pos++;  // Skip last byte
                 break;
             case 1:  // 64-bit
                 pos += 8;
@@ -145,7 +144,6 @@ std::optional<uint32_t> BlackholeSPITTDevice::extract_protobuf_uint32_field(
 
     return std::nullopt;
 }
-
 
 BlackholeSPITTDevice::BlackholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_device) {}
 
@@ -256,7 +254,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 }
 
 uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
-    // Read the cmfwcfg boot FS entry from SPI
+    // Read the cmfwcfg boot FS entry from SPI.
     auto reader = [this](uint32_t addr, size_t size, uint8_t* buffer) { this->read(addr, buffer, size); };
 
     auto cmfwcfg_fd = find_boot_fs_tag(reader, "cmfwcfg");
@@ -265,7 +263,7 @@ uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
         throw std::runtime_error("cmfwcfg tag not found in boot FS table");
     }
 
-    // Read the protobuf data from SPI
+    // Read the protobuf data from SPI.
     uint32_t proto_size = cmfwcfg_fd->flags.image_size();
 
     if (proto_size == 0 || proto_size > 1024 * 1024) {  // Sanity check: max 1MB
@@ -276,7 +274,7 @@ uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
     this->read(cmfwcfg_fd->spi_addr, proto_data.data(), proto_size);
 
     // Remove padding from protobuf data
-    // Last byte indicates padding length
+    // Last byte indicates padding length.
     if (proto_data.empty()) {
         throw std::runtime_error("Empty cmfwcfg data");
     }
@@ -285,7 +283,7 @@ uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
     size_t actual_size = proto_data.size() - last_byte - 1;
 
     // Extract fw_bundle_version field from protobuf
-    // Field number 1 corresponds to fw_bundle_version in the FwTable protobuf definition
+    // Field number 1 corresponds to fw_bundle_version in the FwTable protobuf definition.
     auto fw_bundle_version = extract_protobuf_uint32_field(proto_data.data(), actual_size, 1);
     if (!fw_bundle_version.has_value()) {
         throw std::runtime_error("fw_bundle_version field not found in cmfwcfg protobuf");

@@ -16,7 +16,7 @@ namespace tt::umd {
 
 class TTDevice;
 
-// Boot filesystem structures and constants
+// Boot filesystem structures and constants.
 constexpr size_t IMAGE_TAG_SIZE = 8;
 
 /**
@@ -37,7 +37,7 @@ struct FdFlags {
  * Boot filesystem file descriptor.
  * Must match the layout in SPI flash (little-endian).
  */
-struct __attribute__((packed)) TtBootFsFd {
+struct TtBootFsFd {
     uint32_t spi_addr;
     uint32_t copy_dest;
     FdFlags flags;

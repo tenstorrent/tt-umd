@@ -200,6 +200,10 @@ std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
     throw std::runtime_error("Waiting for ETH core training is not supported in TTSim simulation device.");
 }
 
+EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+    throw std::runtime_error("Reading ETH core training status is not supported in TTSim simulation device.");
+}
+
 uint32_t TTSimTTDevice::get_clock() {
     throw std::runtime_error("Getting clock is not supported in TTSim simulation device.");
 }

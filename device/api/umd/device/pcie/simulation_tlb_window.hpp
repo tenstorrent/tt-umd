@@ -31,6 +31,36 @@ public:
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
 
+    void safe_write32(uint64_t offset, uint32_t value) override;
+
+    uint32_t safe_read32(uint64_t offset) override;
+
+    void safe_write_register(uint64_t offset, const void* data, size_t size) override;
+
+    void safe_read_register(uint64_t offset, void* data, size_t size) override;
+
+    void safe_write_block(uint64_t offset, const void* data, size_t size) override;
+
+    void safe_read_block(uint64_t offset, void* data, size_t size) override;
+
+    void safe_write_block_reconfigure(
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        uint32_t size,
+        uint64_t ordering = tlb_data::Strict) override;
+
+    void safe_read_block_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict) override;
+
+    void safe_noc_multicast_write_reconfigure(
+        void* dst,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        uint64_t ordering = tlb_data::Strict) override;
+
 private:
     /**
      * Get the physical address for a TLB window offset.

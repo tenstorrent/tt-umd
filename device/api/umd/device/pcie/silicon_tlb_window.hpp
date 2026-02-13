@@ -27,6 +27,38 @@ public:
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
 
+    void safe_write32(uint64_t offset, uint32_t value) override;
+
+    uint32_t safe_read32(uint64_t offset) override;
+
+    void safe_write_register(uint64_t offset, const void* data, size_t size) override;
+
+    void safe_read_register(uint64_t offset, void* data, size_t size) override;
+
+    void safe_write_block(uint64_t offset, const void* data, size_t size) override;
+
+    void safe_read_block(uint64_t offset, void* data, size_t size) override;
+
+    void safe_write_block_reconfigure(
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        uint32_t size,
+        uint64_t ordering = tlb_data::Strict) override;
+
+    void safe_read_block_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict) override;
+
+    void safe_noc_multicast_write_reconfigure(
+        void* dst,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        uint64_t ordering = tlb_data::Strict) override;
+
+    static void set_sigbus_safe_handler(bool set_safe_handler);
+
 private:
     // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).
     // Both routines assume that misaligned accesses are permitted on host memory.
@@ -40,6 +72,9 @@ private:
 
     void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
     void read_regs(void* src_reg, uint32_t word_len, void* data);
+
+    template <typename Func, typename... Args>
+    decltype(auto) execute_safe(Func&& func, Args&&... args);
 };
 
 }  // namespace tt::umd

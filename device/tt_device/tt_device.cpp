@@ -33,7 +33,7 @@
 namespace tt::umd {
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
-    // TlbWindow: :set_sigbus_safe_handler(set_safe_handler);.
+    SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
 TTDevice::TTDevice(

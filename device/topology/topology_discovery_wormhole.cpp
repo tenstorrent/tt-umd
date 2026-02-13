@@ -228,14 +228,22 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
         return nullptr;
     }
     EthCoord remote_device_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
-
+    auto const io_type = gateway_device->get_communication_device_type();
+    std::cout << "Gateway TTDevice: " << DeviceTypeToString.at(io_type) << "\n";
+    std::cout << "Gateway MMIO protocol: "
+              << DeviceTypeToString.at(gateway_device->get_mmio_protocol()->get_communication_device_type()) << "\n";
     std::unique_ptr<RemoteCommunication> remote_communication =
         RemoteCommunication::create_remote_communication(gateway_device->get_mmio_protocol(), remote_device_eth_coord);
     remote_communication->set_remote_transfer_ethernet_cores(
         get_soc_descriptor(gateway_device)
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
+    std::cout << "Remote MMIO protocol: "
+              << DeviceTypeToString.at(
+                     remote_tt_device->get_remote_communication()->get_mmio_protocol()->get_communication_device_type())
+              << "\n";
+    auto init_result = remote_tt_device->init_tt_device();
+    std::cout << "init_result is: " << static_cast<uint32_t>(init_result) << "\n";
     return remote_tt_device;
 }
 

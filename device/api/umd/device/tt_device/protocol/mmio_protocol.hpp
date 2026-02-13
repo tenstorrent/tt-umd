@@ -8,6 +8,7 @@
 #include "device_protocol.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 
 namespace tt::umd {
 
@@ -16,6 +17,8 @@ public:
     virtual tt::ARCH get_arch() = 0;
 
     virtual int get_communication_device_id() const = 0;
+
+    virtual IODeviceType get_communication_device_type() = 0;
 
     virtual architecture_implementation* get_architecture_implementation() = 0;
 };

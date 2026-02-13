@@ -61,6 +61,8 @@ tt::ARCH PcieProtocol::get_arch() { return architecture_impl_->get_architecture(
 
 int PcieProtocol::get_communication_device_id() const { return pci_device_->get_device_num(); }
 
+IODeviceType PcieProtocol::get_communication_device_type() { return IODeviceType::PCIe; }
+
 architecture_implementation *PcieProtocol::get_architecture_implementation() { return architecture_impl_; }
 
 PCIDevice *PcieProtocol::get_pci_device() { return pci_device_.get(); }

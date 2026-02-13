@@ -156,8 +156,9 @@ void TopologyDiscovery::discover_remote_devices() {
         uint64_t current_device_asic_id = it->first;
         devices.emplace(current_device_asic_id, std::move(it->second));
         devices_to_discover.erase(it);
+        std::cout << "current_device_asic_id " << current_device_asic_id << "\n";
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
-
+        std::cout << "Memory address: " << tt_device << "\n";
         verify_fw_bundle_version(tt_device);
 
         if (options.no_remote_discovery) {
@@ -220,6 +221,8 @@ void TopologyDiscovery::discover_remote_devices() {
                     devices.at(gateway_device_id).get(),
                     active_eth_channels_per_device.at(gateway_device_id));
 
+                std::cout << "Remote memory address: " << remote_device.get() << "\n";
+                std::cout << "Gateway memory address: " << devices.at(gateway_device_id).get() << "\n";
                 devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);

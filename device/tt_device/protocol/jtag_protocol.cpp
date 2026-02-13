@@ -8,6 +8,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 
 namespace tt::umd {
 
@@ -31,6 +32,8 @@ tt::ARCH JtagProtocol::get_arch() {
 }
 
 int JtagProtocol::get_communication_device_id() const { return communication_device_id_; }
+
+IODeviceType JtagProtocol::get_communication_device_type() { return IODeviceType::JTAG; }
 
 architecture_implementation* JtagProtocol::get_architecture_implementation() { return architecture_impl_; }
 

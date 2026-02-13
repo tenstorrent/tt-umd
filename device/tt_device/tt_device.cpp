@@ -75,10 +75,18 @@ TTDevice::TTDevice(
 TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)) {
+    communication_device_type_(remote_communication->get_mmio_protocol()->get_communication_device_type()),
+    communication_device_id_(remote_communication->get_mmio_protocol()->get_communication_device_id()),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()) {
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_capabilites_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
+    std::cout
+        << "TTDev ctor: "
+        << DeviceTypeToString.at(
+               remote_capabilites_->get_remote_communication()->get_mmio_protocol()->get_communication_device_type())
+        << "\n";
     is_remote_tt_device_ = true;
 }
 
@@ -116,6 +124,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     } catch (const std::runtime_error &e) {
         return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
     }
+    std::cout << "Successful\n";
     return TTDeviceInitResult::SUCCESSFUL;
 }
 

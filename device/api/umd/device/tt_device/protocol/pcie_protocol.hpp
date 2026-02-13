@@ -33,6 +33,8 @@ public:
 
     int get_communication_device_id() const override;
 
+    IODeviceType get_communication_device_type() override;
+
     architecture_implementation *get_architecture_implementation() override;
 
     /* PcieInterface */

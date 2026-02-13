@@ -41,10 +41,16 @@ static uint32_t get_spi_spare_addr_for_test(TTDevice* device) {
     }
 }
 
-// Helper function to set up devices for SPI testing.
-std::unordered_map<ChipId, std::unique_ptr<TTDevice>> setup_spi_test_devices() {
-    auto [cluster_desc, _] = TopologyDiscovery::discover({});
+// Result of setup_spi_test_devices: TT devices (must be kept alive) and SPI devices per chip.
+struct SpiTestDevices {
     std::unordered_map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
+    std::unordered_map<ChipId, std::unique_ptr<SPITTDevice>> spi_devices;
+};
+
+// Helper function to set up devices for SPI testing.
+SpiTestDevices setup_spi_test_devices() {
+    auto [cluster_desc, _] = TopologyDiscovery::discover({});
+    SpiTestDevices result;
 
     for (ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         std::cout << "Setting up device " << chip_id << " local: " << cluster_desc->is_chip_mmio_capable(chip_id)
@@ -54,10 +60,10 @@ std::unordered_map<ChipId, std::unique_ptr<TTDevice>> setup_spi_test_devices() {
             int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
             auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe);
             tt_device->init_tt_device();
-            tt_devices[chip_id] = std::move(tt_device);
+            result.tt_devices[chip_id] = std::move(tt_device);
         } else {
             ChipId closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-            std::unique_ptr<TTDevice>& local_tt_device = tt_devices.at(closest_mmio_chip_id);
+            std::unique_ptr<TTDevice>& local_tt_device = result.tt_devices.at(closest_mmio_chip_id);
 
             SocDescriptor local_soc_descriptor =
                 SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
@@ -68,25 +74,24 @@ std::unordered_map<ChipId, std::unique_ptr<TTDevice>> setup_spi_test_devices() {
                 cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
             std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
             remote_tt_device->init_tt_device();
-            tt_devices[chip_id] = std::move(remote_tt_device);
+            result.tt_devices[chip_id] = std::move(remote_tt_device);
         }
+
+        result.spi_devices[chip_id] = SPITTDevice::create(result.tt_devices[chip_id].get());
     }
 
-    return tt_devices;
+    return result;
 }
 
 // This test can be destructive, and should not normally run.
 // Make sure to only run it on hardware which has recovery support.
 // The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests.
 TEST(ApiSPITTDeviceTest, DISABLED_SPIRead) {
-    auto tt_devices = setup_spi_test_devices();
+    auto [tt_devices, spi_devices] = setup_spi_test_devices();
 
-    for (const auto& [chip_id, tt_device] : tt_devices) {
-        std::cout << "\n=== Testing SPI read on device " << chip_id << " (remote: " << tt_device->is_remote()
-                  << ") ===" << std::endl;
-
-        // Create SPI implementation for this device.
-        auto spi_impl = SPITTDevice::create(tt_device.get());
+    for (const auto& [chip_id, spi_impl] : spi_devices) {
+        std::cout << "\n=== Testing SPI read on device " << chip_id
+                  << " (remote: " << tt_devices.at(chip_id)->is_remote() << ") ===" << std::endl;
 
         // Test SPI read functionality
         // Note: SPI addresses are chip-specific. Using a safe area for testing.
@@ -117,15 +122,13 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIRead) {
 // Make sure to only run it on hardware which has recovery support.
 // The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests.
 TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
-    auto tt_devices = setup_spi_test_devices();
+    auto [tt_devices, spi_devices] = setup_spi_test_devices();
 
-    for (const auto& [chip_id, tt_device] : tt_devices) {
+    for (const auto& [chip_id, spi_impl] : spi_devices) {
         std::cout << "\n=== Testing SPI read-modify-write on device " << chip_id
-                  << " (remote: " << tt_device->is_remote() << ") ===" << std::endl;
-
-        // Create SPI implementation for this device.
-        auto spi_impl = SPITTDevice::create(tt_device.get());
-        const uint32_t spi_spare_area_addr = get_spi_spare_addr_for_test(tt_device.get());
+                  << " (remote: " << tt_devices.at(chip_id)->is_remote() << ") ===" << std::endl;
+                  
+        const uint32_t spi_spare_area_addr = get_spi_spare_addr_for_test(tt_devices.at(chip_id).get());
 
         // Test read-modify-write on spare/scratch area.
         // Read current value.
@@ -166,15 +169,13 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
 // Make sure to only run it on hardware which has recovery support.
 // The test is disabled by default. To enable it, run with --gtest_also_run_disabled_tests.
 TEST(ApiSPITTDeviceTest, DISABLED_SPIUncommittedWrite) {
-    auto tt_devices = setup_spi_test_devices();
+    auto [tt_devices, spi_devices] = setup_spi_test_devices();
 
-    for (const auto& [chip_id, tt_device] : tt_devices) {
+    for (const auto& [chip_id, spi_impl] : spi_devices) {
         std::cout << "\n=== Testing SPI uncommitted write on device " << chip_id
-                  << " (remote: " << tt_device->is_remote() << ") ===" << std::endl;
+                  << " (remote: " << tt_devices.at(chip_id)->is_remote() << ") ===" << std::endl;
 
-        // Create SPI implementation for this device.
-        auto spi_impl = SPITTDevice::create(tt_device.get());
-        const uint32_t spi_spare_area_addr = get_spi_spare_addr_for_test(tt_device.get());
+        const uint32_t spi_spare_area_addr = get_spi_spare_addr_for_test(tt_devices.at(chip_id).get());
 
         // Test uncommitted write on spare/scratch area.
         // Read current value first.

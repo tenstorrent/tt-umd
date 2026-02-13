@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -30,6 +31,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -488,7 +490,24 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 }
 
 bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t first_reading = get_eth_heartbeat(tt_device, eth_core);
+    // ERISC FW might take a long time to start up after warm reset.
+    auto start = std::chrono::steady_clock().now();
+    uint32_t first_reading = 0;
+    while (true) {
+        first_reading = get_eth_heartbeat(tt_device, eth_core);
+        if (first_reading != 0) {
+            break;
+        }
+        if (utils::check_timeout(
+                start,
+                timeout::ETH_STARTUP_TIMEOUT,
+                "Timed out waiting for ETH hearbeat.",
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
     // Heartbeat must be in the format 0xABCDxxxx.
     if ((first_reading >> 16) != 0xABCD) {
         log_warning(
@@ -498,7 +517,8 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
             eth_core.str());
         return false;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    // Some hosts will read the two values too fast for it to be updated.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     uint32_t second_reading = get_eth_heartbeat(tt_device, eth_core);
     if ((second_reading >> 16) != 0xABCD) {
         log_warning(
@@ -508,7 +528,6 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
             eth_core.str());
         return false;
     }
-    log_info(LogUMD, "ETH Heartbeat: 1:{:x} 2:{:x}", first_reading, second_reading);
     return first_reading != second_reading;
 }
 

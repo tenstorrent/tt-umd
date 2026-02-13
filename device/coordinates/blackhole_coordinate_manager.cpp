@@ -89,7 +89,7 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_tensix_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping();
     } else {
         fill_tensix_default_noc0_translated_mapping();
     }
@@ -180,7 +180,7 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_eth_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_eth_noc0_translated_mapping();
     } else {
         fill_eth_default_noc0_translated_mapping();
     }
@@ -201,7 +201,7 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_pcie_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping();
     } else {
         fill_pcie_default_noc0_translated_mapping();
     }

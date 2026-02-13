@@ -57,7 +57,7 @@ public:
      * @param skip_write_to_spi If true, the data will not be committed to SPI. This is useful for testing.
      */
     virtual void write(uint32_t addr, const uint8_t *data, size_t size, bool skip_write_to_spi = false) = 0;
-        
+
     /**
      * Get the firmware bundle version by reading from SPI flash (Blackhole only).
      *
@@ -67,7 +67,7 @@ public:
      * @return The firmware bundle version as semver_t
      * @throws std::runtime_error if not supported on this architecture or cannot read from SPI
      */
-     virtual uint32_t get_spi_fw_bundle_version();
+    virtual uint32_t get_spi_fw_bundle_version();
 
 protected:
     TTDevice *device_;

@@ -127,7 +127,7 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
     for (const auto& [chip_id, spi_impl] : spi_devices) {
         std::cout << "\n=== Testing SPI read-modify-write on device " << chip_id
                   << " (remote: " << tt_devices.at(chip_id)->is_remote() << ") ===" << std::endl;
-                  
+
         const uint32_t spi_spare_area_addr = get_spi_spare_addr_for_test(tt_devices.at(chip_id).get());
 
         // Test read-modify-write on spare/scratch area.

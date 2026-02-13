@@ -24,7 +24,7 @@ def get_spi_spare_addr_for_test(tt_device):
 
 def setup_spi_test_devices():
     """Helper function to set up devices for SPI testing.
-    
+
     Returns:
         tuple: (cluster_descriptor, umd_tt_devices, umd_spi_devices)
         - cluster_descriptor: Topology descriptor for the cluster
@@ -57,14 +57,18 @@ def setup_spi_test_devices():
 
 
 class TestSPITTDevice(unittest.TestCase):
-    # @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    @unittest.skip(
+        "Disabled by default - potentially destructive SPI test. Remove this decorator to run."
+    )
     def test_spi_read(self):
         """Test basic SPI read operations on discovered devices."""
         cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
 
         # Test SPI read on each device
         for chip_id, spi_impl in umd_spi_devices.items():
-            print(f"\n=== Testing SPI read on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
+            print(
+                f"\n=== Testing SPI read on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
+            )
 
             # Test SPI read - board info
             board_info = bytearray(8)
@@ -77,15 +81,19 @@ class TestSPITTDevice(unittest.TestCase):
                 f"Board info should not be all zeros for device {chip_id}",
             )
 
-    # @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    @unittest.skip(
+        "Disabled by default - potentially destructive SPI test. Remove this decorator to run."
+    )
     def test_spi_read_modify_write(self):
         """Test SPI read-modify-write operations on discovered devices."""
         cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
 
         # Test SPI read-modify-write on each device
         for chip_id, spi_impl in umd_spi_devices.items():
-            print(f"\n=== Testing SPI read-modify-write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
-            
+            print(
+                f"\n=== Testing SPI read-modify-write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
+            )
+
             spi_spare_area_addr = get_spi_spare_addr_for_test(umd_tt_devices[chip_id])
 
             # Test read-modify-write on spare area
@@ -117,14 +125,18 @@ class TestSPITTDevice(unittest.TestCase):
                 f"SPI write verification failed for device {chip_id}",
             )
 
-    # @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    @unittest.skip(
+        "Disabled by default - potentially destructive SPI test. Remove this decorator to run."
+    )
     def test_spi_uncommitted_write(self):
         """Test SPI uncommitted write operations on discovered devices."""
         cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
 
         # Test SPI uncommitted write on each device
         for chip_id, spi_impl in umd_spi_devices.items():
-            print(f"\n=== Testing SPI uncommitted write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
+            print(
+                f"\n=== Testing SPI uncommitted write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
+            )
 
             spi_spare_area_addr = get_spi_spare_addr_for_test(umd_tt_devices[chip_id])
 
@@ -178,7 +190,9 @@ class TestSPITTDevice(unittest.TestCase):
                 wide_read[1], verify2[1], f"Second byte mismatch for device {chip_id}"
             )
 
-    # @unittest.skip("Disabled by default - potentially destructive SPI test. Remove this decorator to run.")
+    @unittest.skip(
+        "Disabled by default - potentially destructive SPI test. Remove this decorator to run."
+    )
     def test_get_spi_fw_bundle_version(self):
         """Test getting firmware bundle version from SPI on discovered devices."""
         cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
@@ -189,7 +203,9 @@ class TestSPITTDevice(unittest.TestCase):
             try:
                 fw_version = spi_impl.get_spi_fw_bundle_version()
 
-                print(f"\n=== Testing get_spi_fw_bundle_version on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ===")
+                print(
+                    f"\n=== Testing get_spi_fw_bundle_version on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
+                )
 
                 # Access version components
                 patch = fw_version & 0xFF
@@ -197,11 +213,15 @@ class TestSPITTDevice(unittest.TestCase):
                 major = (fw_version >> 16) & 0xFF
                 component = (fw_version >> 24) & 0xFF
 
-                print(f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}")
+                print(
+                    f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}"
+                )
             except RuntimeError as e:
                 # get_spi_fw_bundle_version is only supported on Blackhole
                 if "not supported" in str(e).lower():
-                    print(f"\n=== Skipping get_spi_fw_bundle_version on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) - not supported ===")
+                    print(
+                        f"\n=== Skipping get_spi_fw_bundle_version on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) - not supported ==="
+                    )
                     continue
                 else:
                     raise e

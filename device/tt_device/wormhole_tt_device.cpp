@@ -142,6 +142,10 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
             sizeof(uint32_t));
         return;
     }
+    if (is_remote()) {
+        read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        return;
+    }
     auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
@@ -158,6 +162,10 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
             wormhole::ARC_CORES_NOC0[0].y,
             architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
             sizeof(uint32_t));
+        return;
+    }
+    if (is_remote()) {
+        write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
@@ -178,6 +186,10 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
             sizeof(uint32_t));
         return;
     }
+    if (is_remote()) {
+        read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        return;
+    }
     auto result = bar_read32(wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
@@ -194,6 +206,10 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
             wormhole::ARC_CORES_NOC0[0].y,
             architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
             sizeof(uint32_t));
+        return;
+    }
+    if (is_remote()) {
+        write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(

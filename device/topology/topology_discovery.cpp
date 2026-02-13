@@ -508,6 +508,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
             eth_core.str());
         return false;
     }
+    log_info(LogUMD, "ETH Heartbeat: 1:{:x} 2:{:x}", first_reading, second_reading);
     return first_reading != second_reading;
 }
 

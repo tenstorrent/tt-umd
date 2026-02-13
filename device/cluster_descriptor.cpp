@@ -765,19 +765,19 @@ void ClusterDescriptor::merge_cluster_ids() {
     DisjointSet<ChipId> chip_sets;
     for (const auto &[chip, _] : chip_locations) {
         chip_sets.add_item(chip);
-        log_debug(LogUMD, "Adding chip {} to disjoint set", chip);
+        log_trace(LogUMD, "Adding chip {} to disjoint set", chip);
     }
 
     for (const auto &[chip, chan_to_chip_chan_map] : ethernet_connections) {
         for (const auto &[chan, dest_chip_chan_tuple] : chan_to_chip_chan_map) {
             chip_sets.merge(chip, std::get<0>(dest_chip_chan_tuple));
-            log_debug(LogUMD, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
+            log_trace(LogUMD, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
         }
     }
 
     for (const auto &[chip, chip_eth_coords] : chip_locations) {
         chip_locations[chip].cluster_id = chip_sets.get_set(chip);
-        log_debug(LogUMD, "Chip {} belongs to cluster {}", chip, chip_sets.get_set(chip));
+        log_trace(LogUMD, "Chip {} belongs to cluster {}", chip, chip_sets.get_set(chip));
     }
 }
 

@@ -305,10 +305,13 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0x100088000},
-     {CoreType::PCIE, 0xFFFB30000},
-     {CoreType::ARC, 0xFFFB30000},
+     {CoreType::PCIE, 0xFFFB20000},
+     {CoreType::ARC, 0xFFFB20000},
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
+
+constexpr std::array<uint64_t, 3> DRAM_NOC0_CONTROL_REG_ADDR_BASE_MAP = {0x100080000, 0x100090000, 0x1000A0000};
+constexpr std::array<uint64_t, 3> DRAM_NOC1_CONTROL_REG_ADDR_BASE_MAP = {0x100088000, 0x100098000, 0x1000A8000};
 
 inline constexpr uint64_t ARC_NOC_RESET_UNIT_BASE_ADDR = 0x880030000;
 // Offset of NOC node id registers on ARC core which are
@@ -334,6 +337,9 @@ inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
+
+// This constant is tied to the wormhole eth fw layout, so it's arch specific.
+inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
 
 }  // namespace wormhole
 

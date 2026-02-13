@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
 option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
 set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
@@ -121,7 +121,6 @@ add_compile_options(
     -Wall
     -Werror
     -Wno-sign-compare
-    -Wno-unused-function
 )
 
 # Fixed this warning on clang, but not yet gcc

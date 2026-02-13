@@ -31,8 +31,8 @@ namespace tt::umd {
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
-WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
@@ -45,7 +45,6 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    init_tt_device();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -430,7 +429,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     }
 
     start = std::chrono::steady_clock::now();
-    while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
+    while (read_eth_core_training_status(actual_eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
@@ -439,24 +438,27 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}",
                     timeout_ms.count(),
-                    eth_core.x,
-                    eth_core.y));
+                    actual_eth_core.x,
+                    actual_eth_core.y));
+            } else {
+                // We don't want to throw on 6u systems, but log a warning so it is visible.
+                log_warning(
+                    LogUMD,
+                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+                    timeout_ms.count(),
+                    actual_eth_core.x,
+                    actual_eth_core.y);
+                break;
             }
-            break;
         }
     }
     return time_taken_heartbeat + time_taken_port;
 }
 
-uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
     uint32_t training_status;
-    read_from_device(
-        &training_status,
-        is_selected_noc1() ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
-                           : eth_core,
-        0x1104,
-        sizeof(uint32_t));
-    return training_status;
+    read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
+    return static_cast<EthTrainingStatus>(training_status);
 }
 
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {

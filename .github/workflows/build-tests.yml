@@ -18,6 +18,10 @@ on:
         required: false
         type: string
         default: ""
+      build-wheel:
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -111,6 +115,7 @@ jobs:
           path: artifact.tar
 
   build-wheel:
+    if: inputs.build-wheel
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 

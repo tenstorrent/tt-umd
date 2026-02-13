@@ -114,6 +114,7 @@ target_sources(
         jtag/jtag.cpp
         tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
+        arc/blackhole_spi_tt_device.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

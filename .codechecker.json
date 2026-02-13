@@ -2,8 +2,21 @@
     "analyze": [
         "--analyzers",
         "clangsa",
+        "clang-tidy",
         "--skip",
-        "/work/.codechecker.skiplist",
-        "--drop-reports-from-skipped-files"
+        ".codechecker.skiplist",
+        "--drop-reports-from-skipped-files",
+        "--enable-all",
+        "--disable",
+        "prefix:clang-diagnostic-c++98-compat",
+        "--disable",
+        "checker:modernize-use-trailing-return-type",
+        "--disable",
+        "prefix:altera",
+        "--disable",
+        "prefix:boost",
+        "--disable",
+        "checker:optin.core.EnumCastOutOfRange",
+        "--ctu"
     ]
 }

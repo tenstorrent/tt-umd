@@ -9,8 +9,14 @@
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -24,8 +30,8 @@
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api) {
     arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
 }
 
@@ -162,13 +168,26 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
 bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     uint32_t arc_boot_status;
-    auto start = std::chrono::steady_clock::now();
+    const auto start = std::chrono::steady_clock::now();
+    constexpr auto spin_limit = std::chrono::microseconds(1000);
     while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
             return true;
+        }
+
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        // If we are within the first 200us, busy-wait (continue).
+        // This burns CPU, but guarantees we catch the status change instantly in this interval.
+        if (elapsed < spin_limit) {
+            // Optional: For 0ms timeouts, check manually here without strings.
+            if (elapsed > timeout_ms) {
+                return false;
+            }
+            continue;
         }
 
         if (utils::check_timeout(
@@ -183,9 +202,10 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             return false;
         }
 
-        // Yield CPU to avoid busy-waiting. 1ms is arbitrary but reasonable for
-        // polling hardware state that changes on the order of milliseconds.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
+        // actual duration will be longer due to OS scheduling and jitter.
+        // This prevents 100% CPU usage during longer hardware initialization.
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 }
 
@@ -271,15 +291,10 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto time_taken = std::chrono::milliseconds(0);
 
-    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
-    uint32_t port_status_val;
-    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
-    while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
-        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -291,6 +306,13 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
         }
     }
     return time_taken;
+}
+
+EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t port_status_val;
+    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    return static_cast<EthTrainingStatus>(port_status_val);
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {
@@ -316,5 +338,10 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
+
+void BlackholeTTDevice::dma_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
+}
 
 }  // namespace tt::umd

@@ -9,9 +9,18 @@
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
 
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <memory>
+#include <ostream>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
@@ -19,7 +28,7 @@
 
 namespace tt::umd {
 
-SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) : SysmemManager() {
+SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
     pcie_base_ = tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
@@ -41,7 +50,7 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
     }
 }
 
-SiliconSysmemManager::~SiliconSysmemManager() { unpin_or_unmap_sysmem(); }
+SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
@@ -198,7 +207,8 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
         bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
-        uint64_t physical_address, noc_address;
+        uint64_t physical_address;
+        uint64_t noc_address;
         if (map_buffer_to_noc) {
             std::tie(noc_address, physical_address) =
                 tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);

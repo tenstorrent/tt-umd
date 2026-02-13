@@ -4,11 +4,17 @@
 
 #include "umd/device/jtag/jtag_device.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <optional>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "umd/device/jtag/jtag.hpp"
@@ -66,7 +72,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         if (len != -1) {
             buffer[len] = '\0';
             std::string path(buffer);
-            std::string::size_type pos = path.find_last_of("/");
+            std::string::size_type pos = path.find_last_of('/');
             actual_path = path.substr(0, pos);
         }
     }

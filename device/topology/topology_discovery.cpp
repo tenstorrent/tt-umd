@@ -4,6 +4,8 @@
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <map>
@@ -168,6 +170,20 @@ void TopologyDiscovery::discover_remote_devices() {
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
+
+            if (!eth_heartbeat_running(tt_device, eth_core)) {
+                std::string msg = fmt::format(
+                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {x}",
+                    current_device_asic_id,
+                    eth_core.str(),
+                    get_eth_postcode(tt_device, eth_core));
+                if (!options.no_eth_firmware_strictness) {
+                    TT_THROW(msg);
+                } else {
+                    log_warning(LogUMD, msg);
+                    continue;
+                }
+            }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
@@ -468,6 +484,29 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 
     soc_descriptor_cache[tt_device] = soc_descriptor;
     return soc_descriptor;
+}
+
+bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t first_reading = get_eth_heartbeat(tt_device, eth_core);
+    // Heartbeat must be in the format 0xABCDxxxx.
+    if ((first_reading >> 16) != 0xABCD) {
+        log_warning(
+            LogUMD,
+            "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+            first_reading,
+            eth_core.str());
+        return false;
+    }
+    uint32_t second_reading = get_eth_heartbeat(tt_device, eth_core);
+    if ((second_reading >> 16) != 0xABCD) {
+        log_warning(
+            LogUMD,
+            "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+            second_reading,
+            eth_core.str());
+        return false;
+    }
+    return first_reading != second_reading;
 }
 
 }  // namespace tt::umd

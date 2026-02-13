@@ -360,4 +360,16 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     return true;
 }
 
+uint32_t TopologyDiscoveryWormhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint64_t heartbeat_address = 0x1F80;  // test_results[48];
+    uint32_t heartbeat_value = 0;
+    tt_device->read_from_device(&heartbeat_value, eth_core, heartbeat_address, sizeof(uint32_t));
+    return heartbeat_value;
+}
+
+uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t postcode = 0;
+    tt_device->read_from_device(&postcode, eth_core, 0xFFB3010C, sizeof(uint32_t));
+    return postcode;
+}
 }  // namespace tt::umd

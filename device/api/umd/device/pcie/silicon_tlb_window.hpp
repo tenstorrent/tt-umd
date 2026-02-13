@@ -6,8 +6,8 @@
 
 #include <memory>
 
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 
 namespace tt::umd {
 

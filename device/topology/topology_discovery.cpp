@@ -173,7 +173,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
             if (!eth_heartbeat_running(tt_device, eth_core)) {
                 std::string msg = fmt::format(
-                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {x}",
+                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
                     current_device_asic_id,
                     eth_core.str(),
                     get_eth_postcode(tt_device, eth_core));

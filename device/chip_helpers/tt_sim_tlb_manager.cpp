@@ -211,6 +211,11 @@ uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    if (get_architecture_impl()->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
+        (tlb_size == tlb_1mb_size_ || tlb_size == tlb_2mb_size_)) {
+        throw std::runtime_error("TLBs of 1MB and 2MB are not supported in TTSim for Wormhole architecture.");
+    }
+
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
         throw std::runtime_error("No available TLB of requested size");

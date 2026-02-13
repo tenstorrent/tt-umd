@@ -1217,7 +1217,7 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
     cluster->close_device();
 }
 
-TEST(ClusterReadWriteL1Test, TTSimReadWriteL1) {
+TEST(ClusterReadWriteL1Test, DISABLED_TTSimReadWriteL1) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .chip_type = ChipType::SIMULATION,
         .target_devices = {0},

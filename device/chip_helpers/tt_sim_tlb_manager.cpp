@@ -17,9 +17,9 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/pcie/simulation_tlb_handle.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/simulation_tlb_window.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -219,11 +219,11 @@ std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
     size_t actual_tlb_size = get_tlb_size_from_index(tlb_index);
 
     auto tlb_handle = TTSimTlbHandle::create(this, tlb_index, actual_tlb_size, mapping);
-    return std::make_unique<TlbWindow>(std::move(tlb_handle), config);
+    return std::make_unique<SimulationTlbWindow>(std::move(tlb_handle), get_communicator(), config);
 }
 
 uint64_t TTSimTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
-    return 0x1fc00000 + tlb_index * tlb_reg_size_bytes_;
+    return bar0_base_ + 0x1fc00000 + tlb_index * tlb_reg_size_bytes_;
 }
 
 const architecture_implementation* TTSimTlbManager::get_architecture_impl() const {

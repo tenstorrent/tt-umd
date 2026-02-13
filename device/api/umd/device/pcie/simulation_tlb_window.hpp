@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include "umd/device/pcie/tlb_window_base.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 
 namespace tt::umd {
 
@@ -19,7 +19,7 @@ class TTSimCommunicator;
  * This allows TLB operations to work with TTSim where the device
  * memory is not mapped into the user process.
  */
-class SimulationTlbWindow : public TlbWindowBase {
+class SimulationTlbWindow : public TlbWindow {
 public:
     SimulationTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
 

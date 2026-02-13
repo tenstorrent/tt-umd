@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
@@ -43,10 +44,24 @@ TTSimTlbHandle::~TTSimTlbHandle() noexcept { free_tlb(); }
 
 void TTSimTlbHandle::configure(const tlb_data& new_config) {
     sim_config_ = new_config;
-
+    sim_config_.local_offset = new_config.local_offset / sim_size_;
     // Get architecture from manager to determine correct offsets.
     const architecture_implementation* arch_impl = sim_manager_->get_architecture_impl();
     tt::ARCH architecture = arch_impl->get_architecture();
+
+    log_debug(
+        LogUMD,
+        "Configured simulation TLB {} ({}) address 0x{:x} reg_addr 0x{:x} ({} bytes) with local_offset: {}, x_end: {}, "
+        "y_end: {}, ordering: {}",
+        sim_tlb_id_,
+        architecture == tt::ARCH::WORMHOLE_B0 ? "Wormhole" : "Blackhole",
+        sim_address_,
+        tlb_reg_addr_,
+        architecture == tt::ARCH::BLACKHOLE ? 12 : 8,
+        sim_config_.local_offset,
+        sim_config_.x_end,
+        sim_config_.y_end,
+        sim_config_.ordering);
 
     // Determine which TLB offset structure to use based on architecture and size.
     const tlb_offsets* offsets = nullptr;
@@ -82,7 +97,7 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     }
 
     // Apply the offsets to create the register value.
-    auto [reg_val, reg_val_high] = new_config.apply_offset(*offsets);
+    auto [reg_val, reg_val_high] = sim_config_.apply_offset(*offsets);
 
     // Get the communicator to write the register.
     TTSimCommunicator* communicator = sim_manager_->get_communicator();
@@ -104,20 +119,6 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
         // Wormhole uses 8 bytes (64 bits).
         communicator->pci_mem_write_bytes(tlb_reg_addr_, &reg_val, 8);
     }
-
-    log_debug(
-        LogUMD,
-        "Configured simulation TLB {} ({}) address 0x{:x} reg_addr 0x{:x} ({} bytes) with local_offset: {}, x_end: {}, "
-        "y_end: {}, ordering: {}",
-        sim_tlb_id_,
-        architecture == tt::ARCH::WORMHOLE_B0 ? "Wormhole" : "Blackhole",
-        sim_address_,
-        tlb_reg_addr_,
-        architecture == tt::ARCH::BLACKHOLE ? 12 : 8,
-        new_config.local_offset,
-        new_config.x_end,
-        new_config.y_end,
-        new_config.ordering);
 }
 
 uint8_t* TTSimTlbHandle::get_base() {

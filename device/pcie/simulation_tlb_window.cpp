@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 
 #include "umd/device/simulation/tt_sim_communicator.hpp"
@@ -15,7 +16,7 @@ namespace tt::umd {
 
 SimulationTlbWindow::SimulationTlbWindow(
     std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
-    TlbWindowBase(std::move(handle), config), sim_communicator_(communicator) {}
+    TlbWindow(std::move(handle), config), sim_communicator_(communicator) {}
 
 void SimulationTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));

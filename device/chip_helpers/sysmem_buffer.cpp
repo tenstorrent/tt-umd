@@ -14,7 +14,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
@@ -174,8 +174,10 @@ void SysmemBuffer::validate(const size_t offset) const {
 
 TlbWindow* SysmemBuffer::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
-        cached_tlb_window = std::make_unique<TlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(
-            tlb_manager_->get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        cached_tlb_window =
+            std::make_unique<SiliconTlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(
+                tlb_manager_->get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(),
+                TlbMapping::WC));
         return cached_tlb_window.get();
     }
     return cached_tlb_window.get();

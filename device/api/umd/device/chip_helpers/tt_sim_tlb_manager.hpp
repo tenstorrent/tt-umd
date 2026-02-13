@@ -9,12 +9,12 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
 namespace tt::umd {
 
 // Forward declarations to avoid circular dependencies.
 class TTSimCommunicator;
+class TTSimTTDevice;
 
 class TTSimTlbManager : public TLBManager {
 public:

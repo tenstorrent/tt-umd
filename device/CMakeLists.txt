@@ -64,8 +64,8 @@ target_sources(
         chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
-        pcie/tlb_window_base.cpp
         pcie/tlb_window.cpp
+        pcie/silicon_tlb_window.cpp
         pcie/tlb_handle.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
@@ -174,7 +174,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_handle.hpp
-                api/umd/device/pcie/tlb_window_base.hpp
+                api/umd/device/pcie/silicon_tlb_window.hpp
                 api/umd/device/pcie/tlb_window.hpp
                 api/umd/device/pcie/simulation_tlb_window.hpp
                 api/umd/device/pcie/simulation_tlb_handle.hpp

@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -88,5 +89,11 @@ private:
     std::unique_ptr<architecture_implementation> architecture_impl_;
 
     uint32_t libttsim_pci_device_id;
+
+    std::unique_ptr<TTSimTlbManager> tlb_manager_;
+
+    TlbWindow *get_cached_tlb_window();
+
+    std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 };
 }  // namespace tt::umd

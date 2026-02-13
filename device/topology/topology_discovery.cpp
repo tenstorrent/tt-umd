@@ -498,7 +498,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
             eth_core.str());
         return false;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     uint32_t second_reading = get_eth_heartbeat(tt_device, eth_core);
     if ((second_reading >> 16) != 0xABCD) {
         log_warning(

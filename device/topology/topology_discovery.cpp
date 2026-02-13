@@ -245,7 +245,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     if (!devices.empty() && devices.begin()->second->get_communication_device_type() == IODeviceType::PCIe) {
         std::vector<std::pair<std::string, uint64_t>> sorted_device_bdfs;
         for (const auto& [current_device_asic_id, tt_device] : devices) {
-            if (!tt_device->is_remote()) {
+            if (tt_device->get_communication_device_type() == IODeviceType::PCIe && !tt_device->is_remote()) {
                 sorted_device_bdfs.emplace_back(
                     tt_device->get_pci_device()->get_device_info().pci_bdf, current_device_asic_id);
             }

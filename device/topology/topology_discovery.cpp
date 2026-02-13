@@ -25,6 +25,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -212,7 +213,10 @@ void TopologyDiscovery::discover_remote_devices() {
 
             uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
 
-            if (discovered_devices.find(remote_asic_id) == discovered_devices.end()) {
+            // Only N300 boards can have remote devices. All others should have every chip
+            // accessible through MMIO.
+            if (discovered_devices.find(remote_asic_id) == discovered_devices.end() &&
+                tt_device->get_board_type() == BoardType::N300) {
                 uint64_t gateway_device_id = remote_asic_id_to_mmio_device_id.at(current_device_asic_id);
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, eth_core);
                 std::unique_ptr<TTDevice> remote_device = create_remote_device(
@@ -224,9 +228,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
-                if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
-                }
+                eth_coords.emplace(remote_asic_id, eth_coord.value());
             } else {
                 ethernet_connections.push_back(
                     {{current_device_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});

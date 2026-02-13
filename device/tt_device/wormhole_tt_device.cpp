@@ -22,6 +22,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"

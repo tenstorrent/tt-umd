@@ -353,8 +353,6 @@ protected:
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 
-    bool is_remote_tt_device = false;
-
     tt_xy_pair arc_core;
 
 private:
@@ -365,6 +363,7 @@ private:
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilites_ = nullptr;
+    bool is_remote_tt_device_ = false;
 };
 
 }  // namespace tt::umd

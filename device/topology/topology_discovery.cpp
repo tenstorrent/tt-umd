@@ -299,9 +299,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         cluster_desc->harvesting_masks_map.insert({current_chip_id, tt_device->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, tt_device->get_chip_info().asic_location});
 
-        if (tt_device->get_pci_device()) {
+        if (tt_device->get_communication_device_type() == IODeviceType::PCIe && !tt_device->is_remote()) {
             cluster_desc->chip_to_bus_id.insert(
                 {current_chip_id, tt_device->get_pci_device()->get_device_info().pci_bus});
+        } else {
+            log_warning(LogUMD, "Skipping PCIe bus ID for chip {} (non-PCIe or remote).", current_chip_id);
         }
 
         if (is_using_eth_coords()) {

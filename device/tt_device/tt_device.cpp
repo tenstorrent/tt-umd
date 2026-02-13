@@ -79,6 +79,7 @@ TTDevice::TTDevice(
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_capabilites_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
+    is_remote_tt_device_ = true;
 }
 
 TTDevice::TTDevice() = default;
@@ -270,7 +271,7 @@ semver_t TTDevice::get_firmware_version() { return get_firmware_info_provider()-
 
 void TTDevice::wait_for_non_mmio_flush() {}
 
-bool TTDevice::is_remote() { return is_remote_tt_device; }
+bool TTDevice::is_remote() { return is_remote_tt_device_; }
 
 int TTDevice::get_communication_device_id() const { return communication_device_id_; }
 

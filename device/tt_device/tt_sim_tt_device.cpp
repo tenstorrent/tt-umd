@@ -247,10 +247,6 @@ bool TTSimTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("Getting NOC translation status is not supported in TTSim simulation device.");
 }
 
-semver_t TTSimTTDevice::get_eth_fw_version(tt_xy_pair eth_core) {
-    throw std::runtime_error("Getting ETH FW version is not supported in TTSim simulation device.");
-}
-
 void TTSimTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     throw std::runtime_error("DMA multicast write not supported for TTSim simulation device.");

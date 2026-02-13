@@ -223,8 +223,6 @@ public:
 
     virtual ChipInfo get_chip_info();
 
-    virtual semver_t get_eth_fw_version(tt_xy_pair eth_core) = 0;
-
     semver_t get_firmware_version();
 
     /**

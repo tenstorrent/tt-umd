@@ -282,7 +282,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
-    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
+    semver_t eth_fw_version = get_eth_fw_version(tt_device, eth_core);
     uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;

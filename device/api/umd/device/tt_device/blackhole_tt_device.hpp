@@ -46,8 +46,6 @@ public:
 
     ChipInfo get_chip_info() override;
 
-    semver_t get_eth_fw_version(tt_xy_pair eth_core) override;
-
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 

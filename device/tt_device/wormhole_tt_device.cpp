@@ -95,12 +95,6 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
-semver_t WormholeTTDevice::get_eth_fw_version(tt_xy_pair eth_core) {
-    uint32_t eth_fw_version_read;
-    read_from_device(&eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t));
-    return semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
-}
-
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

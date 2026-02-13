@@ -42,7 +42,6 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
-    semver_t get_eth_fw_version(tt_xy_pair eth_core) override;
 
     void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) override;
     void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) override;

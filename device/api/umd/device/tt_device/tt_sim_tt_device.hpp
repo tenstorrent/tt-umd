@@ -47,7 +47,6 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
-    semver_t get_eth_fw_version(tt_xy_pair eth_core) override;
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 

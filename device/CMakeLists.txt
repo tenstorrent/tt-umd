@@ -68,7 +68,6 @@ target_sources(
         pcie/tlb_window.cpp
         pcie/tlb_handle.cpp
         pcie/silicon_tlb_handle.cpp
-        pcie/simulation_tlb_handle.cpp
         cluster.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -132,7 +131,7 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/tt_sim_tlb_manager.cpp
             pcie/simulation_tlb_window.cpp
-            api/umd/device/pcie/simulation_tlb_handle.hpp
+            pcie/simulation_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -178,6 +177,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/tlb_window_base.hpp
                 api/umd/device/pcie/tlb_window.hpp
                 api/umd/device/pcie/simulation_tlb_window.hpp
+                api/umd/device/pcie/simulation_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp

@@ -15,6 +15,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -497,6 +498,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
             eth_core.str());
         return false;
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     uint32_t second_reading = get_eth_heartbeat(tt_device, eth_core);
     if ((second_reading >> 16) != 0xABCD) {
         log_warning(

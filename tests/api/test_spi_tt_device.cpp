@@ -144,6 +144,8 @@ TEST(ApiSPITTDeviceTest, DISABLED_SPIReadModifyWrite) {
         }
 
         // Write back incremented value.
+        std::cout << "New value being written: " << std::hex << std::setfill('0')
+                  << std::setw(2) << (int)new_value[1] << std::setw(2) << (int)new_value[0] << std::dec << std::endl;
         std::cout << "spi_write value to spare area at 0x" << std::hex << spi_spare_area_addr << std::dec << std::endl;
         spi_impl->write(spi_spare_area_addr, new_value.data(), new_value.size());
 

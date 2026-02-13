@@ -103,8 +103,8 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 
     if (need_lock_unlock) {
         std::vector<uint32_t> unlock_ret;
-        uint32_t rc = messenger->send_message(
-            static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
+        uint32_t rc =
+            messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
         if (rc != 0) {
             throw std::runtime_error("Failed to unlock SPI for write on Blackhole (fw >= 19.0).");
         }
@@ -134,8 +134,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
                 // Relock SPI if unlock was successful.
                 if (need_lock_unlock) {
                     std::vector<uint32_t> lock_ret;
-                    messenger->send_message(
-                        static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
+                    messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
                 }
                 throw std::runtime_error("Failed to write to SPI on Blackhole.");
             }
@@ -147,8 +146,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 
     if (need_lock_unlock) {
         std::vector<uint32_t> lock_ret;
-        uint32_t rc =
-            messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
+        uint32_t rc = messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
         if (rc != 0) {
             throw std::runtime_error("Failed to lock SPI after write on Blackhole (fw >= 19.0).");
         }

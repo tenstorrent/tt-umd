@@ -17,7 +17,9 @@ def get_spi_spare_addr_for_test(tt_device):
     if arch == tt_umd.ARCH.BLACKHOLE:
         # Blackhole doesn't have a reserved address for testing, so using a random high address.
         return 0x2800000
-    raise ValueError(f"Unsupported architecture for SPI spare address calculation: {arch}")
+    raise ValueError(
+        f"Unsupported architecture for SPI spare address calculation: {arch}"
+    )
 
 
 def setup_spi_test_devices():

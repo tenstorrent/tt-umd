@@ -180,7 +180,7 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_eth_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_eth_noc0_translated_mapping();
     } else {
         fill_eth_default_noc0_translated_mapping();
     }

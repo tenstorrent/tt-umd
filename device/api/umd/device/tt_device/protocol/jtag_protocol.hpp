@@ -29,6 +29,10 @@ public:
 
     architecture_implementation* get_architecture_implementation() override;
 
+    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE) override;
+
+    bool is_hardware_hung() override;
+
     /* JtagInterface */
     JtagDevice* get_jtag_device() override;
 

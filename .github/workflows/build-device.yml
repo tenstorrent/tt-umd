@@ -87,7 +87,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-compile-commands-${{ matrix.image.container-distro }}-${{ matrix.image.compiler }}
+            clang-tidy-compile-commands-${{ matrix.image.container-distro }}-${{ matrix.image.c }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
       - name: Prepare clang-tidy config file for upload
@@ -103,7 +103,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-config-${{ matrix.image.container-distro }}-${{ matrix.image.compiler }}
+            clang-tidy-config-${{ matrix.image.container-distro }}-${{ matrix.image.c }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package

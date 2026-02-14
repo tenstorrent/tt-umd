@@ -35,6 +35,10 @@ int JtagProtocol::get_communication_device_id() const { return communication_dev
 
 IODeviceType JtagProtocol::get_communication_device_type() { return IODeviceType::JTAG; }
 
+void JtagProtocol::detect_hang_read(uint32_t data_read) {}
+
+bool JtagProtocol::is_hardware_hung() { return false; }
+
 architecture_implementation* JtagProtocol::get_architecture_implementation() { return architecture_impl_; }
 
 JtagDevice* JtagProtocol::get_jtag_device() { return jtag_device_.get(); }

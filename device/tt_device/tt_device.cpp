@@ -112,16 +112,19 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     try {
         arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     } catch (const std::runtime_error &e) {
+        std::cout << "ARC Messenger creation failed: " << e.what() << std::endl;
         return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
     }
-    try {
-        telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
-    }
+    // try {
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    // } catch (const std::runtime_error &e) {
+    //     std::cout << "ARC Telemetry Reader creation failed: " << e.what() << std::endl;
+    //     return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
+    // }
     try {
         firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     } catch (const std::runtime_error &e) {
+        std::cout << "Firmware Info Provider creation failed: " << e.what() << std::endl;
         return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
     }
     std::cout << "Successful\n";
@@ -207,14 +210,11 @@ RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_in
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        // Jtag protocol uses different communication paths from pci therefore
-        // there's no need to check hang which is in this case pci-specific.
+    if (!is_remote_tt_device_) {
+        mmio_protocol_->detect_hang_read();
         return;
     }
-    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
-    }
+    get_remote_interface()->get_remote_communication()->get_mmio_protocol()->detect_hang_read();
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

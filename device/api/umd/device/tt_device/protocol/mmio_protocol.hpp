@@ -21,6 +21,10 @@ public:
     virtual IODeviceType get_communication_device_type() = 0;
 
     virtual architecture_implementation* get_architecture_implementation() = 0;
+
+    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE) = 0;
+
+    virtual bool is_hardware_hung() = 0;
 };
 
 }  // namespace tt::umd

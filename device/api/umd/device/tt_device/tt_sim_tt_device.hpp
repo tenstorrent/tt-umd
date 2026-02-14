@@ -31,8 +31,6 @@ public:
 
     SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
 
-    bool is_hardware_hung() override { return false; }
-
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;

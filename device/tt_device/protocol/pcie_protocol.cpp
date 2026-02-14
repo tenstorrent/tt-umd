@@ -63,6 +63,35 @@ int PcieProtocol::get_communication_device_id() const { return pci_device_->get_
 
 IODeviceType PcieProtocol::get_communication_device_type() { return IODeviceType::PCIe; }
 
+void PcieProtocol::detect_hang_read(uint32_t data_read) {
+    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
+        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+    }
+}
+
+bool PcieProtocol::is_hardware_hung() {
+    if (architecture_impl_->get_architecture() == ARCH::BLACKHOLE) {
+        // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+
+        // TODO: I am commented that out because we end up in this code path if we
+        // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
+        // it doesn't necessarily mean the hardware is hung. It's possible to write
+        // 0xffffffff to device memory and reading it back should not trigger an
+        // exception. In my case, the hardware was not hung but the 0xffffffff was
+        // related to a failure which was obscured by the exception. For now,
+        // just return false.  -- @joelsmithTT, Oct 1 2025
+
+        log_debug(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
+        return false;
+    }
+
+    uint32_t scratch_data = bar_read32(
+        architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
+        6 * 4);
+
+    return (scratch_data == HANG_READ_VALUE);
+}
+
 architecture_implementation *PcieProtocol::get_architecture_implementation() { return architecture_impl_; }
 
 PCIDevice *PcieProtocol::get_pci_device() { return pci_device_.get(); }

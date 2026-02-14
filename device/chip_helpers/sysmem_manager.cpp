@@ -56,6 +56,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 
     if (tt_device_) {
+        std::cout << "tt_device_ is not nullptr\n";
         log_debug(
             LogUMD,
             "Cluster::read_buffer (comm. device ID: {}, ch: {}) from {:p}",

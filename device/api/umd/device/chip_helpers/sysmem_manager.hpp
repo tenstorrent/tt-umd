@@ -46,7 +46,7 @@ protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 
     TLBManager* tlb_manager_;
-    TTDevice* tt_device_;
+    TTDevice* tt_device_ = nullptr;
     // const uint64_t pcie_base_;
     uint64_t pcie_base_;
 

@@ -404,16 +404,4 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     }
 }
 
-bool WormholeTTDevice::is_hardware_hung() {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
-    }
-
-    uint32_t scratch_data = bar_read32(
-        architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
-        6 * 4);
-
-    return (scratch_data == HANG_READ_VALUE);
-}
-
 }  // namespace tt::umd

@@ -73,8 +73,8 @@ public:
 
     tt::ARCH get_arch();
 
-    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
+    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
+    bool is_hardware_hung();
 
     /**
      * DMA transfer from device to host.

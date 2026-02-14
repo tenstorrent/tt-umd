@@ -59,8 +59,6 @@ private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
     friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    bool is_hardware_hung() override;
-
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
     uint32_t read_training_status(tt_xy_pair eth_core);

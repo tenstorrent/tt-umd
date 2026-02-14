@@ -116,6 +116,7 @@ target_sources(
         jtag/jtag.cpp
         tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
+        arc/blackhole_spi_tt_device.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -126,6 +127,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/tt_sim_chip.cpp
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
+            simulation/tt_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             ${FBS_GENERATED_HEADER}
@@ -194,6 +196,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/tt_sim_chip.hpp
                 api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
+                api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp
@@ -211,6 +214,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/wormhole_dram.hpp
+                api/umd/device/types/wormhole_eth.hpp
                 api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp

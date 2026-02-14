@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -38,6 +39,8 @@ public:
 
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
     ~WormholeTTDevice() override = default;
 

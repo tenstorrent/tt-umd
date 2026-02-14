@@ -41,6 +41,14 @@ enum class TTDeviceInitResult {
     SUCCESSFUL,
 };
 
+// Represents the status of the ETH core.
+enum class EthTrainingStatus {
+    IN_PROGRESS = 0,
+    SUCCESS = 1,
+    FAIL = 2,
+    NOT_CONNECTED = 3,
+};
+
 class TTDevice {
 public:
     /**
@@ -338,6 +346,13 @@ public:
     RemoteInterface *get_remote_interface();
 
     MmioProtocol *get_mmio_protocol();
+    /**
+     * Read the training status of the given ETH core.
+     *
+     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @return Training status
+     */
+    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

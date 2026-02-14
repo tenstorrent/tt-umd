@@ -45,7 +45,7 @@ jobs:
           {container-distro: fedora-39, compiler: gcc, c: gcc, cpp: g++},
         ]
 
-    name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.compiler }}
+    name: Build device for any arch on ${{ matrix.image.container-distro }} with ${{ matrix.image.c }}
     runs-on: tt-ubuntu-2204-large-stable
     container:
       image: >-
@@ -53,7 +53,7 @@ jobs:
         matrix.image.container-distro }}:latest
     env:
       ARTIFACT_DISTRO_VER: ${{ matrix.image.container-distro }}
-      ARTIFACT_COMPILER: ${{ matrix.image.compiler }}
+      ARTIFACT_COMPILER: ${{ matrix.image.c }}
 
     steps:
       - uses: actions/checkout@v4

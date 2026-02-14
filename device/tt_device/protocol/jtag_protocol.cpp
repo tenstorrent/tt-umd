@@ -32,6 +32,8 @@ tt::ARCH JtagProtocol::get_arch() {
 
 int JtagProtocol::get_communication_device_id() const { return communication_device_id_; }
 
+IODeviceType JtagProtocol::get_communication_device_type() { return IODeviceType::JTAG; }
+
 void JtagProtocol::detect_hang_read(uint32_t data_read) {}
 
 bool JtagProtocol::is_hardware_hung() { return false; }

@@ -303,7 +303,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             cluster_desc->chip_to_bus_id.insert(
                 {current_chip_id, tt_device->get_pci_device()->get_device_info().pci_bus});
         } else {
-            log_warning(LogUMD, "Skipping PCIe bus ID for chip {} (non-PCIe or remote).", current_chip_id);
+            log_debug(LogUMD, "Skipping PCIe bus ID for chip {} (non-PCIe or remote).", current_chip_id);
         }
 
         if (is_using_eth_coords()) {

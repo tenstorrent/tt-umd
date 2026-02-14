@@ -1022,15 +1022,25 @@ bool ClusterDescriptor::verify_harvesting_information() {
             CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
         if (expected_tensix_harvested_units != actual_tensix_harvested_units) {
-            log_warning(
-                LogUMD,
-                "Chip {} has inconsistent Tensix harvesting information between harvest mask and number of harvested. "
-                "Board {} expects {} units, but harvest mask indicates {} units.",
-                chip,
-                board_type_to_string(board_type),
-                expected_tensix_harvested_units,
-                actual_tensix_harvested_units);
-            harvesting_info_good = false;
+            const bool is_fw_lower_than_19_5 =
+                !fw_bundle_version.has_value() ||
+                semver_t::compare_firmware_bundle(fw_bundle_version.value(), semver_t(19, 5, 0)) < 0;
+            // P150 only: We enabled harvesting since 19.5, so skip warning users if FW is before 19.5 and no tensix
+            // harvested.
+            const bool p150_fw_before_harvesting =
+                board_type == BoardType::P150 && is_fw_lower_than_19_5 && actual_tensix_harvested_units == 0;
+            if (!p150_fw_before_harvesting) {
+                log_warning(
+                    LogUMD,
+                    "Chip {} has inconsistent Tensix harvesting information between harvest mask and number of "
+                    "harvested. "
+                    "Board {} expects {} units, but harvest mask indicates {} units.",
+                    chip,
+                    board_type_to_string(board_type),
+                    expected_tensix_harvested_units,
+                    actual_tensix_harvested_units);
+                harvesting_info_good = false;
+            }
         }
 
         uint32_t expected_dram_harvested_units =

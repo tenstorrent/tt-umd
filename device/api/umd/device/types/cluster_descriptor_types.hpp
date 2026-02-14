@@ -234,7 +234,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_u
     {BoardType::N150, 1},
     {BoardType::N300, 2},
     {BoardType::P100, 2},
-    {BoardType::P150, 0},
+    {BoardType::P150, 2},
     {BoardType::P300, 2},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 1},

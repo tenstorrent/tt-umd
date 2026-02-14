@@ -200,6 +200,8 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
                         for (int i = 0; i < 50; ++i) {
                             x += i;
                         }
+                        // Silence -Wunused-but-set-variable: x is used for busy-work only.
+                        (void)x;
                     }
                 });
                 success_count++;

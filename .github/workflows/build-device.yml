@@ -39,7 +39,7 @@ jobs:
           {container-distro: ubuntu-22.04, compiler: clang, c: clang-13, cpp: clang++-13},
           {container-distro: ubuntu-22.04, compiler: clang, c: clang-20, cpp: clang++-20},
           {container-distro: ubuntu-22.04, compiler: gcc, c: gcc-11, cpp: g++-11},
-          {container-distro: ubuntu-24.04, compiler: clang, c: clang-13, cpp: clang++-13},
+          # Note: We're intentionally skipping clang-13 which is obsolete on Ubuntu 24.04.
           {container-distro: ubuntu-24.04, compiler: clang, c: clang-20, cpp: clang++-20},
           {container-distro: ubuntu-24.04, compiler: gcc, c: gcc-11, cpp: g++-11},
           {container-distro: fedora-39, compiler: gcc, c: gcc, cpp: g++},

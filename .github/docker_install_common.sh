@@ -43,6 +43,7 @@ else
 fi
 
 # Install clang 13 so we can use it to test if the code builds with it.
+# Note: This is only successful on Ubuntu 22.04, not 24.04.
 wget https://apt.llvm.org/llvm.sh && \
     chmod u+x llvm.sh && \
     ./llvm.sh 13 && \

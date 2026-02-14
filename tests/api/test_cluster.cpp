@@ -1488,9 +1488,6 @@ TEST(TestCluster, EriscFirmwareHashCheck) {
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test on Galaxy configuration.";
-    }
     auto eth_fw_version = cluster->get_ethernet_firmware_version();
     if (!eth_fw_version.has_value()) {
         GTEST_SKIP() << "No ETH cores in Cluster. Skipping test.";

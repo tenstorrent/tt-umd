@@ -280,31 +280,16 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {os: ubuntu-22.04, compiler: gcc},
-          {os: ubuntu-24.04, compiler: gcc}
-        ]
-        pkg: [
-          {package: deb, distro: ubuntu},
-          {package: rpm, distro: fedora}
+          { package: deb, distro: ubuntu-22.04, compiler: gcc },
+          { package: deb, distro: ubuntu-24.04, compiler: gcc },
+          { package: rpm, distro: fedora-39, compiler: gcc }
         ]
 
-    name: >-
-      Test ${{ matrix.pkg.package }} package on ${{ matrix.pkg.distro }} distro
-      (which was generated via
-      ${{ (matrix.pkg.package == 'rpm' && 'tt-umd-ci-fedora-39')
-      || format('tt-umd-ci-{0}', matrix.build.os) }}-${{
-      (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }})
+    name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.compiler }}
     runs-on: ubuntu-22.04
     container:
-      image: >-
-        ${{ matrix.pkg.package == 'rpm' && format('ghcr.io/{0}/tt-umd-ci-fedora-39:latest', github.repository)
-        || format('ghcr.io/{0}/tt-umd-ci-{1}:latest', github.repository, matrix.build.os) }}
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.build.distro }}:latest
 
-    env:
-      ARTIFACT_DISTRO_VER: >-
-        ${{ (matrix.pkg.package == 'rpm' && 'fedora-39') || matrix.build.os }}
-      ARTIFACT_COMPILER: >-
-        ${{ (matrix.pkg.package == 'rpm' && 'gcc') || matrix.build.compiler }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -313,32 +298,32 @@ jobs:
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          name: tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.compiler }}
           path: >-
-            ./downloaded-artifact/tt-umd-packages-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-package
+            ./downloaded-artifact/tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.compiler }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          name: tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.compiler }}
           path: >-
-            ./downloaded-artifact/tt-umd-examples-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-example
+            ./downloaded-artifact/tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.compiler }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}
+          name: tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.compiler }}
           path: >-
-            ./downloaded-artifact/tt-umd-python-${{ env.ARTIFACT_DISTRO_VER }}-${{ env.ARTIFACT_COMPILER }}-package
+            ./downloaded-artifact/tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.compiler }}-package
 
       - name: Run test on example and python with packages
         shell: bash
         run: |
           set -euo pipefail
-          PKG_FMT="${{ matrix.pkg.package }}"
-          DISTRO_VER="${{ env.ARTIFACT_DISTRO_VER }}"
-          COMP="${{ env.ARTIFACT_COMPILER }}"
+          PKG_FMT="${{ matrix.build.package }}"
+          DISTRO_VER="${{ matrix.build.distro }}"
+          COMP="${{ matrix.build.compiler }}"
 
           # Directories from downloaded artifacts
           PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${DISTRO_VER}-${COMP}-package"

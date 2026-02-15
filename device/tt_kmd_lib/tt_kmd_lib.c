@@ -261,7 +261,7 @@ int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst
             return ret;
         }
 
-        memcpy(dst_ptr, src_ptr, chunk_size);
+        memmove(dst_ptr, src_ptr, chunk_size);
 
         dst_ptr += chunk_size;
         len -= chunk_size;

@@ -42,6 +42,7 @@ jobs:
           # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
           {distro: ubuntu-24.04, c: clang-20, cpp: clang++-20},
           {distro: ubuntu-24.04, c: gcc-11, cpp: g++-11},
+          # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, c: gcc-13, cpp: g++-13},
         ]
 

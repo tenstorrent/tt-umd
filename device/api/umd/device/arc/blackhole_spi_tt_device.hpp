@@ -97,7 +97,7 @@ private:
      * @return The file descriptor if found, nullopt otherwise
      */
     template <typename Reader>
-    std::optional<TtBootFsFd> find_boot_fs_tag(Reader&& reader, const std::string& tag_name);
+    std::optional<TtBootFsFd> find_boot_fs_tag(const Reader& reader, const std::string& tag_name);
 
     /**
      * Extract a protobuf varint field value from raw protobuf data.

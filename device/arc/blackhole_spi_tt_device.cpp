@@ -71,7 +71,7 @@ static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
 
 // Template member function implementation.
 template <typename Reader>
-std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(Reader&& reader, const std::string& tag_name) {
+std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(const Reader& reader, const std::string& tag_name) {
     uint32_t curr_addr = 0;
     uint32_t entry_count = 0;
 
@@ -82,7 +82,7 @@ std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(Reader&& reader
         }
 
         TtBootFsFd fd{};
-        std::invoke(std::forward<Reader>(reader), curr_addr, sizeof(TtBootFsFd), reinterpret_cast<uint8_t*>(&fd));
+        std::invoke(reader, curr_addr, sizeof(TtBootFsFd), reinterpret_cast<uint8_t*>(&fd));
 
         if (fd.flags.invalid()) {
             std::cout << "Found invalid entry (end of table), tag not found" << std::endl;

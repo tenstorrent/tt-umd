@@ -24,10 +24,9 @@ $DNFC \
 
 ## Fedora ships a recent CMake; no external repo needed.
 
-# @Development Tools installs unversioned /usr/bin/gcc only. Install gcc-13 / g++-13
-# so CMake can use CC=gcc-13 CXX=g++-13 explicitly (Fedora 39 default is GCC 13).
-echo "Installing versioned default GCC (gcc-13/g++-13)..."
-$DNFC gcc-13 gcc-13-c++
+echo "Making gcc-13 and g++-13 symlinks, which are default versions of gcc in Fedora 39"
+ln -s /usr/bin/gcc /usr/bin/gcc-13
+ln -s /usr/bin/g++ /usr/bin/g++-13
 
 # Install C++ development dependencies (using -devel suffix)
 echo "Installing C++ development dependencies..."

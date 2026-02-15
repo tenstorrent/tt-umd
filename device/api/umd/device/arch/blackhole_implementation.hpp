@@ -243,12 +243,13 @@ inline constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 // ARC firmware interrupt address and value to write in order
 // to make an interrupt request.
 inline constexpr uint32_t ARC_FW_INT_ADDR = ARC_RESET_UNIT_OFFSET + 0x100;
-constexpr uint32_t ARC_FW_INT_VAL = 65536;
+inline constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
 inline constexpr uint32_t SCRATCH_RAM_0 = ARC_RESET_UNIT_OFFSET + 0x400;
 inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
+inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 

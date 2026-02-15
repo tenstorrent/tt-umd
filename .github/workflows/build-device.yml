@@ -280,9 +280,9 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          { package: deb, distro: ubuntu-22.04, compiler: gcc },
-          { package: deb, distro: ubuntu-24.04, compiler: gcc },
-          { package: rpm, distro: fedora-39, compiler: gcc }
+          {package: deb, distro: ubuntu-22.04, compiler: gcc},
+          {package: deb, distro: ubuntu-24.04, compiler: gcc},
+          {package: rpm, distro: fedora-39, compiler: gcc}
         ]
 
     name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.compiler }}

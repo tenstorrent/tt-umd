@@ -345,7 +345,7 @@ public:
 
     RemoteInterface *get_remote_interface();
 
-    MmioProtocol *get_mmio_protocol();
+    DeviceProtocol *get_device_protocol();
     /**
      * Read the training status of the given ETH core.
      *
@@ -374,7 +374,6 @@ private:
     void probe_arc();
     std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
     /* Temporary solution for MmioProtocol */
-    MmioProtocol *mmio_protocol_ = nullptr;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilites_ = nullptr;

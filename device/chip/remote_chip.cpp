@@ -32,7 +32,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     const std::string& sdesc_path) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device()->get_mmio_protocol(),
+        local_chip->get_tt_device()->get_device_protocol(),
         target_eth_coord,
         sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);
     remote_communication->set_remote_transfer_ethernet_cores(
@@ -58,7 +58,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     SocDescriptor soc_descriptor) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device()->get_mmio_protocol(),
+        local_chip->get_tt_device()->get_device_protocol(),
         target_eth_coord,
         sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);
     remote_communication->set_remote_transfer_ethernet_cores(

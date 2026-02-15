@@ -23,6 +23,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
@@ -49,7 +50,6 @@ TTDevice::TTDevice(
     arch(architecture_impl_->get_architecture()) {
     auto pcie_protocol = std::make_unique<PcieProtocol>(pci_device_, architecture_impl_.get(), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
-    mmio_protocol_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
@@ -67,7 +67,6 @@ TTDevice::TTDevice(
     arch(architecture_impl_->get_architecture()) {
     auto jtag_protocol =
         std::make_unique<JtagProtocol>(jtag_device_, communication_device_id_, architecture_impl.get());
-    mmio_protocol_ = jtag_protocol.get();
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
 }
@@ -75,11 +74,11 @@ TTDevice::TTDevice(
 TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     std::unique_ptr<architecture_implementation> architecture_impl) :
-    communication_device_type_(remote_communication->get_mmio_protocol()->get_communication_device_type()),
-    communication_device_id_(remote_communication->get_mmio_protocol()->get_communication_device_id()),
+    communication_device_type_(remote_communication->get_device_protocol()->get_communication_device_type()),
+    communication_device_id_(remote_communication->get_device_protocol()->get_communication_device_id()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
+    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication), architecture_impl_.get());
     remote_capabilites_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
     is_remote_tt_device_ = true;
@@ -150,7 +149,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
-    switch (remote_communication->get_mmio_protocol()->get_arch()) {
+    switch (remote_communication->get_device_protocol()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
@@ -183,12 +182,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
     return remote_capabilites_;
 }
 
-MmioProtocol *TTDevice::get_mmio_protocol() {
-    if (mmio_protocol_ == nullptr) {
-        throw std::runtime_error("TTDevice was built with a Remote protocol.");
-    }
-    return mmio_protocol_;
-}
+DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
@@ -200,13 +194,7 @@ RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_in
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (!is_remote_tt_device_) {
-        mmio_protocol_->detect_hang_read();
-        return;
-    }
-    get_remote_interface()->get_remote_communication()->get_mmio_protocol()->detect_hang_read();
-}
+void TTDevice::detect_hang_read(std::uint32_t data_read) { device_protocol_->detect_hang_read(); }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {

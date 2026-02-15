@@ -34,7 +34,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
     // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
     std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_device->get_mmio_protocol(), {0, 0, 0, 0});
+        RemoteCommunication::create_remote_communication(gateway_device->get_device_protocol(), {0, 0, 0, 0});
     remote_communication->set_remote_transfer_ethernet_cores(
         get_soc_descriptor(gateway_device)
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));

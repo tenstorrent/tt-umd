@@ -5,16 +5,16 @@
  */
 #pragma once
 
-#include "mmio_protocol.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 
-class PcieProtocol final : public MmioProtocol, public PcieInterface {
+class PcieProtocol final : public DeviceProtocol, public PcieInterface {
 public:
     explicit PcieProtocol(
         std::shared_ptr<PCIDevice> pci_device, architecture_implementation *architecture_impl, bool use_safe_api);

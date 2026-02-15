@@ -13,22 +13,23 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(MmioProtocol* mmio_protocol, SysmemManager* sysmem_manager) :
-    mmio_protocol_(mmio_protocol), sysmem_manager_(sysmem_manager) {
-    lock_manager_.initialize_mutex(MutexType::NON_MMIO, mmio_protocol_->get_communication_device_id());
+RemoteCommunication::RemoteCommunication(DeviceProtocol* device_protocol, SysmemManager* sysmem_manager) :
+    device_protocol_(device_protocol), sysmem_manager_(sysmem_manager) {
+    lock_manager_.initialize_mutex(MutexType::NON_MMIO, device_protocol_->get_communication_device_id());
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    MmioProtocol* mmio_protocol, EthCoord target_chip, SysmemManager* sysmem_manager) {
-    switch (mmio_protocol->get_arch()) {
+    DeviceProtocol* device_protocol, EthCoord target_chip, SysmemManager* sysmem_manager) {
+    switch (device_protocol->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<RemoteCommunicationLegacyFirmware>(mmio_protocol, target_chip, sysmem_manager);
+            return std::make_unique<RemoteCommunicationLegacyFirmware>(device_protocol, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:
             // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
@@ -46,7 +47,7 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
     remote_transfer_eth_cores_.assign(remote_transfer_eth_cores.begin(), remote_transfer_eth_cores.end());
 }
 
-MmioProtocol* RemoteCommunication::get_mmio_protocol() { return mmio_protocol_; }
+DeviceProtocol* RemoteCommunication::get_device_protocol() { return device_protocol_; }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {

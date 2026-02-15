@@ -38,7 +38,7 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
     auto remote_communication =
-        RemoteCommunication::create_remote_communication(local_chip->get_mmio_protocol(), target_chip);
+        RemoteCommunication::create_remote_communication(local_chip->get_device_protocol(), target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
     return TTDevice::create(std::move(remote_communication));
@@ -100,7 +100,7 @@ void bind_tt_device(nb::module_ &m) {
                 self.set_remote_transfer_ethernet_cores(xy_cores);
             },
             nb::arg("cores"))
-        .def("get_mmio_protocol", &RemoteCommunication::get_mmio_protocol, nb::rv_policy::reference_internal)
+        .def("get_device_protocol", &RemoteCommunication::get_device_protocol, nb::rv_policy::reference_internal)
         .def("get_remote_transfer_ethernet_core", [](RemoteCommunication &self) -> std::tuple<int, int> {
             tt_xy_pair core = self.get_remote_transfer_ethernet_core();
             return std::make_tuple(core.x, core.y);

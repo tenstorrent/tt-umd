@@ -5,13 +5,13 @@
  */
 #pragma once
 
-#include "mmio_protocol.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 
 namespace tt::umd {
 
-class JtagProtocol final : public MmioProtocol, public JtagInterface {
+class JtagProtocol final : public DeviceProtocol, public JtagInterface {
 public:
     JtagProtocol(
         std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id, architecture_implementation* architecture_impl);
@@ -22,7 +22,6 @@ public:
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    /* MmioProtocol */
     tt::ARCH get_arch() override;
 
     int get_communication_device_id() const override;

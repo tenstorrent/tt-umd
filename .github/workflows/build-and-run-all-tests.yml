@@ -42,7 +42,6 @@ on:
 
 jobs:
   build-tests:
-    name: Build tests for Ubuntu 22.04
     secrets: inherit
     strategy:
       fail-fast: false
@@ -62,7 +61,6 @@ jobs:
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
   test-all:
-    name: Run tests on all supported archs
     secrets: inherit
     needs: build-tests
     strategy:
@@ -104,7 +102,6 @@ jobs:
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
   run-exalens-tests:
-    name: Run Exalens tests on Ubuntu 22.04
     secrets: inherit
     needs: build-tests
     strategy:

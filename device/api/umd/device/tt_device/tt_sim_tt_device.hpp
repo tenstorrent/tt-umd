@@ -76,10 +76,9 @@ private:
     void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
-    uint64_t bar0_base = 0;
     uint32_t tlb_region_size = 0;
 
-    std::recursive_mutex device_lock;
+    std::mutex device_lock;
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;

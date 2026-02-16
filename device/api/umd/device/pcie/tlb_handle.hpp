@@ -51,7 +51,7 @@ public:
     /**
      * Returns the TLB mapping type (UC or WC).
      */
-    const TlbMapping get_tlb_mapping() const;
+    TlbMapping get_tlb_mapping() const;
 
     /**
      * Returns the TLB ID, actually representing index of TLB in BAR0.

@@ -1,9 +1,9 @@
 <div align="center">
-<h1> TT-UMD :tm: </h1>
+<h1> TT-UMD </h1>
 
 User Mode Driver
 
-<img src="./docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
+<img src="https://raw.githubusercontent.com/tenstorrent/tt-umd/main/docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
 
 </div>
 <br/>
@@ -74,8 +74,8 @@ cmake --build build
 
 To build with GCC, set these environment variables before invoking `cmake`:
 ```
-export CMAKE_C_COMPILER=/usr/bin/gcc
-export CMAKE_CXX_COMPILER=/usr/bin/g++
+export CC=gcc
+export CXX=g++
 ```
 
 #### Build debian dev package
@@ -247,7 +247,3 @@ There is an automated workflow for creating releases. It is triggered by merging
 You can change the VERSION as part of another PR or as an isolated PR. Please also update the CHANGELOG with the exact version you are changeing to.
 
 Once the PR is merged, a draft Release will be created with the generated changelog and artifacts. Please review it and publish it using the tag which exactly matches the version of the release.
-
-# Grayskull End of Life
-
-Grayskull is no longer actively supported by Tenstorrent. [Last UMD commit](https://github.com/tenstorrent/tt-umd/commit/a5b4719b7d44f0c7c953542803faf6851574329a) supporting Grayskull.

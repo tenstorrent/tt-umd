@@ -2,8 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
+#include <cstdint>
 #include <cxxopts.hpp>
+#include <ios>
+#include <iostream>
+#include <memory>
+#include <ostream>
+#include <sstream>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 
 #include "common.hpp"
 #include "umd/device/cluster.hpp"
@@ -123,10 +134,10 @@ std::string get_connector_str(
             str << "LK1 trace";
             break;
         case ConnectorType::LK2:
-            str << "LK1 trace";
+            str << "LK2 trace";
             break;
         case ConnectorType::LK3:
-            str << "LK1 trace";
+            str << "LK3 trace";
             break;
     }
     str << ")";
@@ -136,7 +147,7 @@ std::string get_connector_str(
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "A tool that reports system health.");
 
-    options.add_options()("f,path", "File path to save cluster descriptor to.");
+    options.add_options()("f,path", "File path to save cluster descriptor to.")("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
 
@@ -145,7 +156,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::string cluster_descriptor_path = "";
+    std::string cluster_descriptor_path;
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
@@ -186,13 +197,10 @@ int main(int argc, char* argv[]) {
 
             std::stringstream eth_ss;
 
-            read_vec.resize(sizeof(uint32_t) / sizeof(uint32_t));
+            read_vec.resize(1);
             static constexpr std::uint32_t RETRAIN_COUNT_ADDR = 0x1EDC;  // wormhole
             cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
-
-            const bool is_external_cable =
-                check_if_external_cable_is_used(cluster_descriptor, board_type, chip_id, unique_chip_id, chan);
 
             std::string connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {

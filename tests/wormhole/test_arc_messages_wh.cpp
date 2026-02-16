@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <thread>
 #include <unordered_map>
@@ -19,7 +21,7 @@ using namespace tt::umd;
 TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
+    for (uint32_t chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
@@ -27,7 +29,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
         std::vector<uint32_t> arc_msg_return_values = {0};
-        uint32_t response = arc_messenger->send_message(
+        arc_messenger->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
@@ -44,7 +46,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    std::vector<uint32_t> target_chips = cluster->get_target_mmio_device_ids();
+    std::vector<uint32_t> target_chips = cluster->get_target_device_ids();
     std::unordered_map<uint32_t, TTDevice*> tt_devices;
     std::unordered_map<uint32_t, std::unique_ptr<ArcMessenger>> arc_messengers;
 
@@ -89,7 +91,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
     const uint32_t num_loops = 1000;
 
-    for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
+    for (uint32_t chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
@@ -99,7 +101,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
-                uint32_t response = arc_messenger->send_message(
+                arc_messenger->send_message(
                     wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,
@@ -116,7 +118,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
-                uint32_t response = arc_messenger->send_message(
+                arc_messenger->send_message(
                     wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,

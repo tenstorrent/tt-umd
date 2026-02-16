@@ -8,11 +8,72 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/simulation/simulation_host.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
+
+class TTSimCommunicator;
+
 class TTSimTTDevice : public TTDevice {
 public:
-    TTSimTTDevice();
+    TTSimTTDevice(
+        const std::filesystem::path &simulator_directory,
+        SocDescriptor soc_descriptor,
+        ChipId chip_id,
+        bool copy_sim_binary = false);
+    ~TTSimTTDevice();
+
+    static std::unique_ptr<TTSimTTDevice> create(const std::filesystem::path &simulator_directory);
+
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert);
+
+    SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
+
+    bool is_hardware_hung() override { return false; }
+
+    void dma_d2h(void *dst, uint32_t src, size_t size) override;
+    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
+    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
+    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
+    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
+    uint32_t get_clock() override;
+    uint32_t get_min_clock_freq() override;
+    bool get_noc_translation_enabled() override;
+    void dma_multicast_write(
+        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+
+    void close_device();
+    void start_device();
+
+    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
+    void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
+private:
+    uint64_t bar0_base = 0;
+    uint32_t tlb_region_size_ = 0;
+    std::unique_ptr<TTSimCommunicator> communicator_;
+    std::recursive_mutex device_lock;
+
+    std::filesystem::path simulator_directory_;
+    SocDescriptor soc_descriptor_;
+    ChipId chip_id_;
+    std::unique_ptr<architecture_implementation> architecture_impl_;
+
+    uint32_t libttsim_pci_device_id;
 };
 }  // namespace tt::umd

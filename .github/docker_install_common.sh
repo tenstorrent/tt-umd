@@ -42,17 +42,17 @@ else
     echo "gcc-12 is not available in the repository."
 fi
 
-# Install clang 17
+# Install clang 20
 wget https://apt.llvm.org/llvm.sh && \
     chmod u+x llvm.sh && \
-    ./llvm.sh 17 && \
-    apt install -y libc++-17-dev libc++abi-17-dev && \
-    ln -s /usr/bin/clang-17 /usr/bin/clang && \
-    ln -s /usr/bin/clang++-17 /usr/bin/clang++
+    ./llvm.sh 20 && \
+    apt install -y libc++-20-dev libc++abi-20-dev && \
+    ln -s /usr/bin/clang-20 /usr/bin/clang && \
+    ln -s /usr/bin/clang++-20 /usr/bin/clang++
 
 # Install clang-format
-apt install -y clang-format-17 && \
-    ln -s /usr/bin/clang-format-17 /usr/bin/clang-format
+apt install -y clang-format-20 && \
+    ln -s /usr/bin/clang-format-20 /usr/bin/clang-format
 
-# Install clang-tidy-17
-apt-get install -y clang-tidy-17
+# Install clang-tidy-20
+apt-get install -y clang-tidy-20

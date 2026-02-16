@@ -236,7 +236,7 @@ int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32
 
 int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst, size_t len) {
     uint8_t* dst_ptr = (uint8_t*)dst;
-    tt_tlb_t* tlb;
+    tt_tlb_t* tlb = NULL;
     int32_t ret;
 
     if (addr % 4 != 0 || len % 4 != 0) {

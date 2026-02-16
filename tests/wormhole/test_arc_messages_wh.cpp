@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -46,7 +47,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    std::vector<uint32_t> target_chips = cluster->get_target_device_ids();
+    std::set<tt::ChipId> target_chips = cluster->get_target_device_ids();
     std::unordered_map<uint32_t, TTDevice*> tt_devices;
     std::unordered_map<uint32_t, std::unique_ptr<ArcMessenger>> arc_messengers;
 

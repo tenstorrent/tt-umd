@@ -53,6 +53,7 @@ public:
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 

@@ -28,3 +28,5 @@ boardtype: {
    0: n300,
    1: n300,
 }
+
+boards: [[{board_id: 72058994491072686}, {board_type: n300}, {chips: [0,1]}]]

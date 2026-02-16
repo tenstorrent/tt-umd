@@ -4,7 +4,10 @@
 
 #include "umd/device/tt_device/remote_communication.hpp"
 
+#include <memory>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
 
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.hpp"

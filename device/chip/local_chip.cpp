@@ -4,7 +4,18 @@
 
 #include "umd/device/chip/local_chip.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -151,6 +162,7 @@ void LocalChip::initialize_membars() {
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
+    dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
         dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
     }
@@ -317,6 +329,12 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     tt_device_->dma_read_from_device(dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+}
+
+void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
+    tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
+    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -516,6 +534,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
+        dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(
                 soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));

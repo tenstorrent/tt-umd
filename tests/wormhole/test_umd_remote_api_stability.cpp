@@ -4,14 +4,18 @@
 
 #include <gtest/gtest.h>
 
+#include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "test_wh_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"

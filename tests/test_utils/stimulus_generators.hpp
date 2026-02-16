@@ -10,6 +10,7 @@
 #include <iostream>
 #include <map>
 #include <random>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -53,8 +54,8 @@ public:
     ConstrainedTemplateTemplateGenerator(
         int seed,
         DISTRIBUTION_T<UNCONSTRAINED_SAMPLE_T> const& distribution,
-        std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
-        generator(seed), distribution(distribution), constrain(constrain) {}
+        std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)>&& constrain) :
+        generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
         auto sample = distribution(generator);
@@ -71,8 +72,8 @@ template <typename SAMPLE_T, typename UNCONSTRAINED_SAMPLE_T, class DISTRIBUTION
 class ConstrainedTemplateGenerator {
 public:
     ConstrainedTemplateGenerator(
-        int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
-        generator(seed), distribution(distribution), constrain(constrain) {}
+        int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)>&& constrain) :
+        generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
         auto sample = distribution(generator);
@@ -513,7 +514,7 @@ void RunMixedTransfers(
 
     if (record_command_history) {
         assert(command_history != nullptr);
-        assert(command_history->size() == 0);  // only support passing in empty command histories
+        assert(command_history->empty());  // only support passing in empty command histories
         command_history->reserve(num_samples);
     }
     std::vector<uint32_t> payload = {};

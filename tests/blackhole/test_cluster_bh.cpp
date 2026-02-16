@@ -4,8 +4,13 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
 #include <memory>
+#include <set>
 #include <thread>
+#include <vector>
 
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"

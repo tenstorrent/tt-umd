@@ -18,6 +18,10 @@ on:
         required: false
         type: string
         default: ""
+      build-wheel:
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -46,7 +50,7 @@ on:
 env:
   CC: clang-20
   CXX: clang++-20
-  BUILD_TARGETS: "umd_tests ubench"
+  BUILD_TARGETS: "umd_tests umd_microbenchmark"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -111,6 +115,7 @@ jobs:
           path: artifact.tar
 
   build-wheel:
+    if: inputs.build-wheel
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 

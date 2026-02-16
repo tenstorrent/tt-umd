@@ -5,9 +5,16 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -15,6 +22,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "utils.hpp"
@@ -24,8 +32,8 @@ namespace tt::umd {
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
-WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
@@ -38,7 +46,6 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    init_tt_device();
 }
 
 WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
@@ -423,7 +430,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     }
 
     start = std::chrono::steady_clock::now();
-    while (read_training_status(eth_core) == LINK_TRAIN_TRAINING) {
+    while (read_eth_core_training_status(actual_eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         time_taken_port = duration;
@@ -432,24 +439,48 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}",
                     timeout_ms.count(),
-                    eth_core.x,
-                    eth_core.y));
+                    actual_eth_core.x,
+                    actual_eth_core.y));
+            } else {
+                // We don't want to throw on 6u systems, but log a warning so it is visible.
+                log_warning(
+                    LogUMD,
+                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+                    timeout_ms.count(),
+                    actual_eth_core.x,
+                    actual_eth_core.y);
+                break;
             }
-            break;
         }
     }
     return time_taken_heartbeat + time_taken_port;
 }
 
-uint32_t WormholeTTDevice::read_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+    uint32_t retrain_status;
+    read_from_device(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
+    // If core is in retrain state, then training status is not valid as the training is ongoing.
+    // If the core is put in retrain state, we have to wait for the retrain state to clear before making sense out of
+    // the training status.
+    if (retrain_status == wormhole::ETH_TRIGGER_RETRAIN_VAL) {
+        log_trace(LogUMD, "Core {} is in retrain state, training is ongoing.", eth_core.str());
+        return EthTrainingStatus::IN_PROGRESS;
+    }
     uint32_t training_status;
-    read_from_device(
-        &training_status,
-        is_selected_noc1() ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y])
-                           : eth_core,
-        0x1104,
-        sizeof(uint32_t));
-    return training_status;
+    read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
+    log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
+
+    if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
+        // Training can fail due to various reasons, but what we mostly care about is to detect whether this is
+        // unconnected eth link or if the training truly failed on a connected eth link.
+        uint32_t link_err_status;
+        read_from_device(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
+        log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
+        if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
+            return EthTrainingStatus::NOT_CONNECTED;
+        }
+    }
+    return static_cast<EthTrainingStatus>(training_status);
 }
 
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {

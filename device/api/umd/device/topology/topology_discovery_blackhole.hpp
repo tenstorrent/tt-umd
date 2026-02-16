@@ -33,8 +33,6 @@ protected:
 
     tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint32_t read_port_status(TTDevice* tt_device, tt_xy_pair eth_core);
-
     uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
     uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
@@ -52,7 +50,7 @@ protected:
     bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
     std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;
 
     void patch_eth_connections() override;
 

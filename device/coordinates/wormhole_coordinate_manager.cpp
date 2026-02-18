@@ -217,21 +217,49 @@ void WormholeCoordinateManager::fill_eth_noc0_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
+    // PCIe core at NOC0 (0,3) corresponds to tensix row 2.
+    // We need to find where NOC y=3 maps to after harvesting reordering.
+    std::vector<size_t> reordered_channels =
+        reorder_dram_channels_for_harvesting(harvesting_masks.tensix_harvesting_mask);
+
+    // Find the index of NOC y=3 in the reordered list.
+    size_t translated_y = wormhole::tensix_translated_coordinate_start_y;  // Default.
+    for (size_t i = 0; i < reordered_channels.size(); i++) {
+        if (reordered_channels[i] == 3) {
+            translated_y = wormhole::tensix_translated_coordinate_start_y + i;
+            break;
+        }
+    }
+
     for (auto pcie_core : pcie_cores) {
         CoreCoord translated_coord = CoreCoord(pcie_core, CoreType::PCIE, CoordSystem::TRANSLATED);
         auto xy_translated_coord = pcie_coord_map.at(pcie_core);
         translated_coord.x = xy_translated_coord.x;
-        translated_coord.y = xy_translated_coord.y;
+        translated_coord.y = translated_y;
         add_core_translation(translated_coord, pcie_core);
     }
 }
 
 void WormholeCoordinateManager::fill_arc_noc0_translated_mapping() {
+    // ARC core at NOC0 (0,10) corresponds to tensix row 8.
+    // We need to find where NOC y=10 maps to after harvesting reordering.
+    std::vector<size_t> reordered_channels =
+        reorder_dram_channels_for_harvesting(harvesting_masks.tensix_harvesting_mask);
+
+    // Find the index of NOC y=10 in the reordered list.
+    size_t translated_y = wormhole::tensix_translated_coordinate_start_y;  // Default.
+    for (size_t i = 0; i < reordered_channels.size(); i++) {
+        if (reordered_channels[i] == 10) {
+            translated_y = wormhole::tensix_translated_coordinate_start_y + i;
+            break;
+        }
+    }
+
     for (auto arc_core : arc_cores) {
         CoreCoord translated_coord = CoreCoord(arc_core, CoreType::ARC, CoordSystem::TRANSLATED);
         auto xy_translated_coord = arc_coord_map.at(arc_core);
         translated_coord.x = xy_translated_coord.x;
-        translated_coord.y = xy_translated_coord.y;
+        translated_coord.y = translated_y;
         add_core_translation(translated_coord, arc_core);
     }
 }

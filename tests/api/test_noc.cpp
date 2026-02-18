@@ -344,5 +344,5 @@ INSTANTIATE_TEST_SUITE_P(
         CoreType core_type = std::get<0>(info.param);
         CoordSystem coord_system = std::get<1>(info.param);
         uint8_t noc_index = std::get<2>(info.param);
-        return to_str(core_type) + "_" + to_str(coord_system) + "_NOC" + std::to_string(noc_index);
+        return to_str(core_type) + "_on_" + to_str(coord_system) + "_via_NOC" + std::to_string(noc_index);
     });

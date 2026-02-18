@@ -223,7 +223,16 @@ void TTSimTTDevice::dma_multicast_write(
 
 TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
-        cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
+        switch (architecture_impl_->get_architecture()) {
+            case ARCH::BLACKHOLE:
+                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
+                break;
+            case ARCH::WORMHOLE_B0:
+                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
+                break;
+            default:
+                TT_THROW("Unsupported architecture for TTSimTTDevice.");
+        }
     }
 
     return cached_tlb_window_.get();

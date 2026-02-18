@@ -114,7 +114,9 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
         uint32_t reg_val_high_low = static_cast<uint32_t>(reg_val_high & 0xFFFFFFFF);
         std::memcpy(reg_data + 8, &reg_val_high_low, 4);
 
-        communicator->pci_mem_write_bytes(tlb_reg_addr_, reg_data, 12);
+        communicator->pci_mem_write_bytes(tlb_reg_addr_, reg_data, 4);
+        communicator->pci_mem_write_bytes(tlb_reg_addr_ + 4, reg_data + 4, 4);
+        communicator->pci_mem_write_bytes(tlb_reg_addr_ + 8, reg_data + 8, 4);
     } else {
         // Wormhole uses 8 bytes (64 bits).
         communicator->pci_mem_write_bytes(tlb_reg_addr_, &reg_val, 8);

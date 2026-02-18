@@ -133,6 +133,26 @@ public:
 
     Cluster* get_cluster() { return cluster_.get(); };
 
+    uint32_t get_dram_noc_port(CoreCoord core) {
+        if (core.coord_system == tt::CoordSystem::NOC0) {
+            auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
+
+            if (it != womrhole_dram_coord_to_noc_port_noc0.end()) {
+                return it->second;
+            }
+        }
+
+        if (core.coord_system == tt::CoordSystem::NOC1) {
+            auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
+
+            if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
+                return it->second;
+            }
+        }
+
+        return 0;
+    }
+
 private:
     std::unique_ptr<Cluster> cluster_;
 
@@ -165,26 +185,6 @@ private:
     }
 
     static uint8_t get_noc_index(CoordSystem noc) { return (noc == CoordSystem::NOC0) ? 0 : 1; }
-
-    uint32_t get_dram_noc_port(CoreCoord core) {
-        if (core.coord_system == tt::CoordSystem::NOC0) {
-            auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
-
-            if (it != womrhole_dram_coord_to_noc_port_noc0.end()) {
-                return it->second;
-            }
-        }
-
-        if (core.coord_system == tt::CoordSystem::NOC1) {
-            auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
-
-            if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
-                return it->second;
-            }
-        }
-
-        return 0;
-    }
 
     // clang-format off
     std::map<tt_xy_pair, uint32_t> womrhole_dram_coord_to_noc_port_noc0 {
@@ -268,3 +268,54 @@ INSTANTIATE_TEST_SUITE_P(
         bool use_harvested = std::get<2>(info.param);
         return to_str(core_type) + "_" + to_str(noc) + (use_harvested ? "_Harvested" : "_Normal");
     });
+
+TEST_F(TestNoc, VerifyNocIdLogicalCoordinatesMatchTranslated) {
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        // Test for each core type.
+        for (CoreType core_type : {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE}) {
+            // Get cores in NOC0 coordinate system.
+            const std::vector<CoreCoord>& cores =
+                get_cluster()->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC0);
+
+            for (const CoreCoord& core_noc0 : cores) {
+                // Read the logical coordinate register (should match TRANSLATED coordinate system).
+                auto noc_port = (core_type == CoreType::DRAM) ? get_dram_noc_port(core_noc0) : 0;
+                const uint64_t noc_translated_id_reg_addr =
+                    get_cluster()->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
+                        core_type, 0, noc_port) +
+                    get_cluster()->get_tt_device(0)->get_architecture_implementation()->get_noc_id_logical_offset();
+
+                uint32_t noc_logical_id_val;
+                get_cluster()->read_from_device_reg(
+                    &noc_logical_id_val, chip, core_noc0, noc_translated_id_reg_addr, sizeof(noc_logical_id_val));
+
+                uint32_t logical_x = noc_logical_id_val & 0x3F;
+                uint32_t logical_y = (noc_logical_id_val >> 6) & 0x3F;
+
+                // Get the TRANSLATED coordinate from SocDescriptor.
+                CoreCoord translated_coord =
+                    get_cluster()->get_soc_descriptor(chip).translate_coord_to(core_noc0, CoordSystem::TRANSLATED);
+
+                log_info(
+                    tt::LogUMD,
+                    "Chip {} {} core NOC0=({},{}) -> TRANSLATED=({},{}) vs LOGICAL_REG=({},{})",
+                    chip,
+                    to_str(core_type),
+                    core_noc0.x,
+                    core_noc0.y,
+                    translated_coord.x,
+                    translated_coord.y,
+                    logical_x,
+                    logical_y);
+
+                // Verify that logical register coordinates match TRANSLATED coordinates.
+                EXPECT_EQ(logical_x, translated_coord.x)
+                    << "Chip " << chip << " " << to_str(core_type) << " core NOC0=(" << core_noc0.x << ","
+                    << core_noc0.y << ") logical X mismatch";
+                EXPECT_EQ(logical_y, translated_coord.y)
+                    << "Chip " << chip << " " << to_str(core_type) << " core NOC0=(" << core_noc0.x << ","
+                    << core_noc0.y << ") logical Y mismatch";
+            }
+        }
+    }
+}

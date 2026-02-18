@@ -41,6 +41,14 @@ static std::unordered_map<tt_xy_pair, tt_xy_pair> dram_coord_map = {
     {{5, 11}, {17, 26}}
 };
 
+static std::unordered_map<tt_xy_pair, tt_xy_pair> arc_coord_map = {
+    {{0, 10}, {16, 25}}
+};
+
+static std::unordered_map<tt_xy_pair, tt_xy_pair> pcie_coord_map = {
+    {{0, 3}, {16, 20}}
+};
+
 // clang-format on
 
 WormholeCoordinateManager::WormholeCoordinateManager(
@@ -146,13 +154,23 @@ void WormholeCoordinateManager::fill_eth_noc0_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
-    // PCIE cores are not translated in Wormhole.
-    fill_pcie_default_noc0_translated_mapping();
+    for (auto pcie_core : pcie_cores) {
+        CoreCoord translated_coord = CoreCoord(pcie_core, CoreType::PCIE, CoordSystem::TRANSLATED);
+        auto xy_translated_coord = pcie_coord_map.at(pcie_core);
+        translated_coord.x = xy_translated_coord.x;
+        translated_coord.y = xy_translated_coord.y;
+        add_core_translation(translated_coord, pcie_core);
+    }
 }
 
 void WormholeCoordinateManager::fill_arc_noc0_translated_mapping() {
-    // ARC cores are not translated in Wormhole.
-    fill_arc_default_noc0_translated_mapping();
+    for (auto arc_core : arc_cores) {
+        CoreCoord translated_coord = CoreCoord(arc_core, CoreType::ARC, CoordSystem::TRANSLATED);
+        auto xy_translated_coord = arc_coord_map.at(arc_core);
+        translated_coord.x = xy_translated_coord.x;
+        translated_coord.y = xy_translated_coord.y;
+        add_core_translation(translated_coord, arc_core);
+    }
 }
 
 tt_xy_pair WormholeCoordinateManager::get_tensix_grid_size() const {

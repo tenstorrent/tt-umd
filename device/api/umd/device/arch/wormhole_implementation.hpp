@@ -309,7 +309,7 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::ARC, 0xFFFB20000},
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
-inline constexpr uint64_t NOC_ID_LOGICAL_OFFSET = 0x38;
+inline constexpr uint64_t NOC_ID_LOGICAL_OFFSET = 0x138;
 
 constexpr std::array<uint64_t, 3> DRAM_NOC0_CONTROL_REG_ADDR_BASE_MAP = {0x100080000, 0x100090000, 0x1000A0000};
 constexpr std::array<uint64_t, 3> DRAM_NOC1_CONTROL_REG_ADDR_BASE_MAP = {0x100088000, 0x100098000, 0x1000A8000};

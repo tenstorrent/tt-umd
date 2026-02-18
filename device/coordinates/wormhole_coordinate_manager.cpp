@@ -51,13 +51,14 @@ static std::unordered_map<tt_xy_pair, tt_xy_pair> pcie_coord_map = {
 
 // clang-format on
 
-// Helper function to reorder DRAM y indices based on harvesting mask.
-// DRAM channels must correspond to tensix rows (skipping rows 0 and 6 which are ethernet).
-// When a tensix row is harvested, the corresponding DRAM channel moves to the back.
-// Input: dram_noc_y values (1,2,3,4,5,7,8,9,10,11 - skipping 0 and 6 which are ethernet-aligned)
+// Helper function to reorder NOC y-coordinates based on harvesting mask.
+// Used for DRAM, ARC, and PCIE cores that align with tensix rows.
+// NOC y-coordinates correspond to tensix rows (skipping rows 0 and 6 which are ethernet).
+// When a tensix row is harvested, the corresponding NOC y-coordinate moves to the back.
+// Input: NOC y values (1,2,3,4,5,7,8,9,10,11 - skipping 0 and 6 which are ethernet-aligned)
 // Output: reordered values based on harvesting mask.
-static std::vector<size_t> reorder_dram_channels_for_harvesting(uint32_t harvesting_mask) {
-    // DRAM NOC y-coordinates that can be harvested (skipping 0 and 6 which are ethernet-aligned).
+static std::vector<size_t> reorder_noc_y_for_harvesting(uint32_t harvesting_mask) {
+    // NOC y-coordinates that can be harvested (skipping 0 and 6 which are ethernet-aligned).
     std::vector<size_t> dram_channels = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
 
     std::vector<size_t> unharvested_channels;
@@ -161,9 +162,8 @@ void WormholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_dram_noc0_translated_mapping() {
-    // Get the reordered DRAM channels based on harvesting.
-    std::vector<size_t> reordered_channels =
-        reorder_dram_channels_for_harvesting(harvesting_masks.tensix_harvesting_mask);
+    // Get the reordered NOC y-coordinates based on harvesting.
+    std::vector<size_t> reordered_channels = reorder_noc_y_for_harvesting(harvesting_masks.tensix_harvesting_mask);
 
     // Build mapping from original NOC y to reordered translated y.
     std::unordered_map<size_t, size_t> noc_y_to_translated_y;
@@ -219,8 +219,7 @@ void WormholeCoordinateManager::fill_eth_noc0_translated_mapping() {
 void WormholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
     // PCIe core at NOC0 (0,3) corresponds to tensix row 2.
     // We need to find where NOC y=3 maps to after harvesting reordering.
-    std::vector<size_t> reordered_channels =
-        reorder_dram_channels_for_harvesting(harvesting_masks.tensix_harvesting_mask);
+    std::vector<size_t> reordered_channels = reorder_noc_y_for_harvesting(harvesting_masks.tensix_harvesting_mask);
 
     // Find the index of NOC y=3 in the reordered list.
     size_t translated_y = wormhole::tensix_translated_coordinate_start_y;  // Default.
@@ -243,8 +242,7 @@ void WormholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
 void WormholeCoordinateManager::fill_arc_noc0_translated_mapping() {
     // ARC core at NOC0 (0,10) corresponds to tensix row 8.
     // We need to find where NOC y=10 maps to after harvesting reordering.
-    std::vector<size_t> reordered_channels =
-        reorder_dram_channels_for_harvesting(harvesting_masks.tensix_harvesting_mask);
+    std::vector<size_t> reordered_channels = reorder_noc_y_for_harvesting(harvesting_masks.tensix_harvesting_mask);
 
     // Find the index of NOC y=10 in the reordered list.
     size_t translated_y = wormhole::tensix_translated_coordinate_start_y;  // Default.

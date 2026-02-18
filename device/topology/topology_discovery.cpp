@@ -489,13 +489,26 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 }
 
 bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
-    // ERISC FW might take a long time to start up after warm reset.
     auto start = std::chrono::steady_clock().now();
-    uint32_t first_reading = 0;
+    uint32_t previous_reading = 0;
     while (true) {
-        first_reading = get_eth_heartbeat(tt_device, eth_core);
-        if (first_reading != 0) {
-            break;
+        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+
+        // ERISC FW might take a long time to start up after warm reset.
+        // The value being read is 0 until ERISC FW starts.
+        if (current_reading != 0 && previous_reading != 0) {
+            // Heartbeat must be in the format 0xABCDxxxx.
+            if ((current_reading >> 16) != 0xABCD) {
+                log_warning(
+                    LogUMD,
+                    "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+                    current_reading,
+                    eth_core.str());
+                return false;
+            }
+            if (previous_reading != current_reading) {
+                return true;
+            }
         }
         if (utils::check_timeout(
                 start,
@@ -504,30 +517,9 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
                 utils::TimeoutAction::Return)) {
             return false;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        previous_reading = current_reading;
     }
-
-    // Heartbeat must be in the format 0xABCDxxxx.
-    if ((first_reading >> 16) != 0xABCD) {
-        log_warning(
-            LogUMD,
-            "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
-            first_reading,
-            eth_core.str());
-        return false;
-    }
-    // Some hosts will read the two values too fast for it to be updated.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    uint32_t second_reading = get_eth_heartbeat(tt_device, eth_core);
-    if ((second_reading >> 16) != 0xABCD) {
-        log_warning(
-            LogUMD,
-            "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
-            second_reading,
-            eth_core.str());
-        return false;
-    }
-    return first_reading != second_reading;
+    return false;
 }
 
 }  // namespace tt::umd

@@ -261,7 +261,13 @@ int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst
             return ret;
         }
 
-        memcpy(dst_ptr, src_ptr, chunk_size);
+        // Bounds check before copy: chunk_size is guaranteed to fit within tlb->size - offset.
+        if (chunk_size > 0 && offset + chunk_size <= tlb->size) {
+            memcpy(dst_ptr, src_ptr, chunk_size);
+        } else {
+            tt_tlb_free(dev, tlb);
+            return -EINVAL;
+        }
 
         dst_ptr += chunk_size;
         len -= chunk_size;
@@ -300,7 +306,13 @@ int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const vo
             return ret;
         }
 
-        memcpy(dst_ptr, src_ptr, chunk_size);
+        // Bounds check before copy: chunk_size is guaranteed to fit within tlb->size - offset.
+        if (chunk_size > 0 && offset + chunk_size <= tlb->size) {
+            memcpy(dst_ptr, src_ptr, chunk_size);
+        } else {
+            tt_tlb_free(dev, tlb);
+            return -EINVAL;
+        }
 
         src_ptr += chunk_size;
         len -= chunk_size;

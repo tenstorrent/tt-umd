@@ -143,7 +143,7 @@ jobs:
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip wheel auditwheel
           echo "Compiling the code..."
           # Override CMAKE_BUILD_TYPE to Release for sanitizer builds to avoid symbol conflicts with Python
           # Python interpreters are not built with sanitizers, so TSAN/ASAN wheels cannot be loaded
@@ -155,7 +155,14 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+
+          # This is done so that all the necessary libraries are included in the wheel.
+          # Specifically, this will make the wheel runnable on exalens ci image.
+          echo "Repairing wheel with auditwheel..."
+          WHL_PATH=$(ls ${{ env.WHEEL_OUTPUT_DIR }}/*.whl)
+          auditwheel -v repair "$WHL_PATH" -w ${{ env.WHEEL_OUTPUT_DIR }}
+          rm "$WHL_PATH"
           echo "Compile complete."
 
       - name: Move python bindings tests in the same wheel folder
@@ -168,3 +175,36 @@ jobs:
           # Note that wheel is built with hardcoded Release build type at the moment.
           name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}
+
+  build-exalens-kernels:
+    name: Build tt-exalens kernels for tests
+    timeout-minutes: 5
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-exalens
+          ref: main
+          submodules: recursive
+
+      - name: Build test kernels
+        run: |
+          make
+
+      - name: Remove SFPI from build artifacts
+        run: |
+          mv build/sfpi build/sfpi_backup
+          mkdir -p build/sfpi/compiler/bin/
+          cp build/sfpi_backup/compiler/bin/riscv-tt-elf-gdb build/sfpi/compiler/bin/riscv-tt-elf-gdb
+          rm -rf build/sfpi_backup
+          rm -f build/sfpi_*
+
+      - name: Upload kernels as artifacts
+        uses: pyTooling/upload-artifact@v4
+        with:
+          name: ttexalens-build
+          path: |
+            build

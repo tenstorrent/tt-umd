@@ -114,6 +114,7 @@ target_sources(
         jtag/jtag.cpp
         tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
+        arc/blackhole_spi_tt_device.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -212,6 +213,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/wormhole_dram.hpp
+                api/umd/device/types/wormhole_eth.hpp
                 api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp

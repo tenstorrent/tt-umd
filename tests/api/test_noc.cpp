@@ -269,53 +269,68 @@ INSTANTIATE_TEST_SUITE_P(
         return to_str(core_type) + "_" + to_str(noc) + (use_harvested ? "_Harvested" : "_Normal");
     });
 
-TEST_F(TestNoc, VerifyNocIdLogicalCoordinatesMatchTranslated) {
+class TestNocLogicalCoordinates : public TestNoc,
+                                  public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem>> {};
+
+TEST_P(TestNocLogicalCoordinates, VerifyNocIdLogicalCoordinatesMatchTranslated) {
+    auto [core_type, coord_system] = GetParam();
+
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        // Test for each core type.
-        for (CoreType core_type : {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE}) {
-            // Get cores in NOC0 coordinate system.
-            const std::vector<CoreCoord>& cores =
-                get_cluster()->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC0);
+        // Get cores in the specified coordinate system.
+        const std::vector<CoreCoord>& cores =
+            get_cluster()->get_soc_descriptor(chip).get_cores(core_type, coord_system);
 
-            for (const CoreCoord& core_noc0 : cores) {
-                // Read the logical coordinate register (should match TRANSLATED coordinate system).
-                auto noc_port = (core_type == CoreType::DRAM) ? get_dram_noc_port(core_noc0) : 0;
-                const uint64_t noc_translated_id_reg_addr =
-                    get_cluster()->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
-                        core_type, 0, noc_port) +
-                    get_cluster()->get_tt_device(0)->get_architecture_implementation()->get_noc_id_logical_offset();
+        for (const CoreCoord& core : cores) {
+            // Read the logical coordinate register (should match TRANSLATED coordinate system).
+            auto noc_port = (core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
+            const uint64_t noc_translated_id_reg_addr =
+                get_cluster()->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
+                    core_type, 0, noc_port) +
+                get_cluster()->get_tt_device(0)->get_architecture_implementation()->get_noc_id_logical_offset();
 
-                uint32_t noc_logical_id_val;
-                get_cluster()->read_from_device_reg(
-                    &noc_logical_id_val, chip, core_noc0, noc_translated_id_reg_addr, sizeof(noc_logical_id_val));
+            uint32_t noc_logical_id_val;
+            get_cluster()->read_from_device_reg(
+                &noc_logical_id_val, chip, core, noc_translated_id_reg_addr, sizeof(noc_logical_id_val));
 
-                uint32_t logical_x = noc_logical_id_val & 0x3F;
-                uint32_t logical_y = (noc_logical_id_val >> 6) & 0x3F;
+            uint32_t logical_x = noc_logical_id_val & 0x3F;
+            uint32_t logical_y = (noc_logical_id_val >> 6) & 0x3F;
 
-                // Get the TRANSLATED coordinate from SocDescriptor.
-                CoreCoord translated_coord =
-                    get_cluster()->get_soc_descriptor(chip).translate_coord_to(core_noc0, CoordSystem::TRANSLATED);
+            // Get the TRANSLATED coordinate from SocDescriptor.
+            CoreCoord translated_coord =
+                get_cluster()->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
 
-                log_info(
-                    tt::LogUMD,
-                    "Chip {} {} core NOC0=({},{}) -> TRANSLATED=({},{}) vs LOGICAL_REG=({},{})",
-                    chip,
-                    to_str(core_type),
-                    core_noc0.x,
-                    core_noc0.y,
-                    translated_coord.x,
-                    translated_coord.y,
-                    logical_x,
-                    logical_y);
+            log_debug(
+                tt::LogUMD,
+                "Chip {} {} core {}=({},{}) -> TRANSLATED=({},{}) vs LOGICAL_REG=({},{})",
+                chip,
+                to_str(core_type),
+                to_str(coord_system),
+                core.x,
+                core.y,
+                translated_coord.x,
+                translated_coord.y,
+                logical_x,
+                logical_y);
 
-                // Verify that logical register coordinates match TRANSLATED coordinates.
-                EXPECT_EQ(logical_x, translated_coord.x)
-                    << "Chip " << chip << " " << to_str(core_type) << " core NOC0=(" << core_noc0.x << ","
-                    << core_noc0.y << ") logical X mismatch";
-                EXPECT_EQ(logical_y, translated_coord.y)
-                    << "Chip " << chip << " " << to_str(core_type) << " core NOC0=(" << core_noc0.x << ","
-                    << core_noc0.y << ") logical Y mismatch";
-            }
+            // Verify that logical register coordinates match TRANSLATED coordinates.
+            EXPECT_EQ(logical_x, translated_coord.x)
+                << "Chip " << chip << " " << to_str(core_type) << " core " << to_str(coord_system) << "=(" << core.x
+                << "," << core.y << ") logical X mismatch";
+            EXPECT_EQ(logical_y, translated_coord.y)
+                << "Chip " << chip << " " << to_str(core_type) << " core " << to_str(coord_system) << "=(" << core.x
+                << "," << core.y << ") logical Y mismatch";
         }
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    AllCoreTypesAndCoordSystems,
+    TestNocLogicalCoordinates,
+    ::testing::Combine(
+        ::testing::Values(CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE),
+        ::testing::Values(CoordSystem::NOC0, CoordSystem::NOC1)),
+    [](const ::testing::TestParamInfo<std::tuple<CoreType, CoordSystem>>& info) {
+        CoreType core_type = std::get<0>(info.param);
+        CoordSystem coord_system = std::get<1>(info.param);
+        return to_str(core_type) + "_" + to_str(coord_system);
+    });

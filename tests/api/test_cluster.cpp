@@ -241,7 +241,7 @@ TEST(ApiClusterTest, OpenChipsByBDFWormhole6USameChip) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
     }
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
@@ -273,7 +273,7 @@ TEST(ApiClusterTest, OpenChipsByBDFWormhole6UPattern) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
     }
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
@@ -301,6 +301,10 @@ TEST(ApiClusterTest, OpenChipsByBDFWormhole6UPattern) {
 
 TEST(ApiClusterTest, OpenChipsByIdException) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
+    }
 
     std::unordered_set<int> target_device_ids;
     target_device_ids.insert(pci_device_ids.size());

@@ -273,12 +273,12 @@ std::unordered_set<ChipId> ClusterDescriptor::get_chips_from_same_boards(
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
-    std::unordered_set<ChipId> visible_chips = get_target_chip_ids_from_visible_devices(full_cluster_desc);
+    std::unordered_set<ChipId> visible_chips;
 
-    // We combine the target_chip_ids from the function argument and the TT_VISIBLE_DEVICES environment variable, so
-    // that if both are specified, we take the intersection of the two sets. This is useful for simulation purposes.
-    for (const auto &chip_id : target_chip_ids) {
-        visible_chips.insert(chip_id);
+    if (!target_chip_ids.empty()) {
+        visible_chips = target_chip_ids;
+    } else {
+        visible_chips = get_target_chip_ids_from_visible_devices(full_cluster_desc);
     }
 
     visible_chips = full_cluster_desc->get_chips_from_same_boards(visible_chips);

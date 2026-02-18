@@ -22,6 +22,7 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -154,45 +155,82 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
     EXPECT_EQ(cluster_desc->get_chip_locations().size(), 8);
 
+    std::string filter_value = "0,1";
+
+    if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), filter_value.c_str(), 1) != 0) {
+        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+    }
     // Create with just two PCI chips.
     std::unique_ptr<ClusterDescriptor> constrained_cluster_desc =
         cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1});
 
     EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 2);
-    EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 2);
-    // There are two ethernet connections between the two chips, and each is reported 2 times.
-    EXPECT_EQ(count_connections(constrained_cluster_desc->get_ethernet_connections()), 4);
-    // However we only have 2 chips that are connected, which is 1 edge.
-    EXPECT_EQ(count_unique_chip_connections(constrained_cluster_desc->get_ethernet_connections()), 1);
-    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().size(), 2);
-    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(0).size(), 1);
-    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 1);
-    EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 2);
-    // This is not serialized into yaml, but we'd expect it to also be constrained.
-    // EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 2);.
-
-    // Create with one card which is one PCI and one remote chip.
-    constrained_cluster_desc = cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 4});
-
-    EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 1);
-    EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 2);
-    EXPECT_EQ(count_connections(constrained_cluster_desc->get_ethernet_connections()), 4);
-    EXPECT_EQ(count_unique_chip_connections(constrained_cluster_desc->get_ethernet_connections()), 1);
-    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().size(), 1);
-    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(0).size(), 2);
-    EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 2);
-
-    // Create with two cards, 4 chips.
-    constrained_cluster_desc = cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1, 4, 5});
-
-    EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 4);
+    // There are two ethernet connections between the two chips, and each is reported 2 times.
     EXPECT_EQ(count_connections(constrained_cluster_desc->get_ethernet_connections()), 16);
+    // However we only have 2 chips that are connected, which is 1 edge.
     EXPECT_EQ(count_unique_chip_connections(constrained_cluster_desc->get_ethernet_connections()), 4);
     EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(0).size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
+    // This is not serialized into yaml, but we'd expect it to also be constrained.
+    EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
+    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
+    }
+}
+
+TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+
+    // Lambda which counts of unique chip links.
+    auto count_unique_chip_connections =
+        [](const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
+               connections) {
+            std::unordered_set<int> unique_connections;
+            for (const auto& [chip, channels] : connections) {
+                for (const auto& [channel, remote_chip_and_channel] : channels) {
+                    auto [remote_chip, remote_channel] = remote_chip_and_channel;
+                    if (chip > remote_chip) {
+                        // One int is calculated from two ints, so that we don't have to define a hash function for a
+                        // pair<int, int>.
+                        unique_connections.insert(chip * 1000 + remote_chip);
+                    } else {
+                        unique_connections.insert(remote_chip * 1000 + chip);
+                    }
+                }
+            }
+            return unique_connections.size();
+        };
+
+    // Check the original cluster descriptor, just so we know what we're starting with.
+    EXPECT_EQ(cluster_desc->get_chips_with_mmio().size(), 4);
+    EXPECT_EQ(cluster_desc->get_all_chips().size(), 8);
+    EXPECT_EQ(count_connections(cluster_desc->get_ethernet_connections()), 40);
+    EXPECT_EQ(count_unique_chip_connections(cluster_desc->get_ethernet_connections()), 10);
+    EXPECT_EQ(cluster_desc->get_chips_grouped_by_closest_mmio().size(), 4);
+    EXPECT_EQ(cluster_desc->get_chips_grouped_by_closest_mmio().at(0).size(), 2);
+    EXPECT_EQ(cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
+    EXPECT_EQ(cluster_desc->get_chip_locations().size(), 8);
+
+    // Create with just two PCI chips.
+    std::unique_ptr<ClusterDescriptor> constrained_cluster_desc =
+        cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1});
+
+    EXPECT_EQ(constrained_cluster_desc->get_chips_with_mmio().size(), 2);
+    EXPECT_EQ(constrained_cluster_desc->get_all_chips().size(), 4);
+    // There are two ethernet connections between the two chips, and each is reported 2 times.
+    EXPECT_EQ(count_connections(constrained_cluster_desc->get_ethernet_connections()), 16);
+    // However we only have 2 chips that are connected, which is 1 edge.
+    EXPECT_EQ(count_unique_chip_connections(constrained_cluster_desc->get_ethernet_connections()), 4);
+    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().size(), 2);
+    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(0).size(), 2);
+    EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
+    EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
+    // This is not serialized into yaml, but we'd expect it to also be constrained.
+    EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
 }
 
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {

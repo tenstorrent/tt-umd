@@ -6,9 +6,42 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <vector>
 
 namespace tt::umd {
+
+// NOC0 to Translated for DRAM
+// clang-format off
+static std::unordered_map<tt_xy_pair, tt_xy_pair> dram_coord_map = {
+    {{0, 0}, {16, 16}},
+    {{0, 1}, {16, 18}},
+    {{0, 2}, {16, 19}},
+    {{0, 3}, {16, 20}},
+    {{0, 4}, {16, 27}},
+    {{0, 5}, {16, 21}},
+    {{0, 6}, {16, 17}},
+    {{0, 7}, {16, 22}},
+    {{0, 8}, {16, 23}},
+    {{0, 9}, {16, 24}},
+    {{0, 10}, {16, 25}},
+    {{0, 11}, {16, 26}},
+    
+    {{5, 0}, {17, 16}},
+    {{5, 1}, {17, 18}},
+    {{5, 2}, {17, 19}},
+    {{5, 3}, {17, 20}},
+    {{5, 4}, {17, 27}},
+    {{5, 5}, {17, 21}},
+    {{5, 6}, {17, 17}},
+    {{5, 7}, {17, 22}},
+    {{5, 8}, {17, 23}},
+    {{5, 9}, {17, 24}},
+    {{5, 10}, {17, 25}},
+    {{5, 11}, {17, 26}}
+};
+
+// clang-format on
 
 WormholeCoordinateManager::WormholeCoordinateManager(
     const bool noc_translation_enabled,
@@ -81,8 +114,13 @@ void WormholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_dram_noc0_translated_mapping() {
-    // DRAM cores are not translated in Wormhole.
-    fill_dram_default_noc0_translated_mapping();
+    for (auto dram_core : dram_cores) {
+        CoreCoord translated_coord = CoreCoord(dram_core, CoreType::DRAM, CoordSystem::TRANSLATED);
+        auto xy_translated_coord = dram_coord_map.at(dram_core);
+        translated_coord.x = xy_translated_coord.x;
+        translated_coord.y = xy_translated_coord.y;
+        add_core_translation(translated_coord, dram_core);
+    }
 }
 
 void WormholeCoordinateManager::fill_eth_noc0_translated_mapping() {

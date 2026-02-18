@@ -332,7 +332,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeTranslationWithoutCoreType) {
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({0, 0}, CoordSystem::NOC0, CoordSystem::NOC0).core_type, CoreType::DRAM);
     EXPECT_EQ(
-        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::TRANSLATED, CoordSystem::NOC0).core_type,
+        coordinate_manager->translate_coord_to({16, 16}, CoordSystem::TRANSLATED, CoordSystem::NOC0).core_type,
         CoreType::DRAM);
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({2, 2}, CoordSystem::NOC0, CoordSystem::NOC0).core_type,

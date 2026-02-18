@@ -133,21 +133,21 @@ public:
 
     Cluster* get_cluster() { return cluster_.get(); };
 
-    tt_xy_pair read_noc_logical_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
+    tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
         auto noc_port = (core.core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
-        const uint64_t noc_logical_id_reg_addr =
+        const uint64_t noc_translated_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_id_logical_offset();
 
-        uint32_t noc_logical_id_val;
+        uint32_t noc_translated_id_val;
         cluster_->read_from_device_reg(
-            &noc_logical_id_val, chip, core, noc_logical_id_reg_addr, sizeof(noc_logical_id_val));
+            &noc_translated_id_val, chip, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
-        uint32_t logical_x = noc_logical_id_val & 0x3F;
-        uint32_t logical_y = (noc_logical_id_val >> 6) & 0x3F;
+        uint32_t translated_x = noc_translated_id_val & 0x3F;
+        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
 
-        return tt_xy_pair(logical_x, logical_y);
+        return tt_xy_pair(translated_x, translated_y);
     }
 
 private:
@@ -286,10 +286,11 @@ INSTANTIATE_TEST_SUITE_P(
         return to_str(core_type) + "_" + to_str(noc) + (use_harvested ? "_Harvested" : "_Normal");
     });
 
-class TestNocLogicalCoordinates : public TestNoc,
-                                  public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem, uint8_t>> {};
+class TestNocTranslatedCoordinates : public TestNoc,
+                                     public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem, uint8_t>> {
+};
 
-TEST_P(TestNocLogicalCoordinates, VerifyNocIdLogicalCoordinatesMatchTranslated) {
+TEST_P(TestNocTranslatedCoordinates, VerifyNocIdTranslatedCoordinatesMatch) {
     auto [core_type, coord_system, noc_index] = GetParam();
 
     // Set NOC context for the transaction.
@@ -301,8 +302,8 @@ TEST_P(TestNocLogicalCoordinates, VerifyNocIdLogicalCoordinatesMatchTranslated) 
             get_cluster()->get_soc_descriptor(chip).get_cores(core_type, coord_system);
 
         for (const CoreCoord& core : cores) {
-            // Read the logical coordinate register (should match TRANSLATED coordinate system).
-            const auto [logical_x, logical_y] = read_noc_logical_id_reg(chip, core, noc_index);
+            // Read the translated coordinate register (should match TRANSLATED coordinate system).
+            const auto [translated_x_reg, translated_y_reg] = read_noc_translated_id_reg(chip, core, noc_index);
 
             // Get the TRANSLATED coordinate from SocDescriptor.
             CoreCoord translated_coord =
@@ -310,7 +311,7 @@ TEST_P(TestNocLogicalCoordinates, VerifyNocIdLogicalCoordinatesMatchTranslated) 
 
             log_debug(
                 tt::LogUMD,
-                "Chip {} {} core {}=({},{}) NOC{} -> TRANSLATED=({},{}) vs LOGICAL_REG=({},{})",
+                "Chip {} {} core {}=({},{}) NOC{} -> TRANSLATED=({},{}) vs TRANSLATED_REG=({},{})",
                 chip,
                 to_str(core_type),
                 to_str(coord_system),
@@ -319,23 +320,23 @@ TEST_P(TestNocLogicalCoordinates, VerifyNocIdLogicalCoordinatesMatchTranslated) 
                 noc_index,
                 translated_coord.x,
                 translated_coord.y,
-                logical_x,
-                logical_y);
+                translated_x_reg,
+                translated_y_reg);
 
-            // Verify that logical register coordinates match TRANSLATED coordinates.
-            EXPECT_EQ(logical_x, translated_coord.x)
+            // Verify that translated register coordinates match TRANSLATED coordinates.
+            EXPECT_EQ(translated_x_reg, translated_coord.x)
                 << "Chip " << chip << " " << to_str(core_type) << " core " << to_str(coord_system) << "=(" << core.x
-                << "," << core.y << ") NOC" << static_cast<int>(noc_index) << " logical X mismatch";
-            EXPECT_EQ(logical_y, translated_coord.y)
+                << "," << core.y << ") NOC" << static_cast<int>(noc_index) << " translated X mismatch";
+            EXPECT_EQ(translated_y_reg, translated_coord.y)
                 << "Chip " << chip << " " << to_str(core_type) << " core " << to_str(coord_system) << "=(" << core.x
-                << "," << core.y << ") NOC" << static_cast<int>(noc_index) << " logical Y mismatch";
+                << "," << core.y << ") NOC" << static_cast<int>(noc_index) << " translated Y mismatch";
         }
     }
 }
 
 INSTANTIATE_TEST_SUITE_P(
     AllCoreTypesAndCoordSystems,
-    TestNocLogicalCoordinates,
+    TestNocTranslatedCoordinates,
     ::testing::Combine(
         ::testing::Values(CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE),
         ::testing::Values(CoordSystem::NOC0, CoordSystem::NOC1),

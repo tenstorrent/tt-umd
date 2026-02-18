@@ -265,8 +265,13 @@ std::vector<int> PCIDevice::enumerate_devices() {
 
     std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
 
-    std::vector<int> all_device_ids = get_all_device_ids();
     std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+
+    std::vector<int> all_device_ids = {};
+
+    for (const auto &[bdf, device_id] : get_bdf_to_device_id_map()) {
+        all_device_ids.push_back(device_id);
+    }
 
     std::set<int> filtered_device_ids;
 

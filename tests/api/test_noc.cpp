@@ -210,7 +210,7 @@ private:
 class TestNocValidity : public TestNoc,
                         public ::testing::WithParamInterface<std::tuple<CoreType, CoordSystem, bool>> {};
 
-TEST_P(TestNocValidity, VerifyNocTranslation) {
+TEST_P(TestNocValidity, VerifyNocTranslationHostSide) {
     auto [core_type, noc, use_harvested_cores] = GetParam();
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 

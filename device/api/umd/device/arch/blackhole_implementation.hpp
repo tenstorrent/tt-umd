@@ -286,6 +286,7 @@ inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_A
      {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;
+inline constexpr uint64_t NOC_ID_LOGICAL_OFFSET = 0x48;
 
 inline constexpr size_t eth_translated_coordinate_start_x = 20;
 inline constexpr size_t eth_translated_coordinate_start_y = 25;
@@ -466,6 +467,8 @@ public:
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_id_logical_offset() const override { return blackhole::NOC_ID_LOGICAL_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

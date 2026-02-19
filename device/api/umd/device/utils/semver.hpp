@@ -53,9 +53,6 @@ public:
         return semver_t(major, minor, patch);
     }
 
-    // Alternative name used in tt-metal. TODO: Remove.
-    static semver_t from_eth_fw_tag(std::uint32_t version) { return from_wormhole_eth_firmware_tag(version); }
-
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 
     std::string str() const {

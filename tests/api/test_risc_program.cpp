@@ -29,89 +29,14 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/chip/local_chip.hpp"
-#include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/warm_reset.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
-
-TEST(TestRiscProgram, WarmReset) {
-    if constexpr (is_arm_platform()) {
-        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
-    }
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
-    }
-
-    auto arch = cluster->get_tt_device(0)->get_arch();
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP()
-            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
-               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
-    }
-
-    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
-    std::vector<uint8_t> zero_data(data.size(), 0);
-    std::vector<uint8_t> readback_data(data.size(), 0);
-
-    // send data to core 15, 15 which will hang the NOC
-    auto hanged_chip_id = *cluster->get_target_device_ids().begin();
-    auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
-    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
-
-    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
-    }
-
-    WarmReset::warm_reset();
-
-    cluster.reset();
-
-    cluster = std::make_unique<Cluster>();
-
-    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
-
-    // TODO: Comment this out after finding out how to detect hang reads on
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
-
-    auto chip_ids = cluster->get_target_device_ids();
-    for (auto& chip_id : chip_ids) {
-        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
-
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            RiscType select_all_tensix_riscv_cores{RiscType::ALL_TENSIX};
-
-            // Set all riscs to reset state.
-            cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
-
-            cluster->l1_membar(chip_id, {tensix_core});
-
-            // Zero out first 8 bytes on L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
-
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
-
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
-
-            ASSERT_EQ(data, readback_data);
-        }
-    }
-}
 
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.

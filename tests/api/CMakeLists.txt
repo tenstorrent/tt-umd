@@ -11,6 +11,7 @@ set(API_TESTS_SRCS
     test_noc.cpp
     test_jtag.cpp
     test_arc_telemetry.cpp
+    test_warm_reset.cpp
 )
 
 add_executable(api_tests ${API_TESTS_SRCS})

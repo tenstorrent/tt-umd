@@ -349,7 +349,7 @@ Cluster::Cluster(ClusterOptions options) {
         }
         case ChipType::MOCK:
         case ChipType::SIMULATION: {
-            if (options.cluster_descriptor != nullptr) {
+            if (options.cluster_descriptor == nullptr) {
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;

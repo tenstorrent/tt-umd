@@ -365,6 +365,18 @@ static std::string generate_mock_bdf(ChipId logical_id) {
     return fmt::format("{:04x}:{:02x}:{:02x}.{}", 0, bus, device, function);
 }
 
+/**
+ * Generate deterministic board ID for mock device logical IDs.
+ */
+static uint64_t generate_mock_board_id(ChipId logical_id, BoardType board_type) {
+    switch (board_type) {
+        case BoardType::N150:
+            return (0x18ULL << 36) + logical_id;
+        default:
+            return (0x40ULL << 36) + logical_id;
+    }
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     const std::unordered_set<ChipId> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled) {
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
@@ -400,6 +412,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_unique_ids.insert({logical_id, logical_id});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
+        desc->chip_board_type.insert({logical_id, board_type});
+        desc->add_chip_to_board(logical_id, generate_mock_board_id(logical_id, board_type));
         desc->fill_mock_hardcoded_data(logical_id);
     }
     desc->fill_chips_grouped_by_closest_mmio();

@@ -6,9 +6,34 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 
 namespace tt::umd {
+
+// static void (*s_pfn_libttsim_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size);
+// static void (*s_pfn_libttsim_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size);
+// #if TT_VERSION == 0
+// static uint64_t s_tlb_cfg[186];
+// #elif TT_VERSION == 1
+// static uint32_t s_tlb_cfg[210*3];
+// #endif
+
+// extern "C" API_EXPORT void libttsim_init() {
+//     TTSIM_VERIFY(!s_ttsim_running, ConfigurationError, "sim is already running");
+//     ttsim_init();
+//     s_ttsim_running = true;
+// }
+
+// extern "C" API_EXPORT void libttsim_exit() {
+//     TTSIM_VERIFY(s_ttsim_running, ConfigurationError, "sim is not running");
+//     ttsim_exit();
+//     s_ttsim_running = false;
+// }
+
+// extern "C" API_EXPORT void libttsim_set_pci_dma_mem_callbacks(
+//     decltype(s_pfn_libttsim_pci_dma_mem_rd_bytes) pfn_libttsim_pci_dma_mem_rd_bytes,
+//     decltype(s_pfn_libttsim_pci_dma_mem_wr_bytes) pfn_libttsim_pci_dma_mem_wr_bytes
 
 /**
  * TTSimCommunicator handles low-level communication with the TTSim .so library.
@@ -100,6 +125,10 @@ public:
      */
     void advance_clock(uint32_t n_clocks);
 
+    void set_pcie_dma_mem_callbacks(
+        std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+
 private:
     // Library management.
     void create_simulator_binary();
@@ -130,6 +159,20 @@ private:
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
+    void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
+        void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
+        void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
+
+    // Stored callbacks for DMA memory operations.
+    std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
+    std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
+
+    // Static instance pointer for callback wrappers.
+    static TTSimCommunicator *callback_instance_;
+
+    // Static wrapper functions for C-style callbacks.
+    static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
 
     // Thread safety.
     mutable std::mutex device_lock_;

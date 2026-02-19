@@ -63,6 +63,8 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
+    TTSimCommunicator *get_communicator() { return communicator_.get(); }
+
 private:
     uint64_t bar0_base = 0;
     uint32_t tlb_region_size_ = 0;

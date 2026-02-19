@@ -70,4 +70,23 @@ void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_risc
         soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs, staggered_start);
 }
 
+void TTSimChip::initialize_sysmem_functions() {
+    TTSimCommunicator* tt_sim_communicator = tt_device_->get_communicator();
+    tt_sim_communicator->set_pcie_dma_mem_callbacks(
+        [this](uint64_t a, void* p, uint32_t s) { pci_dma_read_bytes(a, p, s); },
+        [this](uint64_t a, const void* p, uint32_t s) { pci_dma_write_bytes(a, p, s); });
+}
+
+void TTSimChip::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
+    uint64_t channel = paddr / (1ULL << 30);
+    uint64_t offset = paddr % (1ULL << 30);
+    sysmem_manager_->read_from_sysmem(channel, p, offset, size);
+}
+
+void TTSimChip::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
+    uint64_t channel = paddr / (1ULL << 30);
+    uint64_t offset = paddr % (1ULL << 30);
+    sysmem_manager_->write_to_sysmem(channel, p, offset, size);
+}
+
 }  // namespace tt::umd

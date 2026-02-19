@@ -91,6 +91,30 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
     pfn_libttsim_clock_(n_clocks);
 }
 
+TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+
+void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
+    if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
+        callback_instance_->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+    }
+}
+
+void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size) {
+    if (callback_instance_ && callback_instance_->pci_dma_mem_wr_bytes_callback_) {
+        callback_instance_->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+    }
+}
+
+void TTSimCommunicator::set_pcie_dma_mem_callbacks(
+    std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
+    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pci_dma_mem_rd_bytes_callback_ = pfn_pci_dma_mem_rd_bytes;
+    pci_dma_mem_wr_bytes_callback_ = pfn_pci_dma_mem_wr_bytes;
+    callback_instance_ = this;
+    pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+}
+
 void TTSimCommunicator::create_simulator_binary() {
     const std::string filename = simulator_directory_.stem().string();
     const std::string extension = simulator_directory_.extension().string();
@@ -159,6 +183,7 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
+    DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
 }
 
 void TTSimCommunicator::close_simulator_binary() {

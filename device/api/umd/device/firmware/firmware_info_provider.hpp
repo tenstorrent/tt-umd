@@ -86,10 +86,16 @@ public:
     virtual std::optional<uint32_t> get_arcclk() const;
 
     /*
-     * Get fan speed in rpm, if fans are present and controllable by firmware.
-     * @returns Fan speed [rpm]
+     * Get fan speed as a percentage (0-100), if fans are present and controllable by firmware.
+     * @returns Fan speed [percent]
      */
     virtual std::optional<uint32_t> get_fan_speed() const;
+
+    /*
+     * Get fan speed in RPM, if fans are present and controllable by firmware.
+     * @returns Fan speed [RPM]
+     */
+    virtual std::optional<uint32_t> get_fan_rpm() const;
 
     /*
      * Get TDP in watts.
@@ -138,6 +144,7 @@ protected:
     bool axiclk_available;
     bool arcclk_available;
     bool fan_speed_available;
+    bool fan_rpm_available;
     bool tdp_available;
     bool tdc_available;
     bool vcore_available;

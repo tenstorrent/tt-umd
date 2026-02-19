@@ -32,6 +32,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     axiclk_available = telemetry->is_entry_available(TelemetryTag::AXICLK);
     arcclk_available = telemetry->is_entry_available(TelemetryTag::ARCCLK);
     fan_speed_available = telemetry->is_entry_available(TelemetryTag::FAN_SPEED);
+    fan_rpm_available = telemetry->is_entry_available(TelemetryTag::FAN_RPM);
     tdp_available = telemetry->is_entry_available(TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(TelemetryTag::VCORE);
@@ -231,6 +232,19 @@ std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
         return std::nullopt;
     }
     return fan_speed;
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!fan_rpm_available) {
+        return std::nullopt;
+    }
+    const uint32_t fan_rpm = telemetry->read_entry(TelemetryTag::FAN_RPM);
+    // All ones mean fans not present on board, or not under control of firmware.
+    if (fan_rpm == 0xFFFFFFFF) {
+        return std::nullopt;
+    }
+    return fan_rpm;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const {

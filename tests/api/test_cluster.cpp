@@ -677,6 +677,57 @@ TEST(TestCluster, DeassertResetBrisc) {
     }
 }
 
+// Use cluster's broadcast assert/deassert reset to all tensix cores on all chips in the cluster.
+TEST(TestCluster, DeassertBroadcastResetBrisc) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr uint32_t a_variable_value = 0x87654000;
+    constexpr uint64_t a_variable_address = 0x10000;
+    constexpr uint64_t brisc_code_address = 0;
+
+    uint32_t readback = 0;
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    cluster->assert_risc_reset();
+    for (auto& chip_id : cluster->get_target_device_ids()) {
+        for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            cluster->write_to_device(
+                simple_brisc_program.data(),
+                simple_brisc_program.size() * sizeof(uint32_t),
+                chip_id,
+                tensix_core,
+                brisc_code_address);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+        }
+    }
+
+    cluster->deassert_risc_reset();
+
+    for (auto& chip_id : cluster->get_target_device_ids()) {
+        for (const CoreCoord& tensix_core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+            cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+
+            EXPECT_EQ(a_variable_value, readback)
+                << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
+        }
+    }
+}
+
 TEST(TestCluster, DeassertResetWithCounterBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
     std::unique_ptr<Cluster> cluster =

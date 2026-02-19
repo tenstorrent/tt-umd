@@ -333,6 +333,11 @@ TEST_P(CoordinateManagerWormholeHarvestingAwareTranslation, VerifyHarvestingAwar
         EXPECT_EQ(pcie_translated.x, 16);
 
         size_t expected_pcie_y = noc_y_to_expected_translated_y[3];
+
+        std::cout << "Mask 0x" << std::hex << harvesting_mask << std::dec << ": PCIE NOC0=(0,3) -> TRANSLATED=("
+                  << pcie_translated.x << "," << pcie_translated.y << ") [expected y=" << expected_pcie_y << "]"
+                  << std::endl;
+
         EXPECT_EQ(pcie_translated.y, expected_pcie_y) << "PCIE with mask 0x" << std::hex << harvesting_mask << std::dec
                                                       << " expected translated y=" << expected_pcie_y;
     }
@@ -348,6 +353,11 @@ TEST_P(CoordinateManagerWormholeHarvestingAwareTranslation, VerifyHarvestingAwar
         EXPECT_EQ(arc_translated.x, 16);
 
         size_t expected_arc_y = noc_y_to_expected_translated_y[10];
+
+        std::cout << "Mask 0x" << std::hex << harvesting_mask << std::dec << ": ARC  NOC0=(0,10) -> TRANSLATED=("
+                  << arc_translated.x << "," << arc_translated.y << ") [expected y=" << expected_arc_y << "]"
+                  << std::endl;
+
         EXPECT_EQ(arc_translated.y, expected_arc_y) << "ARC with mask 0x" << std::hex << harvesting_mask << std::dec
                                                     << " expected translated y=" << expected_arc_y;
     }

@@ -57,10 +57,6 @@ bool is_ipmitool_ready() {
     return true;
 }
 
-// ============================================================================
-// TTDevice Warm Reset Tests (moved from test_tt_device.cpp)
-// ============================================================================
-
 TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
@@ -360,10 +356,6 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
     }
 }
 
-// ============================================================================
-// Cluster Warm Reset Tests (moved from test_cluster.cpp)
-// ============================================================================
-
 TEST(WarmResetTest, DISABLED_ClusterWarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -518,10 +510,6 @@ TEST(WarmResetTest, ClusterWarmReset) {
         }
     }
 }
-
-// ============================================================================
-// Warm Reset Notification Tests (moved from test_notification_mechanism.cpp)
-// ============================================================================
 
 class WarmResetNotificationTest : public ::testing::Test {
 public:

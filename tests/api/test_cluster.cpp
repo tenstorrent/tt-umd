@@ -1312,7 +1312,7 @@ TEST(TestCluster, WriteDataReadReg) {
     }
 }
 
-TEST(TestCluster, DISABLED_EriscFirmwareHashCheck) {
+TEST(TestCluster, EriscFirmwareHashCheck) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

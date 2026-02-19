@@ -15,6 +15,7 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <iostream>
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
@@ -31,7 +32,9 @@ TTSimChip::TTSimChip(
     bool copy_sim_binary,
     int num_host_mem_channels) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels) {
-    tt_device_ = std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary);
+        std::cout << "num_host mem_channels " << num_host_mem_channels << std::endl;
+    tt_device_ = std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimChip::~TTSimChip() = default;

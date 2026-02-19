@@ -73,7 +73,11 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .chip_type = ChipType::SIMULATION,
+        .simulator_directory = "/localdev/pjanevski/work/ttsim-private/src/_out/release_wh/libttsim.so"});
+}
 
 TEST(ApiClusterTest, OpenChipsByPciId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -1040,6 +1044,46 @@ TEST(TestCluster, StartDeviceWithValidRiscProgram) {
     }
 
     cluster->close_device();
+}
+
+TEST(ClusterReadWriteL1Test, DISABLED_TTSimReadWriteL1) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .chip_type = ChipType::SIMULATION,
+        .target_devices = {0},
+        .simulator_directory = "/localdev/pjanevski/work/ttsim-private/src/_out/release_wh/libttsim.so",
+    });
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint8_t> data(tensix_l1_size, 0);
+    for (int i = 0; i < tensix_l1_size; i++) {
+        data[i] = i % 256;
+    }
+
+    // Set elements to 1 since the first readback will be of zero data, so want to confirm that
+    // elements actually changed.
+    std::vector<uint8_t> readback_data(tensix_l1_size, 1);
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+
+        EXPECT_EQ(zero_data, readback_data);
+
+        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+
+        EXPECT_EQ(data, readback_data);
+    }
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

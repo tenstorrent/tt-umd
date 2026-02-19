@@ -748,7 +748,7 @@ semver_t PCIDevice::read_kmd_version() {
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     try {
-        return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
         if (read_kmd_version() < semver_t(2, 6, 0)) {
             TT_THROW(

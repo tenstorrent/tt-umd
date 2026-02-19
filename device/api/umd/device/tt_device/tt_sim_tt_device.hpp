@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -63,8 +64,22 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
-private:
+    /**
+     * Get the architecture implementation.
+     * @return Pointer to architecture implementation
+     */
+    const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
+
+    /**
+     * Get the TTSimCommunicator for low-level device operations.
+     * @return Pointer to TTSimCommunicator
+     */
+    TTSimCommunicator *get_communicator() const { return communicator_.get(); }
+
     uint64_t bar0_base = 0;
+    uint64_t tlb_registers_base = 0;
+
+private:
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
     std::recursive_mutex device_lock;
@@ -75,5 +90,11 @@ private:
     std::unique_ptr<architecture_implementation> architecture_impl_;
 
     uint32_t libttsim_pci_device_id;
+
+    std::unique_ptr<TTSimTlbManager> tlb_manager_;
+
+    TlbWindow *get_cached_tlb_window();
+
+    std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 };
 }  // namespace tt::umd

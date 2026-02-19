@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/silicon_tlb_handle.hpp"
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -17,7 +17,7 @@
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
+SiliconTlbHandle::SiliconTlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping) :
     tlb_size(size), tt_device_(tt_device), tlb_mapping(tlb_mapping) {
     int ret_code = tt_tlb_alloc(
         tt_device_, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
@@ -31,9 +31,9 @@ TlbHandle::TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_m
     tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
 }
 
-TlbHandle::~TlbHandle() noexcept { free_tlb(); }
+SiliconTlbHandle::~SiliconTlbHandle() noexcept { free_tlb(); }
 
-void TlbHandle::configure(const tlb_data& new_config) {
+void SiliconTlbHandle::configure(const tlb_data& new_config) {
     tt_noc_addr_config_t config{};
     config.addr = new_config.local_offset;
     config.x_end = new_config.x_end;
@@ -54,16 +54,16 @@ void TlbHandle::configure(const tlb_data& new_config) {
     tlb_config = new_config;
 }
 
-uint8_t* TlbHandle::get_base() { return tlb_base; }
+uint8_t* SiliconTlbHandle::get_base() { return tlb_base; }
 
-size_t TlbHandle::get_size() const { return tlb_size; }
+size_t SiliconTlbHandle::get_size() const { return tlb_size; }
 
-const tlb_data& TlbHandle::get_config() const { return tlb_config; }
+const tlb_data& SiliconTlbHandle::get_config() const { return tlb_config; }
 
-TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
+TlbMapping SiliconTlbHandle::get_tlb_mapping() const { return tlb_mapping; }
 
-void TlbHandle::free_tlb() noexcept { tt_tlb_free(tt_device_, tlb_handle_); }
+void SiliconTlbHandle::free_tlb() noexcept { tt_tlb_free(tt_device_, tlb_handle_); }
 
-int TlbHandle::get_tlb_id() const { return tlb_id; }
+int SiliconTlbHandle::get_tlb_id() const { return tlb_id; }
 
 }  // namespace tt::umd

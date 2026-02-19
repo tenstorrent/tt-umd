@@ -25,6 +25,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -81,17 +82,22 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     return fill_cluster_descriptor_info();
 }
 
-std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>>
-TopologyDiscovery::discover(
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
-    std::map<uint64_t, std::unique_ptr<TTDevice>> devices;
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscovery> td =
         TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
     if (td == nullptr) {
         return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(devices));
     }
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
-    return std::make_pair(std::move(cluster_desc), std::move(td->devices));
+
+    // Resort devices by ChipID instead of internal unique identifiers.
+    for (auto& [chip_id, unique_id] : cluster_desc->chip_unique_ids) {
+        devices[chip_id] = std::move(td->devices.at(unique_id));
+    }
+
+    return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
 void TopologyDiscovery::get_connected_devices() {

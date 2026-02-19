@@ -43,7 +43,7 @@ struct TopologyDiscoveryOptions {
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
 public:
-    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> discover(
         const TopologyDiscoveryOptions& options = {},
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");

@@ -240,7 +240,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     if (!expected_eth_fw_version.has_value()) {
         expected_eth_fw_version =
             get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
-        if (get_options().predict_eth_fw_version && expected_eth_fw_version.has_value()) {
+        if (options.predict_eth_fw_version && expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
@@ -264,7 +264,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         eth_fw_problem = true;
     }
 
-    if (get_options().verify_eth_fw_hash && !tt_device->is_remote()) {
+    if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
         if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
@@ -278,7 +278,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         }
     }
 
-    return get_options().no_eth_firmware_strictness || !eth_fw_problem;
+    return options.no_eth_firmware_strictness || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {

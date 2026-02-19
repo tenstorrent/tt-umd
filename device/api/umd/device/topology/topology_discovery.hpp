@@ -161,11 +161,9 @@ protected:
 
     bool is_running_on_6u = false;
 
-    const TopologyDiscoveryOptions& get_options() const { return options; }
-
-    const std::string& get_soc_descriptor_path() const { return soc_descriptor_path; }
-
-    IODeviceType get_io_device_type() const { return io_device_type; }
+    const TopologyDiscoveryOptions options;
+    const IODeviceType io_device_type = IODeviceType::PCIe;
+    const std::string& soc_descriptor_path = "";
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
@@ -182,10 +180,6 @@ protected:
 private:
     // Hack used to cache SocDescriptors.
     std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
-
-    TopologyDiscoveryOptions options;
-    IODeviceType io_device_type = IODeviceType::PCIe;
-    const std::string& soc_descriptor_path = "";
 };
 
 }  // namespace tt::umd

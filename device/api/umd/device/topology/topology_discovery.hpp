@@ -14,6 +14,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -21,12 +22,6 @@ namespace tt::umd {
 class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
-    // Path to custom SoC descriptor when creating devices. See ClusterOptions.
-    std::string soc_descriptor_path;
-
-    // I/O device type to use when discovering. See ClusterOptions.
-    IODeviceType io_device_type = IODeviceType::PCIe;
-
     // Skip discovery of devices connected via Ethernet.
     bool no_remote_discovery = false;
 
@@ -49,14 +44,22 @@ struct TopologyDiscoveryOptions {
 class TopologyDiscovery {
 public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
-        const TopologyDiscoveryOptions& options);
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
 
     virtual ~TopologyDiscovery() = default;
 
 protected:
-    TopologyDiscovery(const TopologyDiscoveryOptions& options);
+    TopologyDiscovery(
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
 
-    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
@@ -156,9 +159,13 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
-    TopologyDiscoveryOptions options;
-
     bool is_running_on_6u = false;
+
+    const TopologyDiscoveryOptions& get_options() const { return options; }
+
+    const std::string& get_soc_descriptor_path() const { return soc_descriptor_path; }
+
+    IODeviceType get_io_device_type() const { return io_device_type; }
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
@@ -175,6 +182,10 @@ protected:
 private:
     // Hack used to cache SocDescriptors.
     std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
+
+    TopologyDiscoveryOptions options;
+    IODeviceType io_device_type = IODeviceType::PCIe;
+    const std::string& soc_descriptor_path = "";
 };
 
 }  // namespace tt::umd

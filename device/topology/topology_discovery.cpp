@@ -31,10 +31,10 @@
 namespace tt::umd {
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
-    const TopologyDiscoveryOptions& options) {
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
     tt::ARCH current_arch = ARCH::Invalid;
 
-    switch (options.io_device_type) {
+    switch (io_device_type) {
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
@@ -61,15 +61,17 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<TopologyDiscoveryWormhole>(options);
+            return std::make_unique<TopologyDiscoveryWormhole>(options, io_device_type, soc_descriptor_path);
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<TopologyDiscoveryBlackhole>(options);
+            return std::make_unique<TopologyDiscoveryBlackhole>(options, io_device_type, soc_descriptor_path);
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
-TopologyDiscovery::TopologyDiscovery(const TopologyDiscoveryOptions& options) : options(options) {}
+TopologyDiscovery::TopologyDiscovery(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
+    options(options), io_device_type(io_device_type), soc_descriptor_path(soc_descriptor_path) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
@@ -80,9 +82,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 }
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>>
-TopologyDiscovery::discover(const TopologyDiscoveryOptions& options) {
+TopologyDiscovery::discover(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices;
-    std::unique_ptr<TopologyDiscovery> td = TopologyDiscovery::create_topology_discovery(options);
+    std::unique_ptr<TopologyDiscovery> td =
+        TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
     if (td == nullptr) {
         return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(devices));
     }
@@ -92,7 +96,7 @@ TopologyDiscovery::discover(const TopologyDiscoveryOptions& options) {
 
 void TopologyDiscovery::get_connected_devices() {
     std::vector<int> local_device_ids;
-    switch (options.io_device_type) {
+    switch (io_device_type) {
         case IODeviceType::PCIe: {
             local_device_ids = PCIDevice::enumerate_devices();
             break;
@@ -108,7 +112,7 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 
@@ -138,7 +142,7 @@ void TopologyDiscovery::get_connected_devices() {
         log_debug(
             LogUMD,
             "Discovered {} device w/ MMIO, ID: {}, ASIC ID {}",
-            DeviceTypeToString.at(options.io_device_type),
+            DeviceTypeToString.at(io_device_type),
             device_id,
             asic_id);
     }
@@ -343,7 +347,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
-    cluster_desc->io_device_type = options.io_device_type;
+    cluster_desc->io_device_type = io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->merge_cluster_ids();
 
@@ -458,11 +462,11 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
     }
 
     SocDescriptor soc_descriptor;
-    if (options.soc_descriptor_path.empty()) {
+    if (soc_descriptor_path.empty()) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
         soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
-        soc_descriptor = SocDescriptor(options.soc_descriptor_path, tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(soc_descriptor_path, tt_device->get_chip_info());
     }
 
     soc_descriptor_cache[tt_device] = soc_descriptor;

@@ -347,7 +347,8 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+                options.sdesc_path, options.io_device_type, options.topology_discovery_options);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -1021,11 +1022,10 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, IODeviceType device_type) {
-    TopologyDiscoveryOptions options;
-    options.soc_descriptor_path = std::move(sdesc_path);
-    options.io_device_type = device_type;
-    return TopologyDiscovery::discover(options).first;
+    const std::string& sdesc_path,
+    IODeviceType device_type,
+    const TopologyDiscoveryOptions& topology_discovery_options) {
+    return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
 }
 
 }  // namespace tt::umd

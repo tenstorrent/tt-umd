@@ -12,7 +12,8 @@ namespace tt::umd {
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options);
+    TopologyDiscoveryWormhole(
+        const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
 
 protected:
     struct EthAddresses {

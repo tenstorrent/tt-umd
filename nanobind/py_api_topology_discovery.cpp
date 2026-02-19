@@ -62,8 +62,6 @@ void bind_topology_discovery(nb::module_& m) {
 
     nb::class_<TopologyDiscoveryOptions>(m, "TopologyDiscoveryOptions")
         .def(nb::init<>())
-        .def_rw("soc_descriptor_path", &TopologyDiscoveryOptions::soc_descriptor_path)
-        .def_rw("io_device_type", &TopologyDiscoveryOptions::io_device_type)
         .def_rw("no_remote_discovery", &TopologyDiscoveryOptions::no_remote_discovery)
         .def_rw("no_wait_for_eth_training", &TopologyDiscoveryOptions::no_wait_for_eth_training)
         .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness)

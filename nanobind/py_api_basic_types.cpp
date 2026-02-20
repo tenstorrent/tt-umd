@@ -91,6 +91,8 @@ void bind_basic_types(nb::module_ &m) {
         .def("__ge__", &SemVer::operator>=)
         .def("__eq__", &SemVer::operator==)
         .def("__ne__", &SemVer::operator!=);
+    // TODO: Remove after renaming in tt-exalens.
+    m.attr("semver_t") = m.attr("SemVer");
 
     nb::class_<ChipInfo>(m, "ChipInfo")
         .def(nb::init<>())

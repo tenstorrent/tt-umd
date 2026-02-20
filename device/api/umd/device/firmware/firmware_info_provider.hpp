@@ -11,7 +11,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
-class semver_t;
 class TTDevice;
 
 /*

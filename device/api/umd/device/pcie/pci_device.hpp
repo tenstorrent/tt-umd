@@ -22,7 +22,6 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-class semver_t;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;

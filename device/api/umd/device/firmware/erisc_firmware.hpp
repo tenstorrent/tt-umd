@@ -27,7 +27,7 @@ constexpr SemVer WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS = SemVer(6, 8, 0);
 
 // Maps firmware bundle versions to their corresponding ERISC firmware versions.
 // Bundle versions between entries inherit the ERISC version from the previous entry.
-static const std::vector<std::pair<SemVer, SemVer>> WH_ERISC_FW_VERSION_MAP = {
+static const std::vector<std::pair<FirmwareBundleVersion, SemVer>> WH_ERISC_FW_VERSION_MAP = {
     {{80, 17, 0}, {6, 14, 0}},  // Legacy FW bundle version with major >= 80 is oldest.
     {{18, 2, 0}, {6, 14, 0}},
     {{18, 4, 0}, {6, 15, 0}},
@@ -37,7 +37,7 @@ static const std::vector<std::pair<SemVer, SemVer>> WH_ERISC_FW_VERSION_MAP = {
     {{19, 4, 0}, {7, 3, 0}},
     {{19, 4, 1}, {7, 2, 0}},
     {{19, 5, 0}, {7, 5, 0}}};
-static const std::vector<std::pair<SemVer, SemVer>> BH_ERISC_FW_VERSION_MAP = {
+static const std::vector<std::pair<FirmwareBundleVersion, SemVer>> BH_ERISC_FW_VERSION_MAP = {
     {{18, 5, 0}, {1, 4, 1}},
     {{18, 6, 0}, {1, 4, 2}},
     {{18, 9, 0}, {1, 5, 0}},

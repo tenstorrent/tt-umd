@@ -22,7 +22,7 @@ TEST(TestTelemetry, BasicTelemetry) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
-        if (tt_device->get_firmware_version() < SemVer(18, 4, 0)) {
+        if (tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
             log_warning(
                 tt::LogUMD,
                 "Skipping telemetry test on device {} with firmware version {} < 18.4.0",

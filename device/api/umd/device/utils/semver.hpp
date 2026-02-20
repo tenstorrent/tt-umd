@@ -29,14 +29,6 @@ public:
     constexpr SemVer(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) :
         major(major), minor(minor), patch(patch), pre_release(pre_release) {}
 
-    static SemVer from_firmware_bundle_tag(std::uint32_t version) {
-        uint64_t major = (version >> 24) & 0xFF;
-        uint64_t minor = (version >> 16) & 0xFF;
-        uint64_t patch = (version >> 8) & 0xFF;
-        uint64_t pre_release = version & 0xFF;
-        return SemVer(major, minor, patch, pre_release);
-    }
-
     /*
      * Create a SemVer from a 32-bit integer by unpacking the following bits:
      * 0x00AABCCC where A is major, B is minor and C is patch.
@@ -141,6 +133,14 @@ private:
 class FirmwareBundleVersion : public SemVer {
 public:
     using SemVer::SemVer;
+
+    static FirmwareBundleVersion from_firmware_bundle_tag(std::uint32_t version) {
+        uint64_t major = (version >> 24) & 0xFF;
+        uint64_t minor = (version >> 16) & 0xFF;
+        uint64_t patch = (version >> 8) & 0xFF;
+        uint64_t pre_release = version & 0xFF;
+        return FirmwareBundleVersion(major, minor, patch, pre_release);
+    }
 
     bool operator<(const FirmwareBundleVersion& other) const noexcept {
         return SemVer::compare_firmware_bundle(*this, other) < 0;

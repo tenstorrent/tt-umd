@@ -21,6 +21,7 @@
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -28,7 +29,7 @@
 
 namespace tt::umd {
 
-SemVer get_firmware_version_util(TTDevice* tt_device) {
+FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
             std::make_unique<SmBusArcTelemetryReader>(tt_device);
@@ -40,22 +41,24 @@ SemVer get_firmware_version_util(TTDevice* tt_device) {
         while (std::chrono::steady_clock::now() - start < timeout_duration) {
             auto fw_bundle_version = smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION);
             if (fw_bundle_version != 0) {
-                return SemVer::from_firmware_bundle_tag(fw_bundle_version);
+                return FirmwareBundleVersion::from_firmware_bundle_tag(fw_bundle_version);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         log_warning(
             tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
-        return SemVer::from_firmware_bundle_tag(
+        return FirmwareBundleVersion::from_firmware_bundle_tag(
             smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
-               ? SemVer::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
-               : SemVer(0, 0, 0);
+               ? FirmwareBundleVersion::from_firmware_bundle_tag(
+                     telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
+               : FirmwareBundleVersion(0, 0, 0);
 }
 
-std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(SemVer fw_bundle_version, tt::ARCH arch) {
+std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(
+    FirmwareBundleVersion fw_bundle_version, tt::ARCH arch) {
     // Skip checks for pre-release firmware bundles.
     if (fw_bundle_version.pre_release != 0) {
         return std::nullopt;
@@ -76,7 +79,7 @@ std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(Sem
     // Find the most recently updated ERISC FW version from a given firmware
     // bundle version.
     for (auto it = version_map->cbegin(); it != version_map->cend(); ++it) {
-        if (SemVer::compare_firmware_bundle(it->first, fw_bundle_version) > 0) {
+        if (it->first > fw_bundle_version) {
             if (it == version_map->cbegin()) {
                 return std::nullopt;
             } else {

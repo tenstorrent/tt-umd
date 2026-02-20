@@ -15,6 +15,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -170,7 +171,7 @@ protected:
 
     // The FW bundle version found on the first discovered local device, that needs
     // to match with all of the other discovered FW bundle versions on all devices.
-    std::optional<SemVer> first_fw_bundle_version;
+    std::optional<FirmwareBundleVersion> first_fw_bundle_version;
 
 private:
     // Hack used to cache SocDescriptors.

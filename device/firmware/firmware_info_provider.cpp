@@ -75,17 +75,19 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
     }
 }
 
-SemVer FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
+FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-SemVer FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return SemVer(19, 4, 0); }
+FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
+    return FirmwareBundleVersion(19, 4, 0);
+}
 
-SemVer FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
+FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return SemVer(0, 0, 0);
+            return FirmwareBundleVersion(0, 0, 0);
         }
         case tt::ARCH::BLACKHOLE: {
-            return SemVer(18, 5, 0);
+            return FirmwareBundleVersion(18, 5, 0);
         }
         default:
             throw std::runtime_error("Unsupported architecture for firmware info provider.");

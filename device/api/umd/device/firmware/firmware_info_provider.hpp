@@ -9,6 +9,7 @@
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 class TTDevice;
@@ -30,9 +31,9 @@ public:
 
     virtual ~FirmwareInfoProvider() = default;
 
-    virtual SemVer get_firmware_version() const;
+    virtual FirmwareBundleVersion get_firmware_version() const;
 
-    static SemVer get_minimum_compatible_firmware_version(tt::ARCH arch);
+    static FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
 
     /**
      * This function should capture latest firmware version that is supported by the UMD.
@@ -40,7 +41,7 @@ public:
      * The function is meant to change on every FW release, so we can keep track of supported features
      * from new FW versions.
      */
-    static SemVer get_latest_supported_firmware_version(tt::ARCH arch);
+    static FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
 
     virtual uint64_t get_board_id() const;
 
@@ -131,7 +132,7 @@ public:
 protected:
     TTDevice* tt_device = nullptr;
 
-    SemVer firmware_version = SemVer(0, 0, 0);
+    FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 
     bool aiclk_available;
     bool axiclk_available;

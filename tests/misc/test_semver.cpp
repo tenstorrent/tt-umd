@@ -88,18 +88,22 @@ TEST(Semver, Invalid) {
 
 TEST(Semver, FirmwareExpectedVersions) {
     auto f = get_expected_eth_firmware_version_from_firmware_bundle;
-    EXPECT_EQ(std::nullopt, f(SemVer(80, 0, 0), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(SemVer(6, 14, 0), f(SemVer(80, 17, 0), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(SemVer(6, 14, 0), f(SemVer(80, 18, 0), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(SemVer(6, 14, 0), f(SemVer(18, 0, 0), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(SemVer(6, 15, 0), f(SemVer(18, 4, 0), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(SemVer(6, 15, 0), f(SemVer(18, 4, 1), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(SemVer(7, 0, 0), f(SemVer(18, 6, 0), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(erisc_firmware::WH_ERISC_FW_VERSION_MAP.back().second, f(SemVer(79, 99, 99), tt::ARCH::WORMHOLE_B0));
-    EXPECT_EQ(std::nullopt, f(SemVer(18, 0, 0), tt::ARCH::BLACKHOLE));
-    EXPECT_EQ(SemVer(1, 6, 0), f(SemVer(18, 11, 0), tt::ARCH::BLACKHOLE));
-    EXPECT_EQ(erisc_firmware::BH_ERISC_FW_VERSION_MAP.back().second, f(SemVer(79, 99, 99), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(std::nullopt, f(FirmwareBundleVersion(80, 0, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(SemVer(6, 14, 0), f(FirmwareBundleVersion(80, 17, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(SemVer(6, 14, 0), f(FirmwareBundleVersion(80, 18, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(SemVer(6, 14, 0), f(FirmwareBundleVersion(18, 0, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(SemVer(6, 15, 0), f(FirmwareBundleVersion(18, 4, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(SemVer(6, 15, 0), f(FirmwareBundleVersion(18, 4, 1), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(SemVer(7, 0, 0), f(FirmwareBundleVersion(18, 6, 0), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(
+        erisc_firmware::WH_ERISC_FW_VERSION_MAP.back().second,
+        f(FirmwareBundleVersion(79, 99, 99), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(std::nullopt, f(FirmwareBundleVersion(18, 0, 0), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(SemVer(1, 6, 0), f(FirmwareBundleVersion(18, 11, 0), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(
+        erisc_firmware::BH_ERISC_FW_VERSION_MAP.back().second,
+        f(FirmwareBundleVersion(79, 99, 99), tt::ARCH::BLACKHOLE));
     // Experimental versions do not get suggestested ETH FW versions.
-    EXPECT_EQ(std::nullopt, f(SemVer(18, 12, 0, 99), tt::ARCH::BLACKHOLE));
-    EXPECT_EQ(std::nullopt, f(SemVer(19, 3, 0, 99), tt::ARCH::WORMHOLE_B0));
+    EXPECT_EQ(std::nullopt, f(FirmwareBundleVersion(18, 12, 0, 99), tt::ARCH::BLACKHOLE));
+    EXPECT_EQ(std::nullopt, f(FirmwareBundleVersion(19, 3, 0, 99), tt::ARCH::WORMHOLE_B0));
 }

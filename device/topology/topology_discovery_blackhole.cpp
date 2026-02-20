@@ -24,6 +24,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -162,7 +163,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
 
     // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
     // for P150 Board Types (with a  SW workaround).
-    if (first_fw_bundle_version >= SemVer(18, 12, 0)) {
+    if (first_fw_bundle_version >= FirmwareBundleVersion(18, 12, 0)) {
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {

@@ -12,9 +12,10 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-SemVer get_firmware_version_util(TTDevice* tt_device);
+FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
 
-std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(SemVer fw_bundle_version, tt::ARCH arch);
+std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(
+    FirmwareBundleVersion fw_bundle_version, tt::ARCH arch);
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
 

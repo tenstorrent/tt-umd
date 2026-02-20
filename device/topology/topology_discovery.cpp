@@ -382,7 +382,7 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
-    SemVer fw_bundle_version = tt_device->get_firmware_version();
+    FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {

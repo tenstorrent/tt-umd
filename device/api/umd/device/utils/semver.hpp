@@ -26,9 +26,6 @@ public:
 
     constexpr semver_t() : major(0), minor(0), patch(0), pre_release(0) {}
 
-    constexpr semver_t(std::uint32_t version) :
-        major((version >> 16) & 0xff), minor((version >> 12) & 0xf), patch(version & 0xfff), pre_release(0) {}
-
     constexpr semver_t(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) :
         major(major), minor(minor), patch(patch), pre_release(pre_release) {}
 
@@ -52,9 +49,6 @@ public:
         uint64_t patch = version & 0xFFF;
         return semver_t(major, minor, patch);
     }
-
-    // Alternative name used in tt-metal. TODO: Remove.
-    static semver_t from_eth_fw_tag(std::uint32_t version) { return from_wormhole_eth_firmware_tag(version); }
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 

@@ -265,8 +265,13 @@ std::vector<int> PCIDevice::enumerate_devices() {
 
     std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
 
-    std::vector<int> all_device_ids = get_all_device_ids();
     std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+
+    std::vector<int> all_device_ids = {};
+
+    for (const auto &[bdf, device_id] : get_bdf_to_device_id_map()) {
+        all_device_ids.push_back(device_id);
+    }
 
     std::set<int> filtered_device_ids;
 
@@ -304,16 +309,23 @@ std::vector<int> PCIDevice::enumerate_devices() {
         bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
 
         if (is_integer) {
-            int device_id = std::stoi(device_token);
-            if (std::find(all_device_ids.begin(), all_device_ids.end(), device_id) != all_device_ids.end()) {
-                filtered_device_ids.insert(device_id);
-                log_debug(LogUMD, "Added device id {} because of token filter {}.", device_id, device_token);
-            } else {
+            int logical_device_id = std::stoi(device_token);
+
+            if (logical_device_id < 0 || logical_device_id >= all_device_ids.size()) {
                 TT_THROW(
                     "Invalid device ID in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
-                    "part of the BDF string.",
-                    device_token);
+                    "part of the BDF string. Valid integer IDs are between 0 and {}.",
+                    device_token,
+                    all_device_ids.size() - 1);
             }
+
+            log_debug(
+                LogUMD,
+                "Added device id {} because of token filter {}.",
+                all_device_ids[logical_device_id],
+                device_token);
+
+            filtered_device_ids.insert(all_device_ids[logical_device_id]);
 
         } else {
             TT_THROW(
@@ -447,7 +459,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar4_wc_mapping = mappings.mapping_array[i];
         }
 
-        log_debug(
+        log_trace(
             LogUMD,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,

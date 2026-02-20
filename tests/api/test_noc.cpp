@@ -150,6 +150,142 @@ public:
         return tt_xy_pair(translated_x, translated_y);
     }
 
+    // Wormhole-specific: Reorder NOC y-coordinates based on harvesting mask.
+    // Used for DRAM, ARC, and PCIE cores that align with tensix rows.
+    // NOC y-coordinates correspond to tensix rows (skipping rows 0 and 6 which are ethernet).
+    // When a tensix row is harvested, the corresponding NOC y-coordinate moves to the back.
+    // Input: NOC y values (1,2,3,4,5,7,8,9,10,11 - skipping 0 and 6 which are ethernet-aligned).
+    // Output: reordered values based on harvesting mask.
+    std::vector<size_t> reorder_noc_y_for_wormhole_harvesting(uint32_t harvesting_mask) {
+        // NOC y-coordinates that can be harvested (skipping 0 and 6 which are ethernet-aligned).
+        std::vector<size_t> dram_channels = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
+
+        std::vector<size_t> unharvested_channels;
+        std::vector<size_t> harvested_channels;
+
+        // Map each DRAM channel to its corresponding tensix row index in the mask.
+        // DRAM y=1 -> tensix row 0, y=2 -> row 1, y=3 -> row 2, y=4 -> row 3, y=5 -> row 4.
+        // DRAM y=7 -> tensix row 5, y=8 -> row 6, y=9 -> row 7, y=10 -> row 8, y=11 -> row 9.
+        auto dram_y_to_tensix_row = [](size_t dram_y) -> size_t {
+            if (dram_y < 6) {
+                return dram_y - 1;  // y=1->0, y=2->1, y=3->2, y=4->3, y=5->4.
+            } else {
+                return dram_y - 2;  // y=7->5, y=8->6, y=9->7, y=10->8, y=11->9.
+            }
+        };
+
+        for (size_t channel : dram_channels) {
+            size_t tensix_row = dram_y_to_tensix_row(channel);
+            if (harvesting_mask & (1 << tensix_row)) {
+                harvested_channels.push_back(channel);
+            } else {
+                unharvested_channels.push_back(channel);
+            }
+        }
+
+        // Concatenate: unharvested first, then harvested.
+        std::vector<size_t> result = unharvested_channels;
+        result.insert(result.end(), harvested_channels.begin(), harvested_channels.end());
+
+        return result;
+    }
+
+    // Wormhole-specific: Compute expected translated coordinate for DRAM cores.
+    tt_xy_pair compute_wormhole_dram_translated_coord(ChipId chip, const CoreCoord& core) {
+        const uint32_t harvesting_mask =
+            cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
+
+        // Base translated coordinates for DRAM (from NOC0).
+        static const std::unordered_map<tt_xy_pair, tt_xy_pair> dram_coord_map = {
+            {{0, 0}, {16, 16}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
+            {{0, 1}, {16, 18}}, {{0, 2}, {16, 19}}, {{0, 3}, {16, 20}}, {{0, 4}, {16, 27}},  {{0, 5}, {16, 21}},
+            {{0, 6}, {16, 17}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
+            {{0, 7}, {16, 22}}, {{0, 8}, {16, 23}}, {{0, 9}, {16, 24}}, {{0, 10}, {16, 25}}, {{0, 11}, {16, 26}},
+            {{5, 0}, {17, 16}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
+            {{5, 1}, {17, 18}}, {{5, 2}, {17, 19}}, {{5, 3}, {17, 20}}, {{5, 4}, {17, 27}},  {{5, 5}, {17, 21}},
+            {{5, 6}, {17, 17}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
+            {{5, 7}, {17, 22}}, {{5, 8}, {17, 23}}, {{5, 9}, {17, 24}}, {{5, 10}, {17, 25}}, {{5, 11}, {17, 26}}};
+
+        // Get the base translated coordinate.
+        auto it = dram_coord_map.find(tt_xy_pair(core.x, core.y));
+        if (it == dram_coord_map.end()) {
+            throw std::runtime_error("DRAM coordinate not found in map");
+        }
+
+        tt_xy_pair translated_coord = it->second;
+
+        // Ethernet-aligned DRAM (y=0 or y=6) stays at fixed positions (y=16 or y=17).
+        if (core.y == 0 || core.y == 6) {
+            return translated_coord;
+        }
+
+        // Get the reordered NOC y-coordinates based on harvesting.
+        std::vector<size_t> reordered_channels = reorder_noc_y_for_wormhole_harvesting(harvesting_mask);
+
+        // Build mapping from original NOC y to reordered translated y.
+        std::unordered_map<size_t, size_t> noc_y_to_translated_y;
+        constexpr size_t tensix_translated_coordinate_start_y = 18;  // Wormhole constant.
+
+        for (size_t i = 0; i < reordered_channels.size(); i++) {
+            size_t original_noc_y = reordered_channels[i];
+            size_t translated_y = tensix_translated_coordinate_start_y + i;
+            noc_y_to_translated_y[original_noc_y] = translated_y;
+        }
+
+        // Use the reordered y-coordinate.
+        if (noc_y_to_translated_y.find(core.y) != noc_y_to_translated_y.end()) {
+            translated_coord.y = noc_y_to_translated_y[core.y];
+        }
+
+        return translated_coord;
+    }
+
+    // Wormhole-specific: Compute expected translated coordinate for PCIe core.
+    tt_xy_pair compute_wormhole_pcie_translated_coord(ChipId chip, const CoreCoord& core) {
+        const uint32_t harvesting_mask =
+            cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
+
+        // PCIe core at NOC0 (0,3) corresponds to tensix row 2.
+        // We need to find where NOC y=3 maps to after harvesting reordering.
+        std::vector<size_t> reordered_channels = reorder_noc_y_for_wormhole_harvesting(harvesting_mask);
+
+        constexpr size_t tensix_translated_coordinate_start_y = 18;  // Wormhole constant.
+        size_t translated_y = tensix_translated_coordinate_start_y;  // Default.
+
+        // Find the index of NOC y=3 in the reordered list.
+        for (size_t i = 0; i < reordered_channels.size(); i++) {
+            if (reordered_channels[i] == 3) {
+                translated_y = tensix_translated_coordinate_start_y + i;
+                break;
+            }
+        }
+
+        return tt_xy_pair(16, translated_y);  // PCIe x is always 16.
+    }
+
+    // Wormhole-specific: Compute expected translated coordinate for ARC core.
+    tt_xy_pair compute_wormhole_arc_translated_coord(ChipId chip, const CoreCoord& core) {
+        const uint32_t harvesting_mask =
+            cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
+
+        // ARC core at NOC0 (0,10) corresponds to tensix row 8.
+        // We need to find where NOC y=10 maps to after harvesting reordering.
+        std::vector<size_t> reordered_channels = reorder_noc_y_for_wormhole_harvesting(harvesting_mask);
+
+        constexpr size_t tensix_translated_coordinate_start_y = 18;  // Wormhole constant.
+        size_t translated_y = tensix_translated_coordinate_start_y;  // Default.
+
+        // Find the index of NOC y=10 in the reordered list.
+        for (size_t i = 0; i < reordered_channels.size(); i++) {
+            if (reordered_channels[i] == 10) {
+                translated_y = tensix_translated_coordinate_start_y + i;
+                break;
+            }
+        }
+
+        return tt_xy_pair(16, translated_y);  // ARC x is always 16.
+    }
+
 private:
     std::unique_ptr<Cluster> cluster_;
 
@@ -312,29 +448,49 @@ TEST_P(TestNocTranslatedCoordinates, VerifyNocIdTranslatedCoordinatesMatch) {
             // Read the translated coordinate register (should match TRANSLATED coordinate system).
             const auto [translated_x_reg, translated_y_reg] = read_noc_translated_id_reg(chip, core, noc_index);
 
-            // Get the TRANSLATED coordinate from SocDescriptor.
-            CoreCoord translated_coord =
-                get_cluster()->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            // Determine expected translated coordinate.
+            tt_xy_pair expected_translated;
+
+            // For Wormhole, DRAM/ARC/PCIe have special translation logic that accounts for harvesting.
+            if (arch == ARCH::WORMHOLE_B0 &&
+                (core_type == CoreType::DRAM || core_type == CoreType::ARC || core_type == CoreType::PCIE)) {
+                // Convert to NOC0 coordinate for the lookup.
+                CoreCoord noc0_core =
+                    get_cluster()->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::NOC0);
+
+                if (core_type == CoreType::DRAM) {
+                    expected_translated = compute_wormhole_dram_translated_coord(chip, noc0_core);
+                } else if (core_type == CoreType::ARC) {
+                    expected_translated = compute_wormhole_arc_translated_coord(chip, noc0_core);
+                } else if (core_type == CoreType::PCIE) {
+                    expected_translated = compute_wormhole_pcie_translated_coord(chip, noc0_core);
+                }
+            } else {
+                // For all other cases, use the SocDescriptor's translation (which is NOC0 for Wormhole).
+                CoreCoord translated_coord =
+                    get_cluster()->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+                expected_translated = tt_xy_pair(translated_coord.x, translated_coord.y);
+            }
 
             log_debug(
                 tt::LogUMD,
-                "Chip {} {} core {}=({},{}) NOC{} -> TRANSLATED=({},{}) vs TRANSLATED_REG=({},{})",
+                "Chip {} {} core {}=({},{}) NOC{} -> EXPECTED_TRANSLATED=({},{}) vs TRANSLATED_REG=({},{})",
                 chip,
                 to_str(core_type),
                 to_str(coord_system),
                 core.x,
                 core.y,
                 noc_index,
-                translated_coord.x,
-                translated_coord.y,
+                expected_translated.x,
+                expected_translated.y,
                 translated_x_reg,
                 translated_y_reg);
 
-            // Verify that translated register coordinates match TRANSLATED coordinates.
-            EXPECT_EQ(translated_x_reg, translated_coord.x)
+            // Verify that translated register coordinates match expected translated coordinates.
+            EXPECT_EQ(translated_x_reg, expected_translated.x)
                 << "Chip " << chip << " " << to_str(core_type) << " core " << to_str(coord_system) << "=(" << core.x
                 << "," << core.y << ") NOC" << static_cast<int>(noc_index) << " translated X mismatch";
-            EXPECT_EQ(translated_y_reg, translated_coord.y)
+            EXPECT_EQ(translated_y_reg, expected_translated.y)
                 << "Chip " << chip << " " << to_str(core_type) << " core " << to_str(coord_system) << "=(" << core.x
                 << "," << core.y << ") NOC" << static_cast<int>(noc_index) << " translated Y mismatch";
         }

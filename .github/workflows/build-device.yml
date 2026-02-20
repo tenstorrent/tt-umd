@@ -36,17 +36,17 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {distro: ubuntu-22.04, c: clang-13, cpp: clang++-13},
-          {distro: ubuntu-22.04, c: clang-20, cpp: clang++-20},
-          {distro: ubuntu-22.04, c: gcc-11, cpp: g++-11},
+          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13},
+          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20},
+          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11},
           # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
-          {distro: ubuntu-24.04, c: clang-20, cpp: clang++-20},
-          {distro: ubuntu-24.04, c: gcc-11, cpp: g++-11},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20},
+          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
-          {distro: fedora-39, c: gcc-13, cpp: g++-13},
+          {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13},
         ]
 
-    name: Build device for any arch on ${{ matrix.image.distro }} with ${{ matrix.image.c }}
+    name: Build device for any arch on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     runs-on: tt-ubuntu-2204-large-stable
     container:
       image: >-
@@ -62,8 +62,8 @@ jobs:
 
       - name: Select Compiler
         run: |
-          echo "CC=${{ matrix.image.c }}" >> $GITHUB_ENV
-          echo "CXX=${{ matrix.image.cpp }}" >> $GITHUB_ENV
+          echo "CC=${{ matrix.image.compiler-c }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.image.compiler-cpp }}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
       - name: Build All
@@ -85,7 +85,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-compile-commands-${{ matrix.image.distro }}-${{ matrix.image.c }}
+            clang-tidy-compile-commands-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
       - name: Prepare clang-tidy config file for upload
@@ -101,7 +101,7 @@ jobs:
         if: always()
         with:
           name: >
-            clang-tidy-config-${{ matrix.image.distro }}-${{ matrix.image.c }}
+            clang-tidy-config-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package
@@ -120,7 +120,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-packages-${{ matrix.image.distro }}-${{ matrix.image.c }}
+          name: tt-umd-packages-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.deb
           if-no-files-found: error
@@ -129,7 +129,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-packages-${{ matrix.image.distro }}-${{ matrix.image.c }}
+          name: tt-umd-packages-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.rpm
           if-no-files-found: error
@@ -137,7 +137,7 @@ jobs:
       - name: Upload example config files
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-examples-${{ matrix.image.distro }}-${{ matrix.image.c }}
+          name: tt-umd-examples-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: |
             ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
             ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
@@ -210,7 +210,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.distro }}-${{ matrix.image.c }}
+          name: tt-umd-python-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
           if-no-files-found: error
@@ -225,7 +225,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.distro }}-${{ matrix.image.c }}
+          name: tt-umd-python-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
@@ -280,12 +280,12 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {package: deb, distro: ubuntu-22.04, c: gcc-11},
-          {package: deb, distro: ubuntu-24.04, c: gcc-11},
-          {package: rpm, distro: fedora-39, c: gcc-13}
+          {package: deb, distro: ubuntu-22.04, compiler-c: gcc-11},
+          {package: deb, distro: ubuntu-24.04, compiler-c: gcc-11},
+          {package: rpm, distro: fedora-39, compiler-c: gcc-13}
         ]
 
-    name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.c }}
+    name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.compiler-c }}
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.build.distro }}:latest
@@ -298,24 +298,24 @@ jobs:
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.c }}
+          name: tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}
           path: >-
-            ./downloaded-artifact/tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.c }}-package
+            ./downloaded-artifact/tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.c }}
+          name: tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}
           path: >-
-            ./downloaded-artifact/tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.c }}-example
+            ./downloaded-artifact/tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.c }}
+          name: tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}
           path: >-
-            ./downloaded-artifact/tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.c }}-package
+            ./downloaded-artifact/tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-package
 
       - name: Run test on example and python with packages
         shell: bash
@@ -323,7 +323,7 @@ jobs:
           set -euo pipefail
           PKG_FMT="${{ matrix.build.package }}"
           DISTRO_VER="${{ matrix.build.distro }}"
-          COMP="${{ matrix.build.c }}"
+          COMP="${{ matrix.build.compiler-c }}"
 
           # Directories from downloaded artifacts
           PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${DISTRO_VER}-${COMP}-package"
@@ -384,90 +384,3 @@ jobs:
             echo "ERROR: Python package not found! Test skipped improperly."
             exit 1  # Force CI failure
           fi
-
-  build-exalens-kernels:
-    name: Build tt-exalens kernels for tests
-    timeout-minutes: 5
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: tenstorrent/tt-exalens
-          ref: main
-          submodules: recursive
-
-      - name: Build test kernels
-        run: |
-          make
-
-      - name: Remove SFPI from build artifacts
-        run: |
-          mv build/sfpi build/sfpi_backup
-          mkdir -p build/sfpi/compiler/bin/
-          cp build/sfpi_backup/compiler/bin/riscv-tt-elf-gdb build/sfpi/compiler/bin/riscv-tt-elf-gdb
-          rm -rf build/sfpi_backup
-          rm -f build/sfpi_*
-
-      - name: Upload kernels as artifacts
-        uses: pyTooling/upload-artifact@v4
-        with:
-          name: ttexalens-build
-          path: |
-            build
-
-  run-exalens-tests:
-    name: Run tt-exalens tests
-    needs:
-      - build-manylinux-wheels
-      - build-exalens-kernels
-    strategy:
-      matrix:
-        runner-info: [
-          {arch: "blackhole", board: "p150b", runs-on: "tt-ubuntu-2204-p150b-stable"},
-          {arch: "wormhole_b0", board: "n150", runs-on: "tt-ubuntu-2204-n150-stable"},
-          {arch: "wormhole_b0", board: "n300", runs-on: "tt-ubuntu-2204-n300-stable"},
-        ]
-    runs-on: ${{ matrix.runner-info.runs-on }}
-    container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
-      options: --device /dev/tenstorrent/0
-      volumes:
-        - /dev/hugepages:/dev/hugepages
-        - /dev/hugepages-1G:/dev/hugepages-1G
-        - /etc/udev/rules.d:/etc/udev/rules.d
-        - /lib/modules:/lib/modules
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: tenstorrent/tt-exalens
-          ref: main
-          submodules: recursive
-
-      - name: Get tt-exalens kernels artifact
-        uses: pyTooling/download-artifact@v4
-        with:
-          name: ttexalens-build
-
-      - name: Get tt-umd wheel artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: manylinux-wheel-artifact
-
-      - name: Install tt-umd wheel
-        run: |
-          echo "Listing content of current directory before installing the wheel:"
-          ls -lAR
-          echo "Installing tt-umd wheel..."
-          pip install tt_umd-*-cp310*.whl --force-reinstall
-
-      - name: Run Python tests for tt-exalens library
-        run: |
-          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
-
-      - name: Run Python tests for tt-exalens app
-        run: |
-          python3 -m unittest discover -v -t . -s test/app -p *test*.py

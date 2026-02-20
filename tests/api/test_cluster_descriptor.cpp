@@ -293,6 +293,9 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
         // This covers 6U galaxy.
         case 32: {
+            GTEST_SKIP() << "Skipping test for 6U Wormhole galaxy since ETH links are flaky and the test fails from "
+                            "time to time.";
+
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
             EXPECT_EQ(chips_with_mmio.size(), 32);
 

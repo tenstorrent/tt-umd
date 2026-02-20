@@ -40,10 +40,8 @@ on:
         type: number
         default: 30
 
-
 jobs:
   build-tests:
-    name: ""
     secrets: inherit
     strategy:
       fail-fast: false
@@ -62,9 +60,7 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
-
   test-all:
-    name: ""
     secrets: inherit
     needs: build-tests
     strategy:
@@ -96,6 +92,33 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
+      timeout: ${{ fromJSON(inputs.timeout) }}
+      log-level: ${{ inputs.log-level || 'info' }}
+      build-type: ${{ inputs.build-type }}
+      log-params: |
+        ${{ inputs.log-params }}
+        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
+  run-exalens-tests:
+    secrets: inherit
+    needs: build-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [
+          {runs-on: "tt-ubuntu-2204-p150b-stable"},
+          {runs-on: "tt-ubuntu-2204-n150-stable"},
+          {runs-on: "tt-ubuntu-2204-n300-stable"},
+        ]
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+        ]
+    uses: ./.github/workflows/run-exalens-tests.yml
+    with:
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
+      card: ${{ matrix.test-group.runs-on }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}

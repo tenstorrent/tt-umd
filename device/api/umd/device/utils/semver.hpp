@@ -167,10 +167,30 @@ namespace std {
 template <>
 struct hash<tt::umd::SemVer> {
     std::size_t operator()(const tt::umd::SemVer& v) const noexcept {
-        // Assumption: size_t is 64-bit.
-        // Layout: [ Major (16) | Minor (16) | Patch (32) ].
-        return (static_cast<size_t>(v.major) << 48) | (static_cast<size_t>(v.minor) << 32) |
-               static_cast<size_t>(v.patch);
+        std::size_t h1 = std::hash<uint64_t>{}(v.major);
+        std::size_t h2 = std::hash<uint64_t>{}(v.minor);
+        std::size_t h3 = std::hash<uint64_t>{}(v.patch);
+        std::size_t h4 = std::hash<uint64_t>{}(v.pre_release);
+
+        // A common way to combine hash values.
+        // The magic number is derived from the golden ratio and helps to reduce collisions.
+        std::size_t seed = h1;
+        seed ^= h2 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= h3 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= h4 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+template <>
+struct hash<tt::umd::FirmwareBundleVersion> {
+    std::size_t operator()(const tt::umd::FirmwareBundleVersion& v) const noexcept {
+        // Normalize the same way as compare_firmware_bundle does.
+        tt::umd::SemVer normalized = (v.major >= 80) ? tt::umd::SemVer(0, v.minor, v.patch, v.pre_release)
+                                                     : tt::umd::SemVer(v.major, v.minor, v.patch, v.pre_release);
+
+        // Use the SemVer hash on the normalized version.
+        return std::hash<tt::umd::SemVer>{}(normalized);
     }
 };
 }  // namespace std

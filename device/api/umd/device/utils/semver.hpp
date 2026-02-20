@@ -68,10 +68,7 @@ public:
 
     bool operator>=(const SemVer& other) const { return !(*this < other); }
 
-    std::string to_string() const {
-        return (pre_release) ? fmt::format("{}.{}.{}-rc.{}", major, minor, patch, pre_release)
-                             : fmt::format("{}.{}.{}", major, minor, patch);
-    }
+    std::string to_string() const { return str(); }
 
     /*
      * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,
@@ -134,11 +131,11 @@ class FirmwareBundleVersion : public SemVer {
 public:
     using SemVer::SemVer;
 
-    static FirmwareBundleVersion from_firmware_bundle_tag(std::uint32_t version) {
-        uint64_t major = (version >> 24) & 0xFF;
-        uint64_t minor = (version >> 16) & 0xFF;
-        uint64_t patch = (version >> 8) & 0xFF;
-        uint64_t pre_release = version & 0xFF;
+    static FirmwareBundleVersion from_firmware_bundle_tag(std::uint32_t tag) {
+        uint64_t major = (tag >> 24) & 0xFF;
+        uint64_t minor = (tag >> 16) & 0xFF;
+        uint64_t patch = (tag >> 8) & 0xFF;
+        uint64_t pre_release = tag & 0xFF;
         return FirmwareBundleVersion(major, minor, patch, pre_release);
     }
 

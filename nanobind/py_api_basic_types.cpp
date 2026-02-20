@@ -94,6 +94,18 @@ void bind_basic_types(nb::module_ &m) {
     // TODO: Remove after renaming in tt-exalens.
     m.attr("semver_t") = m.attr("SemVer");
 
+    nb::class_<FirmwareBundleVersion>(m, "FirmwareBundleVersion")
+        .def(nb::init<>())
+        .def_static("from_firmware_bundle_tag", &FirmwareBundleVersion::from_firmware_bundle_tag, nb::arg("tag"))
+        .def("to_string", &FirmwareBundleVersion::to_string)
+        .def("__str__", &FirmwareBundleVersion::to_string)
+        .def("__lt__", &FirmwareBundleVersion::operator<)
+        .def("__le__", &FirmwareBundleVersion::operator<=)
+        .def("__gt__", &FirmwareBundleVersion::operator>)
+        .def("__ge__", &FirmwareBundleVersion::operator>=)
+        .def("__eq__", &FirmwareBundleVersion::operator==)
+        .def("__ne__", &FirmwareBundleVersion::operator!=);
+
     nb::class_<ChipInfo>(m, "ChipInfo")
         .def(nb::init<>())
         .def_rw("noc_translation_enabled", &ChipInfo::noc_translation_enabled)

@@ -8,10 +8,9 @@
 
 #include <algorithm>
 #include <chrono>
-#include <functional>
-#include <iostream>
 #include <stdexcept>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
@@ -29,7 +28,7 @@ namespace {
 std::optional<uint32_t> read_varint(const uint8_t* data, size_t size, size_t& pos) {
     uint32_t value = 0;
     int shift = 0;
-    while (pos < size && shift < 32) {
+    while ((pos < size) && (shift < 32)) {
         uint8_t byte = data[pos++];
         value |= static_cast<uint32_t>(byte & 0x7F) << shift;
         if (!(byte & 0x80)) {
@@ -69,23 +68,21 @@ static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
     return {buffer_addr, buffer_size};
 }
 
-// Template member function implementation.
-template <typename Reader>
-std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(const Reader& reader, const std::string& tag_name) {
+std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(const std::string& tag_name) {
     uint32_t curr_addr = 0;
     uint32_t entry_count = 0;
 
     while (true) {
         if (entry_count >= BOOT_FS_MAX_ENTRIES_SCAN) {
-            std::cout << "Safety exit, tag not found" << std::endl;
+            log_debug(tt::LogUMD, "Safety exit, tag not found");
             return std::nullopt;
         }
 
         TtBootFsFd fd{};
-        std::invoke(reader, curr_addr, sizeof(TtBootFsFd), reinterpret_cast<uint8_t*>(&fd));
+        this->read(curr_addr, reinterpret_cast<uint8_t*>(&fd), sizeof(TtBootFsFd));
 
         if (fd.flags.invalid()) {
-            std::cout << "Found invalid entry (end of table), tag not found" << std::endl;
+            log_debug(tt::LogUMD, "Found invalid entry (end of table), tag not found");
             return std::nullopt;
         }
 
@@ -255,9 +252,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 
 uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
     // Read the cmfwcfg boot FS entry from SPI.
-    auto reader = [this](uint32_t addr, size_t size, uint8_t* buffer) { this->read(addr, buffer, size); };
-
-    auto cmfwcfg_fd = find_boot_fs_tag(reader, "cmfwcfg");
+    auto cmfwcfg_fd = find_boot_fs_tag("cmfwcfg");
 
     if (!cmfwcfg_fd.has_value()) {
         throw std::runtime_error("cmfwcfg tag not found in boot FS table");

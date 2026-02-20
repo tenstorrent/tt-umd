@@ -20,14 +20,14 @@
 namespace tt::umd::erisc_firmware {
 
 // ERISC FW versions required by UMD.
-constexpr semver_t BH_MIN_ERISC_FW_SUPPORTED_VERSION = semver_t(1, 4, 1);
-constexpr semver_t WH_MIN_ERISC_FW_SUPPORTED_VERSION = semver_t(6, 0, 0);
-constexpr semver_t WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED = semver_t(6, 5, 0);
-constexpr semver_t WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS = semver_t(6, 8, 0);
+constexpr SemVer BH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(1, 4, 1);
+constexpr SemVer WH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(6, 0, 0);
+constexpr SemVer WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED = SemVer(6, 5, 0);
+constexpr SemVer WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS = SemVer(6, 8, 0);
 
 // Maps firmware bundle versions to their corresponding ERISC firmware versions.
 // Bundle versions between entries inherit the ERISC version from the previous entry.
-static const std::vector<std::pair<semver_t, semver_t>> WH_ERISC_FW_VERSION_MAP = {
+static const std::vector<std::pair<SemVer, SemVer>> WH_ERISC_FW_VERSION_MAP = {
     {{80, 17, 0}, {6, 14, 0}},  // Legacy FW bundle version with major >= 80 is oldest.
     {{18, 2, 0}, {6, 14, 0}},
     {{18, 4, 0}, {6, 15, 0}},
@@ -37,7 +37,7 @@ static const std::vector<std::pair<semver_t, semver_t>> WH_ERISC_FW_VERSION_MAP 
     {{19, 4, 0}, {7, 3, 0}},
     {{19, 4, 1}, {7, 2, 0}},
     {{19, 5, 0}, {7, 5, 0}}};
-static const std::vector<std::pair<semver_t, semver_t>> BH_ERISC_FW_VERSION_MAP = {
+static const std::vector<std::pair<SemVer, SemVer>> BH_ERISC_FW_VERSION_MAP = {
     {{18, 5, 0}, {1, 4, 1}},
     {{18, 6, 0}, {1, 4, 2}},
     {{18, 9, 0}, {1, 5, 0}},
@@ -51,7 +51,7 @@ struct HashedAddressRange {
     std::string sha256_hash;
 };
 
-static const std::unordered_map<semver_t, HashedAddressRange> WH_ERISC_FW_HASHES = {
+static const std::unordered_map<SemVer, HashedAddressRange> WH_ERISC_FW_HASHES = {
     {{7, 0, 0}, {0x2000, 0x6b5c, "3fb53365b7e07107f447b87faa3781558e3dbba0e942af2e54e985a0b64360c8"}},
     {{7, 1, 0}, {0x2000, 0x6a90, "7b3abf5258f1d95ffe0e6e69bf7638a31130607da3ba2474400e306967dddbbf"}},
     {{7, 2, 0}, {0x2000, 0x6b9c, "49983136ba696a83411e607f4fd7f1abdba6c650269e12904b2da71d19fdd1ee"}},
@@ -60,7 +60,7 @@ static const std::unordered_map<semver_t, HashedAddressRange> WH_ERISC_FW_HASHES
     {{7, 5, 0}, {0x2000, 0x6bcc, "316d28873339992f5526e2994c2323d3b2bec6dcc04f3bdae52d9a9a5d351efa"}},
 };
 
-static const std::unordered_map<semver_t, HashedAddressRange> BH_ERISC_FW_HASHES = {
+static const std::unordered_map<SemVer, HashedAddressRange> BH_ERISC_FW_HASHES = {
     {{1, 4, 2}, {0x72000, 0x8600, "c5385d26fc0aafa783cc5119711bff4c249ad869cd79ec03208cfa923ed26f70"}},
     {{1, 5, 0}, {0x72000, 0x86b4, "08c27a5084899d2cd92f3024365ad08695e6ce5bb512d0316f3380b78e15855f"}},
     {{1, 5, 1}, {0x70000, 0xa6b4, "b937deabb3d4525c5fa2910bcb62fa28097df3b647f69d0db5ef383fbe6ff7b2"}},

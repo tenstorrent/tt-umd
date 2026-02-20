@@ -22,7 +22,7 @@
 namespace tt::umd {
 
 // Firmware version from which Blackhole SPI write requires unlock (0xC2) before and lock (0xC3) after.
-static const semver_t BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
+static const SemVer BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
 
 // SCRATCH_RAM[10] buffer info layout: lower 24 bits = address offset, upper 8 bits = size (power of 2).
 constexpr uint32_t BH_SPI_ADDR_MASK_24_BITS = 0xFFFFFF;
@@ -97,9 +97,9 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
     auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
 
     // Since BH_SPI_LOCK_REQUIRED_SINCE_FW, SPI write must be accompanied by unlock (0xC2) before and lock (0xC3) after.
-    semver_t fw_version = device_->get_firmware_version();
+    SemVer fw_version = device_->get_firmware_version();
     const bool need_lock_unlock =
-        (semver_t::compare_firmware_bundle(fw_version, BH_SPI_LOCK_REQUIRED_SINCE_FW) >= 0) && !skip_write_to_spi;
+        (SemVer::compare_firmware_bundle(fw_version, BH_SPI_LOCK_REQUIRED_SINCE_FW) >= 0) && !skip_write_to_spi;
 
     if (need_lock_unlock) {
         std::vector<uint32_t> unlock_ret;

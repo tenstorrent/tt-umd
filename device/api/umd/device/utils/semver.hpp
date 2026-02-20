@@ -38,7 +38,7 @@ public:
     }
 
     /*
-     * Create a semver_t from a 32-bit integer by unpacking the following bits:
+     * Create a SemVer from a 32-bit integer by unpacking the following bits:
      * 0x00AABCCC where A is major, B is minor and C is patch.
      * Actual meaning of the tag is:
      * 0xEERRCDDD where E is entity, R is release, C is customer and D is debug.

@@ -76,21 +76,21 @@ void bind_basic_types(nb::module_ &m) {
         .def("__str__", &tt::board_type_to_string)
         .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
 
-    nb::class_<semver_t>(m, "semver_t")
+    nb::class_<SemVer>(m, "SemVer")
         .def(nb::init<>())
         .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
         .def(nb::init<const std::string &>(), nb::arg("version_str"))
-        .def_rw("major", &semver_t::major)
-        .def_rw("minor", &semver_t::minor)
-        .def_rw("patch", &semver_t::patch)
-        .def("to_string", &semver_t::to_string)
-        .def("__str__", &semver_t::to_string)
-        .def("__lt__", &semver_t::operator<)
-        .def("__le__", &semver_t::operator<=)
-        .def("__gt__", &semver_t::operator>)
-        .def("__ge__", &semver_t::operator>=)
-        .def("__eq__", &semver_t::operator==)
-        .def("__ne__", &semver_t::operator!=);
+        .def_rw("major", &SemVer::major)
+        .def_rw("minor", &SemVer::minor)
+        .def_rw("patch", &SemVer::patch)
+        .def("to_string", &SemVer::to_string)
+        .def("__str__", &SemVer::to_string)
+        .def("__lt__", &SemVer::operator<)
+        .def("__le__", &SemVer::operator<=)
+        .def("__gt__", &SemVer::operator>)
+        .def("__ge__", &SemVer::operator>=)
+        .def("__eq__", &SemVer::operator==)
+        .def("__ne__", &SemVer::operator!=);
 
     nb::class_<ChipInfo>(m, "ChipInfo")
         .def(nb::init<>())

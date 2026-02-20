@@ -119,7 +119,7 @@ class PCIDevice {
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
-    const semver_t kmd_version;      // KMD version
+    const SemVer kmd_version;        // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
@@ -252,7 +252,7 @@ public:
     /**
      * Read KMD version installed on the system.
      */
-    static semver_t read_kmd_version();
+    static SemVer read_kmd_version();
 
     /**
      * Allocate TLB resource from KMD.

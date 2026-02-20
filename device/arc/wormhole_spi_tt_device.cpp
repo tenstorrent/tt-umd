@@ -102,10 +102,10 @@ uint32_t WormholeSPITTDevice::get_clock() {
     if (telemetry) {
         // TelemetryTag (unified enum) is only available in firmware >= 18.7
         // For older firmware, wormhole::TelemetryTag should be used.
-        semver_t fw_version = device_->get_firmware_version();
-        static const semver_t fw_version_18_7 = semver_t(18, 7, 0);
+        SemVer fw_version = device_->get_firmware_version();
+        static const SemVer fw_version_18_7 = SemVer(18, 7, 0);
 
-        int compare_result = semver_t::compare_firmware_bundle(fw_version, fw_version_18_7);
+        int compare_result = SemVer::compare_firmware_bundle(fw_version, fw_version_18_7);
         if (compare_result < 0) {
             throw std::runtime_error(
                 "Firmware version " + fw_version.to_string() +

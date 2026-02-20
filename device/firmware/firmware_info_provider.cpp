@@ -41,19 +41,19 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
-    static const semver_t fw_version_18_7 = semver_t(18, 7, 0);
-    static const semver_t fw_version_18_3 = semver_t(18, 3, 0);
+    static const SemVer fw_version_18_7 = SemVer(18, 7, 0);
+    static const SemVer fw_version_18_3 = SemVer(18, 3, 0);
 
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            SemVer fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            int compare_18_7_bundle_result = SemVer::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 
-            int compare_18_3_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
+            int compare_18_3_bundle_result = SemVer::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
             if (compare_18_3_bundle_result > 0) {
                 return std::make_unique<Wormhole_18_7_FirmwareInfoProvider>(tt_device);
             }
@@ -61,9 +61,9 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
             return std::make_unique<Wormhole_18_3_FirmwareInfoProvider>(tt_device);
         }
         case ARCH::BLACKHOLE: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            SemVer fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_18_7_bundle_result = semver_t::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
+            int compare_18_7_bundle_result = SemVer::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
             if (compare_18_7_bundle_result > 0) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
@@ -75,17 +75,17 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
     }
 }
 
-semver_t FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
+SemVer FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(19, 4, 0); }
+SemVer FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return SemVer(19, 4, 0); }
 
-semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
+SemVer FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return semver_t(0, 0, 0);
+            return SemVer(0, 0, 0);
         }
         case tt::ARCH::BLACKHOLE: {
-            return semver_t(18, 5, 0);
+            return SemVer(18, 5, 0);
         }
         default:
             throw std::runtime_error("Unsupported architecture for firmware info provider.");
@@ -102,20 +102,20 @@ uint32_t FirmwareInfoProvider::get_eth_fw_version() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ETH_FW_VERSION);
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const {
+std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::ETH_FW_VERSION)) {
         return std::nullopt;
     }
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return semver_t::from_wormhole_eth_firmware_tag(get_eth_fw_version());
+            return SemVer::from_wormhole_eth_firmware_tag(get_eth_fw_version());
         default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
             return std::nullopt;
     }
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_gddr_fw_version() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::GDDR_FW_VERSION)) {
         return std::nullopt;
@@ -124,7 +124,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
         telemetry->read_entry(TelemetryTag::GDDR_FW_VERSION), tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_cm_fw_version() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::CM_FW_VERSION)) {
         return std::nullopt;
@@ -132,7 +132,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
     return get_cm_fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::CM_FW_VERSION), tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_dm_app_fw_version() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::DM_APP_FW_VERSION)) {
         return std::nullopt;
@@ -141,7 +141,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
         telemetry->read_entry(TelemetryTag::DM_APP_FW_VERSION), tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_dm_bl_fw_version() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::DM_BL_FW_VERSION)) {
         return std::nullopt;
@@ -150,7 +150,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
         telemetry->read_entry(TelemetryTag::DM_BL_FW_VERSION), tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::TT_FLASH_VERSION)) {
         return std::nullopt;

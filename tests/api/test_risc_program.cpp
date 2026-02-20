@@ -346,7 +346,7 @@ TEST(TestRiscProgram, DISABLED_EriscFirmwareHashCheck) {
     auto first_chip = cluster->get_chip(*cluster->get_target_device_ids().begin());
     auto first_eth_core = first_chip->get_soc_descriptor().get_cores(tt::CoreType::ETH)[0];
 
-    const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
+    const std::unordered_map<SemVer, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
     switch (first_chip->get_tt_device()->get_arch()) {
         case ARCH::WORMHOLE_B0:
             eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;

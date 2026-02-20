@@ -293,7 +293,7 @@ ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetr
 
 FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider.get(); }
 
-semver_t TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
+SemVer TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 

@@ -166,11 +166,11 @@ protected:
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.
-    std::optional<semver_t> expected_eth_fw_version;
+    std::optional<SemVer> expected_eth_fw_version;
 
     // The FW bundle version found on the first discovered local device, that needs
     // to match with all of the other discovered FW bundle versions on all devices.
-    std::optional<semver_t> first_fw_bundle_version;
+    std::optional<SemVer> first_fw_bundle_version;
 
 private:
     // Hack used to cache SocDescriptors.

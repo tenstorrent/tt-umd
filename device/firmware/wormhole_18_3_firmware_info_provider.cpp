@@ -127,7 +127,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() cons
 }
 
 std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_rpm() const {
-    // FAN_RPM is not available in Wormhole 18.3 telemetry (only FAN_SPEED as percentage)
+    // FAN_RPM is not available in Wormhole 18.3 telemetry (only FAN_SPEED as percentage).
     return std::nullopt;
 }
 

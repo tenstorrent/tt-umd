@@ -51,6 +51,7 @@ tt::ARCH TopologyDiscovery::determine_architecture(IODeviceType io_device_type) 
         case tt::umd::IODeviceType::UNDEFINED:
             return tt::ARCH::Invalid;
     }
+    return tt::ARCH::Invalid;
 }
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(

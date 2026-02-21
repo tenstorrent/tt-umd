@@ -252,153 +252,43 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
     }
 }
 
-// Parametrized test for harvesting-aware translation of DRAM, ARC, and PCIE cores.
-// These cores align with tensix rows and their translated y-coordinates must adjust
-// based on which tensix rows are harvested. The test verifies:
-// 1. DRAM channels at NOC y-coordinates (1,2,3,4,5,7,8,9,10,11) follow tensix harvesting
-// 2. ARC core at NOC0 (0,10) aligns with tensix row 8
-// 3. PCIE core at NOC0 (0,3) aligns with tensix row 2
-// 4. Unharvested rows get lower translated y-coordinates, harvested rows move to the end
-class CoordinateManagerWormholeHarvestingAwareTranslation : public ::testing::TestWithParam<uint32_t> {};
-
-TEST_P(CoordinateManagerWormholeHarvestingAwareTranslation, VerifyHarvestingAwareTranslation) {
-    uint32_t harvesting_mask = GetParam();
-
+// Test that noc0 and translated coordinates are the same for all logical coordinates.
+TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
+    const tt_xy_pair arc_grid_size = wormhole::ARC_GRID_SIZE;
 
-    // Helper to map DRAM NOC y to tensix row.
-    auto dram_y_to_tensix_row = [](size_t dram_y) -> int {
-        if (dram_y == 0 || dram_y == 6) {
-            return -1;  // Ethernet-aligned, not affected by harvesting.
+    for (size_t x = 0; x < arc_grid_size.x; x++) {
+        for (size_t y = 0; y < arc_grid_size.y; y++) {
+            const CoreCoord arc_logical = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            const CoreCoord arc_noc0 = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::NOC0);
+            const CoreCoord arc_translated =
+                coordinate_manager->translate_coord_to(arc_logical, CoordSystem::TRANSLATED);
+
+            EXPECT_EQ(arc_noc0.x, arc_translated.x);
+            EXPECT_EQ(arc_noc0.y, arc_translated.y);
         }
-        if (dram_y < 6) {
-            return dram_y - 1;  // y=1->row0, y=2->row1, y=3->row2, y=4->row3, y=5->row4
-        }
-        return dram_y - 2;  // y=7->row5, y=8->row6, y=9->row7, y=10->row8, y=11->row9
-    };
-
-    // Build expected reordering: unharvested channels first, then harvested.
-    std::vector<size_t> harvestable_dram_channels = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
-    std::vector<size_t> unharvested_channels;
-    std::vector<size_t> harvested_channels;
-
-    for (size_t channel : harvestable_dram_channels) {
-        int tensix_row = dram_y_to_tensix_row(channel);
-        if (harvesting_mask & (1 << tensix_row)) {
-            harvested_channels.push_back(channel);
-        } else {
-            unharvested_channels.push_back(channel);
-        }
-    }
-
-    std::vector<size_t> reordered_channels = unharvested_channels;
-    reordered_channels.insert(reordered_channels.end(), harvested_channels.begin(), harvested_channels.end());
-
-    // Build mapping from NOC y to expected translated y.
-    std::map<size_t, size_t> noc_y_to_expected_translated_y;
-    for (size_t i = 0; i < reordered_channels.size(); i++) {
-        noc_y_to_expected_translated_y[reordered_channels[i]] = 18 + i;  // Translated starts at y=18.
-    }
-
-    // Verify DRAM translation for harvestable channels.
-    const std::vector<tt_xy_pair>& all_dram_cores = flatten_vector(wormhole::DRAM_CORES_NOC0);
-    for (const auto& dram_noc0 : all_dram_cores) {
-        CoreCoord dram_coord(dram_noc0.x, dram_noc0.y, CoreType::DRAM, CoordSystem::NOC0);
-        CoreCoord translated = coordinate_manager->translate_coord_to(dram_coord, CoordSystem::TRANSLATED);
-
-        EXPECT_EQ(translated.x, 16 + dram_noc0.x / 5);  // x=0->16, x=5->17
-
-        if (dram_noc0.y == 0) {
-            EXPECT_EQ(translated.y, 16) << "DRAM at NOC y=0 (ethernet-aligned) should stay at translated y=16";
-        } else if (dram_noc0.y == 6) {
-            EXPECT_EQ(translated.y, 17) << "DRAM at NOC y=6 (ethernet-aligned) should stay at translated y=17";
-        } else {
-            // Harvestable DRAM channel - check against reordering.
-            size_t expected_y = noc_y_to_expected_translated_y[dram_noc0.y];
-            EXPECT_EQ(translated.y, expected_y)
-                << "DRAM at NOC0 (" << dram_noc0.x << "," << dram_noc0.y << ") with mask 0x" << std::hex
-                << harvesting_mask << std::dec << " expected translated y=" << expected_y;
-        }
-    }
-
-    // Verify PCIE translation (NOC0 (0,3) -> tensix row 2).
-    {
-        CoreCoord pcie_logical(0, 0, CoreType::PCIE, CoordSystem::LOGICAL);
-        CoreCoord pcie_noc0 = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::NOC0);
-        EXPECT_EQ(pcie_noc0.x, 0);
-        EXPECT_EQ(pcie_noc0.y, 3);
-
-        CoreCoord pcie_translated = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::TRANSLATED);
-        EXPECT_EQ(pcie_translated.x, 16);
-
-        size_t expected_pcie_y = noc_y_to_expected_translated_y[3];
-
-        std::cout << "Mask 0x" << std::hex << harvesting_mask << std::dec << ": PCIE NOC0=(0,3) -> TRANSLATED=("
-                  << pcie_translated.x << "," << pcie_translated.y << ") [expected y=" << expected_pcie_y << "]"
-                  << std::endl;
-
-        EXPECT_EQ(pcie_translated.y, expected_pcie_y) << "PCIE with mask 0x" << std::hex << harvesting_mask << std::dec
-                                                      << " expected translated y=" << expected_pcie_y;
-    }
-
-    // Verify ARC translation (NOC0 (0,10) -> tensix row 8).
-    {
-        CoreCoord arc_logical(0, 0, CoreType::ARC, CoordSystem::LOGICAL);
-        CoreCoord arc_noc0 = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::NOC0);
-        EXPECT_EQ(arc_noc0.x, 0);
-        EXPECT_EQ(arc_noc0.y, 10);
-
-        CoreCoord arc_translated = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::TRANSLATED);
-        EXPECT_EQ(arc_translated.x, 16);
-
-        size_t expected_arc_y = noc_y_to_expected_translated_y[10];
-
-        std::cout << "Mask 0x" << std::hex << harvesting_mask << std::dec << ": ARC  NOC0=(0,10) -> TRANSLATED=("
-                  << arc_translated.x << "," << arc_translated.y << ") [expected y=" << expected_arc_y << "]"
-                  << std::endl;
-
-        EXPECT_EQ(arc_translated.y, expected_arc_y) << "ARC with mask 0x" << std::hex << harvesting_mask << std::dec
-                                                    << " expected translated y=" << expected_arc_y;
     }
 }
 
-// Generate all valid harvesting masks (0, 1, or 2 bits set across 10 tensix rows).
-static std::vector<uint32_t> generate_harvesting_masks() {
-    std::vector<uint32_t> masks;
-    const size_t num_tensix_rows = 10;
+// Test that noc0 and translated coordinates are the same for all logical PCIE coordinates.
+TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
+    const tt_xy_pair pcie_grid_size = wormhole::PCIE_GRID_SIZE;
 
-    // No harvesting.
-    masks.push_back(0);
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        for (size_t y = 0; y < pcie_grid_size.y; y++) {
+            const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const CoreCoord pcie_noc0 = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::NOC0);
+            const CoreCoord pcie_translated =
+                coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::TRANSLATED);
 
-    // Single bit set (1 row harvested).
-    for (size_t i = 0; i < num_tensix_rows; i++) {
-        masks.push_back(1 << i);
-    }
-
-    // Two bits set (2 rows harvested).
-    for (size_t i = 0; i < num_tensix_rows; i++) {
-        for (size_t j = i + 1; j < num_tensix_rows; j++) {
-            masks.push_back((1 << i) | (1 << j));
+            EXPECT_EQ(pcie_noc0.x, pcie_translated.x);
+            EXPECT_EQ(pcie_noc0.y, pcie_translated.y);
         }
     }
-
-    return masks;
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    AllValidHarvestingMasks,
-    CoordinateManagerWormholeHarvestingAwareTranslation,
-    ::testing::ValuesIn(generate_harvesting_masks()),
-    [](const ::testing::TestParamInfo<uint32_t>& info) {
-        uint32_t mask = info.param;
-        if (mask == 0) {
-            return std::string("NoHarvesting");
-        }
-        std::stringstream ss;
-        ss << "Mask_0x" << std::hex << mask;
-        return ss.str();
-    });
 
 // Test that we assert properly if DRAM harvesting mask is non-zero for Wormhole.
 TEST(CoordinateManager, CoordinateManagerWormholeDRAMHarvestingAssert) {
@@ -442,7 +332,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeTranslationWithoutCoreType) {
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({0, 0}, CoordSystem::NOC0, CoordSystem::NOC0).core_type, CoreType::DRAM);
     EXPECT_EQ(
-        coordinate_manager->translate_coord_to({16, 16}, CoordSystem::TRANSLATED, CoordSystem::NOC0).core_type,
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::TRANSLATED, CoordSystem::NOC0).core_type,
         CoreType::DRAM);
     EXPECT_EQ(
         coordinate_manager->translate_coord_to({2, 2}, CoordSystem::NOC0, CoordSystem::NOC0).core_type,

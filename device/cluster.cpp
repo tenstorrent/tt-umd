@@ -1012,7 +1012,7 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
 
 std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
 
-std::optional<SemVer> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
+std::optional<FirmwareBundleVersion> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {

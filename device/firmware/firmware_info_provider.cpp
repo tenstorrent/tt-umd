@@ -41,30 +41,21 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
-    static const SemVer fw_version_18_7 = SemVer(18, 7, 0);
-    static const SemVer fw_version_18_3 = SemVer(18, 3, 0);
-
+    FirmwareBundleVersion fw_bundle_version = get_firmware_version_util(tt_device);
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
-            SemVer fw_bundle_version = get_firmware_version_util(tt_device);
-
-            int compare_18_7_bundle_result = SemVer::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
-            if (compare_18_7_bundle_result > 0) {
+            if (fw_bundle_version > FirmwareBundleVersion(18, 7, 0)) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 
-            int compare_18_3_bundle_result = SemVer::compare_firmware_bundle(fw_bundle_version, fw_version_18_3);
-            if (compare_18_3_bundle_result > 0) {
+            if (fw_bundle_version > FirmwareBundleVersion(18, 3, 0)) {
                 return std::make_unique<Wormhole_18_7_FirmwareInfoProvider>(tt_device);
             }
 
             return std::make_unique<Wormhole_18_3_FirmwareInfoProvider>(tt_device);
         }
         case ARCH::BLACKHOLE: {
-            SemVer fw_bundle_version = get_firmware_version_util(tt_device);
-
-            int compare_18_7_bundle_result = SemVer::compare_firmware_bundle(fw_bundle_version, fw_version_18_7);
-            if (compare_18_7_bundle_result > 0) {
+            if (fw_bundle_version > FirmwareBundleVersion(18, 7, 0)) {
                 return std::make_unique<FirmwareInfoProvider>(tt_device);
             }
 

@@ -616,7 +616,7 @@ public:
     /**
      * Get the firmware bundle version.
      */
-    std::optional<SemVer> get_firmware_bundle_version() const;
+    std::optional<FirmwareBundleVersion> get_firmware_bundle_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -727,7 +727,7 @@ private:
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
-    std::optional<SemVer> fw_bundle_version;
+    std::optional<FirmwareBundleVersion> fw_bundle_version;
 };
 
 }  // namespace tt::umd

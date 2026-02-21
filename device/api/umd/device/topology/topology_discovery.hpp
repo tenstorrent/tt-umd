@@ -61,7 +61,7 @@ public:
 protected:
     TopologyDiscovery(const TopologyDiscoveryOptions& options);
 
-    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options = {});
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 

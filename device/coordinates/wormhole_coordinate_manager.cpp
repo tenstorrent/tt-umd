@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "noc_access.hpp"
+
 namespace tt::umd {
 
 WormholeCoordinateManager::WormholeCoordinateManager(
@@ -121,6 +123,20 @@ tt_xy_pair WormholeCoordinateManager::get_tensix_grid_size() const {
     return {
         tensix_grid_size.x,
         tensix_grid_size.y - CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask)};
+}
+
+CoordSystem WormholeCoordinateManager::fix_translated_coord_system_hook(const CoordSystem target_coord_system) const {
+    if (target_coord_system != CoordSystem::TRANSLATED) {
+        return target_coord_system;
+    }
+
+    bool is_noc0 = get_selected_noc_id() == NocId::NOC0;
+
+    if (is_noc0) {
+        return CoordSystem::NOC0;
+    }
+
+    return CoordSystem::NOC1;
 }
 
 }  // namespace tt::umd

@@ -37,6 +37,9 @@ protected:
     void fill_arc_noc0_translated_mapping() override;
 
     tt_xy_pair get_tensix_grid_size() const override;
+
+private:
+    CoordSystem fix_translated_coord_system_hook(const CoordSystem target_coord_system) const override;
 };
 
 }  // namespace tt::umd

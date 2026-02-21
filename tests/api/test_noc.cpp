@@ -138,7 +138,7 @@ public:
         const uint64_t noc_translated_id_reg_addr =
             cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_id_logical_offset();
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_translated_id_offset();
 
         uint32_t noc_translated_id_val;
         cluster_->read_from_device_reg(

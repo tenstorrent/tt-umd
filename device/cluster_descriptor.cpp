@@ -33,6 +33,7 @@
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -1022,13 +1023,12 @@ bool ClusterDescriptor::verify_harvesting_information() {
             CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
         if (expected_tensix_harvested_units != actual_tensix_harvested_units) {
-            const bool is_fw_lower_than_19_5 =
-                !fw_bundle_version.has_value() ||
-                semver_t::compare_firmware_bundle(fw_bundle_version.value(), semver_t(19, 5, 0)) < 0;
+            const bool is_fw_older_than_19_5 =
+                !fw_bundle_version.has_value() || (fw_bundle_version.value() < FirmwareBundleVersion(19, 5, 0));
             // P150 only: We enabled harvesting since 19.5, so skip warning users if FW is before 19.5 and no tensix
             // harvested.
             const bool p150_fw_before_harvesting =
-                board_type == BoardType::P150 && is_fw_lower_than_19_5 && actual_tensix_harvested_units == 0;
+                board_type == BoardType::P150 && is_fw_older_than_19_5 && actual_tensix_harvested_units == 0;
             if (!p150_fw_before_harvesting) {
                 log_warning(
                     LogUMD,

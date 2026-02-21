@@ -189,7 +189,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
                     (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
-                     eth_fw_version == semver_t(6, 7, 241)) &&
+                     eth_fw_version == SemVer(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
         }
@@ -1010,9 +1010,9 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
+std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
 
-std::optional<semver_t> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
+std::optional<FirmwareBundleVersion> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {

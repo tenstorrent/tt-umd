@@ -521,7 +521,7 @@ TEST(SiliconDriverWH, DISABLED_VirtualCoordinateBroadcast) {
 
     test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
-    bool virtual_bcast_supported = (eth_version >= semver_t(6, 8, 0) || eth_version == semver_t(6, 7, 241)) &&
+    bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
                                    cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();

@@ -17,7 +17,7 @@ using namespace tt;
 using namespace tt::umd;
 
 bool is_kmd_version_good() {
-    semver_t kmd_ver = PCIDevice::read_kmd_version();
+    SemVer kmd_ver = PCIDevice::read_kmd_version();
 
     return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }

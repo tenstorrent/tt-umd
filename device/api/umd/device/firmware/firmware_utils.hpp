@@ -12,21 +12,21 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-semver_t get_firmware_version_util(TTDevice* tt_device);
+FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
 
-std::optional<semver_t> get_expected_eth_firmware_version_from_firmware_bundle(
-    semver_t fw_bundle_version, tt::ARCH arch);
+std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(
+    FirmwareBundleVersion fw_bundle_version, tt::ARCH arch);
 
-semver_t get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
+SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
 
-semver_t get_cm_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+SemVer get_cm_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-semver_t get_dm_app_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+SemVer get_dm_app_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-semver_t get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+SemVer get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-semver_t get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
+SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, semver_t eth_fw_version);
+std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, SemVer eth_fw_version);
 
 }  // namespace tt::umd

@@ -237,7 +237,7 @@ public:
 
     virtual ChipInfo get_chip_info();
 
-    semver_t get_firmware_version();
+    FirmwareBundleVersion get_firmware_version();
 
     /**
      * Waits for ARC core to be fully ready for communication.

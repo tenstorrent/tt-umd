@@ -13,7 +13,9 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -43,6 +45,9 @@ struct TopologyDiscoveryOptions {
 
     // Enables verifying ERISC FW on cores to ensure reliability of discovery.
     bool verify_eth_fw_hash = false;
+
+    // Preferred architecture.
+    std::optional<tt::ARCH> architecture = std::nullopt;
 };
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
@@ -56,7 +61,7 @@ public:
 protected:
     TopologyDiscovery(const TopologyDiscoveryOptions& options);
 
-    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options = {});
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
@@ -175,6 +180,8 @@ protected:
 private:
     // Hack used to cache SocDescriptors.
     std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
+
+    static tt::ARCH determine_architecture(IODeviceType io_device_type);
 };
 
 }  // namespace tt::umd

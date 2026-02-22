@@ -25,47 +25,57 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
-std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
-    const TopologyDiscoveryOptions& options) {
-    tt::ARCH current_arch = ARCH::Invalid;
-
-    switch (options.io_device_type) {
+tt::ARCH TopologyDiscovery::determine_architecture(IODeviceType io_device_type) {
+    switch (io_device_type) {
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
-                return nullptr;
+                return tt::ARCH::Invalid;
             }
-            current_arch = pci_devices_info.begin()->second.get_arch();
-            break;
+            return pci_devices_info.begin()->second.get_arch();
         }
         case IODeviceType::JTAG: {
-            if (current_arch == tt::ARCH::BLACKHOLE) {
-                TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
-            }
-
             auto jtag_device = JtagDevice::create();
             if (!jtag_device->get_device_cnt()) {
-                return nullptr;
+                return tt::ARCH::Invalid;
             }
-            current_arch = jtag_device->get_jtag_arch(0);
-            break;
+            return jtag_device->get_jtag_arch(0);
         }
-        default:
-            TT_THROW("Unsupported device type for topology discovery");
+        case tt::umd::IODeviceType::UNDEFINED:
+            return tt::ARCH::Invalid;
+    }
+    return tt::ARCH::Invalid;
+}
+
+std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
+    const TopologyDiscoveryOptions& options) {
+    tt::ARCH architecture = ARCH::Invalid;
+    std::optional<std::string> arch_env_var_string = utils::get_env_var_value("TT_ARCH");
+
+    if (arch_env_var_string.has_value()) {
+        tt::ARCH arch_env_var = arch_from_str(arch_env_var_string.value());
+        if (arch_env_var != ARCH::Invalid) {
+            architecture = arch_env_var;
+        }
+    } else {
+        architecture = options.architecture.value_or(determine_architecture(options.io_device_type));
     }
 
-    switch (current_arch) {
+    switch (architecture) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<TopologyDiscoveryWormhole>(options);
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<TopologyDiscoveryBlackhole>(options);
         default:
-            throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
+            return nullptr;
     }
 }
 
@@ -109,6 +119,10 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
+        if (options.architecture.has_value() && tt_device->get_arch() != options.architecture) {
+            continue;
+        }
+
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 

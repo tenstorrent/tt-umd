@@ -73,6 +73,10 @@ protected:
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
+    uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    uint32_t get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 };

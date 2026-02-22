@@ -49,12 +49,12 @@ struct TopologyDiscoveryOptions {
 class TopologyDiscovery {
 public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
-        const TopologyDiscoveryOptions& options);
+        const TopologyDiscoveryOptions& options = {});
 
     virtual ~TopologyDiscovery() = default;
 
 protected:
-    TopologyDiscovery(const TopologyDiscoveryOptions& options);
+    TopologyDiscovery(const TopologyDiscoveryOptions& options = {});
 
     static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
 
@@ -93,6 +93,12 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
+
+    virtual bool eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core);
+
+    virtual uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
+
+    virtual uint32_t get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     uint64_t get_asic_id(TTDevice* tt_device);
 
@@ -156,7 +162,7 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
-    TopologyDiscoveryOptions options;
+    TopologyDiscoveryOptions options = {};
 
     bool is_running_on_6u = false;
 

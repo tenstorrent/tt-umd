@@ -193,6 +193,15 @@ private:
     const std::vector<tt_xy_pair>& get_noc0_pairs(const CoreType core_type) const;
     std::vector<CoreCoord> get_all_noc0_cores(const CoreType core_type) const;
 
+    /**
+     * Function that allows workarounds for the translated coordinate system to work for every core type.
+     *
+     * @return Right type for the right core.
+     */
+    virtual CoordSystem fix_translated_coord_system_hook(const CoordSystem target_coord_system) const {
+        return target_coord_system;
+    }
+
 protected:
     /*
      * Constructor for Coordinate Manager.

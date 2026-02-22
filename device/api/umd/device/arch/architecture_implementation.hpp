@@ -92,6 +92,7 @@ public:
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 
     virtual uint64_t get_noc_node_id_offset() const = 0;
+    virtual uint64_t get_noc_node_translated_id_offset() const = 0;
     virtual uint64_t get_noc_reg_base(
         const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 

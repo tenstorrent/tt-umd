@@ -214,7 +214,9 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
-static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+inline constexpr uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+
+inline constexpr uint64_t BH_NOC_ID_LOGICAL_OFFSET = 0x148;
 
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
@@ -463,6 +465,8 @@ public:
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return grendel::BH_NOC_ID_LOGICAL_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

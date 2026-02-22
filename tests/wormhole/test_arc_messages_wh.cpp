@@ -7,7 +7,9 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
@@ -45,31 +47,41 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    for (uint32_t chip_id : cluster->get_target_device_ids()) {
+    std::set<tt::ChipId> target_chips = cluster->get_target_device_ids();
+    std::unordered_map<uint32_t, TTDevice*> tt_devices;
+    std::unordered_map<uint32_t, std::unique_ptr<ArcMessenger>> arc_messengers;
+
+    for (uint32_t chip_id : target_chips) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
+        tt_devices.emplace(chip_id, tt_device);
+        arc_messengers.emplace(chip_id, ArcMessenger::create_arc_messenger(tt_device));
+    }
 
-        std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
-
-        [[maybe_unused]] uint32_t response = arc_messenger->send_message(
+    for (uint32_t chip_id : target_chips) {
+        [[maybe_unused]] uint32_t response = arc_messengers.at(chip_id)->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(),
+                tt_devices.at(chip_id)->get_architecture_implementation()->get_arc_message_arc_go_busy(),
             {0, 0});
+    }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        uint32_t aiclk = tt_device->get_clock();
+    for (uint32_t chip_id : target_chips) {
+        uint32_t aiclk = tt_devices.at(chip_id)->get_clock();
 
         // TODO #781: For now expect only that busy val is something larger than idle val.
         EXPECT_GT(aiclk, wormhole::AICLK_IDLE_VAL);
 
-        response = arc_messenger->send_message(
+        [[maybe_unused]] uint32_t response = arc_messengers.at(chip_id)->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
+                tt_devices.at(chip_id)->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
             {0, 0});
+    }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        aiclk = tt_device->get_clock();
+    for (uint32_t chip_id : target_chips) {
+        uint32_t aiclk = tt_devices.at(chip_id)->get_clock();
 
         EXPECT_EQ(aiclk, wormhole::AICLK_IDLE_VAL);
     }

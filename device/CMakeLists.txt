@@ -108,6 +108,7 @@ target_sources(
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
+        topology/multi_arch_topology_discovery.cpp
         tt_device/remote_communication.cpp
         tt_device/remote_communication_legacy_firmware.cpp
         jtag/jtag_device.cpp
@@ -200,6 +201,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
+                api/umd/device/topology/multi_arch_topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/timeouts.hpp

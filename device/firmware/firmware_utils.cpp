@@ -12,6 +12,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -20,6 +21,8 @@
 #include <vector>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -147,6 +150,28 @@ semver_t get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::A
     }
 
     return semver_t(0, 0, 0);
+}
+
+semver_t get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0: {
+            uint32_t eth_fw_version_read;
+            tt_device->read_from_device(
+                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t));
+            return semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+        }
+        case ARCH::BLACKHOLE: {
+            uint8_t major = 0;
+            uint8_t minor = 0;
+            uint8_t patch = 0;
+            tt_device->read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t));
+            return semver_t(major, minor, patch);
+        }
+        default:
+            throw std::runtime_error("Getting ETH FW version is not supported for this device.");
+    }
 }
 
 }  // namespace tt::umd

@@ -17,10 +17,12 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/jtag_interface.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -55,8 +57,7 @@ public:
      */
     static std::unique_ptr<TTDevice> create(
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(
         std::shared_ptr<PCIDevice> pci_device,
@@ -66,17 +67,22 @@ public:
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
-    std::shared_ptr<PCIDevice> get_pci_device();
-    std::shared_ptr<JtagDevice> get_jtag_device();
+
+    PCIDevice *get_pci_device();
+    JtagDevice *get_jtag_device();
+    RemoteCommunication *get_remote_communication();
 
     tt::ARCH get_arch();
 
-    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
+    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
+    bool is_hardware_hung();
 
     /**
      * DMA transfer from device to host.
@@ -86,7 +92,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+    void dma_d2h(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from device to host.
@@ -96,7 +102,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -106,7 +112,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+    void dma_h2d(uint32_t dst, const void *src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -116,7 +122,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
+    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -270,8 +276,6 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
-    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
-
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -316,9 +320,9 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
-    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
-    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -335,6 +339,13 @@ public:
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
+    PcieInterface *get_pcie_interface();
+
+    JtagInterface *get_jtag_interface();
+
+    RemoteInterface *get_remote_interface();
+
+    DeviceProtocol *get_device_protocol();
     /**
      * Read the training status of the given ETH core.
      *
@@ -351,37 +362,22 @@ protected:
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 
-    bool is_remote_tt_device = false;
-
     tt_xy_pair arc_core;
 
 private:
     void probe_arc();
-
-    TlbWindow *get_cached_tlb_window();
-
-    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
-
-    template <bool safe>
-    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    template <bool safe>
-    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
-
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
-
-    std::mutex tt_device_io_lock;
-
-    bool use_safe_api_ = false;
+    std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
+    /* Temporary solution for MmioProtocol */
+    PcieInterface *pcie_capabilities_ = nullptr;
+    JtagInterface *jtag_capabilities_ = nullptr;
+    RemoteInterface *remote_capabilites_ = nullptr;
+    bool is_remote_tt_device_ = false;
 };
 
 }  // namespace tt::umd

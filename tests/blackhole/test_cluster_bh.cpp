@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <thread>
 #include <vector>
@@ -175,7 +176,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(chip_id, core, 1 << 21, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+        cluster.configure_tlb(chip_id, core, STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
     }
 
     test_utils::safe_test_cluster_start(&cluster);
@@ -183,9 +184,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (const auto& size : unaligned_sizes) {
         std::vector<uint8_t> write_vec(size, 0);
-        for (int i = 0; i < size; i++) {
-            write_vec[i] = size + i;
-        }
+        std::iota(write_vec.begin(), write_vec.end(), static_cast<uint8_t>(size));
         std::vector<uint8_t> readback_vec(size, 0);
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 50; loop++) {
@@ -216,7 +215,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(chip_id, core, 1 << 21, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+        cluster.configure_tlb(chip_id, core, STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
     }
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -224,7 +223,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
     std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-    // Write to each core a 100 times at different statically mapped addresses.
+    // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
     for (int loop = 0; loop < 100; loop++) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             cluster.write_to_device(
@@ -263,7 +262,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     std::vector<uint32_t> readback_vec = {};
 
     std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-    // Write to each core a 100 times at different statically mapped addresses.
+    // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
     for (int loop = 0; loop < 100; loop++) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             cluster.write_to_device(
@@ -369,8 +368,8 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
         // Iterate over devices and only setup static TLBs for functional worker cores.
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(chip_id, core, 1 << 21, base_addr);
+            // Statically mapping a 2MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
+            cluster.configure_tlb(chip_id, core, STATIC_TLB_SIZE, base_addr);
         }
     }
 

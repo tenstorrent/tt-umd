@@ -26,8 +26,9 @@
 
 namespace tt::umd {
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :
-    TopologyDiscovery(options) {}
+TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
+    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;

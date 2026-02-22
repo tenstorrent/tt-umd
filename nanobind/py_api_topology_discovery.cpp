@@ -18,6 +18,7 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 
@@ -62,8 +63,6 @@ void bind_topology_discovery(nb::module_& m) {
 
     nb::class_<TopologyDiscoveryOptions>(m, "TopologyDiscoveryOptions")
         .def(nb::init<>())
-        .def_rw("soc_descriptor_path", &TopologyDiscoveryOptions::soc_descriptor_path)
-        .def_rw("io_device_type", &TopologyDiscoveryOptions::io_device_type)
         .def_rw("no_remote_discovery", &TopologyDiscoveryOptions::no_remote_discovery)
         .def_rw("no_wait_for_eth_training", &TopologyDiscoveryOptions::no_wait_for_eth_training)
         .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness)
@@ -73,40 +72,19 @@ void bind_topology_discovery(nb::module_& m) {
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",
-            [](const TopologyDiscoveryOptions& options = TopologyDiscoveryOptions{}) {
-                return TopologyDiscovery::discover(options).first;
-            },
-            nb::arg("options") = TopologyDiscoveryOptions{})
-        .def_static(
-            "discover",
-            [](const TopologyDiscoveryOptions& options = TopologyDiscoveryOptions{}) {
-                auto [cluster_desc, chips] = TopologyDiscovery::discover(options);
-
-                // Note that we have to create mmio chips first, since they are passed to the construction of the remote
-                // chips.
-                std::vector<ChipId> chips_to_construct =
-                    cluster_desc->get_chips_local_first(cluster_desc->get_all_chips());
-                std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
-
-                for (ChipId chip_id : chips_to_construct) {
-                    if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-                        auto chip_to_mmio_map = cluster_desc->get_chips_with_mmio();
-                        int pci_device_num = chip_to_mmio_map.at(chip_id);
-                        tt_devices[chip_id] = TTDevice::create(pci_device_num);
-                        tt_devices[chip_id]->init_tt_device();
-                    } else {
-                        // Skip creating remote devices if no_remote_discovery is true.
-                        if (!options.no_remote_discovery) {
-                            ChipId closest_mmio = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-                            tt_devices[chip_id] = create_remote_wormhole_tt_device(
-                                tt_devices[closest_mmio].get(), cluster_desc.get(), chip_id);
-                            tt_devices[chip_id]->init_tt_device();
-                        }
-                    }
-                }
-
-                return std::make_pair(std::move(cluster_desc), std::move(tt_devices));
+            [](const TopologyDiscoveryOptions& options = {},
+               IODeviceType io_device_type = IODeviceType::PCIe,
+               const std::string& soc_descriptor_path = "") {
+                return TopologyDiscovery::discover(options, io_device_type, soc_descriptor_path).first;
             },
             nb::arg("options") = TopologyDiscoveryOptions{},
+            nb::arg("io_device_type") = IODeviceType::PCIe,
+            nb::arg("soc_descriptor_path") = "")
+        .def_static(
+            "discover",
+            &TopologyDiscovery::discover,
+            nb::arg("options") = TopologyDiscoveryOptions{},
+            nb::arg("io_device_type") = IODeviceType::PCIe,
+            nb::arg("soc_descriptor_path") = "",
             "Discover topology and return both ClusterDescriptor and TTDevices");
 }

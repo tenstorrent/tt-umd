@@ -36,10 +36,13 @@ jobs:
       fail-fast: false
       matrix:
         image: [
+          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13},
           {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20},
-          {distro: ubuntu-22.04, compiler-c: gcc-12, compiler-cpp: g++-12},
+          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11},
+          # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
           {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20},
-          {distro: ubuntu-24.04, compiler-c: gcc-12, compiler-cpp: g++-12},
+          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11},
+          # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13},
         ]
 
@@ -277,8 +280,8 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {package: deb, distro: ubuntu-22.04, compiler-c: gcc-12},
-          {package: deb, distro: ubuntu-24.04, compiler-c: gcc-12},
+          {package: deb, distro: ubuntu-22.04, compiler-c: gcc-11},
+          {package: deb, distro: ubuntu-24.04, compiler-c: gcc-11},
           {package: rpm, distro: fedora-39, compiler-c: gcc-13}
         ]
 

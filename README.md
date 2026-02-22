@@ -18,12 +18,7 @@ Required Ubuntu dependencies:
 sudo apt install -y libhwloc-dev cmake ninja-build
 ```
 
-Suggested third-party dependency is Clang 17:
-```
-wget https://apt.llvm.org/llvm.sh
-chmod u+x llvm.sh
-sudo ./llvm.sh 17
-```
+UMD currently supports gcc-11 and newer gcc versions, and clang-13 and newer clang versions.
 
 ## IOMMU and Hugepage requirements
 To determine whether your system requires hugepage configuration, run the provided script:

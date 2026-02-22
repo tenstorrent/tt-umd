@@ -35,15 +35,27 @@ apt-get update && apt-get install -y \
 # Install Python dependencies
 python3 -m pip install --no-cache-dir pytest
 
-# gcc-12 should be available only for ubuntu 22 and not 20
-if apt-cache show gcc-12 > /dev/null 2>&1; then
-    echo "gcc-12 is available. Installing..."
-    apt-get install -y gcc-12 g++-12
+# gcc-11 should be available only for ubuntu 22 and not 20
+if apt-cache show gcc-11 > /dev/null 2>&1; then
+    echo "gcc-11 is available. Installing..."
+    apt-get install -y gcc-11 g++-11
 else
-    echo "gcc-12 is not available in the repository."
+    echo "gcc-11 is not available in the repository."
 fi
 
-# Install clang 20
+# Install clang 13 only on Ubuntu 22.04 (obsolete on 24.04, so skip there).
+UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
+if [ "${UBUNTU_VERSION}" = "22.04" ]; then
+    echo "Installing clang-13 for minimum compiler version testing..."
+    wget https://apt.llvm.org/llvm.sh && \
+        chmod u+x llvm.sh && \
+        ./llvm.sh 13 && \
+        apt install -y libc++-13-dev libc++abi-13-dev
+else
+    echo "Skipping clang-13 (Ubuntu ${UBUNTU_VERSION}); not available or obsolete."
+fi
+
+# Install clang 20 as the default compiler.
 wget https://apt.llvm.org/llvm.sh && \
     chmod u+x llvm.sh && \
     ./llvm.sh 20 && \

@@ -63,8 +63,6 @@ static constexpr uint8_t SPI_WR_STATUS_CMD = 0x01;
 
 static constexpr uint32_t SPI_DUMP_ADDR_CORRECTION = 0x10000000;
 
-static inline uint32_t spi_ctrl0_spi_scph(uint32_t scph) { return (scph << 6) & 0x1; }
-
 static inline uint32_t spi_ctrl1_ndf(uint32_t frame_count) { return frame_count & 0xffff; }
 
 static inline uint32_t spi_baudr_sckdv(uint32_t ssi_clk_div) { return ssi_clk_div & 0xffff; }
@@ -148,8 +146,7 @@ void WormholeSPITTDevice::init(uint32_t clock_div) {
     val = SPI_SSIENR_DISABLE;
     device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
-    val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
-          spi_ctrl0_spi_scph(0x1);
+    val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS;
     device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
 
     val = 0;
@@ -173,8 +170,7 @@ uint8_t WormholeSPITTDevice::read_status(uint8_t register_addr) {
     val = SPI_SSIENR_DISABLE;
     device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
-    val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
-          spi_ctrl0_spi_scph(0x1);
+    val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS;
     device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
 
     val = spi_ctrl1_ndf(0);
@@ -214,8 +210,7 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
     val = SPI_SSIENR_DISABLE;
     device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
 
-    val = SPI_CTRL0_TMOD_TRANSMIT_ONLY | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
-          spi_ctrl0_spi_scph(0x1);
+    val = SPI_CTRL0_TMOD_TRANSMIT_ONLY | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS;
     device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
 
     val = SPI_SSIENR_ENABLE;

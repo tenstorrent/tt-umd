@@ -8,9 +8,10 @@
 
 #include <algorithm>
 #include <chrono>
-#include <iostream>
 #include <stdexcept>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
@@ -21,8 +22,30 @@
 
 namespace tt::umd {
 
+namespace {
+
+// Reads a protobuf varint from data at pos, advances pos. Returns nullopt if incomplete or out of bounds.
+std::optional<uint32_t> read_varint(const uint8_t* data, size_t size, size_t& pos) {
+    uint32_t value = 0;
+    int shift = 0;
+    while ((pos < size) && (shift < 32)) {
+        uint8_t byte = data[pos++];
+        value |= static_cast<uint32_t>(byte & 0x7F) << shift;
+        if (!(byte & 0x80)) {
+            return value;
+        }
+        shift += 7;
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
 // Firmware version from which Blackhole SPI write requires unlock (0xC2) before and lock (0xC3) after.
 static const semver_t BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
+
+// Maximum boot filesystem entries to scan; safety limit to avoid infinite loop on corrupted table.
+constexpr uint32_t BOOT_FS_MAX_ENTRIES_SCAN = 1000;
 
 // SCRATCH_RAM[10] buffer info layout: lower 24 bits = address offset, upper 8 bits = size (power of 2).
 constexpr uint32_t BH_SPI_ADDR_MASK_24_BITS = 0xFFFFFF;
@@ -43,6 +66,80 @@ static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
     uint32_t buffer_addr = (buffer_info & BH_SPI_ADDR_MASK_24_BITS) + BH_SPI_ARC_ADDR_OFFSET;
     uint32_t buffer_size = 1u << ((buffer_info >> BH_SPI_SIZE_SHIFT_BITS) & BH_SPI_SIZE_MASK_8_BITS);
     return {buffer_addr, buffer_size};
+}
+
+std::optional<TtBootFsFd> BlackholeSPITTDevice::find_boot_fs_tag(const std::string& tag_name) {
+    uint32_t curr_addr = 0;
+    uint32_t entry_count = 0;
+
+    while (true) {
+        if (entry_count >= BOOT_FS_MAX_ENTRIES_SCAN) {
+            log_debug(tt::LogUMD, "Safety exit, tag not found");
+            return std::nullopt;
+        }
+
+        TtBootFsFd fd{};
+        this->read(curr_addr, reinterpret_cast<uint8_t*>(&fd), sizeof(TtBootFsFd));
+
+        if (fd.flags.invalid()) {
+            log_debug(tt::LogUMD, "Found invalid entry (end of table), tag not found");
+            return std::nullopt;
+        }
+
+        std::string current_tag = fd.image_tag_str();
+        if (current_tag == tag_name) {
+            return fd;
+        }
+
+        curr_addr += sizeof(TtBootFsFd);
+        entry_count++;
+    }
+}
+
+std::optional<uint32_t> BlackholeSPITTDevice::extract_protobuf_uint32_field(
+    const uint8_t* data, size_t size, uint32_t field_number) {
+    size_t pos = 0;
+
+    while (pos < size) {
+        std::optional<uint32_t> key_opt = read_varint(data, size, pos);
+        if (!key_opt.has_value()) {
+            break;
+        }
+        uint32_t key = *key_opt;
+        uint32_t wire_type = key & 0x7;
+        uint32_t field_num = key >> 3;
+
+        if (field_num == field_number && wire_type == 0) {
+            return read_varint(data, size, pos);
+        }
+
+        // Skip this field based on wire type.
+        switch (wire_type) {
+            case 0:  // Varint
+                if (!read_varint(data, size, pos).has_value()) {
+                    return std::nullopt;
+                }
+                break;
+            case 1:  // 64-bit
+                pos += 8;
+                break;
+            case 2: {  // Length-delimited
+                if (pos >= size) {
+                    return std::nullopt;
+                }
+                uint32_t length = data[pos++];
+                pos += length;
+                break;
+            }
+            case 5:  // 32-bit
+                pos += 4;
+                break;
+            default:
+                return std::nullopt;  // Unknown wire type
+        }
+    }
+
+    return std::nullopt;
 }
 
 BlackholeSPITTDevice::BlackholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_device) {}
@@ -151,6 +248,43 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
             throw std::runtime_error("Failed to lock SPI after write on Blackhole (fw >= 19.0).");
         }
     }
+}
+
+uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
+    // Read the cmfwcfg boot FS entry from SPI.
+    auto cmfwcfg_fd = find_boot_fs_tag("cmfwcfg");
+
+    if (!cmfwcfg_fd.has_value()) {
+        throw std::runtime_error("cmfwcfg tag not found in boot FS table");
+    }
+
+    // Read the protobuf data from SPI.
+    uint32_t proto_size = cmfwcfg_fd->flags.image_size();
+
+    if (proto_size == 0 || proto_size > 1024 * 1024) {  // Sanity check: max 1MB
+        throw std::runtime_error("Invalid cmfwcfg size: " + std::to_string(proto_size));
+    }
+
+    std::vector<uint8_t> proto_data(proto_size);
+    this->read(cmfwcfg_fd->spi_addr, proto_data.data(), proto_size);
+
+    // Remove padding from protobuf data
+    // Last byte indicates padding length.
+    if (proto_data.empty()) {
+        throw std::runtime_error("Empty cmfwcfg data");
+    }
+
+    uint8_t last_byte = proto_data[proto_data.size() - 1];
+    size_t actual_size = proto_data.size() - last_byte - 1;
+
+    // Extract fw_bundle_version field from protobuf
+    // Field number 1 corresponds to fw_bundle_version in the FwTable protobuf definition.
+    auto fw_bundle_version = extract_protobuf_uint32_field(proto_data.data(), actual_size, 1);
+    if (!fw_bundle_version.has_value()) {
+        throw std::runtime_error("fw_bundle_version field not found in cmfwcfg protobuf");
+    }
+
+    return *fw_bundle_version;
 }
 
 }  // namespace tt::umd

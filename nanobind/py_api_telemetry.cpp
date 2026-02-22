@@ -11,6 +11,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -18,7 +19,7 @@ namespace nb = nanobind;
 
 using namespace tt::umd;
 
-void bind_telemetry(nb::module_ &m) {
+void bind_telemetry(nb::module_& m) {
     // Create a submodule for wormhole, so that we can expose telemetry through it.
     // The submodule matches namespace used in C++.
     auto wormhole = m.def_submodule("wormhole", "Wormhole-related functionality");
@@ -119,6 +120,16 @@ void bind_telemetry(nb::module_ &m) {
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
         .value("NOC_TRANSLATION", TelemetryTag::NOC_TRANSLATION)
         .value("FAN_RPM", TelemetryTag::FAN_RPM)
+        .value("GDDR_0_1_TEMP", TelemetryTag::GDDR_0_1_TEMP)
+        .value("GDDR_2_3_TEMP", TelemetryTag::GDDR_2_3_TEMP)
+        .value("GDDR_4_5_TEMP", TelemetryTag::GDDR_4_5_TEMP)
+        .value("GDDR_6_7_TEMP", TelemetryTag::GDDR_6_7_TEMP)
+        .value("GDDR_0_1_CORR_ERRS", TelemetryTag::GDDR_0_1_CORR_ERRS)
+        .value("GDDR_2_3_CORR_ERRS", TelemetryTag::GDDR_2_3_CORR_ERRS)
+        .value("GDDR_4_5_CORR_ERRS", TelemetryTag::GDDR_4_5_CORR_ERRS)
+        .value("GDDR_6_7_CORR_ERRS", TelemetryTag::GDDR_6_7_CORR_ERRS)
+        .value("GDDR_UNCORR_ERRS", TelemetryTag::GDDR_UNCORR_ERRS)
+        .value("MAX_GDDR_TEMP", TelemetryTag::MAX_GDDR_TEMP)
         .value("ASIC_LOCATION", TelemetryTag::ASIC_LOCATION)
         .value("TDC_LIMIT_MAX", TelemetryTag::TDC_LIMIT_MAX)
         .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
@@ -129,13 +140,40 @@ void bind_telemetry(nb::module_ &m) {
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 
+    nb::class_<GddrModuleTelemetry>(m, "GddrModuleTelemetry", "Per-module GDDR telemetry (temp, errors, status).")
+        .def_ro("temperature_top", &GddrModuleTelemetry::temperature_top)
+        .def_ro("temperature_bottom", &GddrModuleTelemetry::temperature_bottom)
+        .def_ro("corrected_read_errors", &GddrModuleTelemetry::corrected_read_errors)
+        .def_ro("corrected_write_errors", &GddrModuleTelemetry::corrected_write_errors)
+        .def_ro("uncorrected_read_error", &GddrModuleTelemetry::uncorrected_read_error)
+        .def_ro("uncorrected_write_error", &GddrModuleTelemetry::uncorrected_write_error)
+        .def_ro("training_complete", &GddrModuleTelemetry::training_complete)
+        .def_ro("error", &GddrModuleTelemetry::error);
+
+    nb::class_<GddrTelemetry>(
+        m, "GddrTelemetry", "Aggregated GDDR telemetry for monitoring/early warning of DRAM failure.")
+        .def_prop_ro(
+            "modules",
+            [](const GddrTelemetry& t) {
+                nb::list L;
+                for (const auto& mod : t.modules) {
+                    L.append(nb::cast(mod));
+                }
+                return L;
+            })
+        .def_ro("max_temperature", &GddrTelemetry::max_temperature)
+        .def_ro("speed_mbps", &GddrTelemetry::speed_mbps)
+        .def_ro("status", &GddrTelemetry::status)
+        .def_ro("uncorrected_errors_mask", &GddrTelemetry::uncorrected_errors_mask);
+
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
-        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"))
+        .def("get_gddr_telemetry", &ArcTelemetryReader::get_gddr_telemetry);
 
     // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
-        .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
+        .def(nb::init<TTDevice*>(), nb::arg("tt_device"))
         .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 

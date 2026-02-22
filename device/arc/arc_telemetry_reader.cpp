@@ -4,16 +4,19 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <vector>
 
+#include "fmt/core.h"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -96,6 +99,72 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
+}
+
+static bool gddr_telemetry_tags_available(ArcTelemetryReader* reader) {
+    return reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::DDR_STATUS)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::DDR_SPEED)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS)) &&
+           reader->is_entry_available(static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP));
+}
+
+std::optional<GddrTelemetry> ArcTelemetryReader::get_gddr_telemetry() {
+    if (!gddr_telemetry_tags_available(this)) {
+        return std::nullopt;
+    }
+
+    GddrTelemetry out{};
+
+    out.status = read_entry(static_cast<uint8_t>(TelemetryTag::DDR_STATUS));
+    out.speed_mbps = read_entry(static_cast<uint8_t>(TelemetryTag::DDR_SPEED));
+    out.uncorrected_errors_mask = read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    out.max_temperature = static_cast<uint8_t>(read_entry(static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP)) & 0xFFu);
+
+    const std::array<uint8_t, 4> temp_tags = {
+        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP),
+        static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP),
+        static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP),
+        static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP),
+    };
+    const std::array<uint8_t, 4> corr_tags = {
+        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS),
+        static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS),
+        static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS),
+        static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS),
+    };
+
+    for (std::size_t pair = 0; pair < 4; ++pair) {
+        const uint32_t temp_word = read_entry(temp_tags[pair]);
+        const uint32_t corr_word = read_entry(corr_tags[pair]);
+        const std::size_t base = pair * 2;
+        // Layout: [31:24] y top, [23:16] y bottom, [15:8] x top, [7:0] x bottom.
+        out.modules[base].temperature_bottom = static_cast<uint8_t>(temp_word & 0xFFu);
+        out.modules[base].temperature_top = static_cast<uint8_t>((temp_word >> 8) & 0xFFu);
+        out.modules[base + 1].temperature_bottom = static_cast<uint8_t>((temp_word >> 16) & 0xFFu);
+        out.modules[base + 1].temperature_top = static_cast<uint8_t>((temp_word >> 24) & 0xFFu);
+        // Layout: [31:24] y corr write, [23:16] y corr read, [15:8] x corr write, [7:0] x corr read.
+        out.modules[base].corrected_read_errors = static_cast<uint8_t>(corr_word & 0xFFu);
+        out.modules[base].corrected_write_errors = static_cast<uint8_t>((corr_word >> 8) & 0xFFu);
+        out.modules[base + 1].corrected_read_errors = static_cast<uint8_t>((corr_word >> 16) & 0xFFu);
+        out.modules[base + 1].corrected_write_errors = static_cast<uint8_t>((corr_word >> 24) & 0xFFu);
+    }
+
+    for (std::size_t i = 0; i < NUM_GDDR_MODULES; ++i) {
+        out.modules[i].uncorrected_read_error = (out.uncorrected_errors_mask & (1u << (i * 2))) != 0;
+        out.modules[i].uncorrected_write_error = (out.uncorrected_errors_mask & (1u << (i * 2 + 1))) != 0;
+        out.modules[i].training_complete = (out.status & (1u << (i * 2))) != 0;
+        out.modules[i].error = (out.status & (1u << (i * 2 + 1))) != 0;
+    }
+
+    return out;
 }
 
 }  // namespace tt::umd

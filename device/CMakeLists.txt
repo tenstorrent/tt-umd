@@ -210,6 +210,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/cluster_types.hpp
                 api/umd/device/types/communication_protocol.hpp
                 api/umd/device/types/core_coordinates.hpp
+                api/umd/device/types/gddr_telemetry.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/wormhole_dram.hpp

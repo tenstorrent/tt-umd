@@ -12,6 +12,7 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
@@ -39,6 +40,7 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+    const SocDescriptor& get_soc_descriptor() const override;
 
     bool is_mmio_capable() const override { return false; }
 
@@ -99,6 +101,7 @@ protected:
     tt::ARCH arch_name;
     ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
+    SocDescriptor soc_descriptor_;
 
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 

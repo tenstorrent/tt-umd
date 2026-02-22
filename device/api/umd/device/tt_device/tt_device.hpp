@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "umd/device/arc/arc_messenger.hpp"
@@ -18,6 +19,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/lock_manager.hpp"
@@ -74,6 +76,12 @@ public:
     std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
+
+    const SocDescriptor &get_soc_descriptor() const;
+    // Assigns default SocDescriptor.
+    void set_soc_descriptor();
+    void set_soc_descriptor(const SocDescriptor &soc_descriptor);
+    void set_soc_descriptor(const std::string &soc_descriptor_path);
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
@@ -361,6 +369,8 @@ protected:
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
+
+    std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 
 private:
     void probe_arc();

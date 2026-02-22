@@ -5,11 +5,12 @@
 #pragma once
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
 class MockChip : public Chip {
 public:
-    MockChip(SocDescriptor soc_descriptor);
+    MockChip(const SocDescriptor& soc_descriptor);
     bool is_mmio_capable() const override;
 
     void start_device() override;
@@ -18,6 +19,7 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+    const SocDescriptor& get_soc_descriptor() const override;
 
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
@@ -56,5 +58,8 @@ public:
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
+
+protected:
+    SocDescriptor soc_descriptor_;
 };
 }  // namespace tt::umd

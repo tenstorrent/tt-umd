@@ -22,6 +22,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -358,6 +359,16 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
     get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
+}
+
+const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
+
+void TTDevice::set_soc_descriptor() { soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info()); }
+
+void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) { soc_descriptor_ = soc_descriptor; }
+
+void TTDevice::set_soc_descriptor(const std::string &soc_descriptor_path) {
+    soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {

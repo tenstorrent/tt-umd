@@ -25,7 +25,7 @@ public:
         IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
 
@@ -39,6 +39,7 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+    const SocDescriptor& get_soc_descriptor() const override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -76,7 +77,7 @@ public:
 
 private:
     LocalChip(
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,

@@ -48,15 +48,14 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     } else {
         soc_descriptor = SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
-    return std::unique_ptr<RemoteChip>(
-        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     EthCoord target_eth_coord,
     const std::set<uint32_t>& remote_transfer_eth_channels,
-    SocDescriptor soc_descriptor) {
+    const SocDescriptor& soc_descriptor) {
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -68,13 +67,14 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
 
-    return std::unique_ptr<RemoteChip>(
-        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
+    return std::unique_ptr<RemoteChip>(new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }
 
 RemoteChip::RemoteChip(
-    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), std::move(soc_descriptor)), local_chip_(local_chip) {
+    const SocDescriptor& soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
+    Chip(remote_tt_device->get_chip_info(), soc_descriptor.arch), local_chip_(local_chip) {
+    remote_tt_device->set_soc_descriptor(soc_descriptor);
+
     // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
     // The base TTDevice interface should provide access to RemoteCommunication directly,
     // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
@@ -148,6 +148,8 @@ void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wai
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
+
+const SocDescriptor& RemoteChip::get_soc_descriptor() const { return tt_device_->get_soc_descriptor(); }
 
 int RemoteChip::get_num_host_channels() { return 0; }
 

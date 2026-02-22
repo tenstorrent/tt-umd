@@ -43,12 +43,17 @@ else
     echo "gcc-11 is not available in the repository."
 fi
 
-# Install clang 13 so we can use it to test if the code builds with it.
-# Note: This is only successful on Ubuntu 22.04, not 24.04.
-wget https://apt.llvm.org/llvm.sh && \
-    chmod u+x llvm.sh && \
-    ./llvm.sh 13 && \
-    apt install -y libc++-13-dev libc++abi-13-dev
+# Install clang 13 only on Ubuntu 22.04 (obsolete on 24.04, so skip there).
+UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
+if [ "${UBUNTU_VERSION}" = "22.04" ]; then
+    echo "Installing clang-13 for minimum compiler version testing..."
+    wget https://apt.llvm.org/llvm.sh && \
+        chmod u+x llvm.sh && \
+        ./llvm.sh 13 && \
+        apt install -y libc++-13-dev libc++abi-13-dev
+else
+    echo "Skipping clang-13 (Ubuntu ${UBUNTU_VERSION}); not available or obsolete."
+fi
 
 # Install clang 20 as the default compiler.
 wget https://apt.llvm.org/llvm.sh && \

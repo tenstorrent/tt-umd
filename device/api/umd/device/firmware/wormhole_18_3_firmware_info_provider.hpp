@@ -51,6 +51,8 @@ public:
 
     std::optional<uint32_t> get_fan_speed() const override;
 
+    std::optional<uint32_t> get_fan_rpm() const override;
+
     std::optional<uint32_t> get_tdp() const override;
 
     std::optional<uint32_t> get_tdc() const override;

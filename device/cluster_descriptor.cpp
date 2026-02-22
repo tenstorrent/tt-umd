@@ -32,6 +32,7 @@
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
+#include "common/utils.hpp"
 #include "disjoint_set.hpp"
 
 namespace tt::umd {
@@ -195,44 +196,129 @@ std::unordered_set<ChipId> filter_chip_collection(
     return filtered_collection;
 }
 
+std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_devices(
+    const ClusterDescriptor *full_cluster_desc) {
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::unordered_set<ChipId> target_chip_ids;
+
+    auto chip_bdfs = full_cluster_desc->get_chip_pci_bdfs();
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
+
+        if (is_bdf) {
+            for (const auto &[chip, bdf] : chip_bdfs) {
+                if (bdf == device_token) {
+                    target_chip_ids.insert(chip);
+                    log_debug(
+                        LogUMD,
+                        "Added chip id {} with BDF {} because of token filter {}.",
+                        chip,
+                        device_token,
+                        device_token);
+                }
+            }
+            continue;
+        }
+
+        bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+
+        if (is_integer) {
+            if (std::find(
+                    full_cluster_desc->get_all_chips().begin(),
+                    full_cluster_desc->get_all_chips().end(),
+                    std::stoi(device_token)) != full_cluster_desc->get_all_chips().end()) {
+                target_chip_ids.insert(std::stoi(device_token));
+                log_debug(
+                    LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
+            } else {
+                TT_THROW(
+                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
+                    "the cluster.",
+                    device_token);
+            }
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
+        }
+    }
+
+    return target_chip_ids;
+}
+
+std::unordered_set<ChipId> ClusterDescriptor::get_chips_from_same_boards(
+    const std::unordered_set<ChipId> &chips) const {
+    std::unordered_set<ChipId> chips_from_same_boards;
+    for (const auto &chip_id : chips) {
+        uint64_t board_id = get_board_id_for_chip(chip_id);
+        std::unordered_set<ChipId> chips_on_same_board = get_board_chips(board_id);
+        chips_from_same_boards.insert(chips_on_same_board.begin(), chips_on_same_board.end());
+    }
+    return chips_from_same_boards;
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
+    std::unordered_set<ChipId> visible_chips;
+
+    if (!target_chip_ids.empty()) {
+        visible_chips = target_chip_ids;
+    } else {
+        visible_chips = get_target_chip_ids_from_visible_devices(full_cluster_desc);
+    }
+
+    visible_chips = full_cluster_desc->get_chips_from_same_boards(visible_chips);
+
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
-    desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
-    desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
-    desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, target_chip_ids);
-    desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, target_chip_ids);
+    desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, visible_chips);
+    desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, visible_chips);
+    desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, visible_chips);
+    desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, visible_chips);
     // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
-    desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
-    desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
-    desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, target_chip_ids);
+    desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, visible_chips);
+    desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, visible_chips);
+    desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, visible_chips);
     // Note that these preserve the full set of channels. So some channels will be reported as active
     // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
     // so that the client doesn't try to do anything on these ETH cores which could break these links.
-    desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, target_chip_ids);
-    desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, target_chip_ids);
+    desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, visible_chips);
+    desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, visible_chips);
 
-    desc->chip_to_bus_id = filter_chip_collection(full_cluster_desc->chip_to_bus_id, target_chip_ids);
+    desc->chip_to_bus_id = filter_chip_collection(full_cluster_desc->chip_to_bus_id, visible_chips);
 
-    desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, target_chip_ids);
+    desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, visible_chips);
 
-    desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, target_chip_ids);
+    desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, visible_chips);
     desc->io_device_type = full_cluster_desc->io_device_type;
     desc->eth_fw_version = full_cluster_desc->eth_fw_version;
     desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
 
-    desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, target_chip_ids);
+    desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, visible_chips);
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
-        if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+        if (visible_chips.find(chip_id) == visible_chips.end()) {
             continue;
         }
 
         for (const auto &[eth_id, connection] : eth_connections) {
             const auto &[remote_chip_id, remote_eth_id] = connection;
-            if (target_chip_ids.find(remote_chip_id) == target_chip_ids.end()) {
+            if (visible_chips.find(remote_chip_id) == visible_chips.end()) {
                 continue;
             }
             desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
@@ -243,7 +329,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         for (const auto &[shelf_id, y_map] : shelf_map) {
             for (const auto &[y_dim, x_map] : y_map) {
                 for (const auto &[x_dim, chip_id] : x_map) {
-                    if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+                    if (visible_chips.find(chip_id) == visible_chips.end()) {
                         continue;
                     }
                     desc->coords_to_chip_ids[rack_id][shelf_id][y_dim][x_dim] = chip_id;
@@ -253,14 +339,42 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     }
 
     for (const auto &[chip_id, chip_group] : full_cluster_desc->chips_grouped_by_closest_mmio) {
-        if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+        if (visible_chips.find(chip_id) == visible_chips.end()) {
             continue;
         }
 
-        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, target_chip_ids);
+        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, visible_chips);
     }
 
     return desc;
+}
+
+// Utility functions for TT_VISIBLE_DEVICES support in mock clusters.
+
+/**
+ * Generate deterministic BDF string for mock device logical IDs.
+ * Uses format similar to real hardware: "0000:04:XX.0" where XX is based on logical ID.
+ */
+static std::string generate_mock_bdf(ChipId logical_id) {
+    // Use a deterministic formula to generate BDF for mock devices
+    // Start from bus 0x04 and increment device number based on logical ID.
+    uint8_t bus = 0x04 + (logical_id / 8);  // 8 devices per bus
+    uint8_t device = logical_id % 8;        // device number within bus
+    uint8_t function = 0;                   // always use function 0
+
+    return fmt::format("{:04x}:{:02x}:{:02x}.{}", 0, bus, device, function);
+}
+
+/**
+ * Generate deterministic board ID for mock device logical IDs.
+ */
+static uint64_t generate_mock_board_id(ChipId logical_id, BoardType board_type) {
+    switch (board_type) {
+        case BoardType::N150:
+            return (0x18ULL << 36) + logical_id;
+        default:
+            return (0x40ULL << 36) + logical_id;
+    }
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
@@ -298,6 +412,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_unique_ids.insert({logical_id, logical_id});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
+        desc->chip_board_type.insert({logical_id, board_type});
+        desc->add_chip_to_board(logical_id, generate_mock_board_id(logical_id, board_type));
         desc->fill_mock_hardcoded_data(logical_id);
     }
     desc->fill_chips_grouped_by_closest_mmio();
@@ -317,6 +433,10 @@ void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
     // realistic bus/tray associations. Use a known X12DPG-QT6 ordering and repeat if more than 4 devices.
     static const uint16_t kMockBusIds[4] = {0x00b1, 0x00ca, 0x0031, 0x004b};
     this->chip_to_bus_id.insert({logical_id, kMockBusIds[logical_id % 4]});
+
+    // Generate deterministic BDF for TT_VISIBLE_DEVICES BDF support.
+    std::string bdf = generate_mock_bdf(logical_id);
+    this->chip_pci_bdfs.insert({logical_id, bdf});
 
     // Provide a default ASIC location placeholder (0) for all chips; callers can override per-arch rules.
     this->asic_locations.insert({logical_id, static_cast<uint8_t>(0)});

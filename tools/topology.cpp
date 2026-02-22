@@ -56,8 +56,7 @@ int main(int argc, char *argv[]) {
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
 
-        cluster_descriptor =
-            ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get(), logical_device_ids);
+        cluster_descriptor = ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get());
     }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);

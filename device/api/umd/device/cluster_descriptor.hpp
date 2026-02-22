@@ -78,7 +78,7 @@ public:
      * @param target_chip_ids Set of logical chip IDs for filtering.
      */
     static std::unique_ptr<ClusterDescriptor> create_constrained_cluster_descriptor(
-        const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids);
+        const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids = {});
 
     /* Getters for various chip related information. */
 
@@ -141,6 +141,8 @@ public:
      * @param chip Logical chip ID to get the board ID for.
      */
     uint64_t get_board_id_for_chip(const ChipId chip) const;
+
+    std::unordered_set<ChipId> get_chips_from_same_boards(const std::unordered_set<ChipId> &chips) const;
 
     /**
      * Returns the map of logical chip IDs and information on whether NOC translation table is enabled for that chip.
@@ -271,6 +273,9 @@ private:
     bool verify_same_architecture();
 
     bool verify_harvesting_information();
+
+    static std::unordered_set<ChipId> get_target_chip_ids_from_visible_devices(
+        const ClusterDescriptor *full_cluster_desc);
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;

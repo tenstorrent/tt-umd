@@ -336,66 +336,53 @@ HarvestingMasks Cluster::get_harvesting_masks(
 }
 
 Cluster::Cluster(ClusterOptions options) {
-    // If the cluster descriptor is not provided, create a new one.
-    ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
-    std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
-
-    bool is_ttsim_simulation =
-        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
-
-    // We need to constuct a cluster descriptor if a custom one was not passed.
-    if (temp_full_cluster_desc == nullptr) {
-        if (options.chip_type == ChipType::SILICON) {
-            // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
-        } else {
-            // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
-            // descriptor from passed target devices.
-            auto arch = tt::ARCH::WORMHOLE_B0;
-#ifdef TT_UMD_BUILD_SIMULATION
-            if (options.chip_type == ChipType::SIMULATION) {
-                if (options.sdesc_path.empty()) {
-                    options.sdesc_path =
-                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
-                }
-                arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+    switch (options.chip_type) {
+        case ChipType::SILICON: {
+            if (options.cluster_descriptor != nullptr) {
+                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                    options.cluster_descriptor, options.target_devices);
+                break;
             }
-#endif
-            // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
-            // simulation.
-            bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
-            temp_full_cluster_desc_ptr =
-                ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
-        }
-        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
-    }
 
-    // If target devices were passed, we want to honour it by constraining the cluster descriptor to only include the
-    // chips in the target devices. Note that we can skip this step in case of mock cluster descriptor, since it was
-    // already created using the target devices.
-    if (!options.target_devices.empty() && options.chip_type == ChipType::SILICON) {
-        // If target devices are passed create constrained cluster descriptor which only contains the chips to be in
-        // this Cluster.
-        cluster_desc =
-            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
-#ifdef TT_UMD_BUILD_SIMULATION
-    } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
-        // Filter devices only when a cluster descriptor is passed for simulation.
-        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = utils::get_visible_devices(options.target_devices);
-        if (!visible_devices.empty()) {
-            cluster_desc =
-                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
-        } else {
-            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+            cluster_desc = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
+            break;
         }
+        case ChipType::MOCK:
+        case ChipType::SIMULATION: {
+            if (options.cluster_descriptor == nullptr) {
+                // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
+                // cluster descriptor from passed target devices.
+                auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+                if (options.chip_type == ChipType::SIMULATION) {
+                    if (options.sdesc_path.empty()) {
+                        options.sdesc_path =
+                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    }
+                    arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+                }
 #endif
-    } else {
-        // If no target devices are passed, we can use the full cluster.
-        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
-        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
-        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
-        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+                // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
+                // simulation.
+                bool is_ttsim_simulation =
+                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+                bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+                std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =
+                    ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+
+                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                    temp_full_cluster_desc_ptr.get(), options.target_devices);
+
+                break;
+            }
+
+            cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                options.cluster_descriptor, options.target_devices);
+
+            break;
+        }
+        default:
+            throw std::runtime_error("Unsupported chip type");
     }
 
     // Construct all the required chips from the cluster descriptor.

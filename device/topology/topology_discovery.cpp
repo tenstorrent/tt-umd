@@ -29,6 +29,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -56,7 +57,18 @@ tt::ARCH TopologyDiscovery::determine_architecture(IODeviceType io_device_type) 
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     const TopologyDiscoveryOptions& options) {
-    tt::ARCH architecture = options.architecture.value_or(determine_architecture(options.io_device_type));
+    tt::ARCH architecture = ARCH::Invalid;
+    std::optional<std::string> arch_env_var_string = utils::get_env_var_value("TT_ARCH");
+
+    if (arch_env_var_string.has_value()) {
+        tt::ARCH arch_env_var = arch_from_str(arch_env_var_string.value());
+        if (arch_env_var != ARCH::Invalid) {
+            architecture = arch_env_var;
+        }
+    } else {
+        architecture = options.architecture.value_or(determine_architecture(options.io_device_type));
+    }
+
     switch (architecture) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<TopologyDiscoveryWormhole>(options);

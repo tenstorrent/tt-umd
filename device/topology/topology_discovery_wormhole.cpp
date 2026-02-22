@@ -83,28 +83,41 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
 }
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
-    if (is_running_on_6u) {
-        // See comment in get_local_board_id.
-        return get_remote_asic_id(tt_device, eth_core);
-    }
-
-    uint32_t board_id;
+    uint32_t board_id_lo = 0;
     tt_device->read_from_device(
-        &board_id,
+        &board_id_lo,
         eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),  // test_results[64]
         sizeof(uint32_t));
-    return board_id;
+    if (is_running_on_6u) {
+        uint32_t board_id_hi = 0;
+        tt_device->read_from_device(
+            &board_id_hi,
+            eth_core,
+            eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_id_lo_offset + 1)),  // test_results[65]
+            sizeof(uint32_t));
+        // Actual contents: UBB S/N [55:0] (ASIC Location bits masked out).
+        return ((static_cast<uint64_t>(board_id_hi & 0x00FFFFFF) << 32) | board_id_lo);
+    }
+    return board_id_lo;  // WH-ERISC Mangled board ID, see get_local_board_id().
 }
 
 uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
-        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
-        // from the ClusterOptions will work correctly on 6U.
-        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
-        // fetched through another function when cluster descriptor is being filled up.
-        return get_local_asic_id(tt_device, eth_core);
+        uint32_t board_id_lo = 0;
+        uint32_t board_id_hi = 0;
+        tt_device->read_from_device(
+            &board_id_lo,
+            eth_core,
+            eth_addresses.eth_param_table + 236,  // boot_params_t::board_id_lo
+            sizeof(uint32_t));
+        tt_device->read_from_device(
+            &board_id_hi,
+            eth_core,
+            eth_addresses.eth_param_table + 80,  // boot_params_t::board_id_hi
+            sizeof(uint32_t));
+        // Actual contents: UBB S/N [55:0] (ASIC Location bits masked out).
+        return ((static_cast<uint64_t>(board_id_hi & 0x00FFFFFF) << 32) | board_id_lo);
     }
 
     // WH-ERISC mangles the ARC board id into 32 bits, just enough to be uniquely identifying.

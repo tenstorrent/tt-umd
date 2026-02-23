@@ -611,12 +611,12 @@ public:
     /**
      * Get the ethernet firmware version used by the physical cluster.
      */
-    std::optional<semver_t> get_ethernet_firmware_version() const;
+    std::optional<SemVer> get_ethernet_firmware_version() const;
 
     /**
      * Get the firmware bundle version.
      */
-    std::optional<semver_t> get_firmware_bundle_version() const;
+    std::optional<FirmwareBundleVersion> get_firmware_bundle_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -726,8 +726,8 @@ private:
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
-    std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.
-    std::optional<semver_t> fw_bundle_version;
+    std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
+    std::optional<FirmwareBundleVersion> fw_bundle_version;
 };
 
 }  // namespace tt::umd

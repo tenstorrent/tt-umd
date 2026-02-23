@@ -382,7 +382,7 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 void TopologyDiscovery::patch_eth_connections() {}
 
 bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
-    semver_t fw_bundle_version = tt_device->get_firmware_version();
+    FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
@@ -400,9 +400,9 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
     first_fw_bundle_version = fw_bundle_version;
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
-    semver_t minimum_compatible_fw_bundle_version =
+    FirmwareBundleVersion minimum_compatible_fw_bundle_version =
         FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device->get_arch());
-    semver_t latest_supported_fw_bundle_version =
+    FirmwareBundleVersion latest_supported_fw_bundle_version =
         FirmwareInfoProvider::get_latest_supported_firmware_version(tt_device->get_arch());
     log_debug(
         LogUMD,
@@ -411,14 +411,14 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         latest_supported_fw_bundle_version.to_string());
 
     TT_ASSERT(
-        semver_t::compare_firmware_bundle(fw_bundle_version, minimum_compatible_fw_bundle_version) >= 0,
+        fw_bundle_version >= minimum_compatible_fw_bundle_version,
         "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
         "architecture.",
         fw_bundle_version.to_string(),
         minimum_compatible_fw_bundle_version.to_string(),
         arch_to_str(tt_device->get_arch()));
 
-    if (semver_t::compare_firmware_bundle(fw_bundle_version, latest_supported_fw_bundle_version) > 0) {
+    if (fw_bundle_version > latest_supported_fw_bundle_version) {
         log_info(
             LogUMD,
             "Firmware bundle version {} on the system is newer than the latest fully tested version {} for {} "

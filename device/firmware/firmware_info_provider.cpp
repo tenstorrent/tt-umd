@@ -47,13 +47,13 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
 }
 
 TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
-    TTDevice* tt_device, const semver_t& fw_version) {
+    TTDevice* tt_device, const FirmwareBundleVersion& fw_version) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            if (semver_t::compare_firmware_bundle(fw_version, {18, 3, 0}) <= 0) {
+            if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
                 // Legacy Wormhole <= 18.3.
                 return create_legacy_wormhole_18_3_base();
-            } else if (semver_t::compare_firmware_bundle(fw_version, {18, 7, 0}) <= 0) {
+            } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 // Legacy Wormhole 18.4 - 18.7.
                 TelemetryFeatureMap map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {
@@ -63,7 +63,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             // Modern Wormhole > 18.7.
             return create_modern_base();
         case ARCH::BLACKHOLE:
-            if (semver_t::compare_firmware_bundle(fw_version, {18, 7, 0}) <= 0) {
+            if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 // Legacy Blackhole <= 18.7.
                 TelemetryFeatureMap map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
@@ -231,17 +231,19 @@ template std::optional<uint32_t> FirmwareInfoProvider::read_scalar<uint32_t>(Fir
 template std::optional<double> FirmwareInfoProvider::read_scalar<double>(FirmwareFeature feature) const;
 template std::optional<uint8_t> FirmwareInfoProvider::read_scalar<uint8_t>(FirmwareFeature feature) const;
 
-semver_t FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
+FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(19, 5, 0); }
+FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
+    return FirmwareBundleVersion(19, 5, 0);
+}
 
-semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
+FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return semver_t(0, 0, 0);
+            return FirmwareBundleVersion(0, 0, 0);
         }
         case tt::ARCH::BLACKHOLE: {
-            return semver_t(18, 5, 0);
+            return FirmwareBundleVersion(18, 5, 0);
         }
         default:
             TT_THROW("Unsupported architecture for firmware info provider.");
@@ -258,20 +260,20 @@ std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
     return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_eth_fw_version_semver() const {
+std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
     }
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return semver_t::from_wormhole_eth_firmware_tag(raw.value());
+            return SemVer::from_wormhole_eth_firmware_tag(raw.value());
         default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
             return std::nullopt;
     }
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_gddr_fw_version() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::GDDR_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -279,7 +281,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_gddr_fw_version() const {
     return get_gddr_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_cm_fw_version() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::CM_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -287,7 +289,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_cm_fw_version() const {
     return get_cm_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_dm_app_fw_version() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::DM_APP_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -295,7 +297,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_dm_app_fw_version() const {
     return get_dm_app_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_dm_bl_fw_version() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::DM_BL_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -303,7 +305,7 @@ std::optional<semver_t> FirmwareInfoProvider::get_dm_bl_fw_version() const {
     return get_dm_bl_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<semver_t> FirmwareInfoProvider::get_tt_flash_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::TT_FLASH_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -415,8 +417,8 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
 
     // Check if we're using legacy Wormhole format (4 bits per channel)
     // or modern format (2 bits per channel).
-    bool is_legacy_wormhole = tt_device->get_arch() == ARCH::WORMHOLE_B0 &&
-                              semver_t::compare_firmware_bundle(firmware_version, {18, 3, 0}) <= 0;
+    bool is_legacy_wormhole =
+        tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version <= FirmwareBundleVersion(18, 3, 0);
 
     return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data, num_dram_channels)
                               : get_modern_dram_statuses(telemetry_data, num_dram_channels);

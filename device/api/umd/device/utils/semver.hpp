@@ -185,12 +185,7 @@ struct hash<tt::umd::SemVer> {
 template <>
 struct hash<tt::umd::FirmwareBundleVersion> {
     std::size_t operator()(const tt::umd::FirmwareBundleVersion& v) const noexcept {
-        // Normalize the same way as compare_firmware_bundle does.
-        tt::umd::SemVer normalized = (v.major >= 80) ? tt::umd::SemVer(0, v.minor, v.patch, v.pre_release)
-                                                     : tt::umd::SemVer(v.major, v.minor, v.patch, v.pre_release);
-
-        // Use the SemVer hash on the normalized version.
-        return std::hash<tt::umd::SemVer>{}(normalized);
+        return std::hash<tt::umd::SemVer>{}(v);
     }
 };
 }  // namespace std

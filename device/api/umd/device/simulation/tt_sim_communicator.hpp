@@ -11,30 +11,6 @@
 
 namespace tt::umd {
 
-// static void (*s_pfn_libttsim_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size);
-// static void (*s_pfn_libttsim_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size);
-// #if TT_VERSION == 0
-// static uint64_t s_tlb_cfg[186];
-// #elif TT_VERSION == 1
-// static uint32_t s_tlb_cfg[210*3];
-// #endif
-
-// extern "C" API_EXPORT void libttsim_init() {
-//     TTSIM_VERIFY(!s_ttsim_running, ConfigurationError, "sim is already running");
-//     ttsim_init();
-//     s_ttsim_running = true;
-// }
-
-// extern "C" API_EXPORT void libttsim_exit() {
-//     TTSIM_VERIFY(s_ttsim_running, ConfigurationError, "sim is not running");
-//     ttsim_exit();
-//     s_ttsim_running = false;
-// }
-
-// extern "C" API_EXPORT void libttsim_set_pci_dma_mem_callbacks(
-//     decltype(s_pfn_libttsim_pci_dma_mem_rd_bytes) pfn_libttsim_pci_dma_mem_rd_bytes,
-//     decltype(s_pfn_libttsim_pci_dma_mem_wr_bytes) pfn_libttsim_pci_dma_mem_wr_bytes
-
 /**
  * TTSimCommunicator handles low-level communication with the TTSim .so library.
  * It manages dynamic library loading, function pointer resolution, and provides

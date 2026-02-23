@@ -1321,7 +1321,7 @@ TEST(TestCluster, TTSimSysmemReadWrite) {
         uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
 
         ASSERT_NE(sysmem, nullptr);
-        for (int i = 0;i < ONE_GIG; i++) {
+        for (int i = 0; i < ONE_GIG; i++) {
             sysmem[i] = i % 256;
         }
 

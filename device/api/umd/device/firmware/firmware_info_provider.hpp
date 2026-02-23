@@ -137,7 +137,8 @@ private:
     TelemetryFeatureMap telemetry_feature_map;
 
     // Factory helpers for creating telemetry feature configuration maps.
-    static TelemetryFeatureMap create_telemetry_feature_map(TTDevice* tt_device, const SemVer& fw_version);
+    static TelemetryFeatureMap create_telemetry_feature_map(
+        TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
     static TelemetryFeatureMap create_modern_base();
     static TelemetryFeatureMap create_legacy_wormhole_18_3_base();
 

@@ -176,7 +176,8 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(chip_id, core, STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+        cluster.configure_tlb(
+            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
     }
 
     test_utils::safe_test_cluster_start(&cluster);
@@ -215,7 +216,8 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(chip_id, core, STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+        cluster.configure_tlb(
+            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
     }
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -369,7 +371,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 2MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(chip_id, core, STATIC_TLB_SIZE, base_addr);
+            cluster.configure_tlb(chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, base_addr);
         }
     }
 

@@ -37,4 +37,9 @@ SPITTDevice::SPITTDevice(TTDevice *device) : device_(device) {
     }
 }
 
+uint32_t SPITTDevice::get_spi_fw_bundle_version() {
+    throw std::runtime_error(
+        fmt::format("get_spi_fw_bundle_version is not supported for {} architecture.", device_->get_arch()));
+}
+
 }  // namespace tt::umd

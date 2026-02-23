@@ -2,6 +2,7 @@ set(API_TESTS_SRCS
     test_chip.cpp
     test_cluster_descriptor.cpp
     test_cluster.cpp
+    test_risc_program.cpp
     test_tlb_manager.cpp
     test_software_harvesting.cpp
     test_sysmem_manager.cpp

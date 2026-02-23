@@ -26,6 +26,7 @@
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 

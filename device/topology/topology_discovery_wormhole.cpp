@@ -21,6 +21,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"
@@ -371,8 +372,8 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                 for (const CoreCoord& eth_core :
                      get_soc_descriptor(tt_device.get())
                          .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
-                    semver_t eth_fw_version = tt_device->get_eth_fw_version(eth_core);
-                    if (wormhole_tt_device->read_training_status(eth_core) == wormhole::EthTrainStatus::Fail) {
+                    semver_t eth_fw_version = get_eth_fw_version(tt_device.get(), eth_core);
+                    if (tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::FAIL) {
                         if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
                             log_warning(
                                 LogUMD,

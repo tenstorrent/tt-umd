@@ -167,6 +167,7 @@ void TopologyDiscovery::discover_remote_devices() {
         if (options.no_remote_discovery) {
             continue;
         }
+        log_debug(LogUMD, "Discovering from ASIC ID: {}", current_device_asic_id);
 
         std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
@@ -199,24 +200,34 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
+            log_debug(
+                LogUMD,
+                "Device ASIC ID: {} has active channel: {} ETH core: {}",
+                current_device_asic_id,
+                channel,
+                eth_core.str());
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
+            uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
 
             if (!is_board_id_included(
                     get_remote_board_id(tt_device, eth_core), get_remote_board_type(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
-                 discovered_devices.find(get_remote_asic_id(tt_device, eth_core)) == discovered_devices.end())) {
-                uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
+                 discovered_devices.find(remote_asic_id) == discovered_devices.end())) {
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_device_asic_id, channel},
                      {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
-                log_debug(LogUMD, "Remote device outside of UMD cluster {}.", remote_asic_id);
+                log_debug(
+                    LogUMD,
+                    "Discovered remote device outside of host ASIC ID: {} over ETH core: {}",
+                    remote_asic_id,
+                    eth_core.str());
 
                 continue;
             }
 
-            uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
-
             if (discovered_devices.find(remote_asic_id) == discovered_devices.end()) {
+                log_debug(
+                    LogUMD, "Discovered remote device ASIC ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 uint64_t gateway_device_id = remote_asic_id_to_mmio_device_id.at(current_device_asic_id);
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, eth_core);
                 std::unique_ptr<TTDevice> remote_device = create_remote_device(
@@ -232,6 +243,7 @@ void TopologyDiscovery::discover_remote_devices() {
                     eth_coords.emplace(remote_asic_id, eth_coord.value());
                 }
             } else {
+                log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(
                     {{current_device_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});
             }

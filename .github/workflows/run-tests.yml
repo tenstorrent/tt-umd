@@ -88,6 +88,9 @@ jobs:
 
       - name: Install wheel and run pytest
         shell: bash
+        env:
+          PIP_CACHE_DIR: ${{ github.workspace }}/.pip-cache
+          PIP_ROOT_USER_ACTION: ignore
         run: |
           echo "Setting up virtual environment..."
           python -m venv .venv

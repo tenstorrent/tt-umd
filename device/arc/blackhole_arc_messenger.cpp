@@ -4,6 +4,10 @@
 
 #include "umd/device/arc/blackhole_arc_messenger.hpp"
 
+#include <chrono>
+#include <cstdint>
+#include <vector>
+
 #include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {

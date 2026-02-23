@@ -8,7 +8,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <exception>
 #include <stdexcept>
 #include <vector>
 
@@ -278,8 +280,7 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
     device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
 
     // Wait for lock operation to complete.
-    uint8_t status_val;
-    while (((status_val = read_status(SPI_RD_STATUS_CMD)) & 0x1) == 0x1) {
+    while ((read_status(SPI_RD_STATUS_CMD) & 0x1) == 0x1) {
     }
 }
 

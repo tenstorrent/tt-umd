@@ -5,8 +5,10 @@
 
 #include <fmt/format.h>
 
+#include <memory>
 #include <stdexcept>
 
+#include "umd/device/arc/blackhole_spi_tt_device.hpp"
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -19,6 +21,8 @@ std::unique_ptr<SPITTDevice> SPITTDevice::create(TTDevice *device) {
     }
 
     switch (device->get_arch()) {
+        case tt::ARCH::BLACKHOLE:
+            return std::make_unique<BlackholeSPITTDevice>(device);
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<WormholeSPITTDevice>(device);
         default:
@@ -31,6 +35,11 @@ SPITTDevice::SPITTDevice(TTDevice *device) : device_(device) {
     if (device_ == nullptr) {
         throw std::runtime_error("SPITTDevice: device pointer cannot be null");
     }
+}
+
+uint32_t SPITTDevice::get_spi_fw_bundle_version() {
+    throw std::runtime_error(
+        fmt::format("get_spi_fw_bundle_version is not supported for {} architecture.", device_->get_arch()));
 }
 
 }  // namespace tt::umd

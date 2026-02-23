@@ -8,13 +8,14 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-
-// TODO: change to tt_cluster.
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"

@@ -4,6 +4,15 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <set>
+#include <stdexcept>
+#include <vector>
+
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -266,7 +275,6 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalNOC0Mapping) {
     const size_t max_num_banks_harvested = blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(blackhole::DRAM_CORES_NOC0);
 
     for (size_t dram_harvesting_mask = 0; dram_harvesting_mask < (1 << max_num_banks_harvested);
          dram_harvesting_mask++) {

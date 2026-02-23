@@ -5,7 +5,10 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <stdexcept>
+#include <vector>
 
 #include "assert.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -232,7 +235,7 @@ template std::optional<uint8_t> FirmwareInfoProvider::read_scalar<uint8_t>(Firmw
 
 semver_t FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(19, 4, 0); }
+semver_t FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) { return semver_t(19, 5, 0); }
 
 semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {

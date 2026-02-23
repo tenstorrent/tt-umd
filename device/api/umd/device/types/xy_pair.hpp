@@ -31,7 +31,7 @@ constexpr bool operator<(const xy_pair &left, const xy_pair &right) {
 }
 
 struct cxy_pair : public xy_pair {
-    cxy_pair() : xy_pair{}, chip{} {}
+    cxy_pair() = default;
 
     cxy_pair(std::size_t ichip, xy_pair pair) : xy_pair(pair.x, pair.y), chip(ichip) {}
 
@@ -63,7 +63,8 @@ template <>
 struct hash<tt::xy_pair> {
     std::size_t operator()(tt::xy_pair const &o) const {
         std::size_t seed = 0;
-        seed = std::hash<std::size_t>()(o.x) ^ std::hash<std::size_t>()(o.y) << 1;
+        seed ^= std::hash<std::size_t>()(o.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<std::size_t>()(o.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };
@@ -74,8 +75,9 @@ template <>
 struct hash<tt::cxy_pair> {
     std::size_t operator()(tt::cxy_pair const &o) const {
         std::size_t seed = 0;
-        seed = std::hash<std::size_t>()(o.chip) ^ (std::hash<std::size_t>()(o.x) << 1) ^
-               (std::hash<std::size_t>()(o.y) << 2);
+        seed ^= std::hash<std::size_t>()(o.chip) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<std::size_t>()(o.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<std::size_t>()(o.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };

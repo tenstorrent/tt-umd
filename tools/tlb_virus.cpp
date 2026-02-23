@@ -6,10 +6,15 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cxxopts.hpp>
+#include <exception>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "common.hpp"

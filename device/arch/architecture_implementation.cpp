@@ -4,6 +4,8 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 
+#include <memory>
+
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

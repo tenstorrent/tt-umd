@@ -89,7 +89,7 @@ private:
 
     bool m_enable_cpuset_allocator = true;  // Enable feature, otherwise do nothing.
     int m_num_packages = 0;
-    std::vector<int> m_all_tt_devices = {};
+    std::vector<int> m_all_tt_devices;
 
     hwloc_obj_type_t m_object_per_alloc_slot = HWLOC_OBJ_L3CACHE;  // Default
 

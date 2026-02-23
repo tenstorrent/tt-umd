@@ -190,6 +190,6 @@ source ${TENSIX_EMULATION_ROOT}/zebu/scripts/env.bash
 
 # run test
 cd build/rundir_zebu
-ZEBU_PHYSICAL_LOCATION=U0.M0=U0.M3 ./build/test/loader/tests/test_pybuda_ram --emulation --arch grayskull --netlist /proj_soc/mlausin/emu_buda/ws_buda_1/BudaBackEnd/loader/tests/net_basic/ram.yaml --device-desc ../../device/emulation_1x1_arch.yaml --num-pushes 128 |& tee emu.log
+ZEBU_PHYSICAL_LOCATION=U0.M0=U0.M3 ./build/test/loader/tests/test_pybuda_ram --emulation --arch wormhole_b0 --netlist /proj_soc/mlausin/emu_buda/ws_buda_1/BudaBackEnd/loader/tests/net_basic/ram.yaml --device-desc ../../device/emulation_1x1_arch.yaml --num-pushes 128 |& tee emu.log
 ```
 

@@ -4,6 +4,14 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <ios>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

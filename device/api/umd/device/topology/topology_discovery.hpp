@@ -154,7 +154,7 @@ protected:
     std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_device;
 
     // It's required to know which chip should be used for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id = {};
+    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
     TopologyDiscoveryOptions options;
 

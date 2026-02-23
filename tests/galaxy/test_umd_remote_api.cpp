@@ -4,9 +4,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <numeric>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"

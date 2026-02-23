@@ -169,10 +169,23 @@ jobs:
 
           echo "=== Applying auto-fixes for $CHECKER ==="
 
-          # Use script to create pseudo-TTY (CodeChecker reads stdin as JSON when not tty)
-          script -q -c "CodeChecker fixit /tmp/analysis-results --apply \
-            --checker-name '$CHECKER'" /dev/null
+          # Filter YAML files to only include the specified checker, then apply directly
+          FILTERED_DIR=$(mktemp -d)
 
+          python3 /work/scripts/filter_fixes.py \
+            --in-dir /tmp/analysis-results/fixit \
+            --out-dir "$FILTERED_DIR" \
+            --allow "$CHECKER"
+
+          # Apply fixes directly with clang-apply-replacements (no re-serialization)
+          if [ -n "$(ls -A "$FILTERED_DIR" 2>/dev/null)" ]; then
+            clang-apply-replacements-20 --ignore-insert-conflict "$FILTERED_DIR"
+            echo "✅ Applied fixes from $(ls -1 "$FILTERED_DIR" | wc -l) filtered YAML files"
+          else
+            echo "⚠️ No fixit files found for checker $CHECKER"
+          fi
+
+          rm -rf "$FILTERED_DIR"
           echo "✅ Auto-fix step completed"
 
       - name: Create PR branch

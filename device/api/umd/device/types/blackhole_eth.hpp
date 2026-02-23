@@ -4,13 +4,12 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
-namespace tt::umd {
-
-namespace blackhole {
+namespace tt::umd::blackhole {
 
 static constexpr uint32_t POSTCODE_ETH_INIT_SKIP = 0xC0DE0000;
 static constexpr uint32_t POSTCODE_ETH_INIT_SERDES = 0xC0DE1000;
@@ -176,6 +175,9 @@ struct boot_results_t {
 
 constexpr uint32_t BOOT_RESULTS_ADDR = 0x7CC00;
 
-}  // namespace blackhole
+// Ensure port_status address matches topology_discovery_blackhole / firmware layout (0x7CC04).
+static_assert(
+    BOOT_RESULTS_ADDR + offsetof(eth_status_t, port_status) == 0x7CC04,
+    "eth_status_t.port_status address must be 0x7CC04");
 
-}  // namespace tt::umd
+}  // namespace tt::umd::blackhole

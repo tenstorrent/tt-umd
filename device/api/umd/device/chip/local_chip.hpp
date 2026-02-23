@@ -29,7 +29,7 @@ public:
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
 
-    ~LocalChip();
+    ~LocalChip() override;
 
     bool is_mmio_capable() const override;
 

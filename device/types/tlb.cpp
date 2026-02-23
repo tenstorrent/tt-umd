@@ -4,6 +4,10 @@
 
 #include "umd/device/types/tlb.hpp"
 
+#include <cstdint>
+#include <stdexcept>
+#include <utility>
+
 namespace tt::umd {
 
 bool tlb_data::check(const tlb_offsets &offset) const {

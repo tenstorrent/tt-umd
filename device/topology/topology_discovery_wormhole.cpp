@@ -383,7 +383,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                             return;
                         }
 
-                        log_info(
+                        log_debug(
                             LogUMD,
                             "Retraining ETH core {} on device {}, iteration {}.",
                             eth_core.str(),

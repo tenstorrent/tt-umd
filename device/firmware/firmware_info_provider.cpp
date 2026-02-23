@@ -187,10 +187,8 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
             } else if constexpr (std::is_same_v<T, WormholeTag>) {
                 auto* tel = tt_device->get_arc_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
-            } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                return true;  // SMBus is always available
-            } else if constexpr (std::is_same_v<T, FixedValue>) {
-                return true;  // Fixed values are always available
+            } else if constexpr (std::is_same_v<T, SmBusTag> || std::is_same_v<T, FixedValue>) {
+                return true;  // Both SMBus and Fixed values are always available
             }
             return false;
         },

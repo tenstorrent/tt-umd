@@ -246,9 +246,9 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm},
+          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: RPM, package_ext: rpm},
         ]
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.distro }}:latest
@@ -286,7 +286,7 @@ jobs:
         with:
           name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.image.distro }}
           path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/*.${{ matrix.image.package }}
+            ${{ env.BUILD_OUTPUT_DIR }}/*.${{ matrix.image.package_ext }}
           if-no-files-found: error
 
   build-python-wheels:

@@ -743,7 +743,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
         unpin_pages.in.size);
 }
 
-semver_t PCIDevice::read_kmd_version() {
+SemVer PCIDevice::read_kmd_version() {
     static const std::string path = "/sys/module/tenstorrent/version";
     std::ifstream file(path);
 
@@ -755,14 +755,14 @@ semver_t PCIDevice::read_kmd_version() {
     std::string version_str;
     std::getline(file, version_str);
 
-    return semver_t(version_str);
+    return SemVer(version_str);
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     try {
         return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
-        if (read_kmd_version() < semver_t(2, 6, 0)) {
+        if (read_kmd_version() < SemVer(2, 6, 0)) {
             TT_THROW(
                 "Failed to allocate TLB window. Note that the resource might be exhausted by some other hung process. "
                 "Error: {}",

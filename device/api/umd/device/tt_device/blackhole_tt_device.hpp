@@ -9,6 +9,7 @@
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -49,8 +50,13 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
+
+    void dma_multicast_write(
+        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+
 protected:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     bool is_hardware_hung() override;
@@ -60,7 +66,7 @@ protected:
 private:
     int get_pcie_x_coordinate();
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

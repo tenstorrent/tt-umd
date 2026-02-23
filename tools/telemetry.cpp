@@ -7,16 +7,22 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <ctime>
 #include <cxxopts.hpp>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "common.hpp"

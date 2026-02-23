@@ -39,12 +39,15 @@ public:
     bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
 
     void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) override;
     void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_multicast_write(
+        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
 private:
     void start_host_communication();

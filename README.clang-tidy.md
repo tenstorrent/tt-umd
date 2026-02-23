@@ -11,7 +11,7 @@ Clang-tidy is a clang-based C++ "linter" tool that provides static analysis to f
 A new build option `TT_UMD_ENABLE_CLANG_TIDY` has been added to `CMakeLists.txt` that allows enabling clang-tidy checks during compilation:
 
 When enabled, the build system will:
-- Search for `clang-tidy` or `clang-tidy-17` executable
+- Search for `clang-tidy` or `clang-tidy-20` executable
 - Configure CMake to run clang-tidy on each source file during compilation using the project-specific configuration file `.clang-tidy`
 - Enable real-time analysis through clangd in VSCode using the `.clang-tidy` configuration for immediate feedback during development
 
@@ -20,7 +20,7 @@ When enabled, the build system will:
 The `.vscode/default.settings.json` contains configuration that allows the integration of clangd and clang-tidy tools in the IDE itself.
 
 #### clangd Integration
-- **clangd.path**: Set to `clangd-17` to use a specific version
+- **clangd.path**: Set to `clangd-20` to use a specific version
 - **clangd.arguments**: Configured with optimal settings:
   - `--compile-commands-dir=${workspaceFolder}/build`: Use build directory for compilation database
   - `--header-insertion=never`: Disable automatic header insertion
@@ -55,20 +55,20 @@ Note: The flag `TT_UMD_BUILD_TESTS` isn't necessary, but it's almost always used
 ### VSCode Setup
 
 1. Install the clangd extension for VS Code
-2. Ensure `clangd-17` is available in your PATH
+2. Ensure `clangd-20` is available in your PATH
 3. The workspace settings will automatically configure clangd to work with the project
 
 ## Requirements
 
-- **clang-tidy**: Version 17 recommended (clang-tidy-17)
-- **clangd**: Version 17 recommended for VS Code integration
+- **clang-tidy**: Version 20 recommended (clang-tidy-20)
+- **clangd**: Version 20 recommended for VS Code integration
 - **CMake**: Version 3.10 or higher
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Clang-tidy not found**: Install clang-tidy-17 or ensure it's in your PATH
+1. **Clang-tidy not found**: Install clang-tidy-20 or ensure it's in your PATH
 2. **VS Code conflicts**: Disable C/C++ IntelliSense if using clangd
 
 ### Performance Considerations

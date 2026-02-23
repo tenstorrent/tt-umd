@@ -7,9 +7,16 @@
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask
 
+#include <algorithm>
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <regex>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
@@ -114,10 +121,13 @@ std::string find_hugepage_dir(std::size_t pagesize) {
                 switch (pagesize_match[2].str()[0]) {
                     case 'T':
                         mount_page_size <<= 10;
+                        [[fallthrough]];
                     case 'G':
                         mount_page_size <<= 10;
+                        [[fallthrough]];
                     case 'M':
                         mount_page_size <<= 10;
+                        [[fallthrough]];
                     case 'K':
                         mount_page_size <<= 10;
                 }

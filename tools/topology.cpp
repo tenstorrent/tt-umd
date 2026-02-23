@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <cxxopts.hpp>
+#include <iostream>
+#include <memory>
+#include <ostream>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <vector>
 
 #include "common.hpp"
 #include "umd/device/cluster.hpp"
@@ -34,7 +39,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::string cluster_descriptor_path = "";
+    std::string cluster_descriptor_path;
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }

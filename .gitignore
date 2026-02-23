@@ -1,4 +1,5 @@
 build/
+.build/
 *.o
 *.d/
 .umd/
@@ -14,3 +15,5 @@ __pycache__
 tt_umd.egg-info
 .venv
 ucli.key
+_codeql_build_dir/
+_codeql_detected_source_root

@@ -17,7 +17,7 @@
 namespace tt {
 template <typename A, typename B>
 struct OStreamJoin {
-    OStreamJoin(A const& a, B const& b, char const* delim = " ") : a(a), b(b), delim(delim) {}
+    OStreamJoin(A const& a_val, B const& b_val, char const* delim_val = " ") : a(a_val), b(b_val), delim(delim_val) {}
 
     A const& a;
     B const& b;

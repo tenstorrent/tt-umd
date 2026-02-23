@@ -69,18 +69,18 @@ struct ClusterOptions {
      * setting specific simulated masks per device.
      */
     HarvestingMasks simulated_harvesting_masks = {};
-    std::unordered_map<ChipId, HarvestingMasks> simulated_harvesting_masks_per_chip = {};
+    std::unordered_map<ChipId, HarvestingMasks> simulated_harvesting_masks_per_chip;
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
      * descriptor based on architecture will be used.
      */
-    std::string sdesc_path = "";
+    std::string sdesc_path;
     /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
      */
-    std::unordered_set<ChipId> target_devices = {};
+    std::unordered_set<ChipId> target_devices;
 
     /**
      * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
@@ -135,7 +135,7 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = "", IODeviceType device_type = IODeviceType::PCIe);
+        std::string sdesc_path = {}, IODeviceType device_type = IODeviceType::PCIe);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
@@ -239,7 +239,7 @@ public:
      *
      * @param device_params Object specifying initialization configuration.
      */
-    void start_device(const DeviceParams& DeviceParams);
+    void start_device(const DeviceParams& device_params);
 
     /**
      * To be called at the end of a run.
@@ -411,6 +411,19 @@ public:
      */
     void dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
 
+    /**
+     * Use PCIe DMA to write the same data to multiple device cores simultaneously.
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core_start Starting core coordinates (x,y) of the multicast write.
+     * @param core_end Ending core coordinates (x,y) of the multicast write.
+     * @param addr Address to write to.
+     */
+    void dma_multicast_write(
+        void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+
     void noc_multicast_write(
         void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
@@ -446,7 +459,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -702,15 +715,15 @@ private:
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     // State variables.
-    std::set<ChipId> all_chip_ids_ = {};
-    std::set<ChipId> remote_chip_ids_ = {};
-    std::set<ChipId> local_chip_ids_ = {};
+    std::set<ChipId> all_chip_ids_;
+    std::set<ChipId> remote_chip_ids_;
+    std::set<ChipId> local_chip_ids_;
     std::unordered_map<ChipId, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
 
-    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache = {};
+    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
     std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.

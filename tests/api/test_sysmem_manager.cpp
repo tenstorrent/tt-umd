@@ -5,6 +5,12 @@
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
@@ -110,8 +116,6 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 }
 
 TEST(ApiSysmemManager, SysmemBufferUnaligned) {
-    const auto page_size = sysconf(_SC_PAGESIZE);
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

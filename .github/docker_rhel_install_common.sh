@@ -24,6 +24,10 @@ $DNFC \
 
 ## Fedora ships a recent CMake; no external repo needed.
 
+echo "Making gcc-13 and g++-13 symlinks, which are default versions of gcc in Fedora 39"
+ln -s /usr/bin/gcc /usr/bin/gcc-13
+ln -s /usr/bin/g++ /usr/bin/g++-13
+
 # Install C++ development dependencies (using -devel suffix)
 echo "Installing C++ development dependencies..."
 $DNFC \

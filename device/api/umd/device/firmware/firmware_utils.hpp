@@ -29,4 +29,6 @@ SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARC
 
 std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, SemVer eth_fw_version);
 
+SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core);
+
 }  // namespace tt::umd

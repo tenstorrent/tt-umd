@@ -39,6 +39,9 @@ TlbHandle::~TlbHandle() noexcept { free_tlb(); }
 void TlbHandle::configure(const tlb_data& new_config) {
     // Use PCIDevice's configure_tlb method instead of KMD ioctl calls
     // This configures TLB registers directly in user space via BAR0.
+    // PCIDevice' configure methods expects exact bits going into TLB configuration registers.
+    // Since these bits are highest bits of the address based on TLB size, we need to shift the local_offset accordingly
+    // before passing to configure_tlb.
     tlb_data cfg_data = new_config;
     cfg_data.local_offset = cfg_data.local_offset / get_size();
     pci_device_.configure_tlb(tlb_id, cfg_data);

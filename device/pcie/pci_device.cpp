@@ -787,8 +787,9 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
     // Apply the architecture-specific bit field offsets to pack the TLB data.
     auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
 
-    // Calculate the register address for this TLB index.
-    uint64_t tlb_register_addr = tlb_index * (arch == tt::ARCH::WORMHOLE_B0 ? 8 : 12);
+    // Calculate the register address for this TLB index using architecture-specific register size.
+    const uint64_t tlb_cfg_reg_size_bytes = arch_impl->get_tlb_cfg_reg_size_bytes();
+    uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.
     volatile uint64_t *tlb_reg_ptr =

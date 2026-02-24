@@ -39,8 +39,7 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy
 /**
  * Send a command to the simulation host.
  */
-inline void send_command_to_simulation_host(
-    SimulationHost &host, const flatbuffers::FlatBufferBuilder &flat_buffer) {
+inline void send_command_to_simulation_host(SimulationHost &host, const flatbuffers::FlatBufferBuilder &flat_buffer) {
     uint8_t *wr_buffer_ptr = flat_buffer.GetBufferPointer();
     size_t wr_buffer_size = flat_buffer.GetSize();
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);

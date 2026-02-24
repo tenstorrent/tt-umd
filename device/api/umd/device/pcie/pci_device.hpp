@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
@@ -121,6 +122,7 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const SemVer kmd_version;        // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    std::unique_ptr<architecture_implementation> arch_impl_;  // Architecture-specific implementation
     DmaBuffer dma_buffer{};
 
 public:
@@ -193,6 +195,11 @@ public:
     tt::ARCH get_arch() const { return arch; }
 
     /**
+     * @return the architecture-specific implementation for this device
+     */
+    architecture_implementation *get_architecture_implementation() const { return arch_impl_.get(); }
+
+    /**
      * @return whether the system is protected from this device by an IOMMU
      */
     bool is_iommu_enabled() const { return iommu_enabled; }
@@ -263,6 +270,14 @@ public:
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     /**
+     * Configure TLB register in user space by writing directly to BAR0.
+     *
+     * @param tlb_index The TLB index/ID to configure
+     * @param tlb_config The TLB configuration data
+     */
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
+
+    /**
      * Read command byte.
      */
     static uint8_t read_command_byte(const int pci_device_num);
@@ -290,11 +305,24 @@ public:
      */
     static bool is_arch_agnostic_reset_supported();
 
-public:
-    // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
+    /**
+     * Get the tt_device handle for low-level operations.
+     * @return Pointer to the tt_device handle
+     */
+    tt_device_t *get_tt_device_handle() const { return tt_device_handle; }
+
+    /**
+     * Get the TLB configuration space mapping.
+     * @return Pointer to the TLB configuration space
+     */
+    void *get_tlb_config_space() const { return tlb_config_space; }
+
+    // BAR0 base. UMD maps ARC memory to user space.
     void *bar0 = nullptr;
     // We only map 3MB of BAR0, which covers NOC2AXI access and ARC CSM memory.
     static constexpr size_t bar0_size = 3 * (1 << 20);
+    // TLB configuration space size (4KB page).
+    static constexpr size_t tlb_config_space_size = 4 * (1 << 10);
 
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
@@ -339,6 +367,8 @@ private:
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;
-};
 
+    // TLB configuration registers mapped space.
+    void *tlb_config_space = nullptr;
+};
 }  // namespace tt::umd

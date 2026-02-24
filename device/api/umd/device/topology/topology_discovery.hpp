@@ -8,8 +8,6 @@
 #include <optional>
 #include <unordered_set>
 
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

@@ -9,8 +9,6 @@ on:
       - 'VERSION'
 
 env:
-  CC: clang-20
-  CXX: clang++-20
   RELEASE_BUILD_TYPE: Release
   BUILD_OUTPUT_DIR: ./build
   INSTALL_OUTPUT_DIR: ./build/install
@@ -237,20 +235,24 @@ jobs:
           } >> $GITHUB_OUTPUT
 
   build-cpp-artifacts:
-    name: Build C++ Artifacts (${{ matrix.docker-version }})
+    name: Build C++ Artifacts on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     runs-on: tt-ubuntu-2204-large-stable
     needs: prepare-release
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        docker-version: [
-          'ubuntu-22.04',
-          'ubuntu-24.04',
-          'fedora-39',
+        image: [
+          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: RPM, package_ext: rpm},
         ]
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.distro }}:latest
+
+    env:
+      CC: ${{ matrix.image.compiler-c }}
+      CXX: ${{ matrix.image.compiler-cpp }}
 
     steps:
       - uses: actions/checkout@v4
@@ -271,34 +273,17 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Generate .deb packages
-        if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
+      - name: Generate ${{ matrix.image.package }} packages
         working-directory: ${{ env.BUILD_OUTPUT_DIR }}
         run: |
-          cpack -G DEB
+          cpack -G ${{ matrix.image.package }}
 
-      - name: Generate .rpm packages
-        if: ${{ contains(matrix.docker-version, 'fedora-') }}
-        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
-        run: |
-          cpack -G RPM
-
-      - name: Upload .deb packages
-        if: ${{ contains(matrix.docker-version, 'ubuntu-') }}
+      - name: Upload ${{ matrix.image.package }} packages
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.image.distro }}
           path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/*.deb
-          if-no-files-found: error
-
-      - name: Upload .rpm packages
-        if: ${{ contains(matrix.docker-version, 'fedora-') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.docker-version }}
-          path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/*.rpm
+            ${{ env.BUILD_OUTPUT_DIR }}/*.${{ matrix.image.package_ext }}
           if-no-files-found: error
 
   build-python-wheels:

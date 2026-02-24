@@ -112,8 +112,8 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
     std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    pci_dma_mem_rd_bytes_callback_ = pfn_pci_dma_mem_rd_bytes;
-    pci_dma_mem_wr_bytes_callback_ = pfn_pci_dma_mem_wr_bytes;
+    pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
+    pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
     callback_instance_ = this;
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }

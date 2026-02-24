@@ -232,19 +232,15 @@ void TTSimTTDevice::initialize_sysmem_functions() {
 }
 
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
-    paddr -= 0x800000000;
     uint64_t channel = paddr / (1ULL << 30);
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->read_from_sysmem(channel, p, offset, size);
-    std::cout << "done" << std::endl;
 }
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
-    paddr -= 0x800000000;
     uint64_t channel = paddr / (1ULL << 30);
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->write_to_sysmem(channel, p, offset, size);
-    std::cout << "done" << std::endl;
 }
 
 }  // namespace tt::umd

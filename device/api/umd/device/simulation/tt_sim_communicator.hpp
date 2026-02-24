@@ -101,6 +101,17 @@ public:
      */
     void advance_clock(uint32_t n_clocks);
 
+    /**
+     * Set callbacks for PCIe DMA memory operations. These callbacks are called
+     * by TTSim when device performs NOC reads/writes to PCIe core.
+     * These functions should basically implement how we handle copying data to/from system memory
+     * when transactions are initiated by device.
+     *
+     * @param pfn_pci_dma_mem_rd_bytes Callback for PCIe DMA read operations, with parameters (system bus address,
+     * buffer pointer, size).
+     * @param pfn_pci_dma_mem_wr_bytes Callback for PCIe DMA write operations, with parameters (system bus address,
+     * buffer pointer, size).
+     */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
         std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);

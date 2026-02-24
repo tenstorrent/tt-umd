@@ -469,6 +469,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
         pci_device_file_desc,
         bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
 
+    if (bar0 == MAP_FAILED) {
+        throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
+    }
+
     // Map TLB configuration registers. Wormhole has up to 186 TLBs and Blackhole up to 202 TLBs; with
     // approximately 8–12 bytes per TLB configuration register, the maximum required space is about
     // 202 * 12 = 2424 bytes, which fits comfortably in a single 4 KB page (4 * (1 << 10)).
@@ -480,8 +484,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
         pci_device_file_desc,
         bar0_uc_mapping.mapping_base + arch_impl_->get_static_tlb_cfg_addr());
 
-    if (bar0 == MAP_FAILED) {
-        throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
+    if (tlb_config_space == MAP_FAILED) {
+        throw std::runtime_error(
+            fmt::format("TLB configuration registers mapping failed for device {}.", pci_device_num));
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {

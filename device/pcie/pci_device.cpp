@@ -475,10 +475,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
     // Map TLB configuration registers. Wormhole has up to 186 TLBs and Blackhole up to 202 TLBs; with
     // approximately 8–12 bytes per TLB configuration register, the maximum required space is about
-    // 202 * 12 = 2424 bytes, which fits comfortably in a single 4 KB page (4 * (1 << 10)).
+    // 202 * 12 = 2424 bytes, which fits comfortably in a single 4 KB page.
     tlb_config_space = mmap(
         nullptr,
-        4 * (1 << 10),
+        tlb_config_space_size,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
@@ -544,6 +544,10 @@ PCIDevice::~PCIDevice() {
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
         munmap(bar0, bar0_size);
+    }
+
+    if (tlb_config_space != nullptr && tlb_config_space != MAP_FAILED) {
+        munmap(tlb_config_space, tlb_config_space_size);
     }
 
     if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {

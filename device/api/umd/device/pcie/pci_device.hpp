@@ -312,12 +312,18 @@ public:
      */
     tt_device_t *get_tt_device_handle() const { return tt_device_handle; }
 
-public:
-    // BAR0 base. UMD maps ARC memory to user space, and TLB configuration registers are mapped via tlb_config_space.
+    /**
+     * Get the TLB configuration space mapping.
+     * @return Pointer to the TLB configuration space
+     */
+    void *get_tlb_config_space() const { return tlb_config_space; }
+
+    // BAR0 base. UMD maps ARC memory to user space.
     void *bar0 = nullptr;
-    void *tlb_config_space = nullptr;
     // We only map 3MB of BAR0, which covers NOC2AXI access and ARC CSM memory.
     static constexpr size_t bar0_size = 3 * (1 << 20);
+    // TLB configuration space size (4KB page).
+    static constexpr size_t tlb_config_space_size = 4 * (1 << 10);
 
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
@@ -362,6 +368,8 @@ private:
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;
-};
 
+    // TLB configuration registers mapped space.
+    void *tlb_config_space = nullptr;
+};
 }  // namespace tt::umd

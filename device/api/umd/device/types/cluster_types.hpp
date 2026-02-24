@@ -186,10 +186,10 @@ struct DriverEthInterfaceParams {
 };
 
 // ERISC FW version Required by UMD.
-const semver_t BH_ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(1, 0, 0);
-const semver_t ERISC_FW_SUPPORTED_VERSION_MIN = semver_t(6, 0, 0);
-const semver_t ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = semver_t(6, 5, 0);
-const semver_t ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = semver_t(6, 8, 0);
+const SemVer BH_ERISC_FW_SUPPORTED_VERSION_MIN = SemVer(1, 0, 0);
+const SemVer ERISC_FW_SUPPORTED_VERSION_MIN = SemVer(6, 0, 0);
+const SemVer ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN = SemVer(6, 5, 0);
+const SemVer ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN = SemVer(6, 8, 0);
 
 struct HugepageMapping {
     void* mapping = nullptr;

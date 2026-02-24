@@ -24,6 +24,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -162,7 +163,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
 
     // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
     // for P150 Board Types (with a  SW workaround).
-    if (first_fw_bundle_version >= semver_t(18, 12, 0)) {
+    if (first_fw_bundle_version >= FirmwareBundleVersion(18, 12, 0)) {
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {
@@ -222,17 +223,8 @@ void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
 bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
-    static constexpr uint64_t eth_fw_major_addr = 0x7CFBE;
-    static constexpr uint64_t eth_fw_minor_addr = 0x7CFBD;
-    static constexpr uint64_t eth_fw_patch_addr = 0x7CFBC;
-    uint8_t major = 0;
-    uint8_t minor = 0;
-    uint8_t patch = 0;
 
-    tt_device->read_from_device(&major, translated_eth_core, eth_fw_major_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&minor, translated_eth_core, eth_fw_minor_addr, sizeof(uint8_t));
-    tt_device->read_from_device(&patch, translated_eth_core, eth_fw_patch_addr, sizeof(uint8_t));
-    semver_t eth_fw_version = semver_t(major, minor, patch);
+    SemVer eth_fw_version = get_eth_fw_version(tt_device, translated_eth_core);
     uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;

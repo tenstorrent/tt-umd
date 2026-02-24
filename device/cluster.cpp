@@ -189,7 +189,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
                     (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
-                     eth_fw_version == semver_t(6, 7, 241)) &&
+                     eth_fw_version == SemVer(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
         }
@@ -238,10 +238,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return chip;
     } else {
         ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-        LocalChip* local_chip = get_local_chip(gateway_id);
-        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
-            local_chip,
+            get_local_chip(gateway_id),
             cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
             soc_desc);
@@ -1010,9 +1008,9 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
+std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
 
-std::optional<semver_t> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
+std::optional<FirmwareBundleVersion> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {

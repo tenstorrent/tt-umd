@@ -359,7 +359,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info)) {
+    iommu_enabled(detect_iommu(info)),
+    arch_impl_(architecture_implementation::create(arch)) {
     if (iommu_enabled && kmd_version < KMD_IOMMU) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
@@ -477,7 +478,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + STATIC_TLB_CFG_ADDR);
+        bar0_uc_mapping.mapping_base + arch_impl_->get_static_tlb_cfg_addr());
 
     if (bar0 == MAP_FAILED) {
         throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
@@ -778,20 +779,14 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
 }
 
 void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
-    // Create architecture-specific implementation to get TLB configuration.
-    auto arch_impl = architecture_implementation::create(arch);
-    if (!arch_impl) {
-        TT_THROW("Unsupported architecture for TLB configuration: {}", static_cast<int>(arch));
-    }
-
     // Get the TLB configuration for this index.
-    auto tlb_configuration = arch_impl->get_tlb_configuration(tlb_index);
+    auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
     auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = arch_impl->get_tlb_cfg_reg_size_bytes();
+    const uint64_t tlb_cfg_reg_size_bytes = arch_impl_->get_tlb_cfg_reg_size_bytes();
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.

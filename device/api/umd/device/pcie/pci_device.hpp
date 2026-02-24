@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
@@ -122,6 +123,7 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    std::unique_ptr<architecture_implementation> arch_impl_;  // Architecture-specific implementation
     DmaBuffer dma_buffer{};
 
 public:
@@ -192,6 +194,11 @@ public:
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
      */
     tt::ARCH get_arch() const { return arch; }
+
+    /**
+     * @return the architecture-specific implementation for this device
+     */
+    architecture_implementation *get_architecture_implementation() const { return arch_impl_.get(); }
 
     /**
      * @return whether the system is protected from this device by an IOMMU

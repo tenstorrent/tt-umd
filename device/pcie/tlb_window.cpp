@@ -56,9 +56,9 @@ void TlbWindow::write_block_reconfigure(
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = 0;
-    config.ordering = 0;
-    config.static_vc = 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);

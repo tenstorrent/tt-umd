@@ -11,19 +11,12 @@
 namespace tt::umd {
 
 struct TopologyDiscoveryOptions {
-    enum class Action { THROW, IGNORE };
+    enum class Action { THROW, WARN };
+    enum class DeviceAction { THROW, SKIP, KEEP };
 
-    std::optional<tt::ARCH> preferred_architecture = std::nullopt;
+    DeviceAction cmfw_mismatch_action = DeviceAction::THROW;
 
-    uint8_t noc_id = 0;
-
-    Action failed_init_action = Action::THROW;
-
-    Action channel_failure_action = Action::THROW;
-
-    Action cmfw_mismatch_action = Action::THROW;
-
-    Action cmfw_unsupported_action = Action::THROW;
+    DeviceAction cmfw_unsupported_action = DeviceAction::THROW;
 
     Action eth_fw_mismatch_action = Action::THROW;
 
@@ -39,9 +32,16 @@ struct TopologyDiscoveryOptions {
 };
 
 constexpr TopologyDiscoveryOptions DEBUG_DEFAULT_OPTIONS = {
-    .failed_init_action = TopologyDiscoveryOptions::Action::IGNORE,
-    .eth_fw_mismatch_action = TopologyDiscoveryOptions::Action::IGNORE,
-    .unexpected_routing_firmware_config = TopologyDiscoveryOptions::Action::IGNORE,
+    .cmfw_mismatch_action = TopologyDiscoveryOptions::DeviceAction::KEEP,
+    .cmfw_unsupported_action = TopologyDiscoveryOptions::DeviceAction::KEEP,
+    .eth_fw_mismatch_action = TopologyDiscoveryOptions::Action::WARN,
+    .unexpected_routing_firmware_config = TopologyDiscoveryOptions::Action::WARN,
     .wait_on_ethernet_link_training = false,
     .expect_matching_eth_fw_version = true};
+
+constexpr TopologyDiscoveryOptions SMI_DEFAULT_OPTIONS = {
+    .cmfw_mismatch_action = TopologyDiscoveryOptions::DeviceAction::KEEP,
+    .cmfw_unsupported_action = TopologyDiscoveryOptions::DeviceAction::THROW,
+    .eth_fw_mismatch_action = TopologyDiscoveryOptions::Action::WARN,
+    .unexpected_routing_firmware_config = TopologyDiscoveryOptions::Action::WARN};
 }  // namespace tt::umd

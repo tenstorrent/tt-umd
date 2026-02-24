@@ -324,7 +324,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         }
     }
 
-    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::WARN) || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
@@ -338,7 +338,7 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             "Routing FW on 6U unexpectedly enabled on device {} core {}.",
             get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::WARN) {
             log_warning(LogUMD, message);
             return false;
         }
@@ -348,7 +348,7 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             "Routing FW unexpectedly disabled on device {} core {}.",
             get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::WARN) {
             log_warning(LogUMD, message);
             return false;
         }

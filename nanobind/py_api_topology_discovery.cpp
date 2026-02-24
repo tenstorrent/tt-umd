@@ -65,14 +65,14 @@ void bind_topology_discovery(nb::module_& m) {
 
     nb::enum_<TopologyDiscoveryOptions::Action>(m, "TopologyDiscoveryOptionsAction")
         .value("THROW", TopologyDiscoveryOptions::Action::THROW)
-        .value("IGNORE", TopologyDiscoveryOptions::Action::IGNORE);
+        .value("WARN", TopologyDiscoveryOptions::Action::WARN);
+    nb::enum_<TopologyDiscoveryOptions::DeviceAction>(m, "TopologyDiscoveryOptionsDeviceAction")
+        .value("THROW", TopologyDiscoveryOptions::DeviceAction::THROW)
+        .value("SKIP", TopologyDiscoveryOptions::DeviceAction::SKIP)
+        .value("KEEP", TopologyDiscoveryOptions::DeviceAction::KEEP);
 
     nb::class_<TopologyDiscoveryOptions>(m, "TopologyDiscoveryOptions")
         .def(nb::init<>())
-        .def_rw("preferred_architecture", &TopologyDiscoveryOptions::preferred_architecture)
-        .def_rw("noc_id", &TopologyDiscoveryOptions::noc_id)
-        .def_rw("failed_init_action", &TopologyDiscoveryOptions::failed_init_action)
-        .def_rw("channel_failure_action", &TopologyDiscoveryOptions::channel_failure_action)
         .def_rw("cmfw_mismatch_action", &TopologyDiscoveryOptions::cmfw_mismatch_action)
         .def_rw("cmfw_unsupported_action", &TopologyDiscoveryOptions::cmfw_unsupported_action)
         .def_rw("eth_fw_mismatch_action", &TopologyDiscoveryOptions::eth_fw_mismatch_action)
@@ -83,6 +83,7 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("expect_matching_eth_fw_version", &TopologyDiscoveryOptions::expect_matching_eth_fw_version);
 
     m.attr("DEBUG_DEFAULT_OPTIONS") = DEBUG_DEFAULT_OPTIONS;
+    m.attr("SMI_DEFAULT_OPTIONS") = SMI_DEFAULT_OPTIONS;
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

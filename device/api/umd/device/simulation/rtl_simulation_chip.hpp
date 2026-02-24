@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <memory>
 
-#include "umd/device/simulation/rtl_sim_communicator.hpp"
+#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
@@ -35,7 +35,7 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 private:
-    std::unique_ptr<RtlSimCommunicator> communicator_;
+    std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

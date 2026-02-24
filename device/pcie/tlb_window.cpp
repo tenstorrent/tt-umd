@@ -115,15 +115,14 @@ void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
 }
 
 void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
-    auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
-    auto *dst = static_cast<uint32_t *>(data);
+    const void *src = tlb_handle->get_base() + get_total_offset(offset);
 
     validate(offset, size);
 
     if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(dst, (void *)src, size);
+        memcpy_from_device(data, src, size);
     } else {
-        memcpy((void *)dst, (void *)src, size);
+        memcpy(data, src, size);
     }
 }
 

@@ -125,7 +125,7 @@ void TopologyDiscovery::get_connected_devices() {
             init_first_device(tt_device.get());
         }
 
-        if (!options.no_wait_for_eth_training) {
+        if (options.wait_on_ethernet_link_training) {
             wait_eth_cores_training(tt_device.get());
         }
 
@@ -168,7 +168,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
         verify_fw_bundle_version(tt_device);
 
-        if (options.no_remote_discovery) {
+        if (!options.discover_remote_devices) {
             continue;
         }
         log_debug(LogUMD, "Discovering from ASIC ID: {}", current_device_asic_id);

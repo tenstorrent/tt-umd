@@ -7,26 +7,41 @@
 #include <optional>
 
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/communication_protocol.hpp"
 
 namespace tt::umd {
 
 struct TopologyDiscoveryOptions {
-    // Skip discovery of devices connected via Ethernet.
-    bool no_remote_discovery = false;
+    enum class Action { THROW, IGNORE };
 
-    // Skip waiting for ETH core training.
-    bool no_wait_for_eth_training = false;
+    std::optional<tt::ARCH> preferred_architecture = std::nullopt;
 
-    // Allow unsupported ETH firmware versions and do not fail when
-    // cores have different ETH firmware versions.
-    bool no_eth_firmware_strictness = false;
+    uint8_t noc_id = 0;
 
-    // Predict ETH firmware version for entire cluster from the known
-    // ETH firmware version bundled with the firmware bundle.
-    bool predict_eth_fw_version = false;
+    Action failed_init_action = Action::THROW;
 
-    // Enables verifying ERISC FW on cores to ensure reliability of discovery.
-    bool verify_eth_fw_hash = false;
+    Action channel_failure_action = Action::THROW;
+
+    Action cmfw_mismatch_action = Action::THROW;
+
+    Action cmfw_unsupported_action = Action::THROW;
+
+    Action eth_fw_mismatch_action = Action::THROW;
+
+    Action unexpected_routing_firmware_config = Action::THROW;
+
+    bool discover_remote_devices = true;
+
+    bool wait_on_ethernet_link_training = true;
+
+    bool perform_eth_fw_hash_check = false;
+
+    bool expect_matching_eth_fw_version = false;
 };
+
+constexpr TopologyDiscoveryOptions DEBUG_DEFAULT_OPTIONS = {
+    .failed_init_action = TopologyDiscoveryOptions::Action::IGNORE,
+    .eth_fw_mismatch_action = TopologyDiscoveryOptions::Action::IGNORE,
+    .unexpected_routing_firmware_config = TopologyDiscoveryOptions::Action::IGNORE,
+    .wait_on_ethernet_link_training = false,
+    .expect_matching_eth_fw_version = true};
 }  // namespace tt::umd

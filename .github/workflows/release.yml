@@ -7,9 +7,6 @@ on:
       - main
     paths:
       - 'VERSION'
-  pull_request:
-    paths:
-      - 'VERSION'
 
 env:
   RELEASE_BUILD_TYPE: Release

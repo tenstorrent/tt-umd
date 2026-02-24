@@ -1296,26 +1296,21 @@ TEST(TestCluster, SysmemReadWrite) {
 }
 
 TEST(TestCluster, TTSimSysmemReadWrite) {
+    std::vector<ClusterOptions> options = get_cluster_options_for_param_test();
+    if (options.size() == 1) {
+        GTEST_SKIP() << "This test is only for TTSim simulation.";
+    }
     constexpr size_t ONE_GIG = 1ULL << 30;
     constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
-
-    // 3 for BM with IOMMU to test more of the address space while avoiding
-    // the legacy hack for getting to 3.75 on WH.
-    // 1 for BM without IOMMU, to avoid making assumptions RE: # of hugepages.
-    // 1 for VM because it'll work if vIOMMU; if no vIOMMU it avoids assuming
-    // >1 hugepages are available.
     const uint32_t channels = 4;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .chip_type = ChipType::SIMULATION,
-        .num_host_mem_ch_per_mmio_device = channels,
-        .target_devices = {0},
-        .simulator_directory = "/localdev/pjanevski/work/ttsim-private/src/_out/release_wh/libttsim.so",
-    });
+
+    options[1].num_host_mem_ch_per_mmio_device = channels;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options[1]);
 
     constexpr auto mmio_chip_id = 0;
     const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
     const auto pcie_core = pci_cores.at(0);
-    const auto base_address = 0x800000000;
+    const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
 
     for (uint32_t channel = 0; channel < 1; channel++) {
         uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
@@ -1341,17 +1336,10 @@ TEST(TestCluster, TTSimSysmemReadWrite) {
 
             cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
 
-            if (value != expected) {
-                // std::stringstream error_msg;
-                // error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
-                //           << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec <<
-                // ")"
-                //           << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
-                //           << ", IOMMU: " << (has_iommu ? "Enabled" : "Disabled") << ", Channels: " << channels
-                //           << "\n  Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
-
-                FAIL() << "Fail";
-            }
+            EXPECT_EQ(value, expected) << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
+                                       << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr
+                                       << std::dec << ")\n"
+                                       << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
         }
 
         // Write test - zero out the sysmem at the various offsets.

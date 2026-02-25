@@ -198,9 +198,7 @@ uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
         } else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
             // 4GB TLBs are in BAR4, not BAR0 for Blackhole
             // For now, use BAR0 base but this might need adjustment based on actual BAR4 mapping.
-            uint64_t offset_2mb_region = tlb_2mb_count_ * tlb_2mb_size_;
-            uint64_t offset_in_4gb_region = static_cast<uint64_t>(tlb_index - tlb_4gb_start_index_) * tlb_4gb_size_;
-            return bar0_base_ + offset_2mb_region + offset_in_4gb_region;
+            throw std::runtime_error("4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
         }
     }
 

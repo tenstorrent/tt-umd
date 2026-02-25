@@ -141,18 +141,7 @@ CoreCoord CoordinateManager::translate_coord_to(
     }
 
     tt_xy_pair noc0_coord = noc0_coord_it->second;
-
-    // Wormhole-specific workaround: The fix_translated_coord_system_hook allows architecture-specific
-    // coordinate system adjustments. By default it returns target_coord_system unchanged, but Wormhole's
-    // override handles special translation behavior (which is need for DRAM, ARC, and PCIe cores on Wormhole).
-    auto core_type_candidate_for_correction = core_coord.core_type == CoreType::DRAM ||
-                                              core_coord.core_type == CoreType::ARC ||
-                                              core_coord.core_type == CoreType::PCIE;
-    auto correct_target_coord_system = core_type_candidate_for_correction
-                                           ? fix_translated_coord_system_hook(target_coord_system)
-                                           : target_coord_system;
-
-    auto coord_it = from_noc0_map.find({noc0_coord, correct_target_coord_system});
+    auto coord_it = from_noc0_map.find({noc0_coord, target_coord_system});
     if (coord_it == from_noc0_map.end()) {
         throw std::runtime_error(fmt::format(
             "No core coordinate found for system {} at location: ({}, {}, {}, {})",

@@ -44,6 +44,9 @@ jobs:
           {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13},
+          # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
+          # Given that it's already tested out on ubuntu, version 17 is fine here.
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17},
         ]
 
     name: Build device for any arch on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}

@@ -33,6 +33,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
@@ -370,7 +371,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info)) {
+    iommu_enabled(detect_iommu(info)),
+    arch_impl_(architecture_implementation::create(arch)) {
     if (iommu_enabled && kmd_version < KMD_IOMMU) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
@@ -483,6 +485,22 @@ PCIDevice::PCIDevice(int pci_device_number) :
         throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
     }
 
+    // Map TLB configuration registers. Wormhole has up to 186 TLBs and Blackhole up to 202 TLBs; with
+    // approximately 8–12 bytes per TLB configuration register, the maximum required space is about
+    // 202 * 12 = 2424 bytes, which fits comfortably in a single 4 KB page.
+    tlb_config_space = mmap(
+        nullptr,
+        tlb_config_space_size,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED,
+        pci_device_file_desc,
+        bar0_uc_mapping.mapping_base + arch_impl_->get_static_tlb_cfg_addr());
+
+    if (tlb_config_space == MAP_FAILED) {
+        throw std::runtime_error(
+            fmt::format("TLB configuration registers mapping failed for device {}.", pci_device_num));
+    }
+
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
             throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
@@ -538,6 +556,10 @@ PCIDevice::~PCIDevice() {
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
         munmap(bar0, bar0_size);
+    }
+
+    if (tlb_config_space != nullptr && tlb_config_space != MAP_FAILED) {
+        munmap(tlb_config_space, tlb_config_space_size);
     }
 
     if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
@@ -743,7 +765,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
         unpin_pages.in.size);
 }
 
-semver_t PCIDevice::read_kmd_version() {
+SemVer PCIDevice::read_kmd_version() {
     static const std::string path = "/sys/module/tenstorrent/version";
     std::ifstream file(path);
 
@@ -755,14 +777,14 @@ semver_t PCIDevice::read_kmd_version() {
     std::string version_str;
     std::getline(file, version_str);
 
-    return semver_t(version_str);
+    return SemVer(version_str);
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     try {
-        return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
+        return std::make_unique<TlbHandle>(*this, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
-        if (read_kmd_version() < semver_t(2, 6, 0)) {
+        if (read_kmd_version() < SemVer(2, 6, 0)) {
             TT_THROW(
                 "Failed to allocate TLB window. Note that the resource might be exhausted by some other hung process. "
                 "Error: {}",
@@ -775,6 +797,41 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
             pci_device_num,
             e.what());
     }
+}
+
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
+    // Get the TLB configuration for this index.
+    auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
+
+    // Apply the architecture-specific bit field offsets to pack the TLB data.
+    auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
+
+    // Calculate the register address for this TLB index using architecture-specific register size.
+    const uint64_t tlb_cfg_reg_size_bytes = arch_impl_->get_tlb_cfg_reg_size_bytes();
+    uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
+
+    // Write to the appropriate location in BAR0.
+    volatile uint64_t *tlb_reg_ptr =
+        reinterpret_cast<volatile uint64_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
+
+    // Write the TLB register values
+    // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
+    tlb_reg_ptr[0] = lower_64;
+
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // Blackhole needs the upper 32 bits as well (96-bit total)
+        // Cast to uint32_t* to write only 4 bytes and avoid overwriting the next register.
+        volatile uint32_t *tlb_reg_upper_ptr = reinterpret_cast<volatile uint32_t *>(tlb_reg_ptr);
+        tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
+    }
+
+    log_debug(
+        LogUMD,
+        "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
+        tlb_index,
+        tlb_register_addr,
+        lower_64,
+        upper_64);
 }
 
 void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {

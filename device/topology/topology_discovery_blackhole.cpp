@@ -24,11 +24,13 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
-TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(const TopologyDiscoveryOptions& options) :
-    TopologyDiscovery(options) {}
+TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
+    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
@@ -162,7 +164,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
 
     // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
     // for P150 Board Types (with a  SW workaround).
-    if (first_fw_bundle_version >= semver_t(18, 12, 0)) {
+    if (first_fw_bundle_version >= FirmwareBundleVersion(18, 12, 0)) {
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {
@@ -223,7 +225,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
 
-    semver_t eth_fw_version = get_eth_fw_version(tt_device, translated_eth_core);
+    SemVer eth_fw_version = get_eth_fw_version(tt_device, translated_eth_core);
     uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;

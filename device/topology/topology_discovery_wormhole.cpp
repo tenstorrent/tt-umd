@@ -28,8 +28,9 @@
 
 namespace tt::umd {
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :
-    TopologyDiscovery(options) {}
+TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
+    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -281,7 +282,7 @@ bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
-    semver_t eth_fw_version = get_eth_fw_version(tt_device, eth_core);
+    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
     uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;

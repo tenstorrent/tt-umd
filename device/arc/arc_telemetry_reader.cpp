@@ -17,20 +17,18 @@
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
-static const tt::umd::semver_t new_telemetry_fw_bundle = tt::umd::semver_t(18, 4, 0);
-
 namespace tt::umd {
+
+static constexpr FirmwareBundleVersion FW_NEW_TELEMETRY = FirmwareBundleVersion(18, 4, 0);
 
 ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_device) {}
 
 std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(TTDevice* tt_device) {
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            semver_t fw_bundle_version = get_firmware_version_util(tt_device);
+            FirmwareBundleVersion fw_bundle_version = get_firmware_version_util(tt_device);
 
-            int compare_fw_bundles_result =
-                semver_t::compare_firmware_bundle(fw_bundle_version, new_telemetry_fw_bundle);
-            if (compare_fw_bundles_result >= 0) {
+            if (fw_bundle_version >= FW_NEW_TELEMETRY) {
                 log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
                 return std::make_unique<WormholeArcTelemetryReader>(tt_device);
             }

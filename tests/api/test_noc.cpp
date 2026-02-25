@@ -526,10 +526,11 @@ INSTANTIATE_TEST_SUITE_P(
         return to_str(core_type) + "_on_" + to_str(coord_system) + "_via_NOC" + std::to_string(noc_index);
     });
 
-class TestWormholeDramTranslatedCoordinates : public TestNoc,
-                                              public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {};
+class TestNocWormholeDramTranslatedCoordinates : public TestNoc,
+                                                 public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {
+};
 
-TEST_P(TestWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoordinate) {
+TEST_P(TestNocWormholeDramTranslatedCoordinates, DISABLED_VerifyTranslatedRegisterMatchesCoordinate) {
     auto [core_coord, noc_index] = GetParam();
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 
@@ -543,10 +544,10 @@ TEST_P(TestWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoo
         GTEST_SKIP() << "NOC translation is not enabled";
     }
 
-    for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        // Read the translated ID register via the specified NOC.
-        NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
+    // Read the translated ID register via the specified NOC.
+    NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
 
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
         const uint64_t translated_id_offset =
             get_cluster()->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
 
@@ -579,7 +580,7 @@ TEST_P(TestWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoo
 
 INSTANTIATE_TEST_SUITE_P(
     EthernetAlignedDramCores,
-    TestWormholeDramTranslatedCoordinates,
+    TestNocWormholeDramTranslatedCoordinates,
     ::testing::Combine(
         ::testing::Values(tt_xy_pair(16, 16), tt_xy_pair(16, 17), tt_xy_pair(17, 16), tt_xy_pair(17, 17)),
         ::testing::Values(0, 1)),

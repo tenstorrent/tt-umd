@@ -483,6 +483,10 @@ public:
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
+    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 8; }
+
+    uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
+
     DeviceL1AddressParams get_l1_address_params() const override;
     DriverHostAddressParams get_host_address_params() const override;
     DriverEthInterfaceParams get_eth_interface_params() const override;

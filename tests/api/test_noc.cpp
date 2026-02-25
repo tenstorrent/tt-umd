@@ -530,6 +530,8 @@ class TestNocWormholeDramTranslatedCoordinates : public TestNoc,
                                                  public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {
 };
 
+// Disabled because the NOC Translation table is not programmed for DRAM, ARC and PCIe cores for translated coords on
+// Wormhole correctly.
 TEST_P(TestNocWormholeDramTranslatedCoordinates, DISABLED_VerifyTranslatedRegisterMatchesCoordinate) {
     auto [core_coord, noc_index] = GetParam();
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);

@@ -161,7 +161,19 @@ public:
             throw std::runtime_error("DRAM coordinate not found in map");
         }
 
-        tt_xy_pair translated_coord = tt_xy_pair(core.x, it->second);
+        // Get the translated x-coordinate for DRAM. This mapping is fixed for Wormhole:
+        // NOC0 x=0 maps to translated x=16, and NOC0 x=5 maps to translated x=17.
+        auto get_dram_translated_column = [](size_t noc0_x) -> size_t {
+            if (noc0_x == 0) {
+                return 16;
+            }
+            if (noc0_x == 5) {
+                return 17;
+            }
+            throw std::runtime_error("Invalid DRAM NOC0 x-coordinate: " + std::to_string(noc0_x));
+        };
+
+        tt_xy_pair translated_coord = tt_xy_pair(get_dram_translated_column(core.x), it->second);
 
         // Ethernet-aligned DRAM (y=0 or y=6) stays at fixed positions (y=16 or y=17).
         if (core.y == 0 || core.y == 6) {

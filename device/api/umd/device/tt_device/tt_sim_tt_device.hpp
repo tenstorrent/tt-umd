@@ -81,7 +81,6 @@ public:
     const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
 
     uint64_t bar0_base = 0;
-    uint64_t tlb_registers_base = 0;
 
 private:
     void initialize_sysmem_functions();

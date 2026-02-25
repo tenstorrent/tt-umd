@@ -72,7 +72,6 @@ private:
 
     TTSimTTDevice* tt_sim_tt_device_ = nullptr;
     uint64_t bar0_base_ = 0;
-    uint64_t tlb_registers_base_ = 0;
 
     // Architecture-specific TLB configuration.
     tt::ARCH architecture_;

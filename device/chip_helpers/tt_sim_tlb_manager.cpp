@@ -27,7 +27,6 @@ namespace tt::umd {
 TTSimTlbManager::TTSimTlbManager(TTDevice* tt_device) : TLBManager(tt_device) {
     tt_sim_tt_device_ = dynamic_cast<TTSimTTDevice*>(tt_device);
     bar0_base_ = tt_sim_tt_device_->bar0_base;
-    tlb_registers_base_ = tt_sim_tt_device_->tlb_registers_base;
 
     // Initialize architecture-specific configuration.
     initialize_architecture_config();

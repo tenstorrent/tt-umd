@@ -18,6 +18,7 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 
@@ -62,8 +63,6 @@ void bind_topology_discovery(nb::module_& m) {
 
     nb::class_<TopologyDiscoveryOptions>(m, "TopologyDiscoveryOptions")
         .def(nb::init<>())
-        .def_rw("soc_descriptor_path", &TopologyDiscoveryOptions::soc_descriptor_path)
-        .def_rw("io_device_type", &TopologyDiscoveryOptions::io_device_type)
         .def_rw("no_remote_discovery", &TopologyDiscoveryOptions::no_remote_discovery)
         .def_rw("no_wait_for_eth_training", &TopologyDiscoveryOptions::no_wait_for_eth_training)
         .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness)
@@ -73,13 +72,19 @@ void bind_topology_discovery(nb::module_& m) {
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",
-            [](const TopologyDiscoveryOptions& options = TopologyDiscoveryOptions{}) {
-                return TopologyDiscovery::discover(options).first;
+            [](const TopologyDiscoveryOptions& options = {},
+               IODeviceType io_device_type = IODeviceType::PCIe,
+               const std::string& soc_descriptor_path = "") {
+                return TopologyDiscovery::discover(options, io_device_type, soc_descriptor_path).first;
             },
-            nb::arg("options") = TopologyDiscoveryOptions{})
+            nb::arg("options") = TopologyDiscoveryOptions{},
+            nb::arg("io_device_type") = IODeviceType::PCIe,
+            nb::arg("soc_descriptor_path") = "")
         .def_static(
             "discover",
             &TopologyDiscovery::discover,
             nb::arg("options") = TopologyDiscoveryOptions{},
+            nb::arg("io_device_type") = IODeviceType::PCIe,
+            nb::arg("soc_descriptor_path") = "",
             "Discover topology and return both ClusterDescriptor and TTDevices");
 }

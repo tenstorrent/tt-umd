@@ -72,18 +72,6 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
-    // log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    // if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
-    //     while (size) {
-    //         uint32_t cur_size = std::min(size, tlb_region_size_ - uint32_t(addr & (tlb_region_size_ - 1)));
-    //         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, cur_size);
-    //         addr += cur_size;
-    //         mem_ptr = reinterpret_cast<const uint8_t*>(mem_ptr) + cur_size;
-    //         size -= cur_size;
-    //     }
-    // } else {
-    //     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
-    // }
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {

@@ -60,11 +60,7 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .chip_type = ChipType::SIMULATION,
-        .simulator_directory = "/localdev/pjanevski/work/ttsim-private/src/_out/release_wh/libttsim.so"});
-}
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
 
 TEST(ApiClusterTest, OpenChipsById) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -799,15 +795,11 @@ TEST(TestCluster, TestDmaMulticastWrite) {
 }
 
 TEST(ClusterReadWriteL1Test, TTSimReadWriteL1) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .chip_type = ChipType::SIMULATION,
-        .target_devices = {0},
-        .simulator_directory = "/localdev/pjanevski/work/ttsim-private/src/_out/release_wh/libttsim.so",
-    });
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    std::vector<ClusterOptions> options = get_cluster_options_for_param_test();
+    if (options.size() == 1) {
+        GTEST_SKIP() << "This test is only for TTSim simulation.";
     }
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options[1]);
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 

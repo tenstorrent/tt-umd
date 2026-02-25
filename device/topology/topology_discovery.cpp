@@ -66,7 +66,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
         tt::ARCH arch_env_var = arch_from_str(arch_env_var_string.value());
         architecture = arch_env_var;
         if (arch_env_var == ARCH::Invalid) {
-            TT_THROW("Invalid architecture in env. var. TT_ARCH: {}", arch_env_var_string.value());
+            TT_THROW("Invalid architecture provided in env. var. TT_ARCH: {}", arch_env_var_string.value());
         }
         log_info(LogUMD, "Choosing architecture from env. var. TT_ARCH: {}", arch_env_var_string.value());
     } else {
@@ -83,11 +83,14 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     }
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(architecture));
 
+    TopologyDiscoveryOptions checked_options = options;
+    checked_options.architecture = architecture;
+
     switch (architecture) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<TopologyDiscoveryWormhole>(options, io_device_type, soc_descriptor_path);
+            return std::make_unique<TopologyDiscoveryWormhole>(checked_options, io_device_type, soc_descriptor_path);
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<TopologyDiscoveryBlackhole>(options, io_device_type, soc_descriptor_path);
+            return std::make_unique<TopologyDiscoveryBlackhole>(checked_options, io_device_type, soc_descriptor_path);
         default:
             return nullptr;
     }

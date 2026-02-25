@@ -689,7 +689,7 @@ TEST(TestCluster, GetEthernetFirmware) {
     }
 
     // BoardType P100 doesn't have eth cores.
-    std::optional<semver_t> eth_version;
+    std::optional<SemVer> eth_version;
     EXPECT_NO_THROW(eth_version = cluster->get_ethernet_firmware_version());
     if (cluster->get_cluster_description()->get_board_type(0) == BoardType::P100) {
         EXPECT_FALSE(eth_version.has_value());
@@ -974,6 +974,73 @@ TEST(TestCluster, SysmemReadWrite) {
             uint32_t value = 0;
             cluster.write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
             cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+        }
+
+        // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
+        for (uint64_t test_offset : test_offsets) {
+            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint32_t value = 0xffffffff;
+            std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
+            EXPECT_EQ(value, 0);
+        }
+    }
+}
+
+TEST(TestCluster, TTSimSysmemReadWrite) {
+    std::vector<ClusterOptions> options = get_cluster_options_for_param_test();
+    if (options.size() == 1) {
+        GTEST_SKIP() << "This test is only for TTSim simulation.";
+    }
+    constexpr size_t ONE_GIG = 1ULL << 30;
+    constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
+    const uint32_t channels = 4;
+
+    options[1].num_host_mem_ch_per_mmio_device = channels;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options[1]);
+
+    constexpr auto mmio_chip_id = 0;
+    const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+    const auto pcie_core = pci_cores.at(0);
+    const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
+
+    for (uint32_t channel = 0; channel < 1; channel++) {
+        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
+
+        ASSERT_NE(sysmem, nullptr);
+        for (int i = 0; i < ONE_GIG; i++) {
+            sysmem[i] = i % 256;
+        }
+
+        std::vector<uint64_t> test_offsets = {
+            0x0,
+        };
+
+        // Read test - read the sysmem at the various offsets.
+        for (uint64_t test_offset : test_offsets) {
+            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t noc_addr = base_address + device_offset;
+            uint32_t expected = 0;
+            uint32_t value = 0;
+
+            std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
+
+            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+
+            EXPECT_EQ(value, expected) << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
+                                       << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr
+                                       << std::dec << ")\n"
+                                       << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+        }
+
+        // Write test - zero out the sysmem at the various offsets.
+        for (uint64_t test_offset : test_offsets) {
+            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+            uint64_t noc_addr = base_address + device_offset;
+            uint32_t value = 0;
+            cluster->write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
+            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
         }
 
         // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.

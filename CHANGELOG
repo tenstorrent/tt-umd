@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.4] - 2026-02-25
+
+### Changed
+
+TopologyDiscoveryOption fix.
+TopologyDiscoveryOption to retrain ETH links.
+
 ## [0.9.3] - 2026-02-24
 
 ### Changed

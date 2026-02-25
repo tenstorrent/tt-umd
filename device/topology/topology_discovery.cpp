@@ -33,26 +33,28 @@
 
 namespace tt::umd {
 
-tt::ARCH TopologyDiscovery::determine_architecture(IODeviceType io_device_type) {
+std::set<tt::ARCH> TopologyDiscovery::find_architectures(IODeviceType io_device_type) {
+    std::set<tt::ARCH> architectures;
     switch (io_device_type) {
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info();
-            if (pci_devices_info.empty()) {
-                return tt::ARCH::Invalid;
+            for (const auto& device_info : pci_devices_info) {
+                architectures.insert(device_info.second.get_arch());
             }
-            return pci_devices_info.begin()->second.get_arch();
+            break;
         }
         case IODeviceType::JTAG: {
             auto jtag_device = JtagDevice::create();
-            if (!jtag_device->get_device_cnt()) {
-                return tt::ARCH::Invalid;
+            auto device_count = jtag_device->get_device_cnt();
+            for (decltype(device_count) i = 0; i < device_count; ++i) {
+                architectures.insert(jtag_device->get_jtag_arch(i));
             }
-            return jtag_device->get_jtag_arch(0);
+            break;
         }
         case tt::umd::IODeviceType::UNDEFINED:
-            return tt::ARCH::Invalid;
+            break;
     }
-    return tt::ARCH::Invalid;
+    return architectures;
 }
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
@@ -62,12 +64,24 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
     if (arch_env_var_string.has_value()) {
         tt::ARCH arch_env_var = arch_from_str(arch_env_var_string.value());
-        if (arch_env_var != ARCH::Invalid) {
-            architecture = arch_env_var;
+        architecture = arch_env_var;
+        if (arch_env_var == ARCH::Invalid) {
+            TT_THROW("Invalid architecture in env. var. TT_ARCH: {}", arch_env_var_string.value());
         }
+        log_info(LogUMD, "Choosing architecture from env. var. TT_ARCH: {}", arch_env_var_string.value());
     } else {
-        architecture = options.architecture.value_or(determine_architecture(options.io_device_type));
+        if (options.architecture.has_value()) {
+            architecture = options.architecture.value();
+        } else {
+            auto archs = find_architectures(options.io_device_type);
+            if (archs.empty()) {
+                architecture = tt::ARCH::Invalid;
+            } else {
+                architecture = *archs.begin();
+            }
+        }
     }
+    log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(architecture));
 
     switch (architecture) {
         case tt::ARCH::WORMHOLE_B0:

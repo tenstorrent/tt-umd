@@ -56,6 +56,8 @@ public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
         const TopologyDiscoveryOptions& options);
 
+    static std::set<tt::ARCH> find_architectures(IODeviceType io_device_type);
+
     virtual ~TopologyDiscovery() = default;
 
 protected:
@@ -180,8 +182,6 @@ protected:
 private:
     // Hack used to cache SocDescriptors.
     std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
-
-    static tt::ARCH determine_architecture(IODeviceType io_device_type);
 };
 
 }  // namespace tt::umd

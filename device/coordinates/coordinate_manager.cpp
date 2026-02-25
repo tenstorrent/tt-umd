@@ -142,6 +142,9 @@ CoreCoord CoordinateManager::translate_coord_to(
 
     tt_xy_pair noc0_coord = noc0_coord_it->second;
 
+    // Wormhole-specific workaround: The fix_translated_coord_system_hook allows architecture-specific
+    // coordinate system adjustments. By default it returns target_coord_system unchanged, but Wormhole's
+    // override handles special translation behavior (which is need for DRAM, ARC, and PCIe cores on Wormhole).
     auto core_type_candidate_for_correction = core_coord.core_type == CoreType::DRAM ||
                                               core_coord.core_type == CoreType::ARC ||
                                               core_coord.core_type == CoreType::PCIE;

@@ -206,8 +206,8 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
-    // is the same as NOC0/NOC1 (depending on the selected NOC). This differs from other architectures
-    // where translated coordinates are used directly.
+    // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
+    // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
     if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);

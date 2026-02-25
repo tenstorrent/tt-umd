@@ -194,11 +194,11 @@ public:
         const uint32_t harvesting_mask =
             cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
 
-        // PCIe core at NOC0 (0,3) corresponds to tensix row 2.
-        // We need to find where NOC y=3 maps to after harvesting reordering.
+        // PCIe core at NOC0 (0,3) corresponds to the third tensix row.
+        // We need to find where NOC0 y=3 maps to after harvesting reordering.
         std::vector<size_t> reordered_rows = reorder_noc0_y_for_wormhole_harvesting(harvesting_mask);
 
-        size_t translated_y = wormhole::tensix_translated_coordinate_start_y;  // Default.
+        size_t translated_y = wormhole::tensix_translated_coordinate_start_y;
 
         // Find the index of NOC y=3 in the reordered list.
         for (size_t i = 0; i < reordered_rows.size(); i++) {
@@ -216,11 +216,11 @@ public:
         const uint32_t harvesting_mask =
             cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
 
-        // ARC core at NOC0 (0,10) corresponds to tensix row 8.
+        // ARC core at NOC0 (0,10) corresponds to ninth tensix row.
         // We need to find where NOC y=10 maps to after harvesting reordering.
         std::vector<size_t> reordered_rows = reorder_noc0_y_for_wormhole_harvesting(harvesting_mask);
 
-        size_t translated_y = wormhole::tensix_translated_coordinate_start_y;  // Default.
+        size_t translated_y = wormhole::tensix_translated_coordinate_start_y;
 
         // Find the index of NOC y=10 in the reordered list.
         for (size_t i = 0; i < reordered_rows.size(); i++) {

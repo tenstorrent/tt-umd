@@ -156,12 +156,12 @@ public:
             cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
 
         // Get the base translated coordinate.
-        auto it = dram_noc0_to_base_translated_coords.find(tt_xy_pair(core.x, core.y));
-        if (it == dram_noc0_to_base_translated_coords.end()) {
+        auto it = dram_noc0_row_to_base_translated_row.find(core.y);
+        if (it == dram_noc0_row_to_base_translated_row.end()) {
             throw std::runtime_error("DRAM coordinate not found in map");
         }
 
-        tt_xy_pair translated_coord = it->second;
+        tt_xy_pair translated_coord = tt_xy_pair(core.x, it->second);
 
         // Ethernet-aligned DRAM (y=0 or y=6) stays at fixed positions (y=16 or y=17).
         if (core.y == 0 || core.y == 6) {
@@ -344,33 +344,21 @@ private:
     };
 
 
-    // Base translated coordinates for DRAM from NOC0 (which are unaffected by tensix harvesting).
-    const std::unordered_map<tt_xy_pair, tt_xy_pair> dram_noc0_to_base_translated_coords = {
-        {{0, 0}, {16, 16}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
-        {{0, 1}, {16, 18}}, 
-        {{0, 2}, {16, 19}}, 
-        {{0, 3}, {16, 20}}, 
-        {{0, 4}, {16, 27}},  
-        {{0, 5}, {16, 21}},
-        {{0, 6}, {16, 17}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
-        {{0, 7}, {16, 22}}, 
-        {{0, 8}, {16, 23}}, 
-        {{0, 9}, {16, 24}}, 
-        {{0, 10}, {16, 25}}, 
-        {{0, 11}, {16, 26}},
-
-        {{5, 0}, {17, 16}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
-        {{5, 1}, {17, 18}}, 
-        {{5, 2}, {17, 19}}, 
-        {{5, 3}, {17, 20}}, 
-        {{5, 4}, {17, 27}},  
-        {{5, 5}, {17, 21}},
-        {{5, 6}, {17, 17}},  // aligned with ethernet tiles - can't be harvested on Wormhole.
-        {{5, 7}, {17, 22}}, 
-        {{5, 8}, {17, 23}}, 
-        {{5, 9}, {17, 24}}, 
-        {{5, 10}, {17, 25}}, 
-        {{5, 11}, {17, 26}}
+    // Base rows for DRAM from NOC0 to translated rows. The mappings is fixed for
+    // x=0->x=16 and x=5->17.
+    const std::unordered_map<size_t, size_t> dram_noc0_row_to_base_translated_row = {
+        { 0,  16}, // aligned with ethernet rows - can't be harvested on Wormhole.
+        { 1,  18},
+        { 2,  19},
+        { 3,  20},
+        { 4,  27},
+        { 5,  21},
+        { 6,  17}, // aligned with ethernet rows - can't be harvested on Wormhole.
+        { 7,  22},
+        { 8,  23},
+        { 9,  24},
+        { 10,  25},
+        { 11,  26}
     };
     // clang-format on
 };
@@ -524,4 +512,67 @@ INSTANTIATE_TEST_SUITE_P(
         CoordSystem coord_system = std::get<1>(info.param);
         uint8_t noc_index = std::get<2>(info.param);
         return to_str(core_type) + "_on_" + to_str(coord_system) + "_via_NOC" + std::to_string(noc_index);
+    });
+
+class TestWormholeDramTranslatedCoordinates : public TestNoc,
+                                              public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {};
+
+TEST_P(TestWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoordinate) {
+    auto [core_coord, noc_index] = GetParam();
+    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
+
+    // This test is Wormhole-specific.
+    if (arch != ARCH::WORMHOLE_B0) {
+        GTEST_SKIP() << "Test is specific to Wormhole architecture";
+    }
+
+    // Skip if NOC translation is not enabled.
+    if (!get_cluster()->get_tt_device(0)->get_noc_translation_enabled()) {
+        GTEST_SKIP() << "NOC translation is not enabled";
+    }
+
+    for (ChipId chip : get_cluster()->get_target_device_ids()) {
+        // Read the translated ID register via the specified NOC.
+        NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
+
+        const uint64_t translated_id_offset =
+            get_cluster()->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
+
+        uint32_t translated_id_val;
+        get_cluster()->get_tt_device(chip)->read_from_device(
+            &translated_id_val, core_coord, translated_id_offset, sizeof(translated_id_val));
+
+        uint32_t translated_x_reg = translated_id_val & 0x3F;
+        uint32_t translated_y_reg = (translated_id_val >> 6) & 0x3F;
+
+        log_debug(
+            tt::LogUMD,
+            "Chip {} DRAM TRANSLATED=({},{}) NOC{} -> TRANSLATED_REG=({},{})",
+            chip,
+            core_coord.x,
+            core_coord.y,
+            noc_index,
+            translated_x_reg,
+            translated_y_reg);
+
+        // Verify that the translated register matches the coordinates we used to access it.
+        EXPECT_EQ(translated_x_reg, core_coord.x)
+            << "Chip " << chip << " DRAM TRANSLATED=(" << core_coord.x << "," << core_coord.y << ") NOC"
+            << static_cast<int>(noc_index) << " translated X register mismatch";
+        EXPECT_EQ(translated_y_reg, core_coord.y)
+            << "Chip " << chip << " DRAM TRANSLATED=(" << core_coord.x << "," << core_coord.y << ") NOC"
+            << static_cast<int>(noc_index) << " translated Y register mismatch";
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EthernetAlignedDramCores,
+    TestWormholeDramTranslatedCoordinates,
+    ::testing::Combine(
+        ::testing::Values(tt_xy_pair(16, 16), tt_xy_pair(16, 17), tt_xy_pair(17, 16), tt_xy_pair(17, 17)),
+        ::testing::Values(0, 1)),
+    [](const ::testing::TestParamInfo<std::tuple<tt_xy_pair, uint8_t>>& info) {
+        tt_xy_pair coord = std::get<0>(info.param);
+        uint8_t noc_index = std::get<1>(info.param);
+        return "x" + std::to_string(coord.x) + "_y" + std::to_string(coord.y) + "_NOC" + std::to_string(noc_index);
     });

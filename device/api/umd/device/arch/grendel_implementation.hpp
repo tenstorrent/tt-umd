@@ -216,7 +216,8 @@ inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 inline constexpr uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
-inline constexpr uint64_t BH_NOC_ID_LOGICAL_OFFSET = 0x148;
+inline constexpr uint64_t BH_NOC_ID_TRANSLATED_OFFSET =
+    0x148;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
@@ -466,7 +467,7 @@ public:
 
     uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
 
-    uint64_t get_noc_node_translated_id_offset() const override { return grendel::BH_NOC_ID_LOGICAL_OFFSET; }
+    uint64_t get_noc_node_translated_id_offset() const override { return grendel::BH_NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

@@ -825,7 +825,7 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
     }
 
-    log_debug(
+    log_trace(
         LogUMD,
         "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
         tlb_index,

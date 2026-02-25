@@ -45,6 +45,11 @@ TTSimTlbHandle::~TTSimTlbHandle() noexcept { free_tlb(); }
 void TTSimTlbHandle::configure(const tlb_data& new_config) {
     sim_config_ = new_config;
     sim_config_.local_offset = new_config.local_offset / sim_size_;
+
+    // These fields are not supported for TTSim, so we set it to 0.
+    sim_config_.ordering = 0;
+    sim_config_.static_vc = 0;
+
     // Get architecture from manager to determine correct offsets.
     const architecture_implementation* arch_impl = sim_manager_->get_architecture_impl();
     tt::ARCH architecture = arch_impl->get_architecture();

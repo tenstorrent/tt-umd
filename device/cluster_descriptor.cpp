@@ -309,6 +309,11 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->eth_fw_version = full_cluster_desc->eth_fw_version;
     desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
 
+    desc->chip_to_board_id = filter_chip_collection(full_cluster_desc->chip_to_board_id, visible_chips);
+    for (const auto &[chip_id, board_id] : desc->chip_to_board_id) {
+        desc->board_to_chips[board_id].insert(chip_id);
+    }
+
     desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, visible_chips);
 
     // Write explicitly filters for more complex structures.

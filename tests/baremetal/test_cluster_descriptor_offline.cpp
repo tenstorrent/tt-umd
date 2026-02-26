@@ -155,11 +155,6 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
     EXPECT_EQ(cluster_desc->get_chip_locations().size(), 8);
 
-    std::string filter_value = "0,1";
-
-    if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), filter_value.c_str(), 1) != 0) {
-        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
-    }
     // Create with just two PCI chips.
     std::unique_ptr<ClusterDescriptor> constrained_cluster_desc =
         cluster_desc->create_constrained_cluster_descriptor(cluster_desc.get(), {0, 1});

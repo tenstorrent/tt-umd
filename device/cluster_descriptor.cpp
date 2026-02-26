@@ -418,7 +418,6 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_unique_ids.insert({logical_id, logical_id});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
-        desc->chip_board_type.insert({logical_id, board_type});
         desc->add_chip_to_board(logical_id, generate_mock_board_id(logical_id, board_type));
         desc->fill_mock_hardcoded_data(logical_id);
     }

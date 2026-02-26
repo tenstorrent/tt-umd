@@ -217,7 +217,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
 
     for (const auto &device_token : device_tokens) {
         // Check if token is BDF format (contains colon and dot).
-        bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
+        bool is_bdf = utils::is_bdf_string(device_token);
 
         if (is_bdf) {
             bool matched_bdf_pattern = false;
@@ -236,7 +236,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
             continue;
         }
 
-        bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+        bool is_integer = utils::is_integer_string(device_token);
 
         if (is_integer) {
             if (std::find(

@@ -356,8 +356,8 @@ private:
     };
 
 
-    // Base rows for DRAM from NOC0 to translated rows. The mappings is fixed for
-    // x=0->x=16 and x=5->17.
+    // Base rows for DRAM from NOC0 to translated rows (which can be shuffled. The mappings are fixed 
+    // for columns (x=0->x=16 and x=5->17).
     const std::unordered_map<size_t, size_t> dram_noc0_row_to_base_translated_row = {
         { 0,  16}, // aligned with ethernet rows - can't be harvested on Wormhole.
         { 1,  18},

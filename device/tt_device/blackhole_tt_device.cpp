@@ -220,22 +220,6 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
-void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
-}
-
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range.");
@@ -316,21 +300,6 @@ EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair et
     return static_cast<EthTrainingStatus>(port_status_val);
 }
 
-bool BlackholeTTDevice::is_hardware_hung() {
-    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
-
-    // TODO: I am commented that out because we end up in this code path if we
-    // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
-    // it doesn't necessarily mean the hardware is hung. It's possible to write
-    // 0xffffffff to device memory and reading it back should not trigger an
-    // exception. In my case, the hardware was not hung but the 0xffffffff was
-    // related to a failure which was obscured by the exception. For now,
-    // just return false.  -- @joelsmithTT, Oct 1 2025
-
-    log_debug(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
-    return false;
-}
-
 int BlackholeTTDevice::get_pcie_x_coordinate() {
     // Extract the x-coordinate from the register using the lower 6 bits.
     return bar_read32(get_architecture_implementation()->get_read_checking_offset()) & 0x3F;
@@ -339,10 +308,5 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
-
-void BlackholeTTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
-}
 
 }  // namespace tt::umd

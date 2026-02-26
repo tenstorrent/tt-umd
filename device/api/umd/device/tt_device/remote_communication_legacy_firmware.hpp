@@ -7,6 +7,7 @@
 #include <set>
 #include <unordered_set>
 
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 
 namespace tt::umd {
@@ -16,7 +17,7 @@ class SysmemManager;
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
     RemoteCommunicationLegacyFirmware(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        DeviceProtocol* device_protocol, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
 
     void read_non_mmio(
         tt_xy_pair target_core,

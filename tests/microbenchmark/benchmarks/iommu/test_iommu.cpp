@@ -50,7 +50,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
     for (uint64_t size = page_size; size <= MAPPING_SIZE_LIMIT; size *= 2) {
         bench.name(fmt::format("Map {} bytes", size)).batch(size);
         ankerl::nanobench::Result map_result(bench.config());
@@ -98,7 +98,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
 
     auto bench =
         ankerl::nanobench::Bench().title("IOMMU_HugePage2M").epochIterations(1).epochs(NUM_EPOCHS).name("Map 2M");
@@ -155,7 +155,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
 
     auto bench =
         ankerl::nanobench::Bench().title("IOMMU_HugePage1G").epochIterations(1).epochs(NUM_EPOCHS).name("Map 1G");

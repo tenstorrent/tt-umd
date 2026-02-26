@@ -27,14 +27,6 @@ public:
 
     bool get_noc_translation_enabled() override;
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
-
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -55,6 +47,8 @@ public:
 protected:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
     WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
+
     /*
      * Create a device without an underlying communication device.
      * Used for remote devices that depend on remote_communication.
@@ -66,14 +60,10 @@ protected:
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
+    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
 
-    bool is_hardware_hung() override;
-
-    // Enforce single-threaded access, even though there are more serious issues
-    // surrounding resource management as it relates to DMA.
-    std::mutex dma_mutex_;
+    uint32_t read_training_status(tt_xy_pair eth_core);
 };
 }  // namespace tt::umd

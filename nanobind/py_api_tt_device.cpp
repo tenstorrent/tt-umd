@@ -21,24 +21,24 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
 using namespace tt::umd;
 
-// Helper function for easy creation of RemoteWormholeTTDevice.
+// Helper function for easy creation of WormholeTTDevice with RemoteCommunication.
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
-    auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    auto remote_communication =
+        RemoteCommunication::create_remote_communication(local_chip->get_device_protocol(), target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
     return TTDevice::create(std::move(remote_communication));
@@ -100,7 +100,7 @@ void bind_tt_device(nb::module_ &m) {
                 self.set_remote_transfer_ethernet_cores(xy_cores);
             },
             nb::arg("cores"))
-        .def("get_local_device", &RemoteCommunication::get_local_device, nb::rv_policy::reference_internal)
+        .def("get_device_protocol", &RemoteCommunication::get_device_protocol, nb::rv_policy::reference_internal)
         .def("get_remote_transfer_ethernet_core", [](RemoteCommunication &self) -> std::tuple<int, int> {
             tt_xy_pair core = self.get_remote_transfer_ethernet_core();
             return std::make_tuple(core.x, core.y);
@@ -400,7 +400,7 @@ void bind_tt_device(nb::module_ &m) {
             "Get firmware bundle version from SPI (Blackhole only). "
             "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
 
-    nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
+    nb::class_<WormholeTTDevice, TTDevice>(m, "WormholeTTDevice");
 
 #ifdef TT_UMD_BUILD_SIMULATION
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
@@ -429,5 +429,5 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
         nb::rv_policy::take_ownership,
-        "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
+        "Creates a WormholeTTDevice for communication with a remote chip.");
 }

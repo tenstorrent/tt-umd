@@ -794,6 +794,42 @@ TEST(TestCluster, TestDmaMulticastWrite) {
     }
 }
 
+TEST(ClusterReadWriteL1Test, TTSimReadWriteL1) {
+    std::vector<ClusterOptions> options = get_cluster_options_for_param_test();
+    if (options.size() == 1) {
+        GTEST_SKIP() << "This test is only for TTSim simulation.";
+    }
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options[1]);
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint8_t> data(tensix_l1_size, 0);
+    for (int i = 0; i < tensix_l1_size; i++) {
+        data[i] = i % 256;
+    }
+
+    // Set elements to 1 since the first readback will be of zero data, so want to confirm that
+    // elements actually changed.
+    std::vector<uint8_t> readback_data(tensix_l1_size, 1);
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+
+        EXPECT_EQ(zero_data, readback_data);
+
+        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+
+        EXPECT_EQ(data, readback_data);
+    }
+}
+
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);

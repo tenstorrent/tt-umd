@@ -10,7 +10,10 @@
 #include <iostream>
 #include <memory>
 
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
+#include "umd/device/pcie/simulation_tlb_handle.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
@@ -94,6 +97,11 @@ void SimulationTlbWindow::safe_read_block_reconfigure(
 void SimulationTlbWindow::safe_noc_multicast_write_reconfigure(
     void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
     noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, ordering);
+}
+
+tt::ARCH SimulationTlbWindow::get_arch() const {
+    TTSimTlbHandle* sim_handle = dynamic_cast<TTSimTlbHandle*>(tlb_handle.get());
+    return sim_handle->get_tlb_manager()->get_tt_device()->get_arch();
 }
 
 }  // namespace tt::umd

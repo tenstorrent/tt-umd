@@ -44,6 +44,8 @@ public:
      */
     uint64_t get_address() const;
 
+    TTSimTlbManager* get_tlb_manager() const { return sim_manager_; }
+
 private:
     // Private constructor to enforce use of create() factory method.
     TTSimTlbHandle(TTSimTlbManager* manager, int tlb_id, size_t size, const TlbMapping tlb_mapping);

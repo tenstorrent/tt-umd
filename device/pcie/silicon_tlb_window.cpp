@@ -270,4 +270,6 @@ void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
     execute_safe(&SiliconTlbWindow::noc_multicast_write_reconfigure, dst, size, core_start, core_end, addr, ordering);
 }
 
+tt::ARCH SiliconTlbWindow::get_arch() const { return PCIDevice::get_pcie_arch(); }
+
 }  // namespace tt::umd

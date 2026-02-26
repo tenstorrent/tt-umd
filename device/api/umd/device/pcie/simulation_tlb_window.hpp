@@ -61,6 +61,9 @@ public:
         uint64_t addr,
         uint64_t ordering = tlb_data::Strict) override;
 
+protected:
+    tt::ARCH get_arch() const override;
+
 private:
     /**
      * Get the physical address for a TLB window offset.

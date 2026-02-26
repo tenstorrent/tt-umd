@@ -219,6 +219,10 @@ int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32
         return ret;
     }
 
+    if (!tlb) {
+        return -EFAULT;
+    }
+
     uint64_t aligned_addr = addr & ~(tlb->size - 1);
     ret = tt_tlb_map_unicast(dev, tlb, x, y, aligned_addr);
 

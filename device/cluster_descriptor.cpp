@@ -220,11 +220,18 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
         bool is_bdf = device_token.find(':') != std::string::npos && device_token.find('.') != std::string::npos;
 
         if (is_bdf) {
+            bool matched_bdf_pattern = false;
             for (const auto &[chip, bdf] : chip_bdfs) {
                 if (bdf == device_token) {
                     target_chip_ids.insert(chip);
                     log_debug(LogUMD, "Added chip id {} with BDF {}.", chip, device_token);
+                    matched_bdf_pattern = true;
                 }
+            }
+            if (!matched_bdf_pattern) {
+                TT_THROW(
+                    "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
+                    device_token);
             }
             continue;
         }

@@ -177,6 +177,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/cluster_descriptor.hpp
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/protocol/device_protocol.hpp
+                api/umd/device/tt_device/protocol/pcie_interface.hpp
+                api/umd/device/tt_device/protocol/jtag_interface.hpp
+                api/umd/device/tt_device/protocol/remote_interface.hpp
                 api/umd/device/tt_device/tt_device.hpp
                 api/umd/device/tt_device/blackhole_tt_device.hpp
                 api/umd/device/tt_device/wormhole_tt_device.hpp

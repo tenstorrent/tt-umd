@@ -28,13 +28,17 @@ TTSimTTDevice::TTSimTTDevice(
     const std::filesystem::path& simulator_directory,
     SocDescriptor soc_descriptor,
     ChipId chip_id,
-    bool copy_sim_binary) :
+    bool copy_sim_binary,
+    int num_host_mem_channels) :
     communicator_(std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary)),
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
+    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels)) {
     communicator_->initialize();
+    initialize_sysmem_functions();
+    communicator_->start_sim();
     // Read the PCI ID (first 32 bits of PCI config space).
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
@@ -203,6 +207,24 @@ bool TTSimTTDevice::get_noc_translation_enabled() {
 void TTSimTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     throw std::runtime_error("DMA multicast write not supported for TTSim simulation device.");
+}
+
+void TTSimTTDevice::initialize_sysmem_functions() {
+    communicator_->set_pcie_dma_mem_callbacks(
+        [this](uint64_t a, void* p, uint32_t s) { pci_dma_read_bytes(a, p, s); },
+        [this](uint64_t a, const void* p, uint32_t s) { pci_dma_write_bytes(a, p, s); });
+}
+
+void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
+    uint64_t channel = paddr / (1ULL << 30);
+    uint64_t offset = paddr % (1ULL << 30);
+    sysmem_manager_->read_from_sysmem(channel, p, offset, size);
+}
+
+void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
+    uint64_t channel = paddr / (1ULL << 30);
+    uint64_t offset = paddr % (1ULL << 30);
+    sysmem_manager_->write_to_sysmem(channel, p, offset, size);
 }
 
 }  // namespace tt::umd

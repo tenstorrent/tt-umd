@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 
 namespace tt::umd {
@@ -100,6 +101,23 @@ public:
      */
     void advance_clock(uint32_t n_clocks);
 
+    /**
+     * Set callbacks for PCIe DMA memory operations. These callbacks are called
+     * by TTSim when device performs NOC reads/writes to PCIe core.
+     * These functions should basically implement how we handle copying data to/from system memory
+     * when transactions are initiated by device.
+     *
+     * @param pfn_pci_dma_mem_rd_bytes Callback for PCIe DMA read operations, with parameters (system bus address,
+     * buffer pointer, size).
+     * @param pfn_pci_dma_mem_wr_bytes Callback for PCIe DMA write operations, with parameters (system bus address,
+     * buffer pointer, size).
+     */
+    void set_pcie_dma_mem_callbacks(
+        std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+
+    void start_sim();
+
 private:
     // Library management.
     void create_simulator_binary();
@@ -130,6 +148,20 @@ private:
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
+    void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
+        void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
+        void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
+
+    // Stored callbacks for DMA memory operations.
+    std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
+    std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
+
+    // Static instance pointer for callback wrappers.
+    static TTSimCommunicator *callback_instance_;
+
+    // Static wrapper functions for C-style callbacks.
+    static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
 
     // Thread safety.
     mutable std::mutex device_lock_;

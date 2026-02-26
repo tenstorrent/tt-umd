@@ -19,6 +19,7 @@
 #include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -31,6 +32,7 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -255,7 +257,7 @@ ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetr
 
 FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider.get(); }
 
-semver_t TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
+FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 

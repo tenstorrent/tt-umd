@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -24,7 +25,8 @@ public:
         const std::filesystem::path &simulator_directory,
         SocDescriptor soc_descriptor,
         ChipId chip_id,
-        bool copy_sim_binary = false);
+        bool copy_sim_binary = false,
+        int num_host_mem_channels = 0);
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(const std::filesystem::path &simulator_directory);
@@ -57,7 +59,15 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
+    TTSimCommunicator *get_communicator() { return communicator_.get(); }
+
+    SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+
 private:
+    void initialize_sysmem_functions();
+    void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
+    void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
+
     uint64_t bar0_base = 0;
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
@@ -67,6 +77,7 @@ private:
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     uint32_t libttsim_pci_device_id;
 };

@@ -9,6 +9,7 @@
 
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
@@ -24,16 +25,14 @@ class TLBManager;
 // An abstract class that represents a chip.
 class Chip {
 public:
-    Chip(SocDescriptor soc_descriptor);
+    Chip(tt::ARCH arch);
 
-    Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor);
+    Chip(const ChipInfo chip_info, tt::ARCH arch);
 
     virtual ~Chip() = default;
 
     virtual void start_device() = 0;
     virtual void close_device() = 0;
-
-    SocDescriptor& get_soc_descriptor();
 
     virtual bool is_mmio_capable() const = 0;
 
@@ -44,6 +43,7 @@ public:
     virtual TTDevice* get_tt_device() = 0;
     virtual SysmemManager* get_sysmem_manager() = 0;
     virtual TLBManager* get_tlb_manager() = 0;
+    virtual const SocDescriptor& get_soc_descriptor() const = 0;
 
     virtual int get_num_host_channels() = 0;
     virtual int get_host_channel_size(std::uint32_t channel) = 0;
@@ -140,8 +140,6 @@ protected:
         const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     ChipInfo chip_info_;
-
-    SocDescriptor soc_descriptor_;
 };
 
 }  // namespace tt::umd

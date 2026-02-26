@@ -14,19 +14,15 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
 class ClusterDescriptor;
 
 struct TopologyDiscoveryOptions {
-    // Path to custom SoC descriptor when creating devices. See ClusterOptions.
-    std::string soc_descriptor_path;
-
-    // I/O device type to use when discovering. See ClusterOptions.
-    IODeviceType io_device_type = IODeviceType::PCIe;
-
     // Skip discovery of devices connected via Ethernet.
     bool no_remote_discovery = false;
 
@@ -48,15 +44,23 @@ struct TopologyDiscoveryOptions {
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
 public:
-    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<uint64_t, std::unique_ptr<TTDevice>>> discover(
-        const TopologyDiscoveryOptions& options);
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> discover(
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
 
     virtual ~TopologyDiscovery() = default;
 
 protected:
-    TopologyDiscovery(const TopologyDiscoveryOptions& options);
+    TopologyDiscovery(
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
 
-    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
@@ -154,11 +158,13 @@ protected:
     std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_device;
 
     // It's required to know which chip should be used for remote communication.
-    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id = {};
-
-    TopologyDiscoveryOptions options;
+    std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
     bool is_running_on_6u = false;
+
+    const TopologyDiscoveryOptions options;
+    const IODeviceType io_device_type = IODeviceType::PCIe;
+    const std::string& soc_descriptor_path = "";
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
@@ -166,11 +172,11 @@ protected:
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.
-    std::optional<semver_t> expected_eth_fw_version;
+    std::optional<SemVer> expected_eth_fw_version;
 
     // The FW bundle version found on the first discovered local device, that needs
     // to match with all of the other discovered FW bundle versions on all devices.
-    std::optional<semver_t> first_fw_bundle_version;
+    std::optional<FirmwareBundleVersion> first_fw_bundle_version;
 
 private:
     // Hack used to cache SocDescriptors.

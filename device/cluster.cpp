@@ -4,24 +4,22 @@
 
 #include "api/umd/device/cluster.hpp"
 
-#include <assert.h>
 #include <dirent.h>
-#include <errno.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>  // Needed to format vectors
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cerrno>
 #include <chrono>
+#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -191,7 +189,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &=
                     (eth_fw_version >= erisc_firmware::WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS ||
-                     eth_fw_version == semver_t(6, 7, 241)) &&
+                     eth_fw_version == SemVer(6, 7, 241)) &&
                     get_soc_descriptor(chip).noc_translation_enabled;
             }
         }
@@ -240,10 +238,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return chip;
     } else {
         ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-        LocalChip* local_chip = get_local_chip(gateway_id);
-        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
-            local_chip,
+            get_local_chip(gateway_id),
             cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
             soc_desc);
@@ -349,7 +345,8 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         if (options.chip_type == ChipType::SILICON) {
             // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
+            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+                options.sdesc_path, options.io_device_type, options.topology_discovery_options);
         } else {
             // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
             // descriptor from passed target devices.
@@ -1012,9 +1009,9 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
+std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
 
-std::optional<semver_t> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
+std::optional<FirmwareBundleVersion> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {
@@ -1023,11 +1020,10 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, IODeviceType device_type) {
-    TopologyDiscoveryOptions options;
-    options.soc_descriptor_path = std::move(sdesc_path);
-    options.io_device_type = device_type;
-    return TopologyDiscovery::discover(options).first;
+    const std::string& sdesc_path,
+    IODeviceType device_type,
+    const TopologyDiscoveryOptions& topology_discovery_options) {
+    return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
 }
 
 }  // namespace tt::umd

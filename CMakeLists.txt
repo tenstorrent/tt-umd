@@ -9,13 +9,20 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Generate compile_commands.json for IDEs and tools
 
-# Read version from VERSION file
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION)
-string(STRIP "${TT_UMD_VERSION}" TT_UMD_VERSION)
+# Read version from VERSION file (may include prerelease suffix, e.g. 0.9.3-rc1)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION_FULL)
+string(STRIP "${TT_UMD_VERSION_FULL}" TT_UMD_VERSION_FULL)
+# CMake project() VERSION only accepts major.minor.patch[.tweak]; strip any -suffix for it
+string(FIND "${TT_UMD_VERSION_FULL}" "-" _dash_idx)
+if(_dash_idx GREATER_EQUAL 0)
+    string(SUBSTRING "${TT_UMD_VERSION_FULL}" 0 ${_dash_idx} TT_UMD_VERSION_CMAKE)
+else()
+    set(TT_UMD_VERSION_CMAKE "${TT_UMD_VERSION_FULL}")
+endif()
 
 project(
     umd
-    VERSION ${TT_UMD_VERSION}
+    VERSION ${TT_UMD_VERSION_CMAKE}
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES
@@ -121,7 +128,6 @@ add_compile_options(
     -Wall
     -Werror
     -Wno-sign-compare
-    -Wno-unused-function
 )
 
 # Fixed this warning on clang, but not yet gcc

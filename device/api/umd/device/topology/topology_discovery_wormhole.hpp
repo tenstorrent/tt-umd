@@ -12,7 +12,8 @@ namespace tt::umd {
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options);
+    TopologyDiscoveryWormhole(
+        const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
 
 protected:
     struct EthAddresses {
@@ -49,8 +50,6 @@ protected:
     std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
-
-    uint32_t read_training_status(TTDevice* tt_device, tt_xy_pair eth_core);
 
     uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 

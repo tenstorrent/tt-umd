@@ -129,7 +129,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           personal_token: ${{ secrets.CLANGSA_RESULTS_PAT }}
-          external_repository: blozano-tt/umd-clangsa-results
+          external_repository: tenstorrent/tt-umd-code-analysis-results
           publish_branch: gh-pages
           publish_dir: site
           force_orphan: true

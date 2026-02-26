@@ -76,21 +76,40 @@ void bind_basic_types(nb::module_ &m) {
         .def("__str__", &tt::board_type_to_string)
         .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
 
-    nb::class_<semver_t>(m, "semver_t")
+    nb::class_<SemVer>(m, "SemVer")
         .def(nb::init<>())
         .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
         .def(nb::init<const std::string &>(), nb::arg("version_str"))
-        .def_rw("major", &semver_t::major)
-        .def_rw("minor", &semver_t::minor)
-        .def_rw("patch", &semver_t::patch)
-        .def("to_string", &semver_t::to_string)
-        .def("__str__", &semver_t::to_string)
-        .def("__lt__", &semver_t::operator<)
-        .def("__le__", &semver_t::operator<=)
-        .def("__gt__", &semver_t::operator>)
-        .def("__ge__", &semver_t::operator>=)
-        .def("__eq__", &semver_t::operator==)
-        .def("__ne__", &semver_t::operator!=);
+        .def_rw("major", &SemVer::major)
+        .def_rw("minor", &SemVer::minor)
+        .def_rw("patch", &SemVer::patch)
+        .def("to_string", &SemVer::to_string)
+        .def("__str__", &SemVer::to_string)
+        .def("__lt__", &SemVer::operator<)
+        .def("__le__", &SemVer::operator<=)
+        .def("__gt__", &SemVer::operator>)
+        .def("__ge__", &SemVer::operator>=)
+        .def("__eq__", &SemVer::operator==)
+        .def("__ne__", &SemVer::operator!=);
+    // TODO: Remove after renaming in tt-exalens.
+    m.attr("semver_t") = m.attr("SemVer");
+
+    nb::class_<FirmwareBundleVersion>(m, "FirmwareBundleVersion")
+        .def(nb::init<>())
+        .def_static("from_firmware_bundle_tag", &FirmwareBundleVersion::from_firmware_bundle_tag, nb::arg("tag"))
+        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
+        .def(nb::init<const std::string &>(), nb::arg("version_str"))
+        .def_rw("major", &SemVer::major)
+        .def_rw("minor", &SemVer::minor)
+        .def_rw("patch", &SemVer::patch)
+        .def("to_string", &FirmwareBundleVersion::to_string)
+        .def("__str__", &FirmwareBundleVersion::to_string)
+        .def("__lt__", &FirmwareBundleVersion::operator<)
+        .def("__le__", &FirmwareBundleVersion::operator<=)
+        .def("__gt__", &FirmwareBundleVersion::operator>)
+        .def("__ge__", &FirmwareBundleVersion::operator>=)
+        .def("__eq__", &FirmwareBundleVersion::operator==)
+        .def("__ne__", &FirmwareBundleVersion::operator!=);
 
     nb::class_<ChipInfo>(m, "ChipInfo")
         .def(nb::init<>())

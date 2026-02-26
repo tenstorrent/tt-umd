@@ -253,24 +253,49 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             break;
         }
 
-        // This covers T3K.
+        // This covers Wormhole T3K (Loudbox and Quietbox), as well as Blackhole loudbox.
         case 8: {
-            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-            EXPECT_EQ(chips_with_mmio.size(), 4);
+            switch (cluster_desc->get_arch()) {
+                case tt::ARCH::WORMHOLE_B0: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 4);
 
-            auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(count_connections(eth_connections), 40);
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 40);
 
-            for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
-                EXPECT_TRUE(board_type == BoardType::N300)
-                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::N300)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                case tt::ARCH::BLACKHOLE: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 8);
+
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 40);
+
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::P150)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                default: {
+                    throw std::runtime_error("Unexpected architecture for 8-chip cluster descriptor.");
+                }
             }
             break;
         }
 
         // This covers 6U galaxy.
         case 32: {
+            GTEST_SKIP() << "Skipping test for 6U Wormhole galaxy since ETH links are flaky and the test fails from "
+                            "time to time.";
+
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
             EXPECT_EQ(chips_with_mmio.size(), 32);
 
@@ -282,27 +307,6 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
                 EXPECT_TRUE(board_type == BoardType::UBB)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
             }
-            break;
-        }
-
-        // This covers 4U galaxy.
-        case 36: {
-            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
-            EXPECT_EQ(chips_with_mmio.size(), 4);
-
-            auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(count_connections(eth_connections), 432);
-
-            size_t count_n150 = 0;
-            for (auto chip : all_chips) {
-                BoardType board_type = cluster_desc->get_board_type(chip);
-                EXPECT_TRUE(board_type == BoardType::N150 || board_type == BoardType::GALAXY)
-                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
-                if (board_type == BoardType::N150) {
-                    count_n150++;
-                }
-            }
-            EXPECT_EQ(count_n150, 4) << "Expected 4 N150 chips in 4U galaxy, found " << count_n150;
             break;
         }
 

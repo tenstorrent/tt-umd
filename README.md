@@ -1,9 +1,9 @@
 <div align="center">
-<h1> TT-UMD :tm: </h1>
+<h1> TT-UMD </h1>
 
 User Mode Driver
 
-<img src="./docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
+<img src="https://raw.githubusercontent.com/tenstorrent/tt-umd/main/docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
 
 </div>
 <br/>
@@ -18,12 +18,7 @@ Required Ubuntu dependencies:
 sudo apt install -y libhwloc-dev cmake ninja-build
 ```
 
-Suggested third-party dependency is Clang 17:
-```
-wget https://apt.llvm.org/llvm.sh
-chmod u+x llvm.sh
-sudo ./llvm.sh 17
-```
+UMD currently supports gcc-11 and newer gcc versions, and clang-13 and newer clang versions.
 
 ## IOMMU and Hugepage requirements
 To determine whether your system requires hugepage configuration, run the provided script:

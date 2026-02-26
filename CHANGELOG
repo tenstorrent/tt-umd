@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.3] - 2026-02-24
+
+### Changed
+
+Sigbus safe read write API.
+Remove 4U related code.
+Implement BH SPI as well, so full SPI support.
+P150 expects harvested cores.
+TT_VISIBLE_DEVICES uses logical IDs.
+
+## [0.9.2] - 2026-02-09
+
+### Changed
+
+SPI interface for Wormhole.
+PCI BDF based sorting and filtering.
+Multicast PCI DMA.
+Support Blackhole loudbox.
+Many code fixes and test enhancements.
+
 ## [0.9.1] - 2026-01-23
 
 ### Changed

@@ -16,6 +16,7 @@
         "--disable",
         "prefix:boost",
         "--disable",
-        "checker:optin.core.EnumCastOutOfRange"
+        "checker:optin.core.EnumCastOutOfRange",
+        "--ctu"
     ]
 }

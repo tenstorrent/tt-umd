@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
@@ -22,7 +23,6 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-class semver_t;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -120,20 +120,21 @@ class PCIDevice {
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
-    const semver_t kmd_version;      // KMD version
+    const SemVer kmd_version;        // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    std::unique_ptr<architecture_implementation> arch_impl_;  // Architecture-specific implementation
     DmaBuffer dma_buffer{};
 
 public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
-    static std::vector<int> enumerate_devices(const std::unordered_set<int> &pci_target_devices = {});
+    static std::vector<int> enumerate_devices();
 
     /**
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
-    static std::map<int, PciDeviceInfo> enumerate_devices_info(const std::unordered_set<int> &pci_target_devices = {});
+    static std::map<int, PciDeviceInfo> enumerate_devices_info();
 
     /**
      * Read device information from sysfs.
@@ -192,6 +193,11 @@ public:
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
      */
     tt::ARCH get_arch() const { return arch; }
+
+    /**
+     * @return the architecture-specific implementation for this device
+     */
+    architecture_implementation *get_architecture_implementation() const { return arch_impl_.get(); }
 
     /**
      * @return whether the system is protected from this device by an IOMMU
@@ -253,7 +259,7 @@ public:
     /**
      * Read KMD version installed on the system.
      */
-    static semver_t read_kmd_version();
+    static SemVer read_kmd_version();
 
     /**
      * Allocate TLB resource from KMD.
@@ -262,6 +268,14 @@ public:
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Configure TLB register in user space by writing directly to BAR0.
+     *
+     * @param tlb_index The TLB index/ID to configure
+     * @param tlb_config The TLB configuration data
+     */
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
 
     /**
      * Read command byte.
@@ -291,11 +305,24 @@ public:
      */
     static bool is_arch_agnostic_reset_supported();
 
-public:
-    // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
+    /**
+     * Get the tt_device handle for low-level operations.
+     * @return Pointer to the tt_device handle
+     */
+    tt_device_t *get_tt_device_handle() const { return tt_device_handle; }
+
+    /**
+     * Get the TLB configuration space mapping.
+     * @return Pointer to the TLB configuration space
+     */
+    void *get_tlb_config_space() const { return tlb_config_space; }
+
+    // BAR0 base. UMD maps ARC memory to user space.
     void *bar0 = nullptr;
     // We only map 3MB of BAR0, which covers NOC2AXI access and ARC CSM memory.
     static constexpr size_t bar0_size = 3 * (1 << 20);
+    // TLB configuration space size (4KB page).
+    static constexpr size_t tlb_config_space_size = 4 * (1 << 10);
 
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
@@ -340,6 +367,8 @@ private:
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;
-};
 
+    // TLB configuration registers mapped space.
+    void *tlb_config_space = nullptr;
+};
 }  // namespace tt::umd

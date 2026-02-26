@@ -11,7 +11,6 @@
 #include <thread>
 #include <vector>
 
-#include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -19,6 +18,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/exceptions.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -90,8 +90,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
 
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
-            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::GALAXY ||
-            board_type == BoardType::UBB);
+            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB);
     }
 }
 
@@ -146,76 +145,6 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         thread0.join();
         thread1.join();
     }
-}
-
-TEST(ApiTTDeviceTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    auto arch = PCIDevice(pci_device_ids[0]).get_arch();
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP()
-            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
-               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
-    }
-
-    if (is_arm_platform()) {
-        // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
-        // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
-        GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
-    }
-
-    auto cluster = std::make_unique<Cluster>();
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
-    }
-
-    uint64_t address = 0x0;
-    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
-    std::vector<uint8_t> zero_data(data.size(), 0);
-    std::vector<uint8_t> readback_data(data.size(), 0);
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->init_tt_device();
-
-    SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
-
-    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
-    // send to core 15, 15 which will hang the NOC
-    tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
-
-    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-    if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
-    }
-
-    WarmReset::warm_reset();
-
-    // After a warm reset, topology discovery must be performed to detect available chips.
-    // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
-    // even though this is a TTDevice test.
-    cluster = std::make_unique<Cluster>();
-
-    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
-
-    // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
-
-    tt_device.reset();
-
-    tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->init_tt_device();
-
-    tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
-
-    tt_device->write_to_device(data.data(), tensix_core, address, data.size());
-
-    tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
-
-    ASSERT_EQ(data, readback_data);
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
@@ -20,7 +21,7 @@
 
 namespace tt::umd {
 
-SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) : SysmemManager() {
+SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) {
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 

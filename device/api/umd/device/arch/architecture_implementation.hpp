@@ -83,6 +83,8 @@ public:
 
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
+    virtual uint64_t get_tlb_cfg_reg_size_bytes() const = 0;
+    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
     virtual DriverHostAddressParams get_host_address_params() const = 0;

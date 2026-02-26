@@ -20,6 +20,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace YAML {
 class Node;
@@ -252,7 +253,6 @@ private:
 
     // Helper functions for filling up the cluster descriptor.
     void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml);
-    void fill_galaxy_connections();
     void load_chips_from_connectivity_descriptor(YAML::Node &yaml);
     void merge_cluster_ids();
     void load_harvesting_information(YAML::Node &yaml);
@@ -296,21 +296,6 @@ private:
     std::unordered_map<ChipId, uint64_t> chip_to_board_id;
     std::unordered_map<ChipId, std::string> chip_pci_bdfs;
 
-    // one-to-many chip connections
-    struct Chip2ChipConnection {
-        EthCoord source_chip_coord;
-        std::unordered_set<EthCoord> destination_chip_coords;
-    };
-
-    // shelf_id -> y dim -> list of chip2chip connections between different shelves
-    // assumption is that on every row of the shelf there is a chip that is connected to the other shelf
-    // there could be one-to-many connections between shelves, i.e. one chip is connected to multiple chips on the other
-    // shelf (in case of nebula->galaxy)
-    std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection>> galaxy_shelves_exit_chip_coords_per_y_dim;
-    // rack_id -> x dim -> list of chip2chip connections between different racks
-    // assumption is that on every row of the rack there is a chip that is connected to the other rack
-    std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection>> galaxy_racks_exit_chip_coords_per_x_dim;
-
     std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
@@ -318,9 +303,9 @@ private:
     // Bus ID needs to be cached in cluster descriptor for use to pin chip location for UBB trays.
     std::unordered_map<ChipId, uint16_t> chip_to_bus_id;
 
-    std::optional<semver_t> fw_bundle_version;
+    std::optional<FirmwareBundleVersion> fw_bundle_version;
 
     // Will have value only if there are ETH cores on chips in the cluster.
-    std::optional<semver_t> eth_fw_version;
+    std::optional<SemVer> eth_fw_version;
 };
 }  // namespace tt::umd

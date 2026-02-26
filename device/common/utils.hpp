@@ -21,7 +21,7 @@
 
 namespace tt::umd::utils {
 
-static std::optional<std::string> get_env_var_value(const char* env_var_name) {
+inline std::optional<std::string> get_env_var_value(const char* env_var_name) {
     const char* env_var = std::getenv(env_var_name);
     if (!env_var) {
         return std::nullopt;
@@ -29,7 +29,7 @@ static std::optional<std::string> get_env_var_value(const char* env_var_name) {
     return std::string(env_var);
 }
 
-static std::optional<std::unordered_set<int>> get_unordered_set_from_string(const std::string& input) {
+inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(const std::string& input) {
     std::unordered_set<int> result_set;
     std::stringstream ss(input);
     std::string token;
@@ -50,7 +50,7 @@ static std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
     return result_set;
 }
 
-static std::vector<std::string> split_string_by_comma(const std::string& input_string) {
+inline std::vector<std::string> split_string_by_comma(const std::string& input_string) {
     std::vector<std::string> device_tokens;
     std::stringstream ss(input_string);
     std::string token;
@@ -72,7 +72,7 @@ static std::vector<std::string> split_string_by_comma(const std::string& input_s
 // When set, TT_VISIBLE_DEVICES takes precedence over TT_VISIBLE_DEVICES for PCIe devices.
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
-static inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
+inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>& target_devices) {
     const std::optional<std::string> env_var_value = get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
     return target_devices.empty() && env_var_value.has_value()
                ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
@@ -99,7 +99,7 @@ enum class TimeoutAction { Throw, Return };
  * @param error_msg Error message to log or pass to std::runtime_error.
  * @param action Decide which action (throw or return false) is done when timeout elapses.
  */
-static inline bool check_timeout(
+inline bool check_timeout(
     const std::chrono::steady_clock::time_point start_time,
     const std::chrono::milliseconds timeout,
     const std::string& error_msg,

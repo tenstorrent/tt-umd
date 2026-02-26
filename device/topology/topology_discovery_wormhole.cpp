@@ -26,8 +26,9 @@
 
 namespace tt::umd {
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :
-    TopologyDiscovery(options) {}
+TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
+    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -166,12 +167,6 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, t
     return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
 }
 
-uint32_t TopologyDiscoveryWormhole::read_training_status(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t training_status;
-    tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
-    return training_status;
-}
-
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
         throw std::runtime_error(
@@ -236,6 +231,9 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
+    if (!options.no_wait_for_eth_training) {
+        wait_eth_cores_training(remote_tt_device.get());
+    }
     return remote_tt_device;
 }
 
@@ -278,15 +276,11 @@ bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t
 }
 
 bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return read_training_status(tt_device, eth_core) == LINK_TRAIN_SUCCESS;
+    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t eth_fw_version_read;
-    tt_device->read_from_device(
-        &eth_fw_version_read, eth_core, eth_l1_mem::address_map::FW_VERSION_ADDR, sizeof(uint32_t));
-
-    semver_t eth_fw_version = semver_t::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
     uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;

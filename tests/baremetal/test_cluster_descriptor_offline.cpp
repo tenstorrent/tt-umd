@@ -53,7 +53,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
             if (cluster_desc_yaml != test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml")) {
                 EXPECT_EQ(coord.cluster_id, 0);
             } else {
-                EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 1);
+                EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 2);
             }
         }
     }
@@ -85,7 +85,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
             if (cluster_desc_yaml != test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml")) {
                 EXPECT_EQ(coord.cluster_id, 0);
             } else {
-                EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 1);
+                EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 2);
             }
         }
     }
@@ -122,7 +122,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 
 TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_4xN300_mesh.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
 
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =

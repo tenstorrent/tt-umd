@@ -6,13 +6,34 @@ import tt_umd
 
 # SPI Address Constants.
 SPI_BOARD_INFO_ADDR = 0x20108
-SPI_SPARE_AREA_ADDR = 0x20134
+
+
+def get_spi_spare_addr_for_test(tt_device):
+    """Return architecture-specific SPI spare/scratch address for read-modify-write tests."""
+    arch = tt_device.get_arch()
+    if arch == tt_umd.ARCH.WORMHOLE_B0:
+        # This address is specified in the Wormhole SPI binaries as a reserved address for testing.
+        return 0x20134
+    if arch == tt_umd.ARCH.BLACKHOLE:
+        # Blackhole doesn't have a reserved address for testing, so using a random high address.
+        return 0x2800000
+    raise ValueError(
+        f"Unsupported architecture for SPI spare address calculation: {arch}"
+    )
 
 
 def setup_spi_test_devices():
-    """Helper function to set up devices for SPI testing."""
+    """Helper function to set up devices for SPI testing.
+
+    Returns:
+        tuple: (cluster_descriptor, umd_tt_devices, umd_spi_devices)
+        - cluster_descriptor: Topology descriptor for the cluster
+        - umd_tt_devices: Dictionary mapping chip_id to TTDevice instances (must be kept alive)
+        - umd_spi_devices: Dictionary mapping chip_id to SPITTDevice instances
+    """
     cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
     umd_tt_devices = {}
+    umd_spi_devices = {}
     chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
 
     # Create TTDevice instances for all chips (local and remote)
@@ -29,7 +50,10 @@ def setup_spi_test_devices():
             )
             umd_tt_devices[chip].init_tt_device()
 
-    return cluster_descriptor, umd_tt_devices
+        # Create SPITTDevice for each TTDevice
+        umd_spi_devices[chip] = tt_umd.SPITTDevice.create(umd_tt_devices[chip])
+
+    return cluster_descriptor, umd_tt_devices, umd_spi_devices
 
 
 class TestSPITTDevice(unittest.TestCase):
@@ -38,16 +62,13 @@ class TestSPITTDevice(unittest.TestCase):
     )
     def test_spi_read(self):
         """Test basic SPI read operations on discovered devices."""
-        cluster_descriptor, umd_tt_devices = setup_spi_test_devices()
+        cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
 
         # Test SPI read on each device
-        for chip_id, tt_device in umd_tt_devices.items():
+        for chip_id, spi_impl in umd_spi_devices.items():
             print(
                 f"\n=== Testing SPI read on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
             )
-
-            # Create SPI implementation for this device
-            spi_impl = tt_umd.SPITTDevice.create(tt_device)
 
             # Test SPI read - board info
             board_info = bytearray(8)
@@ -65,22 +86,21 @@ class TestSPITTDevice(unittest.TestCase):
     )
     def test_spi_read_modify_write(self):
         """Test SPI read-modify-write operations on discovered devices."""
-        cluster_descriptor, umd_tt_devices = setup_spi_test_devices()
+        cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
 
         # Test SPI read-modify-write on each device
-        for chip_id, tt_device in umd_tt_devices.items():
+        for chip_id, spi_impl in umd_spi_devices.items():
             print(
                 f"\n=== Testing SPI read-modify-write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
             )
 
-            # Create SPI implementation for this device
-            spi_impl = tt_umd.SPITTDevice.create(tt_device)
+            spi_spare_area_addr = get_spi_spare_addr_for_test(umd_tt_devices[chip_id])
 
             # Test read-modify-write on spare area
             original = bytearray(2)
-            spi_impl.read(SPI_SPARE_AREA_ADDR, original)
+            spi_impl.read(spi_spare_area_addr, original)
             print(
-                f"Original value at 0x{SPI_SPARE_AREA_ADDR:x}: {original[1]:02x}{original[0]:02x}"
+                f"Original value at 0x{spi_spare_area_addr:x}: {original[1]:02x}{original[0]:02x}"
             )
 
             # Increment the value
@@ -90,13 +110,13 @@ class TestSPITTDevice(unittest.TestCase):
                 new_val[1] = (new_val[1] + 1) % 256
 
             # Write back incremented value
-            spi_impl.write(SPI_SPARE_AREA_ADDR, bytes(new_val))
+            spi_impl.write(spi_spare_area_addr, bytes(new_val))
 
             # Verify the write
             verify = bytearray(2)
-            spi_impl.read(SPI_SPARE_AREA_ADDR, verify)
+            spi_impl.read(spi_spare_area_addr, verify)
             print(
-                f"Updated value at 0x{SPI_SPARE_AREA_ADDR:x}: {verify[1]:02x}{verify[0]:02x}"
+                f"Updated value at 0x{spi_spare_area_addr:x}: {verify[1]:02x}{verify[0]:02x}"
             )
 
             self.assertEqual(
@@ -110,22 +130,21 @@ class TestSPITTDevice(unittest.TestCase):
     )
     def test_spi_uncommitted_write(self):
         """Test SPI uncommitted write operations on discovered devices."""
-        cluster_descriptor, umd_tt_devices = setup_spi_test_devices()
+        cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
 
         # Test SPI uncommitted write on each device
-        for chip_id, tt_device in umd_tt_devices.items():
+        for chip_id, spi_impl in umd_spi_devices.items():
             print(
                 f"\n=== Testing SPI uncommitted write on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
             )
 
-            # Create SPI implementation for this device
-            spi_impl = tt_umd.SPITTDevice.create(tt_device)
+            spi_spare_area_addr = get_spi_spare_addr_for_test(umd_tt_devices[chip_id])
 
             # Test uncommitted write on spare area
             original = bytearray(2)
-            spi_impl.read(SPI_SPARE_AREA_ADDR, original)
+            spi_impl.read(spi_spare_area_addr, original)
             print(
-                f"Original value at 0x{SPI_SPARE_AREA_ADDR:x}: {original[1]:02x}{original[0]:02x}"
+                f"Original value at 0x{spi_spare_area_addr:x}: {original[1]:02x}{original[0]:02x}"
             )
 
             # Increment value again, but this time don't commit it to SPI.
@@ -136,14 +155,14 @@ class TestSPITTDevice(unittest.TestCase):
                 new_val[1] = (new_val[1] + 1) % 256
 
             # Performs write to the buffer, but doesn't commit it to SPI (skip_write_to_spi=True)
-            print(f"SPI write (uncommitted) to 0x{SPI_SPARE_AREA_ADDR:x}")
-            spi_impl.write(SPI_SPARE_AREA_ADDR, bytes(new_val), True)
+            print(f"SPI write (uncommitted) to 0x{spi_spare_area_addr:x}")
+            spi_impl.write(spi_spare_area_addr, bytes(new_val), True)
 
             # Read back to verify - should NOT match new_val since we didn't actually write to SPI
             verify2 = bytearray(2)
-            spi_impl.read(SPI_SPARE_AREA_ADDR, verify2)
+            spi_impl.read(spi_spare_area_addr, verify2)
             print(
-                f"Value after uncommitted write at 0x{SPI_SPARE_AREA_ADDR:x}: {verify2[1]:02x}{verify2[0]:02x}"
+                f"Value after uncommitted write at 0x{spi_spare_area_addr:x}: {verify2[1]:02x}{verify2[0]:02x}"
             )
 
             self.assertNotEqual(
@@ -159,9 +178,9 @@ class TestSPITTDevice(unittest.TestCase):
 
             # Read wider area
             wide_read = bytearray(8)
-            spi_impl.read(SPI_SPARE_AREA_ADDR, wide_read)
+            spi_impl.read(spi_spare_area_addr, wide_read)
             wide_value = int.from_bytes(wide_read, byteorder="little")
-            print(f"Wide read at 0x{SPI_SPARE_AREA_ADDR:x}: {wide_value:016x}")
+            print(f"Wide read at 0x{spi_spare_area_addr:x}: {wide_value:016x}")
 
             # Verify first 2 bytes match the verify2 value (not new_val)
             self.assertEqual(
@@ -170,6 +189,42 @@ class TestSPITTDevice(unittest.TestCase):
             self.assertEqual(
                 wide_read[1], verify2[1], f"Second byte mismatch for device {chip_id}"
             )
+
+    @unittest.skip(
+        "Disabled by default - potentially destructive SPI test. Remove this decorator to run."
+    )
+    def test_get_spi_fw_bundle_version(self):
+        """Test getting firmware bundle version from SPI on discovered devices."""
+        cluster_descriptor, umd_tt_devices, umd_spi_devices = setup_spi_test_devices()
+
+        # Test get_spi_fw_bundle_version on each device
+        for chip_id, spi_impl in umd_spi_devices.items():
+            # Try to get firmware bundle version - will throw if not supported
+            try:
+                fw_version = spi_impl.get_spi_fw_bundle_version()
+
+                print(
+                    f"\n=== Testing get_spi_fw_bundle_version on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) ==="
+                )
+
+                # Access version components
+                patch = fw_version & 0xFF
+                minor = (fw_version >> 8) & 0xFF
+                major = (fw_version >> 16) & 0xFF
+                component = (fw_version >> 24) & 0xFF
+
+                print(
+                    f"Version string: {component}.{major}.{minor}.{patch} raw value: {fw_version:#x}"
+                )
+            except RuntimeError as e:
+                # get_spi_fw_bundle_version is only supported on Blackhole
+                if "not supported" in str(e).lower():
+                    print(
+                        f"\n=== Skipping get_spi_fw_bundle_version on device {chip_id} (remote: {cluster_descriptor.is_chip_remote(chip_id)}) - not supported ==="
+                    )
+                    continue
+                else:
+                    raise e
 
 
 if __name__ == "__main__":

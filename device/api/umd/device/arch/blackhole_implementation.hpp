@@ -243,12 +243,13 @@ inline constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 // ARC firmware interrupt address and value to write in order
 // to make an interrupt request.
 inline constexpr uint32_t ARC_FW_INT_ADDR = ARC_RESET_UNIT_OFFSET + 0x100;
-constexpr uint32_t ARC_FW_INT_VAL = 65536;
+inline constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
 inline constexpr uint32_t SCRATCH_RAM_0 = ARC_RESET_UNIT_OFFSET + 0x400;
 inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
+inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
@@ -302,6 +303,11 @@ inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
+
+// ETH related constants.
+inline constexpr uint64_t ETH_FW_MAJOR_ADDR = 0x7CFBE;
+inline constexpr uint64_t ETH_FW_MINOR_ADDR = 0x7CFBD;
+inline constexpr uint64_t ETH_FW_PATCH_ADDR = 0x7CFBC;
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
@@ -458,6 +464,10 @@ public:
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
+
+    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
+
+    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
     DriverHostAddressParams get_host_address_params() const override;

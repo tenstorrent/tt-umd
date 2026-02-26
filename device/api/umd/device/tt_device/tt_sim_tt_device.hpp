@@ -8,19 +8,25 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
+
+class TTSimCommunicator;
+
 class TTSimTTDevice : public TTDevice {
 public:
     TTSimTTDevice(
         const std::filesystem::path &simulator_directory,
         SocDescriptor soc_descriptor,
         ChipId chip_id,
-        bool copy_sim_binary = false);
+        bool copy_sim_binary = false,
+        int num_host_mem_channels = 0);
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(const std::filesystem::path &simulator_directory);
@@ -44,6 +50,7 @@ public:
     bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
@@ -58,32 +65,26 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
+    TTSimCommunicator *get_communicator() { return communicator_.get(); }
+
+    SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+
 private:
-    void create_simulator_binary();
-    off_t resize_simulator_binary(int src_fd);
-    void copy_simulator_binary();
-    void secure_simulator_binary();
-    void close_simulator_binary();
-    void load_simulator_library(const std::filesystem::path &path);
+    void initialize_sysmem_functions();
+    void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
+    void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
 
-    void *libttsim_handle = nullptr;
-    uint32_t libttsim_pci_device_id = 0;
-    void (*pfn_libttsim_init)() = nullptr;
-    void (*pfn_libttsim_exit)() = nullptr;
-    uint32_t (*pfn_libttsim_pci_config_rd32)(uint32_t bus_device_function, uint32_t offset) = nullptr;
-    void (*pfn_libttsim_pci_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_pci_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
     uint64_t bar0_base = 0;
-    uint32_t tlb_region_size = 0;
-
+    uint32_t tlb_region_size_ = 0;
+    std::unique_ptr<TTSimCommunicator> communicator_;
     std::recursive_mutex device_lock;
+
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    int copied_simulator_fd_ = -1;
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+
+    uint32_t libttsim_pci_device_id;
 };
 }  // namespace tt::umd

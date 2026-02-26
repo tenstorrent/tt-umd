@@ -25,6 +25,10 @@ install(
 set(CPACK_GENERATOR "DEB;RPM")
 set(CPACK_PACKAGE_VENDOR "Tenstorrent, Inc.")
 set(CPACK_PACKAGE_NAME "tt_umd")
+# Use full version from VERSION file (e.g. 0.9.3-rc1) for package version; PROJECT_VERSION is numeric-only for CMake
+if(DEFINED TT_UMD_VERSION_FULL)
+    set(CPACK_PACKAGE_VERSION "${TT_UMD_VERSION_FULL}")
+endif()
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Tenstorrent User Mode Driver")
 set(CPACK_PACKAGE_CONTACT "support@tenstorrent.com")

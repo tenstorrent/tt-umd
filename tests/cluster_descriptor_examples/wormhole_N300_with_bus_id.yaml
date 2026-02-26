@@ -33,3 +33,5 @@ chip_to_bus_id: {
    0: "0x1a",
    1: "0x1b",
 }
+
+boards: [[{board_id: 72058994491072686}, {board_type: n300}, {chips: [0,1]}]]

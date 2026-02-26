@@ -39,6 +39,14 @@ enum class TTDeviceInitResult {
     SUCCESSFUL,
 };
 
+// Represents the status of the ETH core.
+enum class EthTrainingStatus {
+    IN_PROGRESS = 0,
+    SUCCESS = 1,
+    FAIL = 2,
+    NOT_CONNECTED = 3,
+};
+
 class TTDevice {
 public:
     /**
@@ -229,7 +237,7 @@ public:
 
     virtual ChipInfo get_chip_info();
 
-    semver_t get_firmware_version();
+    FirmwareBundleVersion get_firmware_version();
 
     /**
      * Waits for ARC core to be fully ready for communication.
@@ -327,13 +335,21 @@ public:
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
+    /**
+     * Read the training status of the given ETH core.
+     *
+     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @return Training status
+     */
+    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
-    int communication_device_id_;
+    int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    tt::ARCH arch;
+    tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;

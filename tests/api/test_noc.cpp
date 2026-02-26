@@ -446,7 +446,8 @@ TEST_P(TestNocTranslatedCoordinates, VerifyNocIdTranslatedCoordinatesMatch) {
 
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 
-    // Skip DRAM on Blackhole - translated coordinate mapping doesn't work correctly yet.
+    // Skip DRAM on Blackhole - expected translated coordinate mapping doesn't match the value in NOC_LOGICAL_ID
+    // for DRAM tiles when translation is turned on.
     if (arch == ARCH::BLACKHOLE && core_type == CoreType::DRAM) {
         GTEST_SKIP() << "DRAM translated coordinate mapping on Blackhole needs investigation";
     }

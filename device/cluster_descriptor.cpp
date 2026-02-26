@@ -223,12 +223,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
             for (const auto &[chip, bdf] : chip_bdfs) {
                 if (bdf == device_token) {
                     target_chip_ids.insert(chip);
-                    log_debug(
-                        LogUMD,
-                        "Added chip id {} with BDF {} because of token filter {}.",
-                        chip,
-                        device_token,
-                        device_token);
+                    log_debug(LogUMD, "Added chip id {} with BDF {}.", chip, device_token);
                 }
             }
             continue;

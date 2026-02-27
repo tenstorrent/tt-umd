@@ -37,7 +37,7 @@ int count_connections(
     return count;
 }
 
-TEST(ApiClusterDescriptorTest, DetectArch) {
+TEST(TestClusterDescriptor, DetectArch) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc->get_number_of_chips() == 0) {
@@ -69,7 +69,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
     }
 }
 
-TEST(ApiClusterDescriptorTest, BasicFunctionality) {
+TEST(TestClusterDescriptor, BasicFunctionality) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
@@ -101,7 +101,7 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
-TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
+TEST(TestClusterDescriptor, EthernetConnectivity) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
@@ -156,7 +156,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 }
 
-TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
+TEST(TestClusterDescriptor, PrintClusterDescriptor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -177,7 +177,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     file.close();
 }
 
-TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
+TEST(TestClusterDescriptor, VerifyEthConnections) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
@@ -203,7 +203,7 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
  * single N300 or something similar, but this should raise our confidence of standard topologies working as
  * expected.
  */
-TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
+TEST(TestClusterDescriptor, VerifyStandardTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     auto all_chips = cluster_desc->get_all_chips();
@@ -313,6 +313,28 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
         default: {
             throw std::runtime_error(
                 "Unexpected number of chips in the cluster descriptor: " + std::to_string(all_chips.size()));
+        }
+    }
+}
+
+// It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
+// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
+// into acount. This test verifies that both for Wormhole and Blackhole.
+TEST(TestClusterDescriptor, TestClusterLogicalETHChannelsConnectivity) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
+        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
+            auto [remote_chip, remote_channel] = remote_chip_and_channel;
+
+            const uint32_t num_channels_remote_chip =
+                cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
+
+            EXPECT_TRUE(channel < num_channels_local_chip);
+            EXPECT_TRUE(remote_channel < num_channels_remote_chip);
         }
     }
 }

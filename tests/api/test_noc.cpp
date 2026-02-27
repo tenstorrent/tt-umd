@@ -133,12 +133,29 @@ public:
 
     Cluster* get_cluster() { return cluster_.get(); };
 
+    tt_xy_pair read_noc_translated_id_reg(ChipId chip, tt_xy_pair core, uint8_t noc_index) {
+        auto noc_port = get_dram_noc_port(core, noc_index);
+        const uint64_t noc_translated_id_reg_addr =
+            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
+                CoreType::DRAM, noc_index, noc_port) +
+            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
+
+        uint32_t noc_translated_id_val;
+        cluster_->get_tt_device(chip)->read_from_device(
+            &noc_translated_id_val, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
+
+        uint32_t translated_x = noc_translated_id_val & 0x3F;
+        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
+
+        return tt_xy_pair(translated_x, translated_y);
+    }
+
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
         auto noc_port = (core.core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
         const uint64_t noc_translated_id_reg_addr =
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
+            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_translated_id_offset();
+            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
 
         uint32_t noc_translated_id_val;
         cluster_->read_from_device_reg(
@@ -258,6 +275,26 @@ private:
         }
 
         if (core.coord_system == tt::CoordSystem::NOC1) {
+            auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
+
+            if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
+                return it->second;
+            }
+        }
+
+        return 0;
+    }
+
+    uint32_t get_dram_noc_port(tt_xy_pair core, uint8_t noc_index) {
+        if (noc_index == 0) {
+            auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
+
+            if (it != womrhole_dram_coord_to_noc_port_noc0.end()) {
+                return it->second;
+            }
+        }
+
+        if (noc_index == 1) {
             auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
 
             if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
@@ -531,9 +568,7 @@ class TestNocWormholeDramTranslatedCoordinates : public TestNoc,
                                                  public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {
 };
 
-// Disabled because the NOC Translation table is not programmed for DRAM, ARC and PCIe cores for translated coords on
-// Wormhole correctly.
-TEST_P(TestNocWormholeDramTranslatedCoordinates, DISABLED_VerifyTranslatedRegisterMatchesCoordinate) {
+TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoordinate) {
     auto [core_coord, noc_index] = GetParam();
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 
@@ -550,16 +585,40 @@ TEST_P(TestNocWormholeDramTranslatedCoordinates, DISABLED_VerifyTranslatedRegist
     // Read the translated ID register via the specified NOC.
     NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
 
+    tt_xy_pair noc_core_coord{99, 99};  // some invalid value.
+
+    if (noc_index == 0) {
+        if (core_coord.y == 16) {
+            noc_core_coord.y = 0;
+        }
+        if (core_coord.y == 17) {
+            noc_core_coord.y = 6;
+        }
+
+        if (core_coord.x == 16) {
+            noc_core_coord.x = 0;
+        }
+        if (core_coord.x == 17) {
+            noc_core_coord.x = 5;
+        }
+    } else {
+        if (core_coord.y == 16) {
+            noc_core_coord.y = 11;
+        }
+        if (core_coord.y == 17) {
+            noc_core_coord.y = 5;
+        }
+
+        if (core_coord.x == 16) {
+            noc_core_coord.x = 9;
+        }
+        if (core_coord.x == 17) {
+            noc_core_coord.x = 4;
+        }
+    }
+
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
-        const uint64_t translated_id_offset =
-            get_cluster()->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
-
-        uint32_t translated_id_val;
-        get_cluster()->get_tt_device(chip)->read_from_device(
-            &translated_id_val, core_coord, translated_id_offset, sizeof(translated_id_val));
-
-        uint32_t translated_x_reg = translated_id_val & 0x3F;
-        uint32_t translated_y_reg = (translated_id_val >> 6) & 0x3F;
+        auto translated_reg = read_noc_translated_id_reg(chip, noc_core_coord, noc_index);
 
         log_debug(
             tt::LogUMD,
@@ -568,14 +627,14 @@ TEST_P(TestNocWormholeDramTranslatedCoordinates, DISABLED_VerifyTranslatedRegist
             core_coord.x,
             core_coord.y,
             noc_index,
-            translated_x_reg,
-            translated_y_reg);
+            translated_reg.x,
+            translated_reg.y);
 
         // Verify that the translated register matches the coordinates we used to access it.
-        EXPECT_EQ(translated_x_reg, core_coord.x)
+        EXPECT_EQ(translated_reg.x, core_coord.x)
             << "Chip " << chip << " DRAM TRANSLATED=(" << core_coord.x << "," << core_coord.y << ") NOC"
             << static_cast<int>(noc_index) << " translated X register mismatch";
-        EXPECT_EQ(translated_y_reg, core_coord.y)
+        EXPECT_EQ(translated_reg.y, core_coord.y)
             << "Chip " << chip << " DRAM TRANSLATED=(" << core_coord.x << "," << core_coord.y << ") NOC"
             << static_cast<int>(noc_index) << " translated Y register mismatch";
     }

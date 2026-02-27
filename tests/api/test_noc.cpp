@@ -151,7 +151,7 @@ public:
 
     // Overload for reading translated ID register using CoreCoord (with core type and coord system).
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
-        auto noc_port = (core.core_type == CoreType::DRAM) ? get_noc_port(core) : 0;
+        auto noc_port = get_noc_port(core);
         const uint64_t noc_translated_id_reg_addr =
             cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +

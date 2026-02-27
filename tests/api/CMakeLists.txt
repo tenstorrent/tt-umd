@@ -3,6 +3,7 @@ set(API_TESTS_SRCS
     test_cluster_descriptor.cpp
     test_cluster.cpp
     test_soc_descriptor.cpp
+    test_device_io.cpp
     test_risc_program.cpp
     test_tlb_manager.cpp
     test_software_harvesting.cpp

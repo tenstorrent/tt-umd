@@ -567,36 +567,32 @@ INSTANTIATE_TEST_SUITE_P(
 class TestNocWormholeDramTranslatedCoordinates : public TestNoc,
                                                  public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {
 public:
-    // Mapping from translated coordinates to NOC coordinates for ethernet-aligned DRAM cores.
-    // Structure: [NocId][translated_dram_value] = noc_dram_value.
-    static const std::map<NocId, std::map<size_t, size_t>> DRAM_TRANSLATED_TO_NOC_X_MAP;
-    static const std::map<NocId, std::map<size_t, size_t>> DRAM_TRANSLATED_TO_NOC_Y_MAP;
+    // Helper function to convert translated DRAM coordinates to NOC coordinates.
+    static tt_xy_pair translate_to_noc_coord_for_eth_aligned_dram_tiles(tt_xy_pair translated_coord, NocId noc_id) {
+        // Validate inputs - only ethernet-aligned DRAM coordinates (16,16), (16,17), (17,16), (17,17) are valid.
+        if ((translated_coord.x != 16 && translated_coord.x != 17) ||
+            (translated_coord.y != 16 && translated_coord.y != 17)) {
+            throw std::runtime_error(
+                "Invalid translated DRAM coordinate (" + std::to_string(translated_coord.x) + "," +
+                std::to_string(translated_coord.y) +
+                "). Only ethernet-aligned coordinates (16,16), (16,17), (17,16), (17,17) are valid for this test as "
+                "they are unaffected by harvesting.");
+        }
+
+        // clang-format off
+        // Ethernet-aligned DRAM cores have fixed coordinate mappings.
+        if (noc_id == NocId::NOC0) {
+            return tt_xy_pair(
+                translated_coord.x == 16 ? 0 : 5,   // x: 16->0, 17->5
+                translated_coord.y == 16 ? 0 : 6);  // y: 16->0, 17->6
+        } else {  // NocId::NOC1
+            return tt_xy_pair(
+                translated_coord.x == 16 ? 9 : 4,   // x: 16->9, 17->4
+                translated_coord.y == 16 ? 11 : 5); // y: 16->11, 17->5
+        }
+        // clang-format on
+    }
 };
-
-// clang-format off
-// NOC0: translated x=16->0, x=17->5  |  NOC1: translated x=16->9, x=17->4.
-const std::map<NocId, std::map<size_t, size_t>> TestNocWormholeDramTranslatedCoordinates::DRAM_TRANSLATED_TO_NOC_X_MAP =
-    {
-    {NocId::NOC0, {
-        {16, 0}, 
-        {17, 5}}}, 
-    {NocId::NOC1, {
-        {16, 9}, 
-        {17, 4}}}
-    };
-
-// NOC0: translated y=16->0, y=17->6  |  NOC1: translated y=16->11, y=17->5.
-const std::map<NocId, std::map<size_t, size_t>> TestNocWormholeDramTranslatedCoordinates::DRAM_TRANSLATED_TO_NOC_Y_MAP =
-    {
-    {NocId::NOC0, {
-        {16, 0}, 
-        {17, 6}}}, 
-    {NocId::NOC1, {
-        {16, 11}, 
-        {17, 5}}}
-    };
-
-// clang-format on
 
 TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoordinate) {
     auto [core_coord, noc_index] = GetParam();
@@ -615,11 +611,9 @@ TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatches
     // Read the translated ID register via the specified NOC.
     NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
 
-    // Convert translated coordinates back to NOC coordinates using static maps.
-    NocId noc_id = static_cast<NocId>(noc_index);
-    tt_xy_pair noc_core_coord(
-        DRAM_TRANSLATED_TO_NOC_X_MAP.at(noc_id).at(core_coord.x),
-        DRAM_TRANSLATED_TO_NOC_Y_MAP.at(noc_id).at(core_coord.y));
+    // Convert translated coordinates back to NOC coordinates just for getting correct DRAM NOC port.
+    tt_xy_pair noc_core_coord =
+        translate_to_noc_coord_for_eth_aligned_dram_tiles(core_coord, static_cast<NocId>(noc_index));
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         auto translated_reg = read_noc_translated_id_reg(chip, noc_core_coord, noc_index);

@@ -133,8 +133,6 @@ public:
 
     Cluster* get_cluster() { return cluster_.get(); };
 
-    // Overload for reading translated ID register using tt_xy_pair (raw NOC coordinates).
-    // Used when accessing cores via translated coordinates directly.
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, tt_xy_pair core, uint8_t noc_index) {
         auto noc_port = get_noc_port(core, noc_index);
         const uint64_t noc_translated_id_reg_addr =
@@ -149,7 +147,6 @@ public:
         return extract_translated_coords_from_reg(noc_translated_id_val);
     }
 
-    // Overload for reading translated ID register using CoreCoord (with core type and coord system).
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
         auto noc_port = get_noc_port(core);
         const uint64_t noc_translated_id_reg_addr =

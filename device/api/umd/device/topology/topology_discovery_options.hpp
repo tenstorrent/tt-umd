@@ -82,13 +82,15 @@ struct TopologyDiscoveryOptions {
     bool perform_eth_fw_hash_check = false;
 
     /**
-     * @brief Blackhole only. ETH FW version is not present in ARC telemetry on BH.
-     * TODO: This option should be removed once ETH FW hearbeat checks are implemented.
+     * @brief Controls how to determine the expect ETH FW version on Blackhole.
+     * Blackhole does not provide ETH FW version in ARC telemetry.
+     * This option has no effect on Wormhole.
      * Used only for tt-exalens tests that break ETH FW.
      * If set to true, the expected ETH FW version will be determined by observing the CMFW version.
      * If set to false, the expected ETH FW version will be determined by reading the ETH FW version
      * from the first observed ETH core during discovery. Defaults to false.
+     * TODO: This option should be removed once ETH FW hearbeat checks are implemented.
      */
-    bool bh_predict_eth_fw_version_from_cmfw_version = false;
+    bool predict_eth_fw_version_from_cmfw_version = false;
 };
 }  // namespace tt::umd

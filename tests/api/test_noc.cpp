@@ -262,44 +262,18 @@ public:
 private:
     std::unique_ptr<Cluster> cluster_;
 
-    uint32_t get_noc_port(CoreCoord core) {
-        if (core.coord_system == tt::CoordSystem::NOC0) {
-            auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
-
-            if (it != womrhole_dram_coord_to_noc_port_noc0.end()) {
-                return it->second;
-            }
-        }
-
-        if (core.coord_system == tt::CoordSystem::NOC1) {
-            auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
-
-            if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
-                return it->second;
-            }
-        }
-
-        return 0;
+    // Get NOC port for DRAM cores. Returns 0 for non-DRAM cores or if coordinate not found.
+    uint32_t get_noc_port(tt_xy_pair core, uint8_t noc_index) {
+        const auto& port_map =
+            (noc_index == 0) ? womrhole_dram_coord_to_noc_port_noc0 : womrhole_dram_coord_to_noc_port_noc1;
+        auto it = port_map.find({core.x, core.y});
+        return (it != port_map.end()) ? it->second : 0;
     }
 
-    uint32_t get_noc_port(tt_xy_pair core, uint8_t noc_index) {
-        if (noc_index == 0) {
-            auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
-
-            if (it != womrhole_dram_coord_to_noc_port_noc0.end()) {
-                return it->second;
-            }
-        }
-
-        if (noc_index == 1) {
-            auto it = womrhole_dram_coord_to_noc_port_noc1.find({core.x, core.y});
-
-            if (it != womrhole_dram_coord_to_noc_port_noc1.end()) {
-                return it->second;
-            }
-        }
-
-        return 0;
+    // Overload that extracts NOC index from CoreCoord's coordinate system.
+    uint32_t get_noc_port(CoreCoord core) {
+        uint8_t noc_index = (core.coord_system == tt::CoordSystem::NOC0) ? 0 : 1;
+        return get_noc_port(tt_xy_pair(core.x, core.y), noc_index);
     }
 
     // Read NOC translated ID register and extract x,y coordinates from the register value.

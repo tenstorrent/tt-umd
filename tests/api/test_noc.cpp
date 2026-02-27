@@ -566,7 +566,20 @@ INSTANTIATE_TEST_SUITE_P(
 
 class TestNocWormholeDramTranslatedCoordinates : public TestNoc,
                                                  public ::testing::WithParamInterface<std::tuple<tt_xy_pair, uint8_t>> {
+public:
+    // Mapping from translated coordinates to NOC coordinates for ethernet-aligned DRAM cores.
+    // Structure: [NocId][translated_dram_value] = noc_dram_value.
+    static const std::map<NocId, std::map<size_t, size_t>> DRAM_TRANSLATED_TO_NOC_X_MAP;
+    static const std::map<NocId, std::map<size_t, size_t>> DRAM_TRANSLATED_TO_NOC_Y_MAP;
 };
+
+// NOC0: translated x=16->0, x=17->5  |  NOC1: translated x=16->9, x=17->4.
+const std::map<NocId, std::map<size_t, size_t>> TestNocWormholeDramTranslatedCoordinates::DRAM_TRANSLATED_TO_NOC_X_MAP =
+    {{NocId::NOC0, {{16, 0}, {17, 5}}}, {NocId::NOC1, {{16, 9}, {17, 4}}}};
+
+// NOC0: translated y=16->0, y=17->6  |  NOC1: translated y=16->11, y=17->5.
+const std::map<NocId, std::map<size_t, size_t>> TestNocWormholeDramTranslatedCoordinates::DRAM_TRANSLATED_TO_NOC_Y_MAP =
+    {{NocId::NOC0, {{16, 0}, {17, 6}}}, {NocId::NOC1, {{16, 11}, {17, 5}}}};
 
 TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoordinate) {
     auto [core_coord, noc_index] = GetParam();
@@ -585,28 +598,11 @@ TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatches
     // Read the translated ID register via the specified NOC.
     NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
 
-    // Convert translated coordinates back to NOC coordinates.
-    // Ethernet-aligned DRAM cores have fixed translated coordinates (16,16), (16,17), (17,16), (17,17).
-    // These map to different NOC coordinates depending on which NOC is used.
-    auto translate_to_noc_coord = [](tt_xy_pair translated_coord, uint8_t noc_index) -> tt_xy_pair {
-        tt_xy_pair noc_coord;
-
-        if (noc_index == 0) {
-            // NOC0: translated x=16 -> NOC0 x=0, translated x=17 -> NOC0 x=5.
-            noc_coord.x = (translated_coord.x == 16) ? 0 : 5;
-            // NOC0: translated y=16 -> NOC0 y=0, translated y=17 -> NOC0 y=6.
-            noc_coord.y = (translated_coord.y == 16) ? 0 : 6;
-        } else {
-            // NOC1: translated x=16 -> NOC1 x=9, translated x=17 -> NOC1 x=4.
-            noc_coord.x = (translated_coord.x == 16) ? 9 : 4;
-            // NOC1: translated y=16 -> NOC1 y=11, translated y=17 -> NOC1 y=5.
-            noc_coord.y = (translated_coord.y == 16) ? 11 : 5;
-        }
-
-        return noc_coord;
-    };
-
-    tt_xy_pair noc_core_coord = translate_to_noc_coord(core_coord, noc_index);
+    // Convert translated coordinates back to NOC coordinates using static maps.
+    NocId noc_id = static_cast<NocId>(noc_index);
+    tt_xy_pair noc_core_coord(
+        DRAM_TRANSLATED_TO_NOC_X_MAP.at(noc_id).at(core_coord.x),
+        DRAM_TRANSLATED_TO_NOC_Y_MAP.at(noc_id).at(core_coord.y));
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         auto translated_reg = read_noc_translated_id_reg(chip, noc_core_coord, noc_index);

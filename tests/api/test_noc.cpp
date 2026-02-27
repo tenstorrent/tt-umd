@@ -133,8 +133,10 @@ public:
 
     Cluster* get_cluster() { return cluster_.get(); };
 
+    // Overload for reading translated ID register using tt_xy_pair (raw NOC coordinates).
+    // Used when accessing cores via translated coordinates directly.
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, tt_xy_pair core, uint8_t noc_index) {
-        auto noc_port = get_dram_noc_port(core, noc_index);
+        auto noc_port = get_noc_port(core, noc_index);
         const uint64_t noc_translated_id_reg_addr =
             cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
                 CoreType::DRAM, noc_index, noc_port) +
@@ -144,14 +146,12 @@ public:
         cluster_->get_tt_device(chip)->read_from_device(
             &noc_translated_id_val, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
-        uint32_t translated_x = noc_translated_id_val & 0x3F;
-        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
-
-        return tt_xy_pair(translated_x, translated_y);
+        return extract_translated_coords_from_reg(noc_translated_id_val);
     }
 
+    // Overload for reading translated ID register using CoreCoord (with core type and coord system).
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
-        auto noc_port = (core.core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
+        auto noc_port = (core.core_type == CoreType::DRAM) ? get_noc_port(core) : 0;
         const uint64_t noc_translated_id_reg_addr =
             cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
                 core.core_type, noc_index, noc_port) +
@@ -161,10 +161,7 @@ public:
         cluster_->read_from_device_reg(
             &noc_translated_id_val, chip, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
-        uint32_t translated_x = noc_translated_id_val & 0x3F;
-        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
-
-        return tt_xy_pair(translated_x, translated_y);
+        return extract_translated_coords_from_reg(noc_translated_id_val);
     }
 
     // Wormhole-specific: Compute expected translated coordinate for DRAM cores.
@@ -265,7 +262,7 @@ public:
 private:
     std::unique_ptr<Cluster> cluster_;
 
-    uint32_t get_dram_noc_port(CoreCoord core) {
+    uint32_t get_noc_port(CoreCoord core) {
         if (core.coord_system == tt::CoordSystem::NOC0) {
             auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
 
@@ -285,7 +282,7 @@ private:
         return 0;
     }
 
-    uint32_t get_dram_noc_port(tt_xy_pair core, uint8_t noc_index) {
+    uint32_t get_noc_port(tt_xy_pair core, uint8_t noc_index) {
         if (noc_index == 0) {
             auto it = womrhole_dram_coord_to_noc_port_noc0.find({core.x, core.y});
 
@@ -305,8 +302,15 @@ private:
         return 0;
     }
 
+    // Read NOC translated ID register and extract x,y coordinates from the register value.
+    tt_xy_pair extract_translated_coords_from_reg(uint32_t noc_translated_id_val) {
+        uint32_t translated_x = noc_translated_id_val & 0x3F;
+        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
+        return tt_xy_pair(translated_x, translated_y);
+    }
+
     tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
-        auto noc_port = (core.core_type == CoreType::DRAM) ? get_dram_noc_port(core) : 0;
+        auto noc_port = (core.core_type == CoreType::DRAM) ? get_noc_port(core) : 0;
         // NOTE: The noc_port parameter is not used for Blackhole. Unlike Wormhole where DRAM banks
         // have multiple NOC ports with different register base addresses, Blackhole uses a single
         // register base address per core type.

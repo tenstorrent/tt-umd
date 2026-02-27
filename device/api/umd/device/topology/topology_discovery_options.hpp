@@ -30,18 +30,4 @@ struct TopologyDiscoveryOptions {
 
     bool expect_matching_eth_fw_version = false;
 };
-
-constexpr TopologyDiscoveryOptions DEBUG_DEFAULT_OPTIONS = {
-    .cmfw_mismatch_action = TopologyDiscoveryOptions::DeviceAction::KEEP,
-    .cmfw_unsupported_action = TopologyDiscoveryOptions::DeviceAction::KEEP,
-    .eth_fw_mismatch_action = TopologyDiscoveryOptions::Action::WARN,
-    .unexpected_routing_firmware_config = TopologyDiscoveryOptions::Action::WARN,
-    .wait_on_ethernet_link_training = false,
-    .expect_matching_eth_fw_version = true};
-
-constexpr TopologyDiscoveryOptions SMI_DEFAULT_OPTIONS = {
-    .cmfw_mismatch_action = TopologyDiscoveryOptions::DeviceAction::KEEP,
-    .cmfw_unsupported_action = TopologyDiscoveryOptions::DeviceAction::THROW,
-    .eth_fw_mismatch_action = TopologyDiscoveryOptions::Action::WARN,
-    .unexpected_routing_firmware_config = TopologyDiscoveryOptions::Action::WARN};
 }  // namespace tt::umd

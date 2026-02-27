@@ -82,9 +82,6 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("perform_eth_fw_hash_check", &TopologyDiscoveryOptions::perform_eth_fw_hash_check)
         .def_rw("expect_matching_eth_fw_version", &TopologyDiscoveryOptions::expect_matching_eth_fw_version);
 
-    m.attr("DEBUG_DEFAULT_OPTIONS") = DEBUG_DEFAULT_OPTIONS;
-    m.attr("SMI_DEFAULT_OPTIONS") = SMI_DEFAULT_OPTIONS;
-
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",

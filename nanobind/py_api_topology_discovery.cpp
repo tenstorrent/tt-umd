@@ -80,7 +80,9 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
         .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
         .def_rw("perform_eth_fw_hash_check", &TopologyDiscoveryOptions::perform_eth_fw_hash_check)
-        .def_rw("expect_matching_eth_fw_version", &TopologyDiscoveryOptions::expect_matching_eth_fw_version);
+        .def_rw(
+            "bh_predict_eth_fw_version_from_cmfw_version",
+            &TopologyDiscoveryOptions::bh_predict_eth_fw_version_from_cmfw_version);
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

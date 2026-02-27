@@ -231,7 +231,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     if (!expected_eth_fw_version.has_value()) {
         expected_eth_fw_version =
             get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
-        if (options.expect_matching_eth_fw_version && expected_eth_fw_version.has_value()) {
+        if (options.bh_predict_eth_fw_version_from_cmfw_version && expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;

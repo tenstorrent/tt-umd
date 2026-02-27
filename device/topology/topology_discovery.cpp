@@ -118,7 +118,7 @@ void TopologyDiscovery::get_connected_devices() {
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, true);
+        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 
         if (!verify_fw_bundle_version(tt_device.get())) {
             log_warning(LogUMD, "Skipped device ID: {} because of CMFW version issue,", device_id);
@@ -414,7 +414,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
-            std::string mismatch_msg = fmt::format(
+            const std::string mismatch_msg = fmt::format(
                 "Firmware bundle version mismatch for device {}: expected {}, got {}",
                 get_asic_id(tt_device),
                 first_fw_bundle_version->to_string(),
@@ -429,7 +429,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         return true;
     }
 
-    tt::ARCH arch = tt_device->get_arch();
+    const tt::ARCH arch = tt_device->get_arch();
     first_fw_bundle_version = fw_bundle_version;
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
     FirmwareBundleVersion minimum_compatible_fw_bundle_version =
@@ -443,7 +443,7 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         latest_supported_fw_bundle_version.to_string());
 
     if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
-        std::string cmfw_unsupported_msg = fmt::format(
+        const std::string cmfw_unsupported_msg = fmt::format(
             "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
             "architecture.",
             fw_bundle_version.to_string(),

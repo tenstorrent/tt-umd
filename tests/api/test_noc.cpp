@@ -573,13 +573,30 @@ public:
     static const std::map<NocId, std::map<size_t, size_t>> DRAM_TRANSLATED_TO_NOC_Y_MAP;
 };
 
+// clang-format off
 // NOC0: translated x=16->0, x=17->5  |  NOC1: translated x=16->9, x=17->4.
 const std::map<NocId, std::map<size_t, size_t>> TestNocWormholeDramTranslatedCoordinates::DRAM_TRANSLATED_TO_NOC_X_MAP =
-    {{NocId::NOC0, {{16, 0}, {17, 5}}}, {NocId::NOC1, {{16, 9}, {17, 4}}}};
+    {
+    {NocId::NOC0, {
+        {16, 0}, 
+        {17, 5}}}, 
+    {NocId::NOC1, {
+        {16, 9}, 
+        {17, 4}}}
+    };
 
 // NOC0: translated y=16->0, y=17->6  |  NOC1: translated y=16->11, y=17->5.
 const std::map<NocId, std::map<size_t, size_t>> TestNocWormholeDramTranslatedCoordinates::DRAM_TRANSLATED_TO_NOC_Y_MAP =
-    {{NocId::NOC0, {{16, 0}, {17, 6}}}, {NocId::NOC1, {{16, 11}, {17, 5}}}};
+    {
+    {NocId::NOC0, {
+        {16, 0}, 
+        {17, 6}}}, 
+    {NocId::NOC1, {
+        {16, 11}, 
+        {17, 5}}}
+    };
+
+// clang-format on
 
 TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatchesCoordinate) {
     auto [core_coord, noc_index] = GetParam();

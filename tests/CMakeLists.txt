@@ -7,8 +7,8 @@ target_link_libraries(
         gtest_main
         gtest
         pthread
-        spdlog::spdlog_header_only
-        fmt::fmt-header-only
+        spdlog::spdlog
+        fmt
         tt-logger::tt-logger
         $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:nng>
 )

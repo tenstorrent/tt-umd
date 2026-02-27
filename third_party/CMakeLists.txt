@@ -16,15 +16,18 @@ include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 # google test
 ####################################################################################################################
 if(TT_UMD_BUILD_TESTS)
-    CPMAddPackage(
-        NAME googletest
-        GITHUB_REPOSITORY google/googletest
-        GIT_TAG v1.13.0
-        VERSION 1.13.0
-        SYSTEM YES
-        OPTIONS
-            "INSTALL_GTEST OFF"
-    )
+    find_package(gtest GLOBAL)
+    if(NOT gtest_FOUND)
+        CPMAddPackage(
+            NAME googletest
+            GITHUB_REPOSITORY google/googletest
+            GIT_TAG v1.13.0
+            VERSION 1.13.0
+            SYSTEM YES
+            OPTIONS
+                "INSTALL_GTEST OFF"
+        )
+    endif()
     if(googletest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
     endif()

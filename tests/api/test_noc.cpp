@@ -585,37 +585,28 @@ TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatches
     // Read the translated ID register via the specified NOC.
     NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
 
-    tt_xy_pair noc_core_coord{99, 99};  // some invalid value.
+    // Convert translated coordinates back to NOC coordinates.
+    // Ethernet-aligned DRAM cores have fixed translated coordinates (16,16), (16,17), (17,16), (17,17).
+    // These map to different NOC coordinates depending on which NOC is used.
+    auto translate_to_noc_coord = [](tt_xy_pair translated_coord, uint8_t noc_index) -> tt_xy_pair {
+        tt_xy_pair noc_coord;
 
-    if (noc_index == 0) {
-        if (core_coord.y == 16) {
-            noc_core_coord.y = 0;
-        }
-        if (core_coord.y == 17) {
-            noc_core_coord.y = 6;
-        }
-
-        if (core_coord.x == 16) {
-            noc_core_coord.x = 0;
-        }
-        if (core_coord.x == 17) {
-            noc_core_coord.x = 5;
-        }
-    } else {
-        if (core_coord.y == 16) {
-            noc_core_coord.y = 11;
-        }
-        if (core_coord.y == 17) {
-            noc_core_coord.y = 5;
+        if (noc_index == 0) {
+            // NOC0: translated x=16 -> NOC0 x=0, translated x=17 -> NOC0 x=5.
+            noc_coord.x = (translated_coord.x == 16) ? 0 : 5;
+            // NOC0: translated y=16 -> NOC0 y=0, translated y=17 -> NOC0 y=6.
+            noc_coord.y = (translated_coord.y == 16) ? 0 : 6;
+        } else {
+            // NOC1: translated x=16 -> NOC1 x=9, translated x=17 -> NOC1 x=4.
+            noc_coord.x = (translated_coord.x == 16) ? 9 : 4;
+            // NOC1: translated y=16 -> NOC1 y=11, translated y=17 -> NOC1 y=5.
+            noc_coord.y = (translated_coord.y == 16) ? 11 : 5;
         }
 
-        if (core_coord.x == 16) {
-            noc_core_coord.x = 9;
-        }
-        if (core_coord.x == 17) {
-            noc_core_coord.x = 4;
-        }
-    }
+        return noc_coord;
+    };
+
+    tt_xy_pair noc_core_coord = translate_to_noc_coord(core_coord, noc_index);
 
     for (ChipId chip : get_cluster()->get_target_device_ids()) {
         auto translated_reg = read_noc_translated_id_reg(chip, noc_core_coord, noc_index);

@@ -63,16 +63,17 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("chip"),
             "Get board ID for a chip");
 
-    nb::enum_<TopologyDiscoveryOptions::Action>(m, "TopologyDiscoveryOptionsAction")
+    nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
+
+    nb::enum_<TopologyDiscoveryOptions::Action>(topology_discovery_options, "Action")
         .value("THROW", TopologyDiscoveryOptions::Action::THROW)
         .value("WARN", TopologyDiscoveryOptions::Action::WARN);
-    nb::enum_<TopologyDiscoveryOptions::DeviceAction>(m, "TopologyDiscoveryOptionsDeviceAction")
+    nb::enum_<TopologyDiscoveryOptions::DeviceAction>(topology_discovery_options, "DeviceAction")
         .value("THROW", TopologyDiscoveryOptions::DeviceAction::THROW)
         .value("SKIP", TopologyDiscoveryOptions::DeviceAction::SKIP)
         .value("KEEP", TopologyDiscoveryOptions::DeviceAction::KEEP);
 
-    nb::class_<TopologyDiscoveryOptions>(m, "TopologyDiscoveryOptions")
-        .def(nb::init<>())
+    topology_discovery_options.def(nb::init<>())
         .def_rw("cmfw_mismatch_action", &TopologyDiscoveryOptions::cmfw_mismatch_action)
         .def_rw("cmfw_unsupported_action", &TopologyDiscoveryOptions::cmfw_unsupported_action)
         .def_rw("eth_fw_mismatch_action", &TopologyDiscoveryOptions::eth_fw_mismatch_action)

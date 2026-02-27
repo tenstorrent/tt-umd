@@ -100,8 +100,9 @@ target_link_libraries(
     PRIVATE
         umd::device
         fmt::fmt-header-only
-        tt-logger::tt-logger
 )
+
+target_include_directories(nanobind_tt_umd PRIVATE ${TTLOGGER_INCLUDES})
 
 # Function to install common Python package files (__init__.py, stubs, py.typed)
 function(install_python_package_files DESTINATION COMPONENT)

@@ -145,20 +145,34 @@ CPMAddPackage(
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8 SYSTEM YES)
+# CPMAddPackage doesn't support "GLOBAL"
+find_package(tt-logger GLOBAL)
+
+if(NOT tt-logger_FOUND)
+    CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8 SYSTEM YES)
+endif()
+
+get_target_property(TTLOGGER_INCLUDES tt-logger::tt-logger INTERFACE_INCLUDE_DIRECTORIES)
 
 ####################################################################################################################
 # cxxopts
 ####################################################################################################################
-CPMAddPackage(
-    NAME cxxopts
-    GITHUB_REPOSITORY jarro2783/cxxopts
-    GIT_TAG
-        dbf4c6a66816f6c3872b46cc6af119ad227e04e1 #version 3.2.1 + patches
-    SYSTEM YES
-    OPTIONS
-        "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-)
+# CPMAddPackage doesn't support "GLOBAL"
+find_package(cxxopts GLOBAL)
+
+if(NOT cxxopts_FOUND)
+    CPMAddPackage(
+        NAME cxxopts
+        GITHUB_REPOSITORY jarro2783/cxxopts
+        GIT_TAG
+            dbf4c6a66816f6c3872b46cc6af119ad227e04e1 #version 3.2.1 + patches
+        SYSTEM YES
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
+endif()
+
+get_target_property(CXXOPTS_INCLUDES cxxopts::cxxopts INTERFACE_INCLUDE_DIRECTORIES)
 
 ####################################################################################################################
 # nanobind
@@ -206,3 +220,6 @@ if(umd_asio_ADDED)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
 endif()
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(HWLOC REQUIRED IMPORTED_TARGET GLOBAL hwloc)

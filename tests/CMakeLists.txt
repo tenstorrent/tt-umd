@@ -9,7 +9,6 @@ target_link_libraries(
         pthread
         spdlog::spdlog_header_only
         fmt::fmt-header-only
-        tt-logger::tt-logger
         $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:nng>
 )
 target_include_directories(
@@ -18,6 +17,7 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
         "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
+        ${TTLOGGER_INCLUDES}
 )
 target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 

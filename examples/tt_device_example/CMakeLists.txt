@@ -1,11 +1,8 @@
 add_executable(tt_device_example tt_device_example.cpp)
 
-target_link_libraries(
-    tt_device_example
-    PRIVATE
-        umd::device
-        tt-logger::tt-logger
-)
+target_link_libraries(tt_device_example PRIVATE umd::device)
+
+target_include_directories(tt_device_example PRIVATE ${TTLOGGER_INCLUDES})
 
 set_target_properties(
     tt_device_example

@@ -17,8 +17,14 @@ target_link_libraries(
     tools_common
     INTERFACE
         umd::device
-        tt-logger::tt-logger
-        cxxopts::cxxopts
+        fmt
+)
+
+target_include_directories(
+    tools_common
+    INTERFACE
+        ${TTLOGGER_INCLUDES}
+        ${CXXOPTS_INCLUDES}
 )
 
 add_executable(telemetry telemetry.cpp)

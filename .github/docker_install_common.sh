@@ -30,7 +30,8 @@ apt-get update && apt-get install -y \
     xxd \
     rpm \
     dpkg-dev \
-    fakeroot
+    fakeroot \
+    pkg-config
 
 # Install Python dependencies
 python3 -m pip install --no-cache-dir pytest

@@ -248,6 +248,10 @@ int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst
         return ret;
     }
 
+    if (tlb == NULL) {
+        return -ENOMEM;
+    }
+
     while (len > 0) {
         uint64_t aligned_addr = addr & ~(tlb->size - 1);
         uint64_t offset = addr & (tlb->size - 1);

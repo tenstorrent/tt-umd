@@ -13,6 +13,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -61,6 +62,8 @@ protected:
         const TopologyDiscoveryOptions& options = {},
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");
+
+    virtual tt::ARCH get_topology_arch(TTDevice* tt_device) const = 0;
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 

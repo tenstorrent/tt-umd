@@ -117,6 +117,10 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        if (tt_device->get_arch() != get_topology_arch(tt_device.get())) {
+            continue;
+        }
+
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 
@@ -488,5 +492,7 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
     soc_descriptor_cache[tt_device] = soc_descriptor;
     return soc_descriptor;
 }
+
+bool TopologyDiscovery::check_architecture(TTDevice* tt_device) {}
 
 }  // namespace tt::umd

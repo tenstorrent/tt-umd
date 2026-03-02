@@ -42,6 +42,12 @@ set(CLUSTER_DESCRIPTOR_TESTS_SRCS cluster_descriptor/test_cluster_descriptor.cpp
 # PCI device tests
 set(PCI_DEVICE_TESTS_SRCS pci_device/test_pcie_device.cpp)
 
+# Unified tests
+set(UNIFIED_TESTS_SRCS
+    unified/multiprocess.cpp
+    unified/test_tlb.cpp
+)
+
 # Combine all device tests
 set(DEVICE_TESTS_SRCS
     ${CLUSTER_TESTS_SRCS}
@@ -53,6 +59,7 @@ set(DEVICE_TESTS_SRCS
     ${ARC_TELEMETRY_TESTS_SRCS}
     ${CLUSTER_DESCRIPTOR_TESTS_SRCS}
     ${PCI_DEVICE_TESTS_SRCS}
+    ${UNIFIED_TESTS_SRCS}
 )
 
 add_executable(device_tests ${DEVICE_TESTS_SRCS})

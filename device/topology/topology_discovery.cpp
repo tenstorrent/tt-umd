@@ -493,6 +493,4 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
     return soc_descriptor;
 }
 
-bool TopologyDiscovery::check_architecture(TTDevice* tt_device) {}
-
 }  // namespace tt::umd

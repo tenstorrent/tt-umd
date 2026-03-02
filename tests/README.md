@@ -46,6 +46,7 @@ Contains tests that **do not require a device** to run. These are offline tests 
 - Configuration parsing
 - Coordinate translation
 - Descriptor validation
+- Utility functions (assertions, version parsing)
 - Other pure software functionality
 
 ### `arch/`
@@ -59,7 +60,6 @@ These tests may use device-specific features, register layouts, or behaviors uni
 ### Other Directories
 
 - **`galaxy/`** - Tests for multi-chip galaxy configurations
-- **`misc/`** - Miscellaneous utility tests (assertions, etc.)
 - **`simulation/`** - Simulator-specific tests
 - **`test_utils/`** - Shared test utilities and helper functions
 - **`microbenchmark/`** - Performance benchmarking tests

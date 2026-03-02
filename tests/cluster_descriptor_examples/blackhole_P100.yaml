@@ -1,5 +1,5 @@
 arch: {
-   0: Blackhole,
+   0: blackhole,
 }
 
 chips: {

@@ -2,7 +2,7 @@
 # This schema defines the structure and validation rules for cluster descriptor YAML files
 # used in tt-umd for describing Tenstorrent AI accelerator cluster configurations.
 
-$schema: http://json-schema.org/draft-07/schema#
+$schema: https://json-schema.org/draft/2020-12/schema
 title: Tenstorrent Cluster Descriptor Schema
 description: Schema for YAML files describing Tenstorrent cluster configurations
 version: "1.0.0"
@@ -26,7 +26,6 @@ properties:
         enum:
           - wormhole_b0
           - blackhole
-          - Wormhole  # Alternative capitalization seen in some files
     additionalProperties: false
 
   # Physical chip coordinates in the cluster
@@ -186,6 +185,7 @@ properties:
           - p100
           - p150
           - p300
+          - ubb
     additionalProperties: false
 
   # Alternative name for chip_to_boardtype (seen in some files)
@@ -201,6 +201,7 @@ properties:
           - p100
           - p150
           - p300
+          - ubb
     additionalProperties: false
 
   # Bus ID mapping for each chip
@@ -209,7 +210,7 @@ properties:
     description: Maps chip ID to its PCI bus ID
     patternProperties:
       "^[0-9]+$":
-        type: string
+        type: integer
         pattern: "^0x[0-9a-fA-F]+$"
         description: Hexadecimal bus ID
     additionalProperties: false
@@ -239,6 +240,7 @@ properties:
                   - p100
                   - p150
                   - p300
+                  - ubb
                 description: Type of the board
             required: [board_type]
             additionalProperties: false

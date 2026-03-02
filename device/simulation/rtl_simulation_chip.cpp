@@ -29,9 +29,7 @@ void RtlSimulationChip::start_device() {
     tt_device_->start_device();
 }
 
-void RtlSimulationChip::close_device() {
-    tt_device_->close_device();
-}
+void RtlSimulationChip::close_device() { tt_device_->close_device(); }
 
 void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);

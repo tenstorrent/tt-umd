@@ -32,9 +32,7 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
-    ChipId chip_id) :
+    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
@@ -50,9 +48,7 @@ void RtlSimulationTTDevice::start_device() {
     // Communicator is already initialized in constructor.
 }
 
-void RtlSimulationTTDevice::close_device() {
-    communicator_->shutdown();
-}
+void RtlSimulationTTDevice::close_device() { communicator_->shutdown(); }
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
@@ -65,7 +61,8 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
-void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
+void RtlSimulationTTDevice::send_tensix_risc_reset(
+    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
@@ -158,7 +155,8 @@ void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_o
     TT_THROW("read_from_arc_apb not supported for RTL simulation");
 }
 
-void RtlSimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void RtlSimulationTTDevice::write_to_arc_apb(
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     TT_THROW("write_to_arc_apb not supported for RTL simulation");
 }
 
@@ -166,7 +164,8 @@ void RtlSimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_o
     TT_THROW("read_from_arc_csm not supported for RTL simulation");
 }
 
-void RtlSimulationTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void RtlSimulationTTDevice::write_to_arc_csm(
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     TT_THROW("write_to_arc_csm not supported for RTL simulation");
 }
 
@@ -195,9 +194,7 @@ uint32_t RtlSimulationTTDevice::get_min_clock_freq() {
     return 1000;  // 1 GHz.
 }
 
-bool RtlSimulationTTDevice::get_noc_translation_enabled() {
-    return false;
-}
+bool RtlSimulationTTDevice::get_noc_translation_enabled() { return false; }
 
 void RtlSimulationTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

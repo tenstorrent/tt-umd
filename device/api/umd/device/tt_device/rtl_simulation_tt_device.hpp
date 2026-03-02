@@ -20,9 +20,7 @@ class RtlSimCommunicator;
 class RtlSimulationTTDevice : public TTDevice {
 public:
     RtlSimulationTTDevice(
-        const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
-        ChipId chip_id);
+        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
     ~RtlSimulationTTDevice();
 
     static std::unique_ptr<RtlSimulationTTDevice> create(const std::filesystem::path& simulator_directory);

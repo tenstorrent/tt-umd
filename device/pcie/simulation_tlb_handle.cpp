@@ -40,7 +40,7 @@ std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
     return std::unique_ptr<TTSimTlbHandle>(handle);
 }
 
-TTSimTlbHandle::~TTSimTlbHandle() noexcept { free_tlb(); }
+TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
 
 void TTSimTlbHandle::configure(const tlb_data& new_config) {
     sim_config_ = new_config;

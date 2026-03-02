@@ -63,7 +63,7 @@ protected:
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");
 
-    virtual tt::ARCH get_topology_arch(TTDevice* tt_device) const = 0;
+    virtual tt::ARCH get_topology_arch() const = 0;
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 

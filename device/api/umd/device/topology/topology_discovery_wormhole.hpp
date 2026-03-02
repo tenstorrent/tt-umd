@@ -17,7 +17,7 @@ public:
         const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
 
 protected:
-    tt::ARCH get_topology_arch(TTDevice* tt_device) const override { return tt::ARCH::WORMHOLE_B0; }
+    tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }
 
     struct EthAddresses {
         uint32_t masked_version;

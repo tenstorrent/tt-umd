@@ -16,7 +16,7 @@ public:
         const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
 
 protected:
-    tt::ARCH get_topology_arch(TTDevice* tt_device) const override { return tt::ARCH::BLACKHOLE; }
+    tt::ARCH get_topology_arch() const override { return tt::ARCH::BLACKHOLE; }
 
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
 

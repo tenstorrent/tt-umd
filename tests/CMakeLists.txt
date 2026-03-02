@@ -28,7 +28,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/device)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/baremetal)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arch/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arch/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
@@ -45,7 +44,6 @@ add_custom_target(
         unit_tests_blackhole
         unit_tests_wormhole
         unit_tests_glx
-        test_pcie_device
         device_tests
         baremetal_tests
         umd_misc_tests

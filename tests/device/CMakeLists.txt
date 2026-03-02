@@ -13,14 +13,10 @@ set(CLUSTER_TESTS_SRCS
 )
 
 # Chip tests
-set(CHIP_TESTS_SRCS
-    chip/test_chip.cpp
-)
+set(CHIP_TESTS_SRCS chip/test_chip.cpp)
 
 # SoC descriptor tests
-set(SOC_DESCRIPTOR_TESTS_SRCS
-    soc_descriptor/test_soc_descriptor.cpp
-)
+set(SOC_DESCRIPTOR_TESTS_SRCS soc_descriptor/test_soc_descriptor.cpp)
 
 # TT Device tests
 set(TT_DEVICE_TESTS_SRCS
@@ -35,19 +31,16 @@ set(SYSMEM_MANAGER_TESTS_SRCS
 )
 
 # JTAG tests
-set(JTAG_TESTS_SRCS
-    jtag/test_jtag.cpp
-)
+set(JTAG_TESTS_SRCS jtag/test_jtag.cpp)
 
 # ARC telemetry tests
-set(ARC_TELEMETRY_TESTS_SRCS
-    arc_telemetry/test_arc_telemetry.cpp
-)
+set(ARC_TELEMETRY_TESTS_SRCS arc_telemetry/test_arc_telemetry.cpp)
 
 # Cluster descriptor tests
-set(CLUSTER_DESCRIPTOR_TESTS_SRCS
-    cluster_descriptor/test_cluster_descriptor.cpp
-)
+set(CLUSTER_DESCRIPTOR_TESTS_SRCS cluster_descriptor/test_cluster_descriptor.cpp)
+
+# PCI device tests
+set(PCI_DEVICE_TESTS_SRCS pci_device/test_pcie_device.cpp)
 
 # Combine all device tests
 set(DEVICE_TESTS_SRCS
@@ -59,6 +52,7 @@ set(DEVICE_TESTS_SRCS
     ${JTAG_TESTS_SRCS}
     ${ARC_TELEMETRY_TESTS_SRCS}
     ${CLUSTER_DESCRIPTOR_TESTS_SRCS}
+    ${PCI_DEVICE_TESTS_SRCS}
 )
 
 add_executable(device_tests ${DEVICE_TESTS_SRCS})

@@ -1,0 +1,324 @@
+# YAML Schema for SOC (System on Chip) Descriptor files
+# This schema validates the structure of SOC descriptor YAML files used in tt-umd
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Tenstorrent SOC Descriptor Schema
+description: Schema for Tenstorrent SOC (System on Chip) descriptor YAML files
+type: object
+
+required:
+  - grid
+  - arc
+  - pcie
+  - dram
+  - eth
+  - functional_workers
+  - harvested_workers
+  - router_only
+  - worker_l1_size
+  - dram_bank_size
+  - eth_l1_size
+  - arch_name
+  - features
+
+properties:
+  grid:
+    type: object
+    description: Defines the grid dimensions of the SOC
+    required:
+      - x_size
+      - y_size
+    properties:
+      x_size:
+        type: integer
+        minimum: 1
+        description: Number of columns in the grid
+      y_size:
+        type: integer
+        minimum: 1
+        description: Number of rows in the grid
+    additionalProperties: false
+
+  arc:
+    type: array
+    description: List of ARC (Application RISC-V Core) coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  pcie:
+    type: array
+    description: List of PCIe interface coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  dram:
+    type: array
+    description: DRAM bank configurations grouped by controller
+    items:
+      type: array
+      items:
+        type: string
+        pattern: ^[0-9]+-[0-9]+$
+        description: DRAM bank coordinate in format "x-y"
+      minItems: 1
+
+  harvested_dram:
+    type: array
+    description: List of harvested (disabled) DRAM coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  eth:
+    type: array
+    description: List of Ethernet interface coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  harvested_eth:
+    type: array
+    description: List of harvested (disabled) Ethernet coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  functional_workers:
+    type: array
+    description: List of functional worker core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  harvested_workers:
+    type: array
+    description: List of harvested (disabled) worker core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  router_only:
+    type: array
+    description: List of router-only node coordinates (no compute capability)
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  security:
+    type: array
+    description: List of security core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  l2cpu:
+    type: array
+    description: List of L2 CPU core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  noc0_x_to_noc1_x:
+    type: array
+    description: Mapping from NOC0 X coordinates to NOC1 X coordinates
+    items:
+      type: integer
+      minimum: 0
+
+  noc0_y_to_noc1_y:
+    type: array
+    description: Mapping from NOC0 Y coordinates to NOC1 Y coordinates
+    items:
+      type: integer
+      minimum: 0
+
+  worker_l1_size:
+    type: integer
+    minimum: 0
+    description: Size of L1 memory per worker core in bytes
+
+  dram_bank_size:
+    type: integer
+    minimum: 0
+    description: Size of each DRAM bank in bytes
+
+  eth_l1_size:
+    type: integer
+    minimum: 0
+    description: Size of L1 memory per Ethernet interface in bytes
+
+  arch_name:
+    type: string
+    enum:
+      - BLACKHOLE
+      - WORMHOLE_B0
+      - wormhole_b0  # Legacy format
+      - QUASAR
+    description: Architecture name of the chip
+
+  features:
+    type: object
+    description: Feature capabilities and configuration
+    required:
+      - unpacker
+      - math
+      - packer
+      - overlay
+    properties:
+      noc:
+        type: object
+        description: Network on Chip features
+        properties:
+          translation_id_enabled:
+            type: boolean
+            description: Whether NOC translation ID is enabled
+        additionalProperties: false
+
+      unpacker:
+        type: object
+        description: Data unpacker features and configuration
+        required:
+          - version
+          - inline_srca_trans_without_srca_trans_instr
+        properties:
+          version:
+            type: integer
+            minimum: 1
+            description: Unpacker version number
+          inline_srca_trans_without_srca_trans_instr:
+            type: boolean
+            description: Whether inline source A transpose without transpose instruction is supported
+        additionalProperties: false
+
+      math:
+        type: object
+        description: Math unit features and configuration
+        required:
+          - dst_size_alignment
+        properties:
+          dst_size_alignment:
+            type: integer
+            minimum: 1
+            description: Required alignment for destination buffer size in bytes
+        additionalProperties: false
+
+      packer:
+        type: object
+        description: Data packer features and configuration
+        required:
+          - version
+        properties:
+          version:
+            type: integer
+            minimum: 1
+            description: Packer version number
+        additionalProperties: false
+
+      overlay:
+        type: object
+        description: Overlay features and configuration
+        required:
+          - version
+        properties:
+          version:
+            type: integer
+            minimum: 1
+            description: Overlay version number
+        additionalProperties: false
+
+    additionalProperties: false
+
+additionalProperties: false
+
+examples:
+  - # Blackhole architecture example
+    grid:
+      x_size: 17
+      y_size: 12
+    arc:
+      - "8-0"
+    pcie:
+      - "2-0"
+      - "11-0"
+    dram:
+      - ["0-0", "0-1", "0-11"]
+      - ["0-2", "0-10", "0-3"]
+    eth:
+      - "1-1"
+      - "16-1"
+    functional_workers:
+      - "1-2"
+      - "2-2"
+    harvested_workers: []
+    router_only:
+      - "1-0"
+      - "3-0"
+    security:
+      - "8-2"
+    l2cpu:
+      - "8-3"
+      - "8-9"
+    noc0_x_to_noc1_x: [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+    noc0_y_to_noc1_y: [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+    worker_l1_size: 1572864
+    dram_bank_size: 4294967296
+    eth_l1_size: 262144
+    arch_name: BLACKHOLE
+    features:
+      unpacker:
+        version: 2
+        inline_srca_trans_without_srca_trans_instr: true
+      math:
+        dst_size_alignment: 32768
+      packer:
+        version: 2
+      overlay:
+        version: 2
+
+  - # Wormhole B0 architecture example
+    grid:
+      x_size: 10
+      y_size: 12
+    arc:
+      - "0-10"
+    pcie:
+      - "0-3"
+    dram:
+      - ["0-0", "0-1", "0-11"]
+      - ["0-5", "0-6", "0-7"]
+    eth:
+      - "9-0"
+      - "1-0"
+    functional_workers:
+      - "1-1"
+      - "2-1"
+    harvested_workers: []
+    router_only:
+      - "0-2"
+      - "0-4"
+    worker_l1_size: 1499136
+    dram_bank_size: 2147483648
+    eth_l1_size: 262144
+    arch_name: WORMHOLE_B0
+    features:
+      unpacker:
+        version: 2
+        inline_srca_trans_without_srca_trans_instr: true
+      math:
+        dst_size_alignment: 32768
+      packer:
+        version: 2
+      overlay:
+        version: 2

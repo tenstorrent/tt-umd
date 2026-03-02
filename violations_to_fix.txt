@@ -1,4 +1,0 @@
-# Clang-Tidy Violations: bugprone-switch-missing-default-case
-Total: 1 violations
-
-- device/hugepage.cpp:121 — switching on non-enum value without default case may not cover all cases

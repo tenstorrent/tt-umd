@@ -268,8 +268,7 @@ uint32_t FirmwareInfoProvider::get_heartbeat() const {
 }
 
 static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
-    return tt_device->get_arc_telemetry_reader()->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_SPEED)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
+    return tt_device->get_arc_telemetry_reader()->is_entry_available(
                static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP)) &&
            tt_device->get_arc_telemetry_reader()->is_entry_available(
                static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP)) &&
@@ -381,6 +380,10 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
 
 uint16_t FirmwareInfoProvider::get_dram_speed() {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::GDDR_SPEED);
+}
+
+uint16_t FirmwareInfoProvider::get_current_max_dram_temperature() {
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::MAX_GDDR_TEMP);
 }
 
 }  // namespace tt::umd

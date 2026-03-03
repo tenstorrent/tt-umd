@@ -136,6 +136,8 @@ public:
 
     virtual uint16_t get_dram_speed();
 
+    virtual uint16_t get_current_max_dram_temperature();
+
 protected:
     TTDevice* tt_device = nullptr;
 

@@ -61,6 +61,9 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
+protected:
+    void retrain_dram_core(const uint32_t dram_channel) override;
+
 private:
     std::unique_ptr<RtlSimCommunicator> communicator_;
     std::recursive_mutex device_lock;

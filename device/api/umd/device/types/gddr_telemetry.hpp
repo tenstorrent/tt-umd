@@ -9,7 +9,7 @@
 
 namespace tt::umd {
 
-/** Number of GDDR modules (channels) per device. */
+/** Number of GDDR modules (channels) per device on Blackhole. */
 constexpr std::size_t NUM_GDDR_MODULES = 8U;
 
 /**

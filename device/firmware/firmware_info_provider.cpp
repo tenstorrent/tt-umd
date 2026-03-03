@@ -290,7 +290,7 @@ static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
            tt_device->get_arc_telemetry_reader()->is_entry_available(static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP));
 }
 
-std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_gddr_telemetry(BlackholeGddr gddr_module) {
+std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(BlackholeGddr gddr_module) {
     // Telemetry data is packed in pairs: GDDR_0_1, GDDR_2_3, GDDR_4_5, GDDR_6_7.
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
     const uint8_t pair_index = module_index / 2;  // Which pair: 0, 1, 2, or 3.
@@ -322,7 +322,7 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_gddr_telemetry(Blac
     return telemetry;
 }
 
-std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_gddr_telemetry() {
+std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() {
     if (!gddr_telemetry_tags_available(tt_device)) {
         return std::nullopt;
     }
@@ -377,6 +377,10 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_gddr_telemetry
     }
 
     return aggregated_gddr_telemetry;
+}
+
+uint16_t FirmwareInfoProvider::get_dram_speed() {
+    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::GDDR_SPEED);
 }
 
 }  // namespace tt::umd

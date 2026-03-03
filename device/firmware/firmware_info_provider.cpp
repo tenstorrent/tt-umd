@@ -285,8 +285,7 @@ static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
            tt_device->get_arc_telemetry_reader()->is_entry_available(
                static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS)) &&
            tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP));
+               static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 }
 
 std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(BlackholeGddr gddr_module) {

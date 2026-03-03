@@ -94,20 +94,22 @@ TEST(TestTelemetry, GddrTelemetry) {
 
         auto fw_info = FirmwareInfoProvider::create_firmware_info_provider(tt_device.get());
 
+        log_info(tt::LogUMD, "Device {} - GDDR Telemetry:", pci_device_id);
+
+        // Test DRAM speed (should be available for all devices).
+        auto dram_speed = fw_info->get_dram_speed();
+        if (dram_speed.has_value()) {
+            log_info(tt::LogUMD, "  GDDR speed: {} Mbps", dram_speed.value());
+        } else {
+            log_warning(tt::LogUMD, "  GDDR speed not available");
+        }
+
         // Test aggregated GDDR telemetry.
         log_info(tt::LogUMD, "Reading aggregated GDDR Telemetry:");
         auto gddr_telemetry = fw_info->get_aggregated_dram_telemetry();
         if (!gddr_telemetry.has_value()) {
             log_warning(tt::LogUMD, "Device {} - GDDR telemetry not available", pci_device_id);
             continue;
-        }
-
-        log_info(tt::LogUMD, "Device {} - GDDR Telemetry:", pci_device_id);
-
-        // Test DRAM speed.
-        auto dram_speed = fw_info->get_dram_speed();
-        if (dram_speed.has_value()) {
-            log_info(tt::LogUMD, "  GDDR speed: {} Mbps", dram_speed.value());
         }
 
         // Test max DRAM temperature.

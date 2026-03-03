@@ -130,7 +130,9 @@ public:
      */
     virtual uint32_t get_heartbeat() const;
 
-    virtual std::optional<GddrTelemetry> get_gddr_telemetry();
+    virtual std::optional<GddrTelemetry> get_aggregated_gddr_telemetry();
+
+    virtual std::optional<GddrModuleTelemetry> get_gddr_telemetry(BlackholeGddr gddr_module);
 
 protected:
     TTDevice* tt_device = nullptr;
@@ -145,6 +147,7 @@ protected:
     bool tdc_available;
     bool vcore_available;
     bool board_temperature_available;
+    bool is_gddr_telemetry_available;
 };
 
 }  // namespace tt::umd

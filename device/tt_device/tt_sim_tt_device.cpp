@@ -252,4 +252,8 @@ TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
     return cached_tlb_window_.get();
 }
 
+void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    throw std::runtime_error("DRAM retraining is not supported in TTSim device.");
+}
+
 }  // namespace tt::umd

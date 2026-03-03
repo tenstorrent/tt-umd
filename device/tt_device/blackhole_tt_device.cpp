@@ -345,4 +345,13 @@ void BlackholeTTDevice::dma_multicast_write(
     throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
 }
 
+void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    uint32_t ret_code = get_arc_messenger()->send_message(
+        static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});
+    if (ret_code != 0) {
+        throw std::runtime_error(
+            fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
+    }
+}
+
 }  // namespace tt::umd

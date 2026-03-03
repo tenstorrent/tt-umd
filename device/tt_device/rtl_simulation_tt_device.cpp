@@ -248,4 +248,8 @@ void RtlSimulationTTDevice::dma_multicast_write(
     throw std::runtime_error("DMA multicast write not supported for RTL simulation device.");
 }
 
+void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
+}
+
 }  // namespace tt::umd

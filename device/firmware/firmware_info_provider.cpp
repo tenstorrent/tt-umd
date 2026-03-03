@@ -377,12 +377,20 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
     return aggregated_gddr_telemetry;
 }
 
-uint16_t FirmwareInfoProvider::get_dram_speed() {
-    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::GDDR_SPEED);
+std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::GDDR_SPEED)) {
+        return std::nullopt;
+    }
+    return static_cast<uint16_t>(telemetry->read_entry(TelemetryTag::GDDR_SPEED));
 }
 
-uint16_t FirmwareInfoProvider::get_current_max_dram_temperature() {
-    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::MAX_GDDR_TEMP);
+std::optional<uint16_t> FirmwareInfoProvider::get_current_max_dram_temperature() {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::MAX_GDDR_TEMP)) {
+        return std::nullopt;
+    }
+    return static_cast<uint16_t>(telemetry->read_entry(TelemetryTag::MAX_GDDR_TEMP));
 }
 
 }  // namespace tt::umd

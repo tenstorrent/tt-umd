@@ -134,9 +134,9 @@ public:
 
     virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(BlackholeGddr gddr_module);
 
-    virtual uint16_t get_dram_speed();
+    virtual std::optional<uint16_t> get_dram_speed();
 
-    virtual uint16_t get_current_max_dram_temperature();
+    virtual std::optional<uint16_t> get_current_max_dram_temperature();
 
 protected:
     TTDevice* tt_device = nullptr;

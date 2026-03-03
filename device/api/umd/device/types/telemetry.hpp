@@ -47,6 +47,23 @@ enum TelemetryTag : uint8_t {
     ENABLED_GDDR = 36,
     ENABLED_L2CPU = 37,
     PCIE_USAGE = 38,
+    /** Packed: [31:24] GDDR1 top, [23:16] GDDR1 bottom, [15:8] GDDR0 top, [7:0] GDDR0 bottom (C) */
+    GDDR_0_1_TEMP = 39,
+    /** Packed: [31:24] GDDR3 top, [23:16] GDDR3 bottom, [15:8] GDDR2 top, [7:0] GDDR2 bottom (C) */
+    GDDR_2_3_TEMP = 40,
+    /** Packed: [31:24] GDDR5 top, [23:16] GDDR5 bottom, [15:8] GDDR4 top, [7:0] GDDR4 bottom (C) */
+    GDDR_4_5_TEMP = 41,
+    /** Packed: [31:24] GDDR7 top, [23:16] GDDR7 bottom, [15:8] GDDR6 top, [7:0] GDDR6 bottom (C) */
+    GDDR_6_7_TEMP = 42,
+    /** Packed: [31:24] GDDR1 corr write, [23:16] GDDR1 corr read, [15:8] GDDR0 corr write, [7:0] GDDR0 corr read */
+    GDDR_0_1_CORR_ERRS = 43,
+    GDDR_2_3_CORR_ERRS = 44,
+    GDDR_4_5_CORR_ERRS = 45,
+    GDDR_6_7_CORR_ERRS = 46,
+    /** Bit mask: [i*2] = GDDR i uncorrected read, [i*2+1] = GDDR i uncorrected write (i=0..7) */
+    GDDR_UNCORR_ERRS = 47,
+    /** Maximum temperature across all GDDR modules (C) */
+    MAX_GDDR_TEMP = 48,
     NOC_TRANSLATION = 40,
     FAN_RPM = 41,
     ASIC_LOCATION = 52,

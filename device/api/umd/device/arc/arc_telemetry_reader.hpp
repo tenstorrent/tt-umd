@@ -5,9 +5,11 @@
 #pragma once
 
 #include <map>
+#include <optional>
 #include <unordered_set>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -20,6 +22,12 @@ public:
     virtual uint32_t read_entry(const uint8_t telemetry_tag);
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
+
+    /**
+     * Reads and parses GDDR telemetry (temperatures, corrected/uncorrected errors,
+     * status, speed, max temp). Returns std::nullopt if any required tag is unavailable.
+     */
+    std::optional<GddrTelemetry> get_gddr_telemetry();
 
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
 

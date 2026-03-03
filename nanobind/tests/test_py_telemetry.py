@@ -56,3 +56,36 @@ class TestTelemetry(unittest.TestCase):
                         tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE
                     )
                     print(f"Device {pci_id} - SMBUS telemetry ASIC temperature: {temp}")
+
+    def test_gddr_telemetry(self):
+        """Test GDDR telemetry (temperatures, errors, status) for DRAM monitoring."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.init_tt_device()
+            reader = dev.get_arc_telemetry_reader()
+
+            gddr = reader.get_gddr_telemetry()
+            if gddr is None:
+                print(
+                    f"Device {pci_id} - GDDR telemetry not available (e.g. not Blackhole)"
+                )
+                continue
+
+            print(
+                f"Device {pci_id} - GDDR: max_temp={gddr.max_temperature}C speed={gddr.speed_mbps} Mbps"
+            )
+            print(
+                f"  status=0x{gddr.status:04x} uncorrected_mask=0x{gddr.uncorrected_errors_mask:04x}"
+            )
+            for i, mod in enumerate(gddr.modules):
+                print(
+                    f"  module {i}: top={mod.temperature_top}C bottom={mod.temperature_bottom}C "
+                    f"corr_rd={mod.corrected_read_errors} corr_wr={mod.corrected_write_errors} "
+                    f"uncorr_rd={mod.uncorrected_read_error} uncorr_wr={mod.uncorrected_write_error} "
+                    f"training_ok={mod.training_complete} error={mod.error}"
+                )

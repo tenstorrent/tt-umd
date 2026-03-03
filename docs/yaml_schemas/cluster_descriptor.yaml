@@ -1,6 +1,7 @@
 # YAML Schema for Tenstorrent Cluster Descriptors
 # This schema defines the structure and validation rules for cluster descriptor YAML files
 # used in tt-umd for describing Tenstorrent AI accelerator cluster configurations.
+# See examples in ./tests/cluster_descriptor_examples
 
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Tenstorrent Cluster Descriptor Schema
@@ -16,22 +17,23 @@ required:
   - harvesting
 
 properties:
-  # Architecture specification for each chip
+  # Architecture specification for each chip.
   arch:
     type: object
-    description: Maps chip ID to its architecture type
+    description: Maps Chip ID to its architecture type
     patternProperties:
       "^[0-9]+$":
         type: string
         enum:
           - wormhole_b0
+          - Wormhole # alternative name for wormhole_b0
           - blackhole
     additionalProperties: false
 
-  # Physical chip coordinates in the cluster
+  # Ethernet coordinates (WH only).
   chips:
     type: object
-    description: Maps chip ID to its 4D coordinates [rack, shelf, y, x] or empty object for simple cases
+    description: Maps Chip ID to its Ethernet coordinates [rack, shelf, y, x]. Only used for Wormhole boards (n150, n300).
     patternProperties:
       "^[0-9]+$":
         type: array
@@ -42,10 +44,10 @@ properties:
         maxItems: 4
     additionalProperties: false
 
-  # Unique identifiers for each chip
+  # Unique identifiers for each chip. This identifier should be considered opaque and not unique outside of this cluster descriptor.
   chip_unique_ids:
     type: object
-    description: Maps chip ID to its unique hardware identifier
+    description: Maps chip ID to its topology unique identifier.
     patternProperties:
       "^[0-9]+$":
         type: integer
@@ -82,7 +84,7 @@ properties:
             required: [routing_enabled]
             additionalProperties: false
 
-  # Ethernet connections to remote devices outside the cluster
+  # Ethernet connections to devices outside the host.
   ethernet_connections_to_remote_devices:
     type: array
     description: List of ethernet connections to remote devices/clusters
@@ -136,8 +138,9 @@ properties:
     description: Type of I/O device interface
     enum:
       - PCIe
+      - JTAG
 
-  # Harvesting configuration for each chip
+  # Harvesting information for each chip
   harvesting:
     type: object
     description: Harvesting masks and configuration for each chip
@@ -167,7 +170,7 @@ properties:
           l2cpu_harvesting_mask:
             type: integer
             minimum: 0
-            description: L2 CPU harvesting mask
+            description: L2CPU harvesting mask
         required: [noc_translation, harvest_mask]
         additionalProperties: false
     additionalProperties: false
@@ -175,7 +178,7 @@ properties:
   # Board type mapping for each chip
   chip_to_boardtype:
     type: object
-    description: Maps chip ID to its board type
+    description: Maps Chip ID to its board type
     patternProperties:
       "^[0-9]+$":
         type: string
@@ -250,14 +253,14 @@ properties:
                 items:
                   type: integer
                   minimum: 0
-                description: List of chip IDs on this board
+                description: List of Chip IDs on this board
             required: [chips]
             additionalProperties: false
 
   # ASIC location mapping
   asic_locations:
     type: object
-    description: Maps chip ID to its ASIC location on the board
+    description: Maps Chip ID to its ASIC location on the board
     patternProperties:
       "^[0-9]+$":
         type: integer
@@ -268,7 +271,7 @@ properties:
   # PCI Bus:Device.Function addresses
   chip_pci_bdfs:
     type: object
-    description: Maps chip ID to its PCI Bus:Device.Function address
+    description: Maps Chip ID to its PCI BDF (Bus:Device.Function) address
     patternProperties:
       "^[0-9]+$":
         type: string
@@ -290,86 +293,3 @@ anyOf:
         - required: [boardtype]
 
 additionalProperties: false
-
-# Examples of valid cluster descriptors:
-examples:
-  - # Simple single-chip Blackhole P150 configuration
-    schema_version: "1.0.0"
-    arch:
-      0: blackhole
-    chips: {}
-    chip_unique_ids:
-      0: 4476187513037
-    ethernet_connections: []
-    ethernet_connections_to_remote_devices: []
-    chips_with_mmio:
-      - 0: 0
-    harvesting:
-      0:
-        noc_translation: true
-        harvest_mask: 0
-        dram_harvesting_mask: 0
-        eth_harvesting_mask: 288
-        pcie_harvesting_mask: 2
-        l2cpu_harvesting_mask: 0
-    chip_to_boardtype:
-      0: p150
-    boards:
-      - - board_id: 4476187513037
-        - board_type: p150
-        - chips: [0]
-
-  - # Dual-chip Wormhole N300 configuration
-    schema_version: "1.0.0"
-    arch:
-      0: wormhole_b0
-      1: wormhole_b0
-    chips:
-      0: [0, 0, 0, 0]
-      1: [1, 0, 0, 0]
-    chip_unique_ids:
-      0: 9956278468
-      1: 14251245764
-    ethernet_connections:
-      - - chip: 0
-          chan: 8
-        - chip: 1
-          chan: 0
-      - - chip: 0
-          chan: 9
-        - chip: 1
-          chan: 1
-    ethernet_connections_to_remote_devices: []
-    chips_with_mmio:
-      - 0: 1
-    io_device_type: PCIe
-    harvesting:
-      0:
-        noc_translation: true
-        harvest_mask: 544
-        dram_harvesting_mask: 0
-        eth_harvesting_mask: 0
-        pcie_harvesting_mask: 0
-        l2cpu_harvesting_mask: 0
-      1:
-        noc_translation: true
-        harvest_mask: 513
-        dram_harvesting_mask: 0
-        eth_harvesting_mask: 0
-        pcie_harvesting_mask: 0
-        l2cpu_harvesting_mask: 0
-    chip_to_boardtype:
-      0: n300
-      1: n300
-    chip_to_bus_id:
-      0: "0x0041"
-      1: "0x0041"
-    boards:
-      - - board_id: 72058990194901188
-        - board_type: n300
-        - chips: [1, 0]
-    asic_locations:
-      0: 0
-      1: 1
-    chip_pci_bdfs:
-      0: "0000:41:00.0"

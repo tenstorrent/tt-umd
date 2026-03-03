@@ -1,5 +1,6 @@
 # YAML Schema for SOC (System on Chip) Descriptor files
-# This schema validates the structure of SOC descriptor YAML files used in tt-umd
+# This schema validates the structure of SOC descriptor YAML files used in tt-umd.
+# See examples in ./tests/soc_descs
 
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Tenstorrent SOC Descriptor Schema
@@ -41,7 +42,7 @@ properties:
 
   arc:
     type: array
-    description: List of ARC (Application RISC-V Core) coordinates
+    description: List of ARC core coordinates. Usually only one ARC core is present.
     items:
       type: string
       pattern: ^[0-9]+-[0-9]+$
@@ -49,7 +50,7 @@ properties:
 
   pcie:
     type: array
-    description: List of PCIe interface coordinates
+    description: List of PCIe core coordinates.
     items:
       type: string
       pattern: ^[0-9]+-[0-9]+$
@@ -57,7 +58,7 @@ properties:
 
   dram:
     type: array
-    description: DRAM bank configurations grouped by controller
+    description: DRAM bank cores grouped by controller
     items:
       type: array
       items:
@@ -76,7 +77,7 @@ properties:
 
   eth:
     type: array
-    description: List of Ethernet interface coordinates
+    description: List of Ethernet core coordinates
     items:
       type: string
       pattern: ^[0-9]+-[0-9]+$
@@ -84,7 +85,7 @@ properties:
 
   harvested_eth:
     type: array
-    description: List of harvested (disabled) Ethernet coordinates
+    description: List of harvested (disabled) Ethernet core coordinates
     items:
       type: string
       pattern: ^[0-9]+-[0-9]+$
@@ -124,7 +125,7 @@ properties:
 
   l2cpu:
     type: array
-    description: List of L2 CPU core coordinates
+    description: List of L2CPU core coordinates
     items:
       type: string
       pattern: ^[0-9]+-[0-9]+$
@@ -157,14 +158,14 @@ properties:
   eth_l1_size:
     type: integer
     minimum: 0
-    description: Size of L1 memory per Ethernet interface in bytes
+    description: Size of L1 memory per Ethernet core.
 
   arch_name:
     type: string
     enum:
       - BLACKHOLE
       - WORMHOLE_B0
-      - wormhole_b0  # Legacy format
+      - wormhole_b0
       - QUASAR
     description: Architecture name of the chip
 
@@ -241,84 +242,3 @@ properties:
     additionalProperties: false
 
 additionalProperties: false
-
-examples:
-  - # Blackhole architecture example
-    grid:
-      x_size: 17
-      y_size: 12
-    arc:
-      - "8-0"
-    pcie:
-      - "2-0"
-      - "11-0"
-    dram:
-      - ["0-0", "0-1", "0-11"]
-      - ["0-2", "0-10", "0-3"]
-    eth:
-      - "1-1"
-      - "16-1"
-    functional_workers:
-      - "1-2"
-      - "2-2"
-    harvested_workers: []
-    router_only:
-      - "1-0"
-      - "3-0"
-    security:
-      - "8-2"
-    l2cpu:
-      - "8-3"
-      - "8-9"
-    noc0_x_to_noc1_x: [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
-    noc0_y_to_noc1_y: [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
-    worker_l1_size: 1572864
-    dram_bank_size: 4294967296
-    eth_l1_size: 262144
-    arch_name: BLACKHOLE
-    features:
-      unpacker:
-        version: 2
-        inline_srca_trans_without_srca_trans_instr: true
-      math:
-        dst_size_alignment: 32768
-      packer:
-        version: 2
-      overlay:
-        version: 2
-
-  - # Wormhole B0 architecture example
-    grid:
-      x_size: 10
-      y_size: 12
-    arc:
-      - "0-10"
-    pcie:
-      - "0-3"
-    dram:
-      - ["0-0", "0-1", "0-11"]
-      - ["0-5", "0-6", "0-7"]
-    eth:
-      - "9-0"
-      - "1-0"
-    functional_workers:
-      - "1-1"
-      - "2-1"
-    harvested_workers: []
-    router_only:
-      - "0-2"
-      - "0-4"
-    worker_l1_size: 1499136
-    dram_bank_size: 2147483648
-    eth_l1_size: 262144
-    arch_name: WORMHOLE_B0
-    features:
-      unpacker:
-        version: 2
-        inline_srca_trans_without_srca_trans_instr: true
-      math:
-        dst_size_alignment: 32768
-      packer:
-        version: 2
-      overlay:
-        version: 2

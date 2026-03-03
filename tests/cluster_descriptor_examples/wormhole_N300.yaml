@@ -1,6 +1,6 @@
 arch: {
-   0: wormhole_b0,
-   1: wormhole_b0,
+   0: Wormhole,
+   1: Wormhole,
 }
 
 chips: {

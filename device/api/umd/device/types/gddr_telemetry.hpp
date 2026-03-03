@@ -6,56 +6,48 @@
 
 #include <array>
 #include <cstdint>
+#include <unordered_map>
 
 namespace tt::umd {
 
-/** Number of GDDR modules (channels) per device on Blackhole. */
-constexpr std::size_t NUM_GDDR_MODULES = 8U;
+inline constexpr int NUM_GDDR_MODULES = 8;
+
+/** GDDR module indices for Blackhole. */
+enum class BlackholeGddr {
+    GDDR_0 = 0,
+    GDDR_1 = 1,
+    GDDR_2 = 2,
+    GDDR_3 = 3,
+    GDDR_4 = 4,
+    GDDR_5 = 5,
+    GDDR_6 = 6,
+    GDDR_7 = 7
+};
 
 /**
  * Per-module GDDR telemetry for monitoring and early warning of DRAM issues.
  * Layout matches tt-zephyr-platforms bh_arc telemetry (telemetry.c).
  */
 struct GddrModuleTelemetry {
-    /** Temperature at top of module (C). 0 if not available. */
-    uint8_t temperature_top{0};
-    /** Temperature at bottom of module (C). 0 if not available. */
-    uint8_t temperature_bottom{0};
-    /** Corrected EDC read errors for this module. */
-    uint8_t corrected_read_errors{0};
-    /** Corrected EDC write errors for this module. */
-    uint8_t corrected_write_errors{0};
-    /** True if an uncorrected read EDC error has occurred on this module. */
-    bool uncorrected_read_error{false};
-    /** True if an uncorrected write EDC error has occurred on this module. */
-    bool uncorrected_write_error{false};
-    /** True if training completed successfully for this module. */
-    bool training_complete{false};
-    /** True if GDDR error reported for this module. */
-    bool error{false};
+    /** Temperature in Celsius of the top DRAM die. */
+    uint16_t dram_temperature_top{0};
+    /** Temperature in Celsius of the bottom DRAM die. */
+    uint16_t dram_temperature_bottom{0};
+    /** Saturates at 255. Number of cumulative corrected EDC errors on read since reset. */
+    uint8_t corr_edc_rd_errors{0};
+    /** Saturates at 255. Number of cumulative corrected EDC errors on write since reset. */
+    uint8_t corr_edc_wr_errors{0};
+    /** 1 if any uncorrected EDC errors on read since reset. */
+    uint8_t uncorr_edc_rd_error{0};
+    /** 1 if any uncorrected EDC errors on write since reset. */
+    uint8_t uncorr_edc_wr_error{0};
 };
 
 /**
  * Aggregated GDDR telemetry for the device.
- * Useful for monitoring and detection/early warning of DRAM failure.
  */
 struct GddrTelemetry {
-    /** Per-module telemetry (indices 0-7). */
-    std::array<GddrModuleTelemetry, NUM_GDDR_MODULES> modules{};
-    /** Maximum temperature across all modules (C). */
-    uint8_t max_temperature{0};
-    /** GDDR speed in Mbps. */
-    uint32_t speed_mbps{0};
-    /**
-     * Raw status word: [i*2] = training complete for module i,
-     * [i*2+1] = error for module i (i=0..7).
-     */
-    uint32_t status{0};
-    /**
-     * Uncorrected errors bit mask: [i*2] = uncorrected read for module i,
-     * [i*2+1] = uncorrected write for module i (i=0..7).
-     */
-    uint32_t uncorrected_errors_mask{0};
+    std::unordered_map<BlackholeGddr, GddrModuleTelemetry> modules{};
 };
 
 }  // namespace tt::umd

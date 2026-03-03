@@ -28,19 +28,22 @@ public:
      * @param address must be aligned to the size of T
      * @param value
      */
-    template <class T>
-    void write(uint32_t address, T value) const {
+    void write(uint32_t address, uint32_t value) const {
         auto dst = reinterpret_cast<uintptr_t>(base) + address;
 
         if (address >= tlb_size) {
             throw std::runtime_error("Address out of bounds for TLB");
         }
 
-        if (alignof(T) > 1 && (dst & (alignof(T) - 1))) {
+        if (alignof(uint32_t) > 1 && (dst & (alignof(uint32_t) - 1))) {
             throw std::runtime_error("Unaligned write");
         }
 
-        *reinterpret_cast<volatile T *>(dst) = value;
+        if (value == 0xfefefefe) {
+            throw std::runtime_error("snijjar metal issue 38163 catch: attempted write of 0xfefefefe which is suspected in hang.");
+        }
+
+        *reinterpret_cast<volatile uint32_t *>(dst) = value;
     }
 
 private:

@@ -861,15 +861,62 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>&
 }
 
 void Cluster::write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+     const uint8_t* byte_ptr = static_cast<const uint8_t*>(mem_ptr);
+    for (uint32_t i = 0; i < size_in_bytes; i++) {
+        if (byte_ptr[i] == 0xfe) {
+            log_warning(
+                LogUMD,
+                "Writing value with 0xfe byte to device register. This may indicate a potential issue since 0xfe is used as "
+                "a marker for uninitialized bytes in some cases. Chip: {}, Core: {}, Address: {:#x}, Size: {} bytes, Value: {}",
+                chip,
+                core,
+                addr,
+                size_in_bytes,
+                fmt::join(std::vector<uint8_t>(byte_ptr, byte_ptr + size_in_bytes), ","));
+            break;
+        }
+    }
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::write_to_device_reg(
     const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+    
+    const uint8_t* byte_ptr = static_cast<const uint8_t*>(mem_ptr);
+    for (uint32_t i = 0; i < size_in_bytes; i++) {
+        if (byte_ptr[i] == 0xfe) {
+            log_warning(
+                LogUMD,
+                "Writing value with 0xfe byte to device register. This may indicate a potential issue since 0xfe is used as "
+                "a marker for uninitialized bytes in some cases. Chip: {}, Core: {}, Address: {:#x}, Size: {} bytes, Value: {}",
+                chip,
+                core,
+                addr,
+                size_in_bytes,
+                fmt::join(std::vector<uint8_t>(byte_ptr, byte_ptr + size_in_bytes), ","));
+            break;
+        }
+    }
+
     get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
+     const uint8_t* byte_ptr = static_cast<const uint8_t*>(src);
+    for (uint32_t i = 0; i < size; i++) {
+        if (byte_ptr[i] == 0xfe) {
+            log_warning(
+                LogUMD,
+                "Writing value with 0xfe byte to device register. This may indicate a potential issue since 0xfe is used as "
+                "a marker for uninitialized bytes in some cases. Chip: {}, Core: {}, Address: {:#x}, Size: {} bytes, Value: {}",
+                chip,
+                core,
+                addr,
+                size,
+                fmt::join(std::vector<uint8_t>(byte_ptr, byte_ptr + size), ","));
+            break;
+        }
+    }
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 

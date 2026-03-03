@@ -110,7 +110,13 @@ void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
     if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_to_device((void *)dst, src, size);
     } else {
-        memcpy((void *)dst, (void *)src, size);
+        // memcpy((void *)dst, (void *)src, size);
+        // convert to uint8_t pointers
+        auto *src_byte = reinterpret_cast<const volatile uint8_t *>(src);
+        auto *dst_byte = reinterpret_cast<volatile uint8_t *>(dst);
+        for (size_t i = 0; i < size; ++i) {
+            dst_byte[i] = src_byte[i];
+        }
     }
 }
 

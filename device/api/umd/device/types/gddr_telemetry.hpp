@@ -47,7 +47,7 @@ struct GddrModuleTelemetry {
  * Aggregated GDDR telemetry for the device.
  */
 struct GddrTelemetry {
-    std::unordered_map<BlackholeGddr, GddrModuleTelemetry> modules{};
+    std::unordered_map<BlackholeGddr, GddrModuleTelemetry> modules;
 };
 
 }  // namespace tt::umd

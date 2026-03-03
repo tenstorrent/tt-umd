@@ -95,6 +95,7 @@ TEST(TestTelemetry, GddrTelemetry) {
         auto fw_info = FirmwareInfoProvider::create_firmware_info_provider(tt_device.get());
 
         // Test aggregated GDDR telemetry.
+        log_info(tt::LogUMD, "Reading aggregated GDDR Telemetry:");
         auto gddr_telemetry = fw_info->get_aggregated_dram_telemetry();
         if (!gddr_telemetry.has_value()) {
             log_warning(tt::LogUMD, "Device {} - GDDR telemetry not available", pci_device_id);

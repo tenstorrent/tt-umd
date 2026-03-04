@@ -87,6 +87,15 @@ TEST(TestTelemetry, RemoteTelemetry) {
 
 TEST(TestTelemetry, GddrTelemetry) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    ARCH arch = ARCH::Invalid;
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test..";
+    }
+
+    {
+        PCIDevice pci_device(pci_device_ids.at(0));
+        arch = pci_device.get_arch();
+    }
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
@@ -94,36 +103,36 @@ TEST(TestTelemetry, GddrTelemetry) {
 
         auto fw_info = FirmwareInfoProvider::create_firmware_info_provider(tt_device.get());
 
-        log_info(tt::LogUMD, "Device {} - GDDR Telemetry:", pci_device_id);
+        log_info(tt::LogUMD, "Testing GDDR Telemetry with PCI ID {}.", pci_device_id);
 
-        // Test DRAM speed (should be available for all devices).
         auto dram_speed = fw_info->get_dram_speed();
+        EXPECT_TRUE(dram_speed.has_value()) << "GDDR speed should be available on both Wormhole and Blackhole.";
         if (dram_speed.has_value()) {
-            log_info(tt::LogUMD, "  GDDR speed: {} Mbps", dram_speed.value());
-        } else {
-            log_warning(tt::LogUMD, "  GDDR speed not available");
+            log_info(tt::LogUMD, "GDDR speed: {} Mbps", dram_speed.value());
         }
 
-        // Test aggregated GDDR telemetry.
-        log_info(tt::LogUMD, "Reading aggregated GDDR Telemetry:");
-        auto gddr_telemetry = fw_info->get_aggregated_dram_telemetry();
-        if (!gddr_telemetry.has_value()) {
-            log_warning(tt::LogUMD, "Device {} - GDDR telemetry not available", pci_device_id);
+        if (arch == ARCH::WORMHOLE_B0) {
+            log_debug(
+                tt::LogUMD,
+                "Only GDDR speed and status are populated on Wormhole and only speed is verified in this test.");
             continue;
         }
 
-        // Test max DRAM temperature.
+        auto gddr_telemetry = fw_info->get_aggregated_dram_telemetry();
+        ASSERT_TRUE(gddr_telemetry.has_value()) << "GDDR telemetry should be available on Blackhole";
+
+        // Max temperature is computed from the same telemetry source (all GDDR module temperatures).
         auto max_temp = fw_info->get_current_max_dram_temperature();
         if (max_temp.has_value()) {
-            log_info(tt::LogUMD, "  Max GDDR temperature: {}C", max_temp.value());
+            log_info(tt::LogUMD, "Max GDDR temperature from all modules: {}C", max_temp.value());
         }
 
         // Print per-module telemetry from aggregated data.
-        log_info(tt::LogUMD, "  Per-module GDDR telemetry:");
+        log_info(tt::LogUMD, "Per-module GDDR telemetry:");
         for (const auto& [gddr_index, module_telemetry] : gddr_telemetry->modules) {
             log_info(
                 tt::LogUMD,
-                "    GDDR_{}: top={}C bottom={}C corr_rd={} corr_wr={} uncorr_rd={} uncorr_wr={}",
+                "GDDR_{}: top={}C bottom={}C corr_rd={} corr_wr={} uncorr_rd={} uncorr_wr={}",
                 static_cast<int>(gddr_index),
                 module_telemetry.dram_temperature_top,
                 module_telemetry.dram_temperature_bottom,
@@ -133,14 +142,33 @@ TEST(TestTelemetry, GddrTelemetry) {
                 module_telemetry.uncorr_edc_wr_error);
         }
 
+        // Verify that max temperature matches the maximum from all module temperatures.
+        if (max_temp.has_value() && !gddr_telemetry->modules.empty()) {
+            uint16_t max_temp_from_modules = 0;
+            for (const auto& [gddr_index, module_telemetry] : gddr_telemetry->modules) {
+                max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_top);
+                max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_bottom);
+            }
+            EXPECT_EQ(max_temp.value(), max_temp_from_modules)
+                << "Max temperature should match the maximum from all module temperatures.";
+        }
+
         // Test individual module telemetry access.
-        log_info(tt::LogUMD, "  Testing individual module access:");
-        for (auto gddr_index : {BlackholeGddr::GDDR_0, BlackholeGddr::GDDR_1, BlackholeGddr::GDDR_7}) {
+        log_info(tt::LogUMD, "Testing individual module access:");
+        for (auto gddr_index :
+             {BlackholeGddr::GDDR_0,
+              BlackholeGddr::GDDR_1,
+              BlackholeGddr::GDDR_2,
+              BlackholeGddr::GDDR_3,
+              BlackholeGddr::GDDR_4,
+              BlackholeGddr::GDDR_5,
+              BlackholeGddr::GDDR_6,
+              BlackholeGddr::GDDR_7}) {
             auto module_telemetry = fw_info->get_dram_telemetry(gddr_index);
             if (module_telemetry.has_value()) {
                 log_info(
                     tt::LogUMD,
-                    "    GDDR_{}: top={}C bottom={}C",
+                    "GDDR_{}: top={}C bottom={}C",
                     static_cast<int>(gddr_index),
                     module_telemetry->dram_temperature_top,
                     module_telemetry->dram_temperature_bottom);

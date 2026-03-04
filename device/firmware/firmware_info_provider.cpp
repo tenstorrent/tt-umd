@@ -42,7 +42,9 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     board_power_limit_available = telemetry->is_entry_available(TelemetryTag::BOARD_POWER_LIMIT);
     thm_limit_throttle_available = telemetry->is_entry_available(TelemetryTag::THM_LIMIT_THROTTLE);
     therm_trip_count_available = telemetry->is_entry_available(TelemetryTag::THERM_TRIP_COUNT);
-    eth_live_status_available = telemetry->is_entry_available(TelemetryTag::ETH_LIVE_STATUS);
+    // ETH_LIVE_STATUS is not implemented for Blackhole; the tag exists but always returns zeros.
+    eth_live_status_available =
+        telemetry->is_entry_available(TelemetryTag::ETH_LIVE_STATUS) && tt_device->get_arch() != tt::ARCH::BLACKHOLE;
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {

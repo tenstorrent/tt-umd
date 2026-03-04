@@ -68,27 +68,25 @@ class TestTelemetry(unittest.TestCase):
             dev = tt_umd.TTDevice.create(pci_id)
             dev.init_tt_device()
 
-            # GDDR telemetry is only available on Blackhole
+            fw_info = tt_umd.FirmwareInfoProvider.create_firmware_info_provider(dev)
+
+            # Test DRAM speed (available on Blackhole and Wormhole >= 18.4)
+            dram_speed = fw_info.get_dram_speed()
+            if dram_speed is not None:
+                print(f"Device {pci_id} - GDDR speed: {dram_speed} Mbps")
+
+            # GDDR telemetry (temperatures, errors) is only available on Blackhole
             if dev.get_arch() != tt_umd.ARCH.BLACKHOLE:
                 print(
-                    f"Device {pci_id} - Skipping GDDR telemetry (not Blackhole, arch={dev.get_arch()})"
+                    f"Device {pci_id} - Skipping detailed GDDR telemetry (not Blackhole, arch={dev.get_arch()})"
                 )
                 continue
-
-            fw_info = tt_umd.FirmwareInfoProvider.create_firmware_info_provider(dev)
 
             # Test aggregated GDDR telemetry
             gddr_telemetry = fw_info.get_aggregated_dram_telemetry()
             if gddr_telemetry is None:
-                print(
-                    f"Device {pci_id} - GDDR telemetry not available (e.g. not Blackhole)"
-                )
+                print(f"Device {pci_id} - GDDR telemetry not available")
                 continue
-
-            # Test DRAM speed
-            dram_speed = fw_info.get_dram_speed()
-            if dram_speed is not None:
-                print(f"Device {pci_id} - GDDR speed: {dram_speed} Mbps")
 
             # Test max DRAM temperature
             max_temp = fw_info.get_current_max_dram_temperature()

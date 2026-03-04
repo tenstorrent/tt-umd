@@ -130,6 +130,10 @@ std::string find_hugepage_dir(std::size_t pagesize) {
                         [[fallthrough]];
                     case 'K':
                         mount_page_size <<= 10;
+                        break;
+                    default:
+                        // Should never reach here as regex only matches [KMGT].
+                        TT_THROW("Unexpected page size suffix: {}", pagesize_match[2].str());
                 }
 
                 if (mount_page_size == pagesize) {

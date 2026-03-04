@@ -24,13 +24,10 @@ target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CU
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 endif()
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/device)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/baremetal)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arch/blackhole)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arch/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)
 
@@ -45,11 +42,8 @@ add_custom_target(
         unit_tests_blackhole
         unit_tests_wormhole
         unit_tests_glx
-        test_pcie_device
-        api_tests
+        device_tests
         baremetal_tests
-        umd_misc_tests
-        unified_tests
         test_utils_tests
 )
 

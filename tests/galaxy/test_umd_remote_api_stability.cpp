@@ -13,10 +13,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "tests/arch/wormhole/test_wh_common.hpp"
 #include "tests/galaxy/test_galaxy_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"

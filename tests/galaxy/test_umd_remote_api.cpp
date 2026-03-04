@@ -13,9 +13,9 @@
 #include <vector>
 
 #include "test_galaxy_common.hpp"
+#include "tests/arch/wormhole/test_wh_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "wormhole/eth_interface.h"

@@ -104,16 +104,20 @@ TEST(TestTelemetry, GddrTelemetry) {
 
         auto fw_info = FirmwareInfoProvider::create_firmware_info_provider(tt_device.get());
 
-        // Skip test for Wormhole with firmware < 18.4 (SMBUS telemetry doesn't map to new GDDR telemetry structure).
-        if (arch == ARCH::WORMHOLE_B0 && tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
-            GTEST_SKIP() << "Skipping GDDR telemetry test on Wormhole device " << pci_device_id
-                         << " with firmware version " << tt_device->get_firmware_version().to_string() << " < 18.4.0";
-        }
-
         log_info(tt::LogUMD, "Testing GDDR Telemetry with PCI ID {}.", pci_device_id);
 
         auto dram_speed = fw_info->get_dram_speed();
-        EXPECT_TRUE(dram_speed.has_value()) << "GDDR speed should be available on both Wormhole and Blackhole.";
+
+        // DRAM speed telemetry on Wormhole is available starting from firmware 18.4.0.
+        if (arch == ARCH::WORMHOLE_B0 && tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
+            EXPECT_FALSE(dram_speed.has_value()) << "GDDR speed should not be available for Wormhole firmware version "
+                                                 << tt_device->get_firmware_version().to_string() << " < 18.4.0";
+            log_info(tt::LogUMD, "GDDR speed not available for Wormhole firmware < 18.4.0.");
+            continue;
+        }
+
+        // For Wormhole with firmware >= 18.4.0 and all Blackhole firmware DRAM speed should be available.
+        EXPECT_TRUE(dram_speed.has_value()) << "GDDR speed should be available.";
         if (dram_speed.has_value()) {
             log_info(tt::LogUMD, "GDDR speed: {} Mbps", dram_speed.value());
         }

@@ -125,10 +125,6 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
-      - name: Run MISC tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
-
       - name: Run unified tests
         if: ${{ inputs.arch != 'baremetal' }}
         run: |

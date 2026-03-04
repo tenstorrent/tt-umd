@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "umd/device/utils/timeouts.hpp"
@@ -18,6 +19,12 @@ class WarmReset {
 public:
     static void warm_reset(
         std::vector<int> pci_device_ids = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
+
+    static void warm_reset_umd_id(
+        const std::vector<int>& umd_id = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
+
+    static void warm_reset_pci_bdfs(
+        const std::vector<std::string>& pci_bdfs = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
 
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 

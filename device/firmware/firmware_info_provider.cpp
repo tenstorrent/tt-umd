@@ -295,29 +295,34 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(Blac
     const bool is_odd_module = (module_index % 2) == 1;
     const uint8_t bit_shift = is_odd_module ? 16 : 0;  // Odd modules use upper 16 bits.
 
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index)) {
+        return std::nullopt;
+    }
+
     // Read the packed telemetry word for this pair.
-    const uint32_t temperature_word = tt_device->get_arc_telemetry_reader()->read_entry(
-        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
-    const uint32_t corrected_errors_word = tt_device->get_arc_telemetry_reader()->read_entry(
-        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
+    const uint32_t temperature_word =
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
+    const uint32_t corrected_errors_word =
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
     const uint32_t uncorrected_errors_bitmask =
-        tt_device->get_arc_telemetry_reader()->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 
     // Extract this module's data from the packed word.
     // Layout per module: [15:8] top temp / write errors, [7:0] bottom temp / read errors.
-    GddrModuleTelemetry telemetry{};
-    telemetry.dram_temperature_bottom = static_cast<uint8_t>((temperature_word >> bit_shift) & 0xFFu);
-    telemetry.dram_temperature_top = static_cast<uint8_t>((temperature_word >> (bit_shift + 8)) & 0xFFu);
-    telemetry.corr_edc_rd_errors = static_cast<uint8_t>((corrected_errors_word >> bit_shift) & 0xFFu);
-    telemetry.corr_edc_wr_errors = static_cast<uint8_t>((corrected_errors_word >> (bit_shift + 8)) & 0xFFu);
+    GddrModuleTelemetry module_telemetry{};
+    module_telemetry.dram_temperature_bottom = static_cast<uint8_t>((temperature_word >> bit_shift) & 0xFFu);
+    module_telemetry.dram_temperature_top = static_cast<uint8_t>((temperature_word >> (bit_shift + 8)) & 0xFFu);
+    module_telemetry.corr_edc_rd_errors = static_cast<uint8_t>((corrected_errors_word >> bit_shift) & 0xFFu);
+    module_telemetry.corr_edc_wr_errors = static_cast<uint8_t>((corrected_errors_word >> (bit_shift + 8)) & 0xFFu);
 
     // Uncorrected errors: 2 bits per module (bit i*2 = read, bit i*2+1 = write).
     const uint8_t uncorr_read_bit = module_index * 2;
     const uint8_t uncorr_write_bit = module_index * 2 + 1;
-    telemetry.uncorr_edc_rd_error = (uncorrected_errors_bitmask & (1u << uncorr_read_bit)) != 0 ? 1 : 0;
-    telemetry.uncorr_edc_wr_error = (uncorrected_errors_bitmask & (1u << uncorr_write_bit)) != 0 ? 1 : 0;
+    module_telemetry.uncorr_edc_rd_error = (uncorrected_errors_bitmask & (1u << uncorr_read_bit)) != 0 ? 1 : 0;
+    module_telemetry.uncorr_edc_wr_error = (uncorrected_errors_bitmask & (1u << uncorr_write_bit)) != 0 ? 1 : 0;
 
-    return telemetry;
+    return module_telemetry;
 }
 
 std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() {

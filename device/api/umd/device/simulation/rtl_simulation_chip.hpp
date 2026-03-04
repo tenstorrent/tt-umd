@@ -6,9 +6,10 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 
+#include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/simulation/simulation_host.hpp"
 
 namespace tt::umd {
 
@@ -34,7 +35,7 @@ public:
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 private:
-    SimulationHost host;
+    std::unique_ptr<RtlSimCommunicator> communicator_;
 };
 
 }  // namespace tt::umd

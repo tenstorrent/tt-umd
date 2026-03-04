@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <immintrin.h>
+
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
@@ -41,6 +43,27 @@ namespace tt::umd {
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
+}
+
+// Copy src → dst using non-temporal (streaming) stores, then sfence.
+// NT stores bypass the CPU cache and write directly into the write-combining
+// buffers, which is the correct access pattern for WC-mapped DMA memory.
+// sfence flushes all WC buffers to physical memory before the DMA engine reads.
+static void nt_memcpy(void *dst, const void *src, size_t size) {
+    auto *d = static_cast<__m128i *>(dst);
+    const auto *s = static_cast<const __m128i *>(src);
+    const size_t n = size / sizeof(__m128i);
+    for (size_t i = 0; i < n; ++i) {
+        _mm_stream_si128(d + i, _mm_loadu_si128(s + i));
+    }
+    // Handle any trailing bytes (chunk sizes are 256KB-aligned, so normally zero).
+    const size_t rem_off = n * sizeof(__m128i);
+    if (rem_off < size) {
+        std::memcpy(static_cast<uint8_t *>(dst) + rem_off,
+                    static_cast<const uint8_t *>(src) + rem_off,
+                    size - rem_off);
+    }
+    _mm_sfence();
 }
 
 // Persistent producer thread state for the double-buffered DMA write pipeline.
@@ -134,7 +157,7 @@ struct TTDevice::DmaProducerState {
                         }
                     }
 
-                    std::memcpy(dma_buf_ptr + buf_offset, ptr, chunk);
+                    nt_memcpy(dma_buf_ptr + buf_offset, ptr, chunk);
 
                     {
                         std::lock_guard<std::mutex> lock(mtx);

@@ -270,12 +270,13 @@ uint32_t FirmwareInfoProvider::get_heartbeat() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::TIMER_HEARTBEAT);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_thm_limit_shutdown() const {
+std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!thm_limit_shutdown_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::THM_LIMIT_SHUTDOWN);
+    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_SHUTDOWN)) / 65536.0f;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {

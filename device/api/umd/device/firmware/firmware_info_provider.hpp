@@ -119,7 +119,7 @@ public:
      * Get thermal limit shutdown threshold in Celsius.
      * @returns Thermal limit shutdown threshold [Celsius]
      */
-    virtual std::optional<uint32_t> get_thm_limit_shutdown() const;
+    virtual std::optional<double> get_thm_limit_shutdown() const;
 
     /*
      * Get board power limit in watts.

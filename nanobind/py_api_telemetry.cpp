@@ -40,7 +40,7 @@ void bind_telemetry(nb::module_& m) {
         .value("ETH_FW_VERSION", wormhole::TelemetryTag::ETH_FW_VERSION)
         .value("DM_BL_FW_VERSION", wormhole::TelemetryTag::DM_BL_FW_VERSION)
         .value("DM_APP_FW_VERSION", wormhole::TelemetryTag::DM_APP_FW_VERSION)
-        .value("GDDR_STATUS", wormhole::TelemetryTag::GDDR_STATUS)
+        .value("GDDR_STATUS", wormhole::TelemetryTag::DDR_STATUS)
         .value("ETH_STATUS0", wormhole::TelemetryTag::ETH_STATUS0)
         .value("ETH_STATUS1", wormhole::TelemetryTag::ETH_STATUS1)
         .value("PCIE_STATUS", wormhole::TelemetryTag::PCIE_STATUS)

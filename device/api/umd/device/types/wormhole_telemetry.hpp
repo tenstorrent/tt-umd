@@ -21,7 +21,7 @@ enum TelemetryTag : uint8_t {
     ETH_FW_VERSION = 11,
     DM_BL_FW_VERSION = 12,
     DM_APP_FW_VERSION = 13,
-    GDDR_STATUS = 14,
+    DDR_STATUS = 14,
     ETH_STATUS0 = 15,
     ETH_STATUS1 = 16,
     PCIE_STATUS = 17,

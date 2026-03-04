@@ -9,9 +9,11 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -40,6 +42,127 @@ namespace tt::umd {
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
+
+// Persistent producer thread state for the double-buffered DMA write pipeline.
+// Lives as long as the TTDevice that owns it.
+struct TTDevice::DmaProducerState {
+    static constexpr size_t DMA_CHUNK_SIZE = 256 * 1024;
+
+    struct SlotInfo {
+        size_t chunk_size = 0;
+        uint64_t device_addr = 0;
+    };
+
+    struct WorkItem {
+        const uint8_t *src;
+        size_t size;
+        uint64_t start_addr;
+    };
+
+    uint8_t *const dma_buf_ptr;
+    const size_t num_slots;
+    std::vector<SlotInfo> slots;
+
+    std::mutex mtx;
+    std::condition_variable cv_work;    // producer waits for a new transfer
+    std::condition_variable cv_filled;  // DMA thread waits for filled slots
+    std::condition_variable cv_empty;   // producer waits for free slots
+
+    // Per-transfer state; reset by the DMA thread before each transfer.
+    std::optional<WorkItem> pending_work;
+    size_t filled_count = 0;
+    bool producer_done = false;
+    bool dma_error = false;
+    bool shutdown = false;
+    std::exception_ptr producer_exc = nullptr;
+
+    std::thread thread;
+
+    DmaProducerState(uint8_t *buf, size_t buf_size) :
+        dma_buf_ptr(buf), num_slots(buf_size / DMA_CHUNK_SIZE), slots(buf_size / DMA_CHUNK_SIZE) {
+        thread = std::thread([this]() { run(); });
+    }
+
+    ~DmaProducerState() {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            shutdown = true;
+        }
+        cv_work.notify_one();
+        thread.join();
+    }
+
+    // Called by the DMA thread to kick off copying for a new transfer.
+    void start_transfer(const uint8_t *src, size_t size, uint64_t addr) {
+        std::lock_guard<std::mutex> lock(mtx);
+        pending_work = {src, size, addr};
+        filled_count = 0;
+        producer_done = false;
+        dma_error = false;
+        producer_exc = nullptr;
+        cv_work.notify_one();
+    }
+
+    void run() {
+        while (true) {
+            WorkItem work;
+            {
+                std::unique_lock<std::mutex> lock(mtx);
+                cv_work.wait(lock, [this] { return pending_work.has_value() || shutdown; });
+                if (shutdown) {
+                    return;
+                }
+                work = *pending_work;
+                pending_work.reset();
+            }
+
+            try {
+                const uint8_t *ptr = work.src;
+                size_t remaining = work.size;
+                uint64_t cur_addr = work.start_addr;
+                size_t slot_idx = 0;
+
+                while (remaining > 0) {
+                    size_t chunk = std::min(remaining, DMA_CHUNK_SIZE);
+                    size_t buf_offset = (slot_idx % num_slots) * DMA_CHUNK_SIZE;
+
+                    {
+                        std::unique_lock<std::mutex> lock(mtx);
+                        cv_empty.wait(lock, [this] { return filled_count < num_slots || dma_error; });
+                        if (dma_error) {
+                            break;
+                        }
+                    }
+
+                    std::memcpy(dma_buf_ptr + buf_offset, ptr, chunk);
+
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        slots[slot_idx % num_slots] = {chunk, cur_addr};
+                        ++filled_count;
+                    }
+                    cv_filled.notify_one();
+
+                    ptr += chunk;
+                    cur_addr += chunk;
+                    remaining -= chunk;
+                    ++slot_idx;
+                }
+            } catch (...) {
+                std::lock_guard<std::mutex> lock(mtx);
+                producer_exc = std::current_exception();
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(mtx);
+                producer_done = true;
+            }
+            cv_filled.notify_one();
+        }
+    }
+};
+
+TTDevice::~TTDevice() = default;
 
 TTDevice::TTDevice(
     std::shared_ptr<PCIDevice> pci_device,

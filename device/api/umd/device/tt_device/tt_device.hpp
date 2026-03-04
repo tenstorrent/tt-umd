@@ -67,7 +67,7 @@ public:
         uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
 
-    virtual ~TTDevice() = default;
+    virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
     std::shared_ptr<PCIDevice> get_pci_device();
@@ -371,6 +371,8 @@ protected:
     tt_xy_pair arc_core;
 
 private:
+    struct DmaProducerState;
+
     void probe_arc();
 
     TlbWindow *get_cached_tlb_window();
@@ -390,6 +392,10 @@ private:
     std::mutex tt_device_io_lock;
 
     bool use_safe_api_ = false;
+
+    // Persistent producer thread for the double-buffered DMA write pipeline.
+    // Lazily initialized on the first large DMA write; lives until TTDevice is destroyed.
+    std::unique_ptr<DmaProducerState> dma_producer_;
 };
 
 }  // namespace tt::umd

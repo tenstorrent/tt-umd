@@ -376,14 +376,15 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, reg_src, size);
+        tt_device_->read_from_device(dest, translated_core, reg_src, size);
         return;
     }
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_src;
     config.x_end = translated_core.x;

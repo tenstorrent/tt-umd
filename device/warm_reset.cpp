@@ -87,6 +87,31 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 }
 
+void WarmReset::warm_reset_umd_id(const std::vector<int>& umd_id, bool reset_m3, bool secondary_bus_reset) {
+    std::vector<int> pci_ids;
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
+    for (const auto& id : umd_id) {
+        if (id >= enumerated_ids.size()) {
+            log_warning(tt::LogUMD, "Provided UMD ID {} is out of range. Skipping.", id);
+            continue;
+        }
+        pci_ids.push_back(enumerated_ids[id]);
+    }
+    warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+}
+
+void WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bool reset_m3, bool secondary_bus_reset) {
+    std::vector<int> pci_ids;
+    std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
+    for (const auto& [id, info] : pci_devices_info) {
+        if (std::find(pci_bdfs.begin(), pci_bdfs.end(), info.pci_bdf) != pci_bdfs.end()) {
+            pci_ids.push_back(id);
+        }
+    }
+
+    warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+}
+
 int wait_for_pci_bdf_to_reappear(
     const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
     log_debug(tt::LogUMD, "Waiting for device {} to reappear on pci bus.", bdf);

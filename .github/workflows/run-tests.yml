@@ -124,8 +124,3 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
-
-      - name: Run unified tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

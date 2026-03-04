@@ -115,6 +115,38 @@ public:
      */
     virtual std::optional<double> get_board_temperature() const;
 
+    /*
+     * Get thermal limit shutdown threshold in Celsius.
+     * @returns Thermal limit shutdown threshold [Celsius]
+     */
+    virtual std::optional<uint32_t> get_thm_limit_shutdown() const;
+
+    /*
+     * Get board power limit in watts.
+     * @returns Board power limit [W]
+     */
+    virtual std::optional<uint32_t> get_board_power_limit() const;
+
+    /*
+     * Get thermal limit throttle threshold in Celsius.
+     * @returns Thermal limit throttle threshold [Celsius]
+     */
+    virtual std::optional<uint32_t> get_thm_limit_throttle() const;
+
+    /*
+     * Get thermal trip count.
+     * @returns Number of thermal trips that have occurred.
+     */
+    virtual std::optional<uint32_t> get_therm_trip_count() const;
+
+    /*
+     * Get ethernet live status for each link.
+     * Lower 16 bits of telemetry value: heartbeat status (one bit per link).
+     * Upper 16 bits of telemetry value: retrain status (one bit per link).
+     * @returns Vector of EthLinkStatus (one per link, up to 16), or std::nullopt if unavailable.
+     */
+    virtual std::optional<std::vector<EthLinkStatus>> get_eth_live_status() const;
+
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
     virtual uint32_t get_max_clock_freq() const;
@@ -142,6 +174,11 @@ protected:
     bool tdc_available;
     bool vcore_available;
     bool board_temperature_available;
+    bool thm_limit_shutdown_available;
+    bool board_power_limit_available;
+    bool thm_limit_throttle_available;
+    bool therm_trip_count_available;
+    bool eth_live_status_available;
 };
 
 }  // namespace tt::umd

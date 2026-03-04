@@ -104,6 +104,16 @@ TEST(TestTelemetry, GddrTelemetry) {
 
         auto fw_info = FirmwareInfoProvider::create_firmware_info_provider(tt_device.get());
 
+        // Skip test for Wormhole with firmware < 18.4 (SMBUS telemetry doesn't map to new GDDR telemetry structure).
+        if (arch == ARCH::WORMHOLE_B0 && tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
+            log_warning(
+                tt::LogUMD,
+                "Skipping GDDR telemetry test on Wormhole device {} with firmware version {} < 18.4.0",
+                pci_device_id,
+                tt_device->get_firmware_version().to_string());
+            continue;
+        }
+
         log_info(tt::LogUMD, "Testing GDDR Telemetry with PCI ID {}.", pci_device_id);
 
         auto dram_speed = fw_info->get_dram_speed();

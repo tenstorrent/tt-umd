@@ -322,6 +322,20 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
 }
 
+void WormholeTTDevice::dma_h2d_from_dma_buffer(uint32_t dst, size_t buf_offset, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_from_dma_buffer is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (buf_offset + size > dma_buffer.size) {
+        throw std::runtime_error("DMA offset + size exceeds buffer size");
+    }
+
+    // Data is already in the DMA buffer at buf_offset; use its physical address directly.
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa + buf_offset, size);
+}
+
 void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");

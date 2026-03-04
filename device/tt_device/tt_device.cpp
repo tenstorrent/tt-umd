@@ -6,11 +6,14 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -362,6 +365,11 @@ void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start
     get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
+void TTDevice::dma_h2d_from_dma_buffer(uint32_t dst, size_t buf_offset, size_t size) {
+    // Default: data is at buf_offset in the DMA buffer; dma_h2d will memcpy it to offset 0 then DMA.
+    dma_h2d(dst, get_pci_device()->get_dma_buffer().buffer + buf_offset, size);
+}
+
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
     if (get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
@@ -380,9 +388,10 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
-    const uint8_t *buffer = static_cast<const uint8_t *>(src);
+    const uint8_t *user_buf = static_cast<const uint8_t *>(src);
     PCIDevice *pci_device = get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+    DmaBuffer &dma_buf = pci_device->get_dma_buffer();
+    size_t dmabuf_size = dma_buf.size;
 
     tlb_data config{};
     config.local_offset = addr;
@@ -395,23 +404,140 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 
     auto axi_address_base =
         get_architecture_implementation()->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id()).tlb_offset;
-
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
 
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+    static constexpr size_t DMA_CHUNK_SIZE = 256 * 1024;
+    const size_t num_slots = dmabuf_size / DMA_CHUNK_SIZE;
 
-        dma_h2d(axi_address, buffer, transfer_size);
+    // For small transfers or when the DMA buffer can't hold at least 2 slots, use the
+    // simple sequential path: memcpy into buffer then DMA, one chunk at a time.
+    if (size <= DMA_CHUNK_SIZE || num_slots < 2) {
+        auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+        while (size > 0) {
+            size_t transfer_size = std::min({size, tlb_window->get_size(), dmabuf_size});
+            dma_h2d(axi_address, user_buf, transfer_size);
+            size -= transfer_size;
+            addr += transfer_size;
+            user_buf += transfer_size;
+            config.local_offset = addr;
+            tlb_window->configure(config);
+            axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+        }
+        return;
+    }
 
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
+    // Double-buffering pipeline for large transfers:
+    // The DMA buffer is divided into num_slots slots of DMA_CHUNK_SIZE each.
+    // A producer thread copies user data into slots while this thread (the DMA thread)
+    // simultaneously transfers filled slots to the device, keeping the PCIe bus busy.
+    struct SlotInfo {
+        size_t chunk_size = 0;
+        uint64_t device_addr = 0;
+    };
 
-        config.local_offset = addr;
+    std::vector<SlotInfo> slots(num_slots);
+
+    std::mutex mtx;
+    std::condition_variable cv_filled;
+    std::condition_variable cv_empty;
+    size_t filled_count = 0;
+    bool producer_done = false;
+    bool dma_error = false;
+    std::exception_ptr producer_exc = nullptr;
+
+    auto producer = std::thread([&]() {
+        try {
+            const uint8_t *ptr = user_buf;
+            size_t remaining = size;
+            uint64_t cur_addr = addr;
+            size_t slot_idx = 0;
+
+            while (remaining > 0) {
+                size_t chunk = std::min(remaining, DMA_CHUNK_SIZE);
+                size_t buf_offset = (slot_idx % num_slots) * DMA_CHUNK_SIZE;
+
+                {
+                    std::unique_lock<std::mutex> lock(mtx);
+                    cv_empty.wait(lock, [&] { return filled_count < num_slots || dma_error; });
+                    if (dma_error) {
+                        break;
+                    }
+                }
+
+                memcpy(dma_buf.buffer + buf_offset, ptr, chunk);
+
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    slots[slot_idx % num_slots] = {chunk, cur_addr};
+                    ++filled_count;
+                }
+                cv_filled.notify_one();
+
+                ptr += chunk;
+                cur_addr += chunk;
+                remaining -= chunk;
+                ++slot_idx;
+            }
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(mtx);
+            producer_exc = std::current_exception();
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            producer_done = true;
+        }
+        cv_filled.notify_one();
+    });
+
+    size_t dma_slot_idx = 0;
+    std::exception_ptr dma_exc = nullptr;
+
+    while (true) {
+        SlotInfo slot;
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            cv_filled.wait(lock, [&] { return filled_count > 0 || producer_done; });
+
+            if (producer_exc) {
+                dma_error = true;
+                cv_empty.notify_all();
+                break;
+            }
+            if (filled_count == 0) {
+                break;
+            }
+
+            slot = slots[dma_slot_idx % num_slots];
+            --filled_count;
+        }
+        cv_empty.notify_one();
+
+        size_t buf_offset = (dma_slot_idx % num_slots) * DMA_CHUNK_SIZE;
+        config.local_offset = slot.device_addr;
         tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+        auto axi_address = axi_address_base + (slot.device_addr - (slot.device_addr & ~(tlb_handle_size - 1)));
+
+        try {
+            dma_h2d_from_dma_buffer(axi_address, buf_offset, slot.chunk_size);
+        } catch (...) {
+            dma_exc = std::current_exception();
+            std::lock_guard<std::mutex> lock(mtx);
+            dma_error = true;
+            cv_empty.notify_all();
+            break;
+        }
+
+        ++dma_slot_idx;
+    }
+
+    producer.join();
+
+    if (producer_exc) {
+        std::rethrow_exception(producer_exc);
+    }
+    if (dma_exc) {
+        std::rethrow_exception(dma_exc);
     }
 }
 

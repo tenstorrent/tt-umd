@@ -344,6 +344,14 @@ public:
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
 protected:
+    /**
+     * Perform DMA from a specific offset within the pre-allocated DMA buffer to the device.
+     * The data must already be present at dma_buffer.buffer + buf_offset before calling.
+     * Subclasses with physical-address-aware DMA engines should override this to avoid an
+     * extra memcpy; the default falls back to dma_h2d.
+     */
+    virtual void dma_h2d_from_dma_buffer(uint32_t dst, size_t buf_offset, size_t size);
+
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;

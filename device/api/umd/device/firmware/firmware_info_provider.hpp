@@ -151,7 +151,6 @@ protected:
     bool tdc_available;
     bool vcore_available;
     bool board_temperature_available;
-    bool is_gddr_telemetry_available;
 };
 
 }  // namespace tt::umd

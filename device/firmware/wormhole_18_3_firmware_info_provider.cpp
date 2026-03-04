@@ -28,6 +28,7 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     tdp_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);
+    eth_live_status_available = telemetry->is_entry_available(wormhole::TelemetryTag::ETH_LIVE_STATUS);
 }
 
 uint64_t Wormhole_18_3_FirmwareInfoProvider::get_board_id() const {
@@ -161,6 +162,28 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     }
     // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
+}
+
+std::optional<std::vector<tt::EthLinkStatus>> Wormhole_18_3_FirmwareInfoProvider::get_eth_live_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    // Lower 16 bits: heartbeat status (one bit per link).
+    // Upper 16 bits: retrain status (one bit per link).
+    static constexpr uint32_t max_eth_links = 16;
+    uint32_t telemetry_data = telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    uint16_t heartbeat_status = telemetry_data & 0xFFFF;
+    uint16_t retrain_status = (telemetry_data >> 16) & 0xFFFF;
+    std::vector<tt::EthLinkStatus> statuses;
+    statuses.reserve(max_eth_links);
+    for (uint32_t link = 0; link < max_eth_links; ++link) {
+        statuses.push_back(tt::EthLinkStatus{
+            .heartbeat = static_cast<bool>(heartbeat_status & (1 << link)),
+            .retrain = static_cast<bool>(retrain_status & (1 << link)),
+        });
+    }
+    return statuses;
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {

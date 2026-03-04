@@ -296,7 +296,15 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(Blac
     const uint8_t bit_shift = is_odd_module ? 16 : 0;  // Odd modules use upper 16 bits.
 
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index)) {
+
+    // Check if all required telemetry tags for this GDDR pair are available.
+    auto are_tags_available = [telemetry](uint8_t pair_idx) {
+        return telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_idx) &&
+               telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_idx) &&
+               telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    };
+
+    if (!are_tags_available(pair_index)) {
         return std::nullopt;
     }
 

@@ -49,8 +49,7 @@ void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const
 }
 
 void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->send_tensix_risc_reset(soft_resets);
+    send_tensix_risc_reset(tt_xy_pair(0, 0), soft_resets);
 }
 
 void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {

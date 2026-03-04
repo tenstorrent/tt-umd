@@ -529,12 +529,11 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         get_architecture_implementation()->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id()).tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
 
-    static constexpr size_t DMA_CHUNK_SIZE = 256 * 1024;
-    const size_t num_slots = dmabuf_size / DMA_CHUNK_SIZE;
+    const size_t num_slots = dmabuf_size / DmaProducerState::DMA_CHUNK_SIZE;
 
     // For small transfers or when the DMA buffer can't hold at least 2 slots, use the
     // simple sequential path: memcpy into buffer then DMA, one chunk at a time.
-    if (size <= DMA_CHUNK_SIZE || num_slots < 2) {
+    if (size <= DmaProducerState::DMA_CHUNK_SIZE || num_slots < 2) {
         auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
         while (size > 0) {
             size_t transfer_size = std::min({size, tlb_window->get_size(), dmabuf_size});
@@ -549,94 +548,40 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         return;
     }
 
-    // Double-buffering pipeline for large transfers:
-    // The DMA buffer is divided into num_slots slots of DMA_CHUNK_SIZE each.
-    // A producer thread copies user data into slots while this thread (the DMA thread)
-    // simultaneously transfers filled slots to the device, keeping the PCIe bus busy.
-    struct SlotInfo {
-        size_t chunk_size = 0;
-        uint64_t device_addr = 0;
-    };
+    // Double-buffering pipeline for large transfers using the persistent producer thread.
+    // The producer thread copies user data into DMA buffer slots while this thread (the DMA
+    // thread) simultaneously transfers filled slots to the device, keeping the PCIe bus busy.
+    if (!dma_producer_) {
+        dma_producer_ = std::make_unique<DmaProducerState>(dma_buf.buffer, dmabuf_size);
+    }
+    DmaProducerState &ps = *dma_producer_;
 
-    std::vector<SlotInfo> slots(num_slots);
-
-    std::mutex mtx;
-    std::condition_variable cv_filled;
-    std::condition_variable cv_empty;
-    size_t filled_count = 0;
-    bool producer_done = false;
-    bool dma_error = false;
-    std::exception_ptr producer_exc = nullptr;
-
-    auto producer = std::thread([&]() {
-        try {
-            const uint8_t *ptr = user_buf;
-            size_t remaining = size;
-            uint64_t cur_addr = addr;
-            size_t slot_idx = 0;
-
-            while (remaining > 0) {
-                size_t chunk = std::min(remaining, DMA_CHUNK_SIZE);
-                size_t buf_offset = (slot_idx % num_slots) * DMA_CHUNK_SIZE;
-
-                {
-                    std::unique_lock<std::mutex> lock(mtx);
-                    cv_empty.wait(lock, [&] { return filled_count < num_slots || dma_error; });
-                    if (dma_error) {
-                        break;
-                    }
-                }
-
-                memcpy(dma_buf.buffer + buf_offset, ptr, chunk);
-
-                {
-                    std::lock_guard<std::mutex> lock(mtx);
-                    slots[slot_idx % num_slots] = {chunk, cur_addr};
-                    ++filled_count;
-                }
-                cv_filled.notify_one();
-
-                ptr += chunk;
-                cur_addr += chunk;
-                remaining -= chunk;
-                ++slot_idx;
-            }
-        } catch (...) {
-            std::lock_guard<std::mutex> lock(mtx);
-            producer_exc = std::current_exception();
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(mtx);
-            producer_done = true;
-        }
-        cv_filled.notify_one();
-    });
+    ps.start_transfer(user_buf, size, addr);
 
     size_t dma_slot_idx = 0;
     std::exception_ptr dma_exc = nullptr;
 
     while (true) {
-        SlotInfo slot;
+        DmaProducerState::SlotInfo slot;
         {
-            std::unique_lock<std::mutex> lock(mtx);
-            cv_filled.wait(lock, [&] { return filled_count > 0 || producer_done; });
+            std::unique_lock<std::mutex> lock(ps.mtx);
+            ps.cv_filled.wait(lock, [&] { return ps.filled_count > 0 || ps.producer_done; });
 
-            if (producer_exc) {
-                dma_error = true;
-                cv_empty.notify_all();
+            if (ps.producer_exc) {
+                ps.dma_error = true;
+                ps.cv_empty.notify_all();
                 break;
             }
-            if (filled_count == 0) {
+            if (ps.filled_count == 0) {
                 break;
             }
 
-            slot = slots[dma_slot_idx % num_slots];
-            --filled_count;
+            slot = ps.slots[dma_slot_idx % ps.num_slots];
+            --ps.filled_count;
         }
-        cv_empty.notify_one();
+        ps.cv_empty.notify_one();
 
-        size_t buf_offset = (dma_slot_idx % num_slots) * DMA_CHUNK_SIZE;
+        size_t buf_offset = (dma_slot_idx % ps.num_slots) * DmaProducerState::DMA_CHUNK_SIZE;
         config.local_offset = slot.device_addr;
         tlb_window->configure(config);
         auto axi_address = axi_address_base + (slot.device_addr - (slot.device_addr & ~(tlb_handle_size - 1)));
@@ -645,19 +590,19 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
             dma_h2d_from_dma_buffer(axi_address, buf_offset, slot.chunk_size);
         } catch (...) {
             dma_exc = std::current_exception();
-            std::lock_guard<std::mutex> lock(mtx);
-            dma_error = true;
-            cv_empty.notify_all();
+            std::lock_guard<std::mutex> lock(ps.mtx);
+            ps.dma_error = true;
+            ps.cv_empty.notify_all();
             break;
         }
 
         ++dma_slot_idx;
     }
 
-    producer.join();
-
-    if (producer_exc) {
-        std::rethrow_exception(producer_exc);
+    // Producer thread is persistent; it has finished this transfer when producer_done is set.
+    // No join needed. Just rethrow any exceptions.
+    if (ps.producer_exc) {
+        std::rethrow_exception(ps.producer_exc);
     }
     if (dma_exc) {
         std::rethrow_exception(dma_exc);

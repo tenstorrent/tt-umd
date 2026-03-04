@@ -131,7 +131,7 @@ public:
      * Get thermal limit throttle threshold in Celsius.
      * @returns Thermal limit throttle threshold [Celsius]
      */
-    virtual std::optional<uint32_t> get_thm_limit_throttle() const;
+    virtual std::optional<double> get_thm_limit_throttle() const;
 
     /*
      * Get thermal trip count.

@@ -287,12 +287,13 @@ std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {
     return telemetry->read_entry(TelemetryTag::BOARD_POWER_LIMIT);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_thm_limit_throttle() const {
+std::optional<double> FirmwareInfoProvider::get_thm_limit_throttle() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!thm_limit_throttle_available) {
         return std::nullopt;
     }
-    return telemetry->read_entry(TelemetryTag::THM_LIMIT_THROTTLE);
+    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_THROTTLE)) / 65536.0f;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {

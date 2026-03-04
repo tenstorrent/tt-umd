@@ -363,7 +363,7 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         const BlackholeGddr gddr_x = static_cast<BlackholeGddr>(base);
         const BlackholeGddr gddr_y = static_cast<BlackholeGddr>(base + 1);
 
-        // Layaggregated_gddr_telemetry: [31:24] y top, [23:16] y bottom, [15:8] x top, [7:0] x bottom.
+        // Temperature word layout: [31:24] gddr_y top, [23:16] gddr_y bottom, [15:8] gddr_x top, [7:0] gddr_x bottom.
         aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_bottom = static_cast<uint8_t>(temp_word & 0xFFu);
         aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_top = static_cast<uint8_t>((temp_word >> 8) & 0xFFu);
         aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_bottom =
@@ -371,7 +371,7 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_top =
             static_cast<uint8_t>((temp_word >> 24) & 0xFFu);
 
-        // Layaggregated_gddr_telemetry: [31:24] y corr write, [23:16] y corr read, [15:8] x corr write, [7:0] x corr
+        // Corrected errors word layout: [31:24] gddr_y write, [23:16] gddr_y read, [15:8] gddr_x write, [7:0] gddr_x
         // read.
         aggregated_gddr_telemetry.modules[gddr_x].corr_edc_rd_errors = static_cast<uint8_t>(corr_word & 0xFFu);
         aggregated_gddr_telemetry.modules[gddr_x].corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> 8) & 0xFFu);

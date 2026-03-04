@@ -12,7 +12,7 @@ namespace tt::umd {
 
 inline constexpr int NUM_GDDR_MODULES = 8;
 
-/** GDDR module indices for Blackhole. */
+// GDDR modules for Blackhole.
 enum class BlackholeGddr {
     GDDR_0 = 0,
     GDDR_1 = 1,
@@ -24,28 +24,21 @@ enum class BlackholeGddr {
     GDDR_7 = 7
 };
 
-/**
- * Per-module GDDR telemetry for monitoring and early warning of DRAM issues.
- * Layout matches tt-zephyr-platforms bh_arc telemetry (telemetry.c).
- */
 struct GddrModuleTelemetry {
-    /** Temperature in Celsius of the top DRAM die. */
+    // Temperature in Celsius of the top DRAM die.
     uint16_t dram_temperature_top{0};
-    /** Temperature in Celsius of the bottom DRAM die. */
+    // Temperature in Celsius of the bottom DRAM die.
     uint16_t dram_temperature_bottom{0};
-    /** Saturates at 255. Number of cumulative corrected EDC errors on read since reset. */
+    // Saturates at 255. Number of cumulative corrected EDC errors on read since reset.
     uint8_t corr_edc_rd_errors{0};
-    /** Saturates at 255. Number of cumulative corrected EDC errors on write since reset. */
+    // Saturates at 255. Number of cumulative corrected EDC errors on write since reset.
     uint8_t corr_edc_wr_errors{0};
-    /** 1 if any uncorrected EDC errors on read since reset. */
+    // 1 if any uncorrected EDC errors on read since reset.
     uint8_t uncorr_edc_rd_error{0};
-    /** 1 if any uncorrected EDC errors on write since reset. */
+    // 1 if any uncorrected EDC errors on write since reset.
     uint8_t uncorr_edc_wr_error{0};
 };
 
-/**
- * Aggregated GDDR telemetry for the device.
- */
 struct GddrTelemetry {
     std::unordered_map<BlackholeGddr, GddrModuleTelemetry> modules;
 };

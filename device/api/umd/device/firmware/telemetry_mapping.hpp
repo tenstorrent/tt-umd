@@ -17,7 +17,7 @@ namespace tt::umd {
 using StandardTag = TelemetryTag;
 
 // Legacy Wormhole telemetry tag (firmware < 18.4.0).
-using WormholeTag = wormhole::TelemetryTag;
+using WormholeTag = wormhole::LegacyTelemetryTag;
 
 // SMBus telemetry tag (for legacy Wormhole max_clock_freq).
 struct SmBusTag {

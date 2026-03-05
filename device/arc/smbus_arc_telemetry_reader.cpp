@@ -48,7 +48,7 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 }
 
 bool SmBusArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
-    return telemetry_tag >= 0 && telemetry_tag < wormhole::TelemetryTag::NUMBER_OF_TAGS;
+    return telemetry_tag >= 0 && telemetry_tag < wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS;
 }
 
 }  // namespace tt::umd

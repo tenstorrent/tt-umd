@@ -356,7 +356,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
     }
 }
 
-TEST(WarmResetTest, DISABLED_ClusterWarmResetScratch) {
+TEST(WarmResetTest, ClusterWarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
@@ -369,7 +369,7 @@ TEST(WarmResetTest, DISABLED_ClusterWarmResetScratch) {
 
     uint32_t write_test_data = 0xDEADBEEF;
 
-    auto chip_id = *cluster->get_target_device_ids().begin();
+    auto chip_id = *cluster->get_target_mmio_device_ids().begin();
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
     tt_device->bar_write32(
@@ -382,7 +382,7 @@ TEST(WarmResetTest, DISABLED_ClusterWarmResetScratch) {
     cluster.reset();
 
     cluster = std::make_unique<Cluster>();
-    chip_id = *cluster->get_target_device_ids().begin();
+    chip_id = *cluster->get_target_mmio_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
     auto read_test_data = tt_device->bar_read32(

@@ -23,7 +23,7 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
@@ -567,7 +567,7 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<TlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
         return cached_wc_tlb_window.get();
     }
@@ -577,7 +577,7 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<TlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
         return cached_uc_tlb_window.get();
     }

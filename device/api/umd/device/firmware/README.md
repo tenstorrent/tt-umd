@@ -17,7 +17,7 @@ This module provides a data-driven way to handle different firmware versions and
     - `LinearTransform`: Apply bit extraction and linear scaling
     - `NotAvailable`: Mark the feature as unavailable (returns `std::nullopt`)
 
-- **Factory Method**: `create_telemetry_feature_map()` builds the appropriate configuration based on architecture and firmware version, handling special cases like:
+- **Factory Method**: `create_firmware_feature_map()` builds the appropriate configuration based on architecture and firmware version, handling special cases like:
   - Legacy Wormhole (≤18.3, 18.4-18.7)
   - Legacy Blackhole (≤18.7)
   - Modern firmware (>18.7)
@@ -42,7 +42,7 @@ Most getter functions return `std::optional<T>` to indicate whether a feature is
 
 1. Add a new entry to `FirmwareFeature` enum in `telemetry_mapping.hpp`
 2. Add the feature to the appropriate base map (`create_modern_base()` or `create_legacy_wormhole_18_3_base()`)
-3. Override the feature in `create_telemetry_feature_map()` for any architecture/version that needs different behavior
+3. Override the feature in `create_firmware_feature_map()` for any architecture/version that needs different behavior
 4. Add the corresponding getter function that calls `read_scalar<T>(FirmwareFeature::YOUR_FEATURE)`
 
 ### Benefits

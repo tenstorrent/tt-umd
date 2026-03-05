@@ -33,7 +33,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     }
 
     // Build the telemetry feature map based on architecture and version.
-    telemetry_feature_map = create_telemetry_feature_map(tt_device, firmware_version);
+    telemetry_feature_map = create_firmware_feature_map(tt_device, firmware_version);
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
@@ -46,7 +46,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
     }
 }
 
-FirmwareFeatures FirmwareInfoProvider::create_telemetry_feature_map(
+FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
     TTDevice* tt_device, const FirmwareBundleVersion& fw_version) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:

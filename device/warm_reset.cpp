@@ -87,11 +87,11 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 }
 
-void WarmReset::warm_reset_umd_id(const std::vector<int>& umd_id, bool reset_m3, bool secondary_bus_reset) {
+void WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset) {
     std::vector<int> pci_ids;
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
-    for (const auto& id : umd_id) {
-        if (id >= enumerated_ids.size()) {
+    for (const auto& id : chip_ids) {
+        if (id >= static_cast<int>(enumerated_ids.size())) {
             log_warning(tt::LogUMD, "Provided UMD ID {} is out of range. Skipping.", id);
             continue;
         }

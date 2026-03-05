@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -18,6 +19,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arc/blackhole_spi_tt_device.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -224,12 +226,104 @@ void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
+void BlackholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
+    }
+
+    static constexpr uint32_t EN_OFF_RDCH_0 = 0x100;
+    static constexpr uint32_t DOORBELL_OFF_RDCH_0 = 0x104;
+    static constexpr uint32_t XFERSIZE_OFF_RDCH_0 = 0x11C;
+    static constexpr uint32_t SAR_LOW_OFF_RDCH_0 = 0x120;
+    static constexpr uint32_t SAR_HIGH_OFF_RDCH_0 = 0x124;
+    static constexpr uint32_t DAR_LOW_OFF_RDCH_0 = 0x128;
+    static constexpr uint32_t DAR_HIGH_OFF_RDCH_0 = 0x12C;
+    static constexpr uint32_t INT_SETUP_OFF_RDCH_0 = 0x188;
+    static constexpr uint32_t MSI_STOP_LOW_OFF_RDCH_0 = 0x190;
+    static constexpr uint32_t MSI_STOP_HIGH_OFF_RDCH_0 = 0x194;
+    static constexpr uint32_t MSI_ABORT_LOW_OFF_RDCH_0 = 0x1A0;
+    static constexpr uint32_t MSI_ABORT_HIGH_OFF_RDCH_0 = 0x1A4;
+    static constexpr uint32_t MSI_MSGD_OFF_RDCH_0 = 0x1A8;
+    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;
+
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    volatile uint8_t *bar2 = reinterpret_cast<volatile uint8_t *>(pci_device_->bar2_uc);
+
+    if (!dma_buffer.buffer) {
+        throw std::runtime_error("DMA buffer is not initialized.");
+    }
+
+    if (dst % 4 != 0) {
+        throw std::runtime_error("DMA destination address must be aligned to 4 bytes.");
+    }
+
+    if (size % 4 != 0) {
+        throw std::runtime_error("DMA size must be a multiple of 4.");
+    }
+
+    if (!bar2) {
+        throw std::runtime_error("BAR2 is not mapped.");
+    }
+
+    auto write_reg = [&](uint32_t offset, uint32_t value) {
+        *reinterpret_cast<volatile uint32_t *>(bar2 + offset) = value;
+    };
+
+    auto read_reg = [&](uint32_t offset) -> uint32_t { return *reinterpret_cast<volatile uint32_t *>(bar2 + offset); };
+
+    write_reg(INT_SETUP_OFF_RDCH_0, 0x28);
+    write_reg(MSI_STOP_LOW_OFF_RDCH_0, static_cast<uint32_t>(dma_buffer.completion_pa & 0xFFFFFFFF));
+    write_reg(MSI_STOP_HIGH_OFF_RDCH_0, static_cast<uint32_t>((dma_buffer.completion_pa >> 32) & 0xFFFFFFFF));
+    write_reg(
+        MSI_ABORT_LOW_OFF_RDCH_0, static_cast<uint32_t>((dma_buffer.completion_pa + sizeof(uint32_t)) & 0xFFFFFFFF));
+    write_reg(
+        MSI_ABORT_HIGH_OFF_RDCH_0,
+        static_cast<uint32_t>(((dma_buffer.completion_pa + sizeof(uint32_t)) >> 32) & 0xFFFFFFFF));
+    write_reg(MSI_MSGD_OFF_RDCH_0, 0);
+    write_reg(EN_OFF_RDCH_0, 0x1);
+    write_reg(SAR_LOW_OFF_RDCH_0, static_cast<uint32_t>(src & 0xFFFFFFFF));
+    write_reg(SAR_HIGH_OFF_RDCH_0, static_cast<uint32_t>((src >> 32) & 0xFFFFFFFF));
+    write_reg(DAR_LOW_OFF_RDCH_0, dst);
+    write_reg(DAR_HIGH_OFF_RDCH_0, 0);
+    write_reg(XFERSIZE_OFF_RDCH_0, static_cast<uint32_t>(size));
+    write_reg(DOORBELL_OFF_RDCH_0, 0x1);
+
+    auto start = std::chrono::steady_clock::now();
+    for (;;) {
+        if (read_reg(XFERSIZE_OFF_RDCH_0) == 0) {
+            break;
+        }
+
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+
+        if (elapsed_ms > DMA_TIMEOUT_MS) {
+            throw std::runtime_error("DMA timeout.");
+        }
+    }
+}
+
 void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
+    }
+
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size.");
+    }
+
+    memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
 }
 
 void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
 void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {

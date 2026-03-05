@@ -545,7 +545,7 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
 TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
         cached_pcie_dma_tlb_window = std::make_unique<SiliconTlbWindow>(
-            get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+            get_pci_device()->allocate_tlb(get_pcie_dma_tlb_size(), TlbMapping::WC), config);
         return cached_pcie_dma_tlb_window.get();
     }
 

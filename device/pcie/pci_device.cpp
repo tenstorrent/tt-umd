@@ -946,8 +946,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
 }
 
 void PCIDevice::allocate_pcie_dma_buffer() {
-    if (arch != tt::ARCH::WORMHOLE_B0) {
-        // DMA buffer is only supported on Wormhole B0.
+    if (arch != tt::ARCH::WORMHOLE_B0 && arch != tt::ARCH::BLACKHOLE) {
+        // DMA buffer is only supported on Wormhole B0 and Blackhole.
         return;
     }
     // DMA buffer allocation.

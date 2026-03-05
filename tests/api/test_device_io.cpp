@@ -47,6 +47,19 @@ constexpr std::uint32_t L1_BARRIER_BASE = 12;
 constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
+std::vector<ClusterOptions> get_cluster_options_for_param_test() {
+    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
+    std::vector<ClusterOptions> options;
+    options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
+    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
+        options.push_back(ClusterOptions{
+            .chip_type = ChipType::SIMULATION,
+            .target_devices = {0},
+            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+    }
+    return options;
+}
+
 class TestDeviceIOFixture : public ::testing::Test {
 protected:
     static constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
@@ -322,10 +335,11 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
-TEST_F(TestDeviceIOFixture, ReadWriteL1) {
-    std::unique_ptr<Cluster> cluster = make_cluster();
+TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
+    ClusterOptions options = GetParam();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
-    if (is_simulation()) {
+    if (options.chip_type == ChipType::SIMULATION) {
         cluster->start_device({.init_device = true});
     }
 
@@ -362,6 +376,22 @@ TEST_F(TestDeviceIOFixture, ReadWriteL1) {
         EXPECT_EQ(data, readback_data);
     }
 }
+
+// Instantiate the test suite AFTER all TEST_P definitions.
+INSTANTIATE_TEST_SUITE_P(
+    SiliconAndSimulationCluster,
+    ClusterReadWriteL1Test,
+    ::testing::ValuesIn(get_cluster_options_for_param_test()),
+    [](const ::testing::TestParamInfo<ClusterOptions>& info) {
+        switch (info.param.chip_type) {
+            case ChipType::SILICON:
+                return "Silicon";
+            case ChipType::SIMULATION:
+                return "Simulation";
+            default:
+                return "Unknown";
+        }
+    });
 
 /**
  * This is a basic DMA test -- not using the PCIe controller's DMA engine, but

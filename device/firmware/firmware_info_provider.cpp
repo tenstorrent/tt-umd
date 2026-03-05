@@ -57,7 +57,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
                 // Legacy Wormhole 18.4 - 18.7.
                 TelemetryFeatureMap map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {
-                    SmBusTag{wormhole::TelemetryTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
+                    SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
                 return map;
             }
             // Modern Wormhole > 18.7.
@@ -115,30 +115,29 @@ TelemetryFeatureMap FirmwareInfoProvider::create_modern_base() {
 // Create base map for legacy Wormhole 18.3 firmware (WormholeTag).
 TelemetryFeatureMap FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
     return {
-        {FirmwareFeature::BOARD_ID_HIGH, {wormhole::TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
-        {FirmwareFeature::BOARD_ID_LOW, {wormhole::TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_HIGH, {WormholeTag::BOARD_ID_HIGH, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_LOW, {WormholeTag::BOARD_ID_LOW, LinearTransform{}}},
         {FirmwareFeature::ASIC_TEMPERATURE,
-         {wormhole::TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
+         {WormholeTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
         {FirmwareFeature::BOARD_TEMPERATURE,
-         {wormhole::TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::AICLK, {wormhole::TelemetryTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::AXICLK, {wormhole::TelemetryTag::AXICLK, LinearTransform{}}},
-        {FirmwareFeature::ARCCLK, {wormhole::TelemetryTag::ARCCLK, LinearTransform{}}},
-        {FirmwareFeature::MAX_CLOCK_FREQ,
-         {SmBusTag{wormhole::TelemetryTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::FAN_SPEED, {wormhole::TelemetryTag::FAN_SPEED, LinearTransform{}}},
-        {FirmwareFeature::TDP, {wormhole::TelemetryTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::TDC, {wormhole::TelemetryTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::VCORE, {wormhole::TelemetryTag::VCORE, LinearTransform{}}},
-        {FirmwareFeature::DDR_STATUS, {wormhole::TelemetryTag::DDR_STATUS, LinearTransform{}}},
+         {WormholeTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
+        {FirmwareFeature::AICLK, {WormholeTag::AICLK, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::AXICLK, {WormholeTag::AXICLK, LinearTransform{}}},
+        {FirmwareFeature::ARCCLK, {WormholeTag::ARCCLK, LinearTransform{}}},
+        {FirmwareFeature::MAX_CLOCK_FREQ, {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
+        {FirmwareFeature::TDP, {WormholeTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
+        {FirmwareFeature::DDR_STATUS, {WormholeTag::DDR_STATUS, LinearTransform{}}},
         {FirmwareFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
-        {FirmwareFeature::HEARTBEAT, {wormhole::TelemetryTag::ARC0_HEALTH, LinearTransform{}}},
-        {FirmwareFeature::ETH_FW_VERSION, {wormhole::TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::HEARTBEAT, {WormholeTag::ARC0_HEALTH, LinearTransform{}}},
+        {FirmwareFeature::ETH_FW_VERSION, {WormholeTag::ETH_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::GDDR_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::CM_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
-        {FirmwareFeature::DM_APP_FW_VERSION, {wormhole::TelemetryTag::DM_APP_FW_VERSION, LinearTransform{}}},
-        {FirmwareFeature::DM_BL_FW_VERSION, {wormhole::TelemetryTag::DM_BL_FW_VERSION, LinearTransform{}}},
-        {FirmwareFeature::TT_FLASH_VERSION, {wormhole::TelemetryTag::TT_FLASH_VERSION, LinearTransform{}}},
+        {FirmwareFeature::DM_APP_FW_VERSION, {WormholeTag::DM_APP_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::DM_BL_FW_VERSION, {WormholeTag::DM_BL_FW_VERSION, LinearTransform{}}},
+        {FirmwareFeature::TT_FLASH_VERSION, {WormholeTag::TT_FLASH_VERSION, LinearTransform{}}},
     };
 }
 

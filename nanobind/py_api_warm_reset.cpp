@@ -25,12 +25,12 @@ void bind_warm_reset(nb::module_ &m) {
             "Perform a warm reset of the device. reset_m3 flag sends specific ARC message to do a M3 board level "
             "reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset.")
         .def_static(
-            "warm_reset_umd_id",
-            &WarmReset::warm_reset_umd_id,
-            nb::arg("umd_id") = std::vector<int>{},
+            "warm_reset_chip_id",
+            &WarmReset::warm_reset_chip_id,
+            nb::arg("chip_ids") = std::vector<int>{},
             nb::arg("reset_m3") = false,
             nb::arg("secondary_bus_reset") = true,
-            "Perform a warm reset of the device using UMD IDs. reset_m3 flag sends specific ARC message to do a M3 "
+            "Perform a warm reset of the device using chip IDs. reset_m3 flag sends specific ARC message to do a M3 "
             "board level reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset.")
         .def_static(
             "warm_reset_pci_bdfs",

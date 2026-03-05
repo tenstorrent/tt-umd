@@ -5,6 +5,7 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
 #include <set>
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
@@ -63,7 +64,13 @@ protected:
 
     virtual bool is_arc_available_over_axi();
 
+    size_t get_pcie_dma_tlb_size() const override { return 2 * 1024 * 1024; }
+
 private:
+    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
+
+    std::mutex dma_mutex_;
+
     int get_pcie_x_coordinate();
 
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);

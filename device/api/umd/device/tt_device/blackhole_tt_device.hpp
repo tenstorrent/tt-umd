@@ -63,6 +63,8 @@ protected:
 
     virtual bool is_arc_available_over_axi();
 
+    void retrain_dram_core(const uint32_t dram_channel) override;
+
 private:
     int get_pcie_x_coordinate();
 

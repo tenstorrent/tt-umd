@@ -64,6 +64,8 @@ protected:
      */
     WormholeTTDevice();
 
+    void retrain_dram_core(const uint32_t dram_channel) override;
+
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
 

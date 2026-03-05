@@ -49,8 +49,12 @@ public:
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
+protected:
+    void retrain_dram_core(const uint32_t dram_channel) override;
+
 private:
     void start_host_communication();
+
     void close_device();
 
     std::mutex device_lock;

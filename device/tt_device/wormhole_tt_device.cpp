@@ -624,4 +624,6 @@ bool WormholeTTDevice::is_hardware_hung() {
     return (scratch_data == HANG_READ_VALUE);
 }
 
+void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {}
+
 }  // namespace tt::umd

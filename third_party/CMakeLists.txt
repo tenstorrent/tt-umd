@@ -163,6 +163,18 @@ CPMAddPackage(
 ####################################################################################################################
 # nanobind
 ####################################################################################################################
+if(CPM_LOCAL_PACKAGES_ONLY)
+    # When using only local packages, CPM uses "find_package".
+    # nanobind wants python included before CPM calls "find_package". 
+    find_package(
+        Python
+        COMPONENTS
+            Interpreter
+            Development
+        REQUIRED
+    )
+endif()
+
 CPMAddPackage(
     NAME nanobind
     GITHUB_REPOSITORY wjakob/nanobind

@@ -14,7 +14,6 @@ required:
   - dram
   - eth
   - functional_workers
-  - harvested_workers
   - router_only
   - worker_l1_size
   - dram_bank_size
@@ -67,14 +66,6 @@ properties:
         description: DRAM bank coordinate in format "x-y"
       minItems: 1
 
-  harvested_dram:
-    type: array
-    description: List of harvested (disabled) DRAM coordinates
-    items:
-      type: string
-      pattern: ^[0-9]+-[0-9]+$
-      description: Coordinate in format "x-y"
-
   eth:
     type: array
     description: List of Ethernet core coordinates
@@ -83,25 +74,9 @@ properties:
       pattern: ^[0-9]+-[0-9]+$
       description: Coordinate in format "x-y"
 
-  harvested_eth:
-    type: array
-    description: List of harvested (disabled) Ethernet core coordinates
-    items:
-      type: string
-      pattern: ^[0-9]+-[0-9]+$
-      description: Coordinate in format "x-y"
-
   functional_workers:
     type: array
     description: List of functional worker core coordinates
-    items:
-      type: string
-      pattern: ^[0-9]+-[0-9]+$
-      description: Coordinate in format "x-y"
-
-  harvested_workers:
-    type: array
-    description: List of harvested (disabled) worker core coordinates
     items:
       type: string
       pattern: ^[0-9]+-[0-9]+$

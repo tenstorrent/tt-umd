@@ -72,10 +72,6 @@ TEST(TestClusterDescriptor, DetectArch) {
 TEST(TestClusterDescriptor, BasicFunctionality) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
-    if (cluster_desc == nullptr) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
     std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
     std::unordered_map<ChipId, ChipId> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
@@ -103,10 +99,6 @@ TEST(TestClusterDescriptor, BasicFunctionality) {
 
 TEST(TestClusterDescriptor, EthernetConnectivity) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-
-    if (cluster_desc == nullptr) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto ethernet_connections = cluster_desc->get_ethernet_connections();
     for (const auto& [chip, connections] : ethernet_connections) {
@@ -158,9 +150,6 @@ TEST(TestClusterDescriptor, EthernetConnectivity) {
 
 TEST(TestClusterDescriptor, PrintClusterDescriptor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
     // For wormhole we still use create-ethernet-map.
@@ -207,10 +196,6 @@ TEST(TestClusterDescriptor, VerifyStandardTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     auto all_chips = cluster_desc->get_all_chips();
-
-    if (all_chips.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     switch (all_chips.size()) {
         // This covers N150, P100, P150.

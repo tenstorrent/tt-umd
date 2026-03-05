@@ -108,10 +108,6 @@ TEST(TestCluster, TestClusterAICLKControl) {
 TEST(TestCluster, GetEthernetFirmware) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     // BoardType P100 doesn't have eth cores.
     std::optional<SemVer> eth_version;
     EXPECT_NO_THROW(eth_version = cluster->get_ethernet_firmware_version());

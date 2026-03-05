@@ -59,9 +59,6 @@ bool is_ipmitool_ready() {
 
 TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto arch = PCIDevice(pci_device_ids[0]).get_arch();
     if (arch == tt::ARCH::WORMHOLE_B0) {
@@ -152,10 +149,6 @@ class WarmResetParamTest : public ::testing::TestWithParam<int> {};
 TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     int delay_us = GetParam();
     std::atomic<bool> sigbus_caught{false};
 
@@ -235,10 +228,6 @@ INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, WarmResetParamTest, ::testing::V
 TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
@@ -292,10 +281,6 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 // reset occurs, allowing user-space to detect and handle the invalidation gracefully.
 TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     constexpr int NUM_CHILDREN = 3;
     utils::MultiProcessPipe pipes(NUM_CHILDREN);
@@ -359,10 +344,6 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 TEST(WarmResetTest, ClusterWarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
@@ -395,10 +376,6 @@ TEST(WarmResetTest, ClusterWarmResetScratch) {
 TEST(WarmResetTest, GalaxyWarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     if (!is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Only galaxy test configuration.";
@@ -446,10 +423,6 @@ TEST(WarmResetTest, ClusterWarmReset) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";

@@ -187,17 +187,26 @@ CPMAddPackage(
 ####################################################################################################################
 # picosha2
 ####################################################################################################################
-CPMAddPackage(
-    NAME picosha2
-    GITHUB_REPOSITORY okdshin/PicoSHA2
-    GIT_TAG v1.0.1
-    SYSTEM YES
-    OPTIONS
-        "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-    DOWNLOAD_ONLY YES
-)
+if(NOT CPM_LOCAL_PACKAGES_ONLY)
+    CPMAddPackage(
+        NAME picosha2
+        GITHUB_REPOSITORY okdshin/PicoSHA2
+        GIT_TAG v1.0.1
+        SYSTEM YES
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+        DOWNLOAD_ONLY YES
+    )
+endif()
 
-if(picosha2_ADDED)
+if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED picosha2_SOURCE_DIR)
+    message(
+        FATAL_ERROR
+        "CPM_LOCAL_PACKAGES_ONLY is ON, but picosha2_SOURCE_DIR is not defined. Please provide the path to the PicoSHA2 source."
+    )
+endif()
+
+if(picosha2_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
     # picosha2 is header-only, create an interface library
     add_library(picosha2 INTERFACE)
     target_include_directories(picosha2 SYSTEM INTERFACE ${picosha2_SOURCE_DIR})

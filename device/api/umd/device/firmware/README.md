@@ -11,7 +11,8 @@ This module provides a data-driven way to handle different firmware versions and
 - **FirmwareFeatures**: A mapping from `FirmwareFeature` to `FeatureProfile`, which specifies:
   - **Source**: Where to read the data from:
     - `StandardTag`: Standard telemetry tag (modern firmware)
-    - `SmBusTag`: Legacy SMBus-style telemetry tag (Wormhole legacy)
+    - `WormholeTag`: Legacy SMBus-style telemetry tag (used for SmBus only)
+    - `SmBusTag`: Wraps a legacy tag that must be read via SMBus when using otherwise modern telemetry
     - `FixedValue`: A constant value (for unavailable/hardcoded features)
   - **Transform**: How to transform the raw value:
     - `LinearTransform`: Apply bit extraction and linear scaling
@@ -40,7 +41,7 @@ Most getter functions return `std::optional<T>` to indicate whether a feature is
 
 ### Adding New Features
 
-1. Add a new entry to `FirmwareFeature` enum in `telemetry_mapping.hpp`
+1. Add a new entry to `FirmwareFeature` enum in `firmware_telemetry_mapping.hpp`
 2. Add the feature to the appropriate base map (`create_modern_base()` or `create_legacy_wormhole_18_3_base()`)
 3. Override the feature in `create_firmware_feature_map()` for any architecture/version that needs different behavior
 4. Add the corresponding getter function that calls `read_scalar<T>(FirmwareFeature::YOUR_FEATURE)`

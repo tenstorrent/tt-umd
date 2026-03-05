@@ -7,7 +7,7 @@
 #include <memory>
 #include <optional>
 
-#include "umd/device/firmware/telemetry_mapping.hpp"
+#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -22,7 +22,7 @@ class TTDevice;
  * and DRAM training status.
  *
  */
-class FirmwareInfoProvider {
+class FirmwareInfoProvider final {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
 

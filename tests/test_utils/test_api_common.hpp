@@ -103,5 +103,3 @@ inline bool has_remote_chips() {
 }
 
 inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
-
-class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};

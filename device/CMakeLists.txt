@@ -65,7 +65,8 @@ target_sources(
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
-        pcie/tlb_handle.cpp
+        pcie/silicon_tlb_window.cpp
+        pcie/silicon_tlb_handle.cpp
         cluster.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -126,8 +127,12 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
+            simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
+            chip_helpers/tt_sim_tlb_manager.cpp
+            pcie/simulation_tlb_window.cpp
+            pcie/simulation_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -160,6 +165,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
+                api/umd/device/chip_helpers/tt_sim_tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
@@ -168,7 +174,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/kmd_versions.hpp
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/tlb_handle.hpp
+                api/umd/device/pcie/silicon_tlb_handle.hpp
+                api/umd/device/pcie/silicon_tlb_window.hpp
                 api/umd/device/pcie/tlb_window.hpp
+                api/umd/device/pcie/simulation_tlb_window.hpp
+                api/umd/device/pcie/simulation_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
@@ -196,12 +206,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
+                api/umd/device/simulation/rtl_sim_communicator.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/utils/common.hpp
+                api/umd/device/utils/exceptions.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp

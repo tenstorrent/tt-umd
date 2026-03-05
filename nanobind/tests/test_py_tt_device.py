@@ -308,3 +308,15 @@ class TestTTDevice(unittest.TestCase):
 
         tt_umd.set_thread_noc_id(tt_umd.NocId.NOC0)
         print("Set thread NocId back to NOC0")
+
+    def test_sigbus_exception_type_binding(self):
+        """
+        Verifies that the C++ SigbusError is correctly mapped to a Python type
+        and can be caught specifically.
+        """
+        # Verify that we can catch the specific type
+        with self.assertRaises(tt_umd.SigbusError) as cm:
+            tt_umd.raise_sigbus_error_for_testing()
+
+        # Verify the message passed through
+        self.assertIn("This is a test exception from C++", str(cm.exception))

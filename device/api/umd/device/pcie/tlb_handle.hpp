@@ -7,67 +7,62 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
+/**
+ * Base class for TLB handles that provides a common interface
+ * for both hardware (silicon) and simulation implementations.
+ */
 class TlbHandle {
 public:
-    /**
-     * Constructor for TlbHandle.
-     * Allocates a TLB from KMD of the specified size and maps it to the user space.
-     *
-     * @param tt_device Pointer to the tt_device structure representing the PCI device.
-     * @param size Size of the TLB to allocate.
-     * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
-     */
-    TlbHandle(tt_device_t* tt_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
-
-    ~TlbHandle() noexcept;
+    virtual ~TlbHandle() noexcept = default;
 
     /**
      * Configures the TLB with the provided configuration.
      *
      * @param new_config The new configuration for the TLB.
      */
-    void configure(const tlb_data& new_config);
+    virtual void configure(const tlb_data& new_config) = 0;
 
     /**
      * Returns the base mapped address of the TLB.
      */
-    uint8_t* get_base();
+    virtual uint8_t* get_base() = 0;
 
     /**
      * Returns the size of the TLB.
      */
-    size_t get_size() const;
+    virtual size_t get_size() const = 0;
 
     /**
      * Returns the current configuration of the TLB.
      */
-    const tlb_data& get_config() const;
+    virtual const tlb_data& get_config() const = 0;
 
     /**
      * Returns the TLB mapping type (UC or WC).
      */
-    TlbMapping get_tlb_mapping() const;
+    virtual TlbMapping get_tlb_mapping() const = 0;
 
     /**
-     * Returns the TLB ID, actually representing index of TLB in BAR0.
+     * Returns the TLB ID, representing index of TLB in BAR0.
      */
-    int get_tlb_id() const;
+    virtual int get_tlb_id() const = 0;
+
+protected:
+    /**
+     * Protected default constructor - only derived classes can construct.
+     */
+    TlbHandle() = default;
 
 private:
-    void free_tlb() noexcept;
-
-    int tlb_id;
-    uint8_t* tlb_base;
-    size_t tlb_size;
-    tlb_data tlb_config;
-    tt_device_t* tt_device_;
-    TlbMapping tlb_mapping;
-    tt_tlb_t* tlb_handle_ = nullptr;
+    /**
+     * Free any TLB resources. Called by destructor.
+     * Implemented by derived classes.
+     */
+    virtual void free_tlb() noexcept = 0;
 };
 
 }  // namespace tt::umd

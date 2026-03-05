@@ -330,13 +330,11 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
         return -EINVAL;
     }
 
-    struct tt_dma_t* dma = malloc(sizeof(struct tt_dma_t));
+    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
 
     if (!dma) {
         return -ENOMEM;
     }
-
-    memset(dma, 0, sizeof(struct tt_dma_t));
 
     struct {
         struct tenstorrent_pin_pages_in in;

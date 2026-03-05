@@ -83,6 +83,8 @@ public:
 
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
+    virtual uint64_t get_tlb_cfg_reg_size_bytes() const = 0;
+    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
     virtual DriverHostAddressParams get_host_address_params() const = 0;
@@ -92,6 +94,7 @@ public:
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 
     virtual uint64_t get_noc_node_id_offset() const = 0;
+    virtual uint64_t get_noc_node_translated_id_offset() const = 0;
     virtual uint64_t get_noc_reg_base(
         const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 

@@ -416,9 +416,6 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    read_from_device(dst, core, addr, size);
-    return;
-
     if (get_communication_device_type() != IODeviceType::PCIe) {
         TT_THROW(
             "DMA operations are not supported for {} devices.", DeviceTypeToString.at(get_communication_device_type()));

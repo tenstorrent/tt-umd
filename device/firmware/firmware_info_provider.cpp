@@ -411,15 +411,18 @@ static std::vector<DramTrainingStatus> get_modern_dram_statuses(uint32_t telemet
 }
 
 std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
-    uint32_t telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS).value_or(0);
+    auto telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS);
+    if (!telemetry_data.has_value()) {
+        return {};
+    }
 
     // Check if we're using legacy Wormhole format (4 bits per channel)
     // or modern format (2 bits per channel).
     bool is_legacy_wormhole =
         tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version <= FirmwareBundleVersion(18, 3, 0);
 
-    return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data, num_dram_channels)
-                              : get_modern_dram_statuses(telemetry_data, num_dram_channels);
+    return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data.value(), num_dram_channels)
+                              : get_modern_dram_statuses(telemetry_data.value(), num_dram_channels);
 }
 
 }  // namespace tt::umd

@@ -420,7 +420,8 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            &RtlSimulationTTDevice::send_tensix_risc_reset,
+            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, bool)>(
+                &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
             nb::arg("deassert"),
             "Send a Tensix RISC reset signal to the RTL simulation device.")

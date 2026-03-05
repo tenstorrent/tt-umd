@@ -16,7 +16,7 @@ namespace tt::umd {
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
 
 // Array of DM RiscType values for iteration.
-static const std::array<RiscType, 8> RISC_TYPES_DMS = {
+static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
     RiscType::DM0,
     RiscType::DM1,
     RiscType::DM2,
@@ -26,10 +26,12 @@ static const std::array<RiscType, 8> RISC_TYPES_DMS = {
     RiscType::DM6,
     RiscType::DM7};
 
+static constexpr ChipId DEFAULT_CHIP_ID = 0;
+
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, 0);
+    return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, DEFAULT_CHIP_ID);
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
@@ -43,7 +45,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_->initialize();
 }
 
-RtlSimulationTTDevice::~RtlSimulationTTDevice() = default;
+RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
 
 void RtlSimulationTTDevice::start_device() {
     // Communicator is already initialized in constructor.

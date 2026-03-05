@@ -33,7 +33,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     }
 
     // Build the telemetry feature map based on architecture and version.
-    telemetry_feature_map = create_firmware_feature_map(tt_device, firmware_version);
+    firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
@@ -165,8 +165,8 @@ uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
 }
 
 bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
-    auto it = telemetry_feature_map.find(feature);
-    if (it == telemetry_feature_map.end()) {
+    auto it = firmware_feature_map.find(feature);
+    if (it == firmware_feature_map.end()) {
         return false;
     }
 
@@ -196,8 +196,8 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
 
 template <typename T>
 std::optional<T> FirmwareInfoProvider::read_scalar(FirmwareFeature feature) const {
-    auto it = telemetry_feature_map.find(feature);
-    if (it == telemetry_feature_map.end()) {
+    auto it = firmware_feature_map.find(feature);
+    if (it == firmware_feature_map.end()) {
         return std::nullopt;
     }
 

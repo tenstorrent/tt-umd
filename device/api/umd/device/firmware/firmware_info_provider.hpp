@@ -134,7 +134,7 @@ private:
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 
     // Configuration map that drives the data-driven behavior.
-    FirmwareFeatures telemetry_feature_map;
+    FirmwareFeatures firmware_feature_map;
 
     // Factory helpers for creating telemetry feature configuration maps.
     static FirmwareFeatures create_firmware_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);

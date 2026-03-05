@@ -121,7 +121,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
          {WormholeTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
         {FirmwareFeature::BOARD_TEMPERATURE,
          {WormholeTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::AICLK, {WormholeTag::AICLK, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::AICLK, {WormholeTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::AXICLK, {WormholeTag::AXICLK, LinearTransform{}}},
         {FirmwareFeature::ARCCLK, {WormholeTag::ARCCLK, LinearTransform{}}},
         {FirmwareFeature::MAX_CLOCK_FREQ, {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},

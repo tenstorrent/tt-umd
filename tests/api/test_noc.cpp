@@ -22,12 +22,7 @@ using namespace tt::umd;
 
 class TestNoc : public ::testing::Test {
 public:
-    void SetUp() override {
-        cluster_ = std::make_unique<Cluster>();
-        if (cluster_->get_cluster_description()->get_all_chips().empty()) {
-            GTEST_SKIP() << "No chips present on the system. Skipping test.";
-        }
-    }
+    void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
 
     void verify_noc_id_cores_via_other_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {

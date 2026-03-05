@@ -144,10 +144,6 @@ TEST(TestDeviceIO, RemoteFlush) {
 TEST(TestDeviceIO, SimpleIOSpecificSiliconChips) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {0},
     });
@@ -237,10 +233,6 @@ TEST(TestDeviceIO, DynamicTLB_RW) {
 TEST(TestDeviceIO, TestMulticastWrite) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     const tt_xy_pair grid_size = {8, 8};
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -282,10 +274,6 @@ TEST(TestDeviceIO, TestMulticastWrite) {
 
 TEST(TestDeviceIO, TestDmaMulticastWrite) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
@@ -370,9 +358,6 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (options.chip_type == SIMULATION) {
         cluster->start_device({.init_device = true});
     }
@@ -443,12 +428,6 @@ INSTANTIATE_TEST_SUITE_P(
  * 5. Verifies that the offsets have been zeroed from host's perspective.
  */
 TEST(TestDeviceIO, SysmemReadWrite) {
-    {
-        Cluster cluster;
-        if (cluster.get_target_device_ids().empty()) {
-            GTEST_SKIP() << "No chips present on the system. Skipping test.";
-        }
-    }
     constexpr size_t ONE_GIG = 1ULL << 30;
     constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
     const bool is_vm = test_utils::is_virtual_machine();
@@ -627,9 +606,6 @@ TEST(TestDeviceIO, TTSimSysmemReadWrite) {
 
 TEST(TestDeviceIO, RegReadWrite) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -675,9 +651,6 @@ TEST(TestDeviceIO, RegReadWrite) {
 
 TEST(TestDeviceIO, WriteDataReadReg) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 

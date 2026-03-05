@@ -32,7 +32,6 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         TT_THROW("No telemetry reader present in tt_device.");
     }
 
-    // Build the telemetry feature map based on architecture and version.
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
 }
 

@@ -4,6 +4,7 @@
 
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
+#include <array>
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
@@ -14,8 +15,8 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
 
-// Vector of DM RiscType values for iteration.
-static const std::vector<RiscType> RISC_TYPES_DMS = {
+// Array of DM RiscType values for iteration.
+static const std::array<RiscType, 8> RISC_TYPES_DMS = {
     RiscType::DM0,
     RiscType::DM1,
     RiscType::DM2,
@@ -61,6 +62,11 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
+// Three overloads exist for send_tensix_risc_reset:
+// 1. (tt_xy_pair, TensixSoftResetOptions) - main implementation used by C++ callers.
+// 2. (tt_xy_pair, bool) - convenience wrapper used by the Python (nanobind) bindings.
+// 3. (TensixSoftResetOptions) - required by the chip-level interface contract; throws because RTL
+//    simulation always requires an explicit core coordinate.
 void RtlSimulationTTDevice::send_tensix_risc_reset(
     tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
@@ -186,15 +192,19 @@ EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pai
 }
 
 uint32_t RtlSimulationTTDevice::get_clock() {
-    // Return a default clock frequency for RTL simulation.
-    return 1000;  // 1 GHz.
+    // RTL simulation does not have an ARC processor, so clock frequency is not available.
+    TT_THROW("get_clock not supported for RTL simulation");
 }
 
 uint32_t RtlSimulationTTDevice::get_min_clock_freq() {
-    return 1000;  // 1 GHz.
+    // RTL simulation does not have an ARC processor, so clock frequency is not available.
+    TT_THROW("get_min_clock_freq not supported for RTL simulation");
 }
 
-bool RtlSimulationTTDevice::get_noc_translation_enabled() { return false; }
+bool RtlSimulationTTDevice::get_noc_translation_enabled() {
+    // NOC address translation is not available in RTL simulation.
+    return false;
+}
 
 void RtlSimulationTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

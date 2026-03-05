@@ -702,3 +702,211 @@ TEST(TestDeviceIO, WriteDataReadReg) {
         EXPECT_EQ(write_data_l1[i], readback_value);
     }
 }
+
+//
+void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
+    if (cluster.get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        cluster.dma_read_from_device(mem_ptr, size, 0, core, address);
+    } else {
+        cluster.read_from_device(mem_ptr, 0, core, address, size);
+    }
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size patterns
+ * to 0x0 in several DRAM cores, then reading them back and verifying.
+ */
+TEST(TestDeviceIO, DMA1) {
+    const ChipId chip = 0;
+    Cluster cluster;
+
+    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    size_t dram_count = soc_descriptor.get_num_dram_channels();
+    std::vector<CoreCoord> dram_cores;
+    dram_cores.reserve(dram_count);
+    for (size_t i = 0; i < dram_count; ++i) {
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+    }
+
+    // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
+    // and TLB reassignment.
+    size_t buf_size = 0x1080000;
+
+    // Keep track of the patterns we wrote to DRAM so we can verify them later.
+    std::vector<std::vector<uint8_t>> patterns;
+
+    // First, write a different pattern to each of the DRAM cores.
+    for (auto core : dram_cores) {
+        std::vector<uint8_t> pattern(buf_size);
+        test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
+
+        cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
+
+        patterns.push_back(pattern);
+    }
+
+    // Now, read back the patterns we wrote to DRAM and verify them.
+    for (size_t i = 0; i < dram_cores.size(); ++i) {
+        auto core = dram_cores[i];
+        std::vector<uint8_t> readback(buf_size, 0x0);
+
+        read_data_based_on_architecture(cluster, core, readback.data(), 0x0, readback.size());
+
+        EXPECT_EQ(patterns[i], readback) << "Mismatch for core " << core.str() << " addr=0x0"
+                                         << " size=" << std::dec << readback.size();
+    }
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random patterns of random
+ * sizes to random addresses in several DRAM cores, then reading them back and
+ * verifying.  Addresses are constrained to be within the first 1 GiB of each
+ * DRAM channel and are aligned to 4 bytes.  Sizes are constrained to be between
+ * 4 bytes and 32 MiB, and are aligned to 4 bytes.  Also tested is the case
+ * where the write is done using MMIO instead of DMA.
+ */
+TEST(TestDeviceIO, DMA2) {
+    const ChipId chip = 0;
+    Cluster cluster;
+
+    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    size_t dram_count = 1;
+    std::vector<CoreCoord> dram_cores;
+    dram_cores.reserve(dram_count);
+    for (size_t i = 0; i < dram_count; ++i) {
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+    }
+
+    // Constraints for random address/size generation.
+    const size_t MIN_BUF_SIZE = 4;
+    const size_t MAX_BUF_SIZE = 0x2000000;
+    const uint64_t MIN_ADDR = 0x0;
+    const uint64_t MAX_ADDR = 0x3e000000;
+
+    // Setup random number generation.
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::uniform_int_distribution<size_t> size_dist(MIN_BUF_SIZE, MAX_BUF_SIZE);
+    std::uniform_int_distribution<uint64_t> addr_dist(MIN_ADDR, MAX_ADDR);
+
+    // Structure to keep track of the operations.
+    struct DmaOpInfo {
+        CoreCoord core;
+        uint64_t address;
+        std::vector<uint8_t> data;  // Store the actual data written for verification.
+    };
+
+    const size_t ITERATIONS = 25;
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        std::vector<DmaOpInfo> write_ops;
+        write_ops.reserve(dram_cores.size());
+
+        // First, write a different random pattern to a random address on each DRAM core.
+        for (const auto& core : dram_cores) {
+            // Generate random size and address.
+            size_t size = size_dist(rng) & ~0x3ULL;
+            uint64_t addr = 0;
+
+            // Generate a random pattern of the specified size.
+            std::vector<uint8_t> pattern(size);
+            test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
+
+            // Perform the DMA write.
+            cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, addr);
+
+            // Store the operation details for verification.
+            write_ops.push_back({core, addr, pattern});
+        }
+
+        // Now, read back the patterns we wrote to DRAM and verify them.
+        for (const auto& op : write_ops) {
+            std::vector<uint8_t> readback(op.data.size());
+
+            read_data_based_on_architecture(cluster, op.core, readback.data(), op.address, readback.size());
+
+            // Verify the data.
+            EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
+                                         << op.address << " size=" << std::dec << op.data.size();
+        }
+    }
+
+    // Do it again but use MMIO writes to the DRAM cores instead of DMA.
+    // DMA is still used for readback.  The inverse of this test (DMA for write;
+    // MMIO for read) is omitted because of how slow MMIO reads are.
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        std::vector<DmaOpInfo> write_ops;
+        write_ops.reserve(dram_cores.size());
+
+        // First, write a different random pattern to a random address on each DRAM core.
+        for (const auto& dram_core : dram_cores) {
+            // Generate random size and address.
+            size_t size = size_dist(rng) & ~0x3ULL;
+            uint64_t addr = 0;
+
+            // Generate a random pattern of the specified size.
+            std::vector<uint8_t> pattern(size);
+            test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
+
+            // Perform the DMA write.
+            cluster.write_to_device(pattern.data(), pattern.size(), chip, dram_core, addr);
+
+            // Store the operation details for verification.
+            write_ops.push_back({dram_core, addr, pattern});
+        }
+
+        // Add a membar on all dram_cores to ensure the write is completed before reading back.
+        // But before that we must set a dram membar which is not conflicting with the write and read we're doing.
+        // The DRAM buffer written will always start at 0x0, and we can set barrier after the maximum buffer size.
+        auto default_l1_address_params =
+            cluster.get_tt_device(chip)->get_architecture_implementation()->get_l1_address_params();
+        cluster.set_barrier_address_params(
+            {default_l1_address_params.tensix_l1_barrier_base,
+             default_l1_address_params.eth_l1_barrier_base,
+             MAX_BUF_SIZE});
+        cluster.dram_membar(chip);
+
+        // Now, read back the patterns we wrote to DRAM and verify them.
+        for (const auto& op : write_ops) {
+            std::vector<uint8_t> readback(op.data.size());
+
+            read_data_based_on_architecture(cluster, op.core, readback.data(), op.address, readback.size());
+
+            // Verify the data.
+            EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
+                                         << op.address << " size=" << std::dec << op.data.size();
+        }
+    }
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size patterns
+ * to 0x0 in several DRAM cores, then reading them back and verifying.
+ */
+TEST(TestDeviceIO, DMA3) {
+    const ChipId chip = 0;
+    Cluster cluster;
+
+    CoreCoord eth_core = cluster.get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
+
+    size_t buf_size = 768;
+
+    std::vector<uint8_t> zeros(buf_size, 1);
+    cluster.write_to_device(zeros.data(), zeros.size(), chip, eth_core, 254304);
+    std::vector<uint8_t> readback_zeros(buf_size, 0xFF);
+    cluster.read_from_device(readback_zeros.data(), chip, eth_core, 254304, readback_zeros.size());
+    EXPECT_EQ(zeros, readback_zeros) << "Mismatch zeros or core " << eth_core.str() << " addr=0x0"
+                                     << " size=" << std::dec << readback_zeros.size();
+
+    std::vector<uint8_t> pattern(buf_size, 0);
+    for (int i = 0; i < buf_size; ++i) {
+        pattern[i] = i % 256;
+    }
+
+    cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, eth_core, 254304);
+
+    std::vector<uint8_t> readback(buf_size, 1);
+    cluster.read_from_device(readback.data(), chip, eth_core, 254304, readback.size());
+
+    EXPECT_EQ(pattern, readback) << "Mismatch for core " << eth_core.str() << " addr=0x0"
+                                 << " size=" << std::dec << readback.size();
+}

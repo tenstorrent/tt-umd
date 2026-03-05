@@ -134,16 +134,15 @@ private:
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 
     // Configuration map that drives the data-driven behavior.
-    TelemetryFeatureMap telemetry_feature_map;
+    FirmwareFeatures telemetry_feature_map;
 
     // Factory helpers for creating telemetry feature configuration maps.
-    static TelemetryFeatureMap create_telemetry_feature_map(
-        TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
-    static TelemetryFeatureMap create_modern_base();
-    static TelemetryFeatureMap create_legacy_wormhole_18_3_base();
+    static FirmwareFeatures create_telemetry_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
+    static FirmwareFeatures create_modern_base();
+    static FirmwareFeatures create_legacy_wormhole_18_3_base();
 
     // Engine methods for reading and transforming telemetry data.
-    uint32_t read_raw_telemetry(const TelemetryKey& key) const;
+    uint32_t read_raw_telemetry(const FeatureKey& key) const;
 
     bool is_feature_available(FirmwareFeature feature) const;
 

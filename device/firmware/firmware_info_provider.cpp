@@ -46,7 +46,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
     }
 }
 
-TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
+FirmwareFeatures FirmwareInfoProvider::create_telemetry_feature_map(
     TTDevice* tt_device, const FirmwareBundleVersion& fw_version) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
@@ -55,7 +55,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
                 return create_legacy_wormhole_18_3_base();
             } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 // Legacy Wormhole 18.4 - 18.7.
-                TelemetryFeatureMap map = create_modern_base();
+                FirmwareFeatures map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {
                     SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
                 return map;
@@ -65,7 +65,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 // Legacy Blackhole <= 18.7.
-                TelemetryFeatureMap map = create_modern_base();
+                FirmwareFeatures map = create_modern_base();
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
                 // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
                 map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
@@ -73,7 +73,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
             }
             // Modern Blackhole > 18.7.
             {
-                TelemetryFeatureMap map = create_modern_base();
+                FirmwareFeatures map = create_modern_base();
                 // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
                 map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
                 return map;
@@ -84,7 +84,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_telemetry_feature_map(
 }
 
 // Create base map for modern firmware (StandardTag).
-TelemetryFeatureMap FirmwareInfoProvider::create_modern_base() {
+FirmwareFeatures FirmwareInfoProvider::create_modern_base() {
     return {
         {FirmwareFeature::BOARD_ID_HIGH, {TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
         {FirmwareFeature::BOARD_ID_LOW, {TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
@@ -113,7 +113,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_modern_base() {
 }
 
 // Create base map for legacy Wormhole 18.3 firmware (WormholeTag).
-TelemetryFeatureMap FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
+FirmwareFeatures FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
     return {
         {FirmwareFeature::BOARD_ID_HIGH, {WormholeTag::BOARD_ID_HIGH, LinearTransform{}}},
         {FirmwareFeature::BOARD_ID_LOW, {WormholeTag::BOARD_ID_LOW, LinearTransform{}}},
@@ -141,7 +141,7 @@ TelemetryFeatureMap FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
     };
 }
 
-uint32_t FirmwareInfoProvider::read_raw_telemetry(const TelemetryKey& key) const {
+uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
     return std::visit(
         [this](auto&& arg) -> uint32_t {
             using T = std::decay_t<decltype(arg)>;

@@ -4,11 +4,11 @@ This module provides a data-driven way to handle different firmware versions and
 
 ### Design Overview
 
-`FirmwareInfoProvider` is a single, data-driven class that abstracts away firmware version and architecture differences. The class uses a configuration map (`TelemetryFeatureMap`) that determines how each telemetry feature is read and transformed at runtime.
+`FirmwareInfoProvider` is a single, data-driven class that abstracts away firmware version and architecture differences. The class uses a configuration map (`FirmwareFeatures`) that determines how each telemetry feature is read and transformed at runtime.
 
 #### Key Components
 
-- **TelemetryFeatureMap**: A mapping from `FirmwareFeature` to `FeatureProfile`, which specifies:
+- **FirmwareFeatures**: A mapping from `FirmwareFeature` to `FeatureProfile`, which specifies:
   - **Source**: Where to read the data from:
     - `StandardTag`: Standard telemetry tag (modern firmware)
     - `SmBusTag`: Legacy SMBus-style telemetry tag (Wormhole legacy)

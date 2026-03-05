@@ -33,8 +33,8 @@ struct FixedValue {
     uint32_t value;
 };
 
-// TelemetryKey: The "Where" - can be a standard enum, legacy enum, SMBus tag, or fixed value.
-using TelemetryKey = std::variant<StandardTag, WormholeTag, SmBusTag, FixedValue>;
+// FeatureKey: The "Where" - can be a standard enum, legacy enum, SMBus tag, or fixed value.
+using FeatureKey = std::variant<StandardTag, WormholeTag, SmBusTag, FixedValue>;
 
 /**
  * LinearTransform: Applies shift, mask, scale, and offset to raw telemetry data.
@@ -108,11 +108,11 @@ enum class FirmwareFeature {
  * Stage 2 (Converter): How to transform raw data into the final result
  */
 struct FeatureProfile {
-    TelemetryKey key;
+    FeatureKey key;
     DataConverter converter;
 };
 
 // The configuration map: FirmwareFeature -> FeatureProfile.
-using TelemetryFeatureMap = std::map<FirmwareFeature, FeatureProfile>;
+using FirmwareFeatures = std::map<FirmwareFeature, FeatureProfile>;
 
 }  // namespace tt::umd

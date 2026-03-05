@@ -216,9 +216,18 @@ endif()
 ####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
-CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 SYSTEM YES DOWNLOAD_ONLY YES)
+if(NOT CPM_LOCAL_PACKAGES_ONLY)
+    CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 SYSTEM YES DOWNLOAD_ONLY YES)
+endif()
 
-if(umd_asio_ADDED)
+if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED umd_asio_SOURCE_DIR)
+    message(
+        FATAL_ERROR
+        "CPM_LOCAL_PACKAGES_ONLY is ON, but umd_asio_SOURCE_DIR is not defined. Please provide the path to the Asio source."
+    )
+endif()
+
+if(umd_asio_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
     add_library(umd_asio_lib INTERFACE)
 
     target_include_directories(umd_asio_lib SYSTEM INTERFACE "${umd_asio_SOURCE_DIR}/asio/include")

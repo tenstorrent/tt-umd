@@ -70,7 +70,6 @@ inline std::vector<std::string> GetAllSocDescs() {
              "blackhole_140_arch.yaml",
              "blackhole_simulation_1x2.yaml",
              "quasar_simulation_1x1.yaml",
-             "serialized.yaml",
              "wormhole_b0_1x1.yaml",
              "wormhole_b0_8x10.yaml",
              "wormhole_b0_one_dram_one_tensix_no_eth.yaml",

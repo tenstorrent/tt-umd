@@ -884,8 +884,9 @@ TEST(TestDeviceIO, DMA2) {
 }
 
 /**
- * Test the PCIe DMA controller by using it to write random fixed-size patterns
- * to 0x0 in several DRAM cores, then reading them back and verifying.
+ * Test the PCIe DMA controller by using it to write and read fixed-size patterns
+ * to and from a single ETH core at device address 254304 (0x3E160), then verify
+ * that the data read back matches what was written.
  */
 TEST(TestDeviceIO, DMA3) {
     const ChipId chip = 0;

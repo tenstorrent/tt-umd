@@ -31,7 +31,7 @@ UMD assigns its own logical IDs to all chips it discovers, always starting at 0 
 
 Since [PR #1915](https://github.com/tenstorrent/tt-umd/pull/1915), UMD logical IDs are sorted by PCI BDF, so **they are stable across reset**. Logical ID 0 always maps to the same physical chip as long as the BDF assignment is stable (which is guaranteed on Galaxy systems).
 
-When `TT_VISIBLE_DEVICES` filtering is applied and only a subset of devices is opened, the resulting cluster still assigns logical IDs starting from 0. PCIe-visible chips always get the lower logical IDs; remote chips (e.g., the second chip on N300) get higher logical IDs.
+When `TT_VISIBLE_DEVICES` filtering is applied and only a subset of devices is opened, the resulting cluster still assigns logical IDs starting from 0. Chips visible over PCIe always receive lower logical IDs than remote chips — for example, on an N300 the PCIe chip is always logical ID 0 and the remote chip is logical ID 1; on a T3K, logical IDs 0–3 are the PCIe chips and 4–7 are the remote chips. This ordering holds regardless of which devices are selected via `TT_VISIBLE_DEVICES`.
 
 ### ASIC IDs
 

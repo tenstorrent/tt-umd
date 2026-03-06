@@ -486,41 +486,6 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         log_debug(LogUMD, "\tchip: {}, coord: {}", chip_id, chip_location);
     }
 
-    if (yaml["chip_to_boardtype"]) {
-        for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = yaml_chip_board_type.first;
-            const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
-            if (board_type == BoardType::UNKNOWN) {
-                log_warning(
-                    LogUMD,
-                    "Unknown board type for chip {}. This might happen because chip is running old firmware. "
-                    "Defaulting to UNKNOWN",
-                    chip);
-            }
-            chip_board_type.insert({chip, board_type});
-        }
-    } else if (yaml["boardtype"]) {
-        // Legacy format support: parse old "boardtype" field for backward compatibility.
-        for (const auto &yaml_chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = yaml_chip_board_type.first;
-            const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
-            if (board_type == BoardType::UNKNOWN) {
-                log_warning(
-                    LogUMD,
-                    "Unknown board type for chip {} from legacy boardtype field. "
-                    "Defaulting to UNKNOWN",
-                    chip);
-            }
-            chip_board_type.insert({chip, board_type});
-        }
-    } else {
-        for (const auto &chip : all_chips) {
-            chip_board_type.insert({chip, BoardType::UNKNOWN});
-        }
-    }
-
     if (yaml["boards"]) {
         YAML::Node boardsNode = yaml["boards"];
         if (!boardsNode || !boardsNode.IsSequence()) {
@@ -533,9 +498,12 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             }
 
             uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
+            const std::string& board_type_str = boardEntry[1]["board_type"].as<std::string>();
+            BoardType board_type = board_type_from_string(board_type_str);
 
             for (const auto &chip : boardEntry[2]["chips"]) {
                 add_chip_to_board(chip.as<ChipId>(), board_id);
+                chip_board_type.insert({chip.as<ChipId>(), board_type});
             }
         }
     }
@@ -834,12 +802,6 @@ std::string ClusterDescriptor::serialize() const {
         out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << harvesting.pcie_harvesting_mask;
         out << YAML::Key << "l2cpu_harvesting_mask" << YAML::Value << harvesting.l2cpu_harvesting_mask;
         out << YAML::EndMap;
-    }
-    out << YAML::EndMap;
-
-    out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips_map) {
-        out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
     }
     out << YAML::EndMap;
 

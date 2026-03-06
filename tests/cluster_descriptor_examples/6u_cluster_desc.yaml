@@ -1335,39 +1335,6 @@ harvesting:
     dram_harvesting_mask: 0
     eth_harvesting_mask: 0
     pcie_harvesting_mask: 0
-chip_to_boardtype:
-  0: ubb
-  1: ubb
-  2: ubb
-  3: ubb
-  4: ubb
-  5: ubb
-  6: ubb
-  7: ubb
-  8: ubb
-  9: ubb
-  10: ubb
-  11: ubb
-  12: ubb
-  13: ubb
-  14: ubb
-  15: ubb
-  16: ubb
-  17: ubb
-  18: ubb
-  19: ubb
-  20: ubb
-  21: ubb
-  22: ubb
-  23: ubb
-  24: ubb
-  25: ubb
-  26: ubb
-  27: ubb
-  28: ubb
-  29: ubb
-  30: ubb
-  31: ubb
 boards:
   -
     - board_id: 72061240465162240

@@ -230,30 +230,24 @@ TEST(TestFirmwareInfoProvider, EthFirmwareVersion) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        std::optional<uint32_t> eth_fw_version_raw = fw_info->get_eth_fw_version();
         std::optional<SemVer> eth_fw_version_semver = fw_info->get_eth_fw_version_semver();
 
         log_info(
             tt::LogUMD,
-            "Device {}: arch={}, fw_range={}, eth_fw_version_raw={}, eth_fw_version_semver={}",
+            "Device {}: arch={}, fw_range={}, eth_fw_version_semver={}",
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            eth_fw_version_raw.has_value() ? std::to_string(eth_fw_version_raw.value()) : "nullopt",
             eth_fw_version_semver.has_value() ? eth_fw_version_semver.value().to_string() : "nullopt");
 
         // Blackhole does not report ETH FW version via telemetry (NotAvailable across all FW ranges).
         if (arch == tt::ARCH::BLACKHOLE) {
-            EXPECT_FALSE(eth_fw_version_raw.has_value());
             EXPECT_FALSE(eth_fw_version_semver.has_value());
         }
 
         // Wormhole should have ETH FW version available.
         if (arch == tt::ARCH::WORMHOLE_B0) {
-            EXPECT_TRUE(eth_fw_version_raw.has_value());
-            if (eth_fw_version_raw.has_value() && eth_fw_version_raw.value() != 0) {
-                EXPECT_TRUE(eth_fw_version_semver.has_value());
-            }
+            EXPECT_TRUE(eth_fw_version_semver.has_value());
         }
     }
 }

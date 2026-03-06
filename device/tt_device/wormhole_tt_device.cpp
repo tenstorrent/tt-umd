@@ -410,23 +410,12 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
-    constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
-    auto time_taken_heartbeat = std::chrono::milliseconds(0);
     auto time_taken_port = std::chrono::milliseconds(0);
     auto start = std::chrono::steady_clock::now();
-    uint32_t heartbeat_val;
 
     tt_xy_pair actual_eth_core = eth_core;
     if (is_selected_noc1()) {
         actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
-    }
-
-    read_from_device(&heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
-
-    uint32_t new_heartbeat_val = heartbeat_val;
-    while (new_heartbeat_val != heartbeat_val) {
-        read_from_device(&new_heartbeat_val, actual_eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
-        utils::check_timeout(start, timeout_ms, fmt::format("ETH training timed out after {} ms", timeout_ms));
     }
 
     start = std::chrono::steady_clock::now();
@@ -453,7 +442,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
             }
         }
     }
-    return time_taken_heartbeat + time_taken_port;
+    return time_taken_port;
 }
 
 EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {

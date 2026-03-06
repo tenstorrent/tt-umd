@@ -324,12 +324,12 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         }
     }
 
-    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::WARN) || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
 
-bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
+void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
     uint32_t routing_firmware_disabled;
     tt_device->read_from_device(
         &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
@@ -338,9 +338,9 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             "Routing FW on 6U unexpectedly enabled on device {} core {}.",
             get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::WARN) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
             log_warning(LogUMD, message);
-            return false;
+            return;
         }
         TT_THROW(message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
@@ -348,13 +348,12 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             "Routing FW unexpectedly disabled on device {} core {}.",
             get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::WARN) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
             log_warning(LogUMD, message);
-            return false;
+            return;
         }
         TT_THROW(message);
     }
-    return true;
 }
 
 }  // namespace tt::umd

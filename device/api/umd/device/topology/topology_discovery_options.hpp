@@ -20,33 +20,24 @@ namespace tt::umd {
  */
 struct TopologyDiscoveryOptions {
     /**
-     * @brief Defines actions to take for non-device-specific issues during topology discovery.
+     * @brief Defines actions to take for selected issues during topology discovery.
      */
     enum class Action {
-        THROW,  ///< Throw an exception and halt the discovery process.
-        WARN,   ///< Log a warning message and continue the discovery process.
-    };
-
-    /**
-     * @brief Defines actions to take for device-specific issues during topology discovery.
-     */
-    enum class DeviceAction {
-        THROW,  ///< Throw an exception and halt the discovery process.
-        SKIP,   ///< Skip the problematic device and continue discovering others.
-        KEEP,   ///< Keep the device in the topology despite the issue.
+        THROW,   ///< Throw an exception and halt the discovery process.
+        IGNORE,  ///< Log a warning message and continue the discovery process.
     };
 
     /**
      * @brief Action to take when a device's chip management firmware (CMFW) version does not match the expected
      * version. Defaults to THROW.
      */
-    DeviceAction cmfw_mismatch_action = DeviceAction::THROW;
+    Action cmfw_mismatch_action = Action::THROW;
 
     /**
      * @brief Action to take when a device's chip management firmware (CMFW) version is unsupported by UMD.
      * Defaults to THROW.
      */
-    DeviceAction cmfw_unsupported_action = DeviceAction::THROW;
+    Action cmfw_unsupported_action = Action::THROW;
 
     /**
      * @brief Action to take when the Ethernet firmware (ETH FW) version does not match the expected version across
@@ -89,7 +80,8 @@ struct TopologyDiscoveryOptions {
      * If set to true, the expected ETH FW version will be determined by observing the CMFW version.
      * If set to false, the expected ETH FW version will be determined by reading the ETH FW version
      * from the first observed ETH core during discovery. Defaults to false.
-     * TODO: This option should be removed once ETH FW hearbeat checks are implemented.
+     * TODO: This option should be removed once ETH FW hearbeat checks are implemented, because
+     * that will be used to check ETH core health instead of ETH FW version value.
      */
     bool predict_eth_fw_version_from_cmfw_version = false;
 };

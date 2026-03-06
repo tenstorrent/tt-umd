@@ -118,7 +118,7 @@ protected:
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
-    virtual bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
+    virtual void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -151,7 +151,7 @@ protected:
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    virtual bool verify_fw_bundle_version(TTDevice* tt_device);
+    void verify_fw_bundle_version(TTDevice* tt_device);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.

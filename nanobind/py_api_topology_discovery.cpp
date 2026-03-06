@@ -67,11 +67,7 @@ void bind_topology_discovery(nb::module_& m) {
 
     nb::enum_<TopologyDiscoveryOptions::Action>(topology_discovery_options, "Action")
         .value("THROW", TopologyDiscoveryOptions::Action::THROW)
-        .value("WARN", TopologyDiscoveryOptions::Action::WARN);
-    nb::enum_<TopologyDiscoveryOptions::DeviceAction>(topology_discovery_options, "DeviceAction")
-        .value("THROW", TopologyDiscoveryOptions::DeviceAction::THROW)
-        .value("SKIP", TopologyDiscoveryOptions::DeviceAction::SKIP)
-        .value("KEEP", TopologyDiscoveryOptions::DeviceAction::KEEP);
+        .value("IGNORE", TopologyDiscoveryOptions::Action::IGNORE);
 
     topology_discovery_options.def(nb::init<>())
         .def_rw("cmfw_mismatch_action", &TopologyDiscoveryOptions::cmfw_mismatch_action)

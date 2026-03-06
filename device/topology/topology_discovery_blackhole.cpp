@@ -269,17 +269,13 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         }
     }
 
-    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::WARN) || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
     uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
-}
-
-bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return true;
 }
 
 }  // namespace tt::umd

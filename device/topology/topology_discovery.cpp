@@ -131,10 +131,7 @@ void TopologyDiscovery::get_connected_devices() {
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 
-        if (!verify_fw_bundle_version(tt_device.get())) {
-            log_warning(LogUMD, "Skipped device ID: {} because of CMFW version issue,", device_id);
-            continue;
-        }
+        verify_fw_bundle_version(tt_device.get());
 
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
@@ -182,10 +179,7 @@ void TopologyDiscovery::discover_remote_devices() {
         devices_to_discover.erase(it);
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
-        if (!verify_fw_bundle_version(tt_device)) {
-            log_warning(LogUMD, "Skipped ASIC ID: {} because of CMFW version issue,", current_device_asic_id);
-            continue;
-        }
+        verify_fw_bundle_version(tt_device);
 
         if (!options.discover_remote_devices) {
             continue;
@@ -219,9 +213,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!verify_routing_firmware_state(tt_device, eth_core)) {
-                continue;
-            }
+            verify_routing_firmware_state(tt_device, eth_core);
 
             log_debug(
                 LogUMD,
@@ -420,7 +412,7 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 
 void TopologyDiscovery::patch_eth_connections() {}
 
-bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
+void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
@@ -430,14 +422,14 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
                 get_asic_id(tt_device),
                 first_fw_bundle_version->to_string(),
                 fw_bundle_version.to_string());
-            if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::DeviceAction::THROW) {
+            if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW) {
                 TT_THROW(mismatch_msg);
             } else {
                 log_warning(LogUMD, mismatch_msg);
-                return options.cmfw_mismatch_action != TopologyDiscoveryOptions::DeviceAction::SKIP;
+                return;
             }
         }
-        return true;
+        return;
     }
 
     const tt::ARCH arch = tt_device->get_arch();
@@ -460,10 +452,10 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
             fw_bundle_version.to_string(),
             minimum_compatible_fw_bundle_version.to_string(),
             arch_to_str(arch));
-        if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::DeviceAction::THROW) {
+        if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW) {
             TT_THROW(cmfw_unsupported_msg);
         } else {
-            return options.cmfw_unsupported_action == TopologyDiscoveryOptions::DeviceAction::SKIP;
+            return;
         }
     }
 
@@ -476,7 +468,6 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
             latest_supported_fw_bundle_version.to_string(),
             arch_to_str(arch));
     }
-    return true;
 }
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {

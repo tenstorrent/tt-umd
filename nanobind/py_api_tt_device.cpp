@@ -26,6 +26,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/exceptions.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -49,6 +50,13 @@ void bind_tt_device(nb::module_ &m) {
         .value("PCIe", IODeviceType::PCIe)
         .value("JTAG", IODeviceType::JTAG)
         .value("Undefined", IODeviceType::UNDEFINED);
+
+    nb::exception<SigbusError>(m, "SigbusError");
+
+    m.def(
+        "raise_sigbus_error_for_testing",
+        []() { throw SigbusError("This is a test exception from C++"); },
+        "A helper function to verify SigbusError propagation");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
@@ -112,7 +120,7 @@ void bind_tt_device(nb::module_ &m) {
             static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
-            nb::arg("use_safe_api") = false,
+            nb::arg("use_safe_api") = true,
             nb::rv_policy::take_ownership)
         .def(
             "init_tt_device",
@@ -126,6 +134,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("board_id", &TTDevice::get_board_id)
         .def("get_board_type", &TTDevice::get_board_type)
         .def("get_communication_device_type", &TTDevice::get_communication_device_type)
+        .def("get_communication_device_id", &TTDevice::get_communication_device_id)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
@@ -411,7 +420,8 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            &RtlSimulationTTDevice::send_tensix_risc_reset,
+            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, bool)>(
+                &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
             nb::arg("deassert"),
             "Send a Tensix RISC reset signal to the RTL simulation device.")

@@ -139,12 +139,13 @@ CPMAddPackage(
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
         "SPDLOG_FMT_EXTERNAL_HO ON"
         "SPDLOG_INSTALL ON"
+        "BUILD_SHARED_LIBS OFF"
 )
 
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.7 SYSTEM YES)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8 SYSTEM YES)
 
 ####################################################################################################################
 # cxxopts
@@ -162,6 +163,18 @@ CPMAddPackage(
 ####################################################################################################################
 # nanobind
 ####################################################################################################################
+if(CPM_LOCAL_PACKAGES_ONLY)
+    # When using only local packages, CPM uses "find_package".
+    # nanobind wants python included before CPM calls "find_package". 
+    find_package(
+        Python
+        COMPONENTS
+            Interpreter
+            Development
+        REQUIRED
+    )
+endif()
+
 CPMAddPackage(
     NAME nanobind
     GITHUB_REPOSITORY wjakob/nanobind
@@ -174,17 +187,26 @@ CPMAddPackage(
 ####################################################################################################################
 # picosha2
 ####################################################################################################################
-CPMAddPackage(
-    NAME picosha2
-    GITHUB_REPOSITORY okdshin/PicoSHA2
-    GIT_TAG v1.0.1
-    SYSTEM YES
-    OPTIONS
-        "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-    DOWNLOAD_ONLY YES
-)
+if(NOT CPM_LOCAL_PACKAGES_ONLY)
+    CPMAddPackage(
+        NAME picosha2
+        GITHUB_REPOSITORY okdshin/PicoSHA2
+        GIT_TAG v1.0.1
+        SYSTEM YES
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+        DOWNLOAD_ONLY YES
+    )
+endif()
 
-if(picosha2_ADDED)
+if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED picosha2_SOURCE_DIR)
+    message(
+        FATAL_ERROR
+        "CPM_LOCAL_PACKAGES_ONLY is ON, but picosha2_SOURCE_DIR is not defined. Please provide the path to the PicoSHA2 source."
+    )
+endif()
+
+if(picosha2_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
     # picosha2 is header-only, create an interface library
     add_library(picosha2 INTERFACE)
     target_include_directories(picosha2 SYSTEM INTERFACE ${picosha2_SOURCE_DIR})
@@ -194,9 +216,18 @@ endif()
 ####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
-CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 SYSTEM YES DOWNLOAD_ONLY YES)
+if(NOT CPM_LOCAL_PACKAGES_ONLY)
+    CPMAddPackage(NAME umd_asio GITHUB_REPOSITORY chriskohlhoff/asio GIT_TAG asio-1-30-2 SYSTEM YES DOWNLOAD_ONLY YES)
+endif()
 
-if(umd_asio_ADDED)
+if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED umd_asio_SOURCE_DIR)
+    message(
+        FATAL_ERROR
+        "CPM_LOCAL_PACKAGES_ONLY is ON, but umd_asio_SOURCE_DIR is not defined. Please provide the path to the Asio source."
+    )
+endif()
+
+if(umd_asio_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
     add_library(umd_asio_lib INTERFACE)
 
     target_include_directories(umd_asio_lib SYSTEM INTERFACE "${umd_asio_SOURCE_DIR}/asio/include")

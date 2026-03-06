@@ -782,7 +782,7 @@ SemVer PCIDevice::read_kmd_version() {
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     try {
-        return std::make_unique<TlbHandle>(*this, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             TT_THROW(
@@ -825,7 +825,7 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
     }
 
-    log_debug(
+    log_trace(
         LogUMD,
         "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
         tlb_index,

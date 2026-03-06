@@ -27,10 +27,6 @@ using namespace tt::umd;
 TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    if (umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     // Expect to throw for remote chip for any worker core.
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
     if (!remote_chips.empty()) {
@@ -74,10 +70,6 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
 TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    if (umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     ChipId chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
 
     // TODO: In future, will be accessed through Chip api.
@@ -90,10 +82,6 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, DeassertRiscResetOnCore) {
 //     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-
-//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
-//     }
 
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
@@ -114,10 +102,6 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
 //     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
-//     }
-
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
 //     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
@@ -135,10 +119,6 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // // It reads back the risc reset reg to validate that reset reg is in a legal state
 // TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
 //     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
-
-//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
-//     }
 
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 

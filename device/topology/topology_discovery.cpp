@@ -25,6 +25,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -60,6 +61,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             TT_THROW("Unsupported device type for topology discovery");
     }
 
+    log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<TopologyDiscoveryWormhole>(options, io_device_type, soc_descriptor_path);
@@ -117,6 +119,15 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        if (tt_device->get_arch() != get_topology_arch()) {
+            log_warning(
+                LogUMD,
+                "Skipped device {} with different architecture: {}",
+                device_id,
+                arch_to_str(tt_device->get_arch()));
+            continue;
+        }
+
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 

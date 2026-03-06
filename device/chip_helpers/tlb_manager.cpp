@@ -15,6 +15,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -96,7 +97,8 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     if (tlb_size != 0) {
-        return std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
+        return std::make_unique<SiliconTlbWindow>(
+            tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
     }
 
     const std::vector<size_t>& possible_arch_sizes = tt_device_->get_architecture_implementation()->get_tlb_sizes();
@@ -104,7 +106,8 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     for (const auto& size : possible_arch_sizes) {
         std::unique_ptr<TlbWindow> tlb_window = nullptr;
         try {
-            tlb_window = std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(size, mapping), config);
+            tlb_window =
+                std::make_unique<SiliconTlbWindow>(tt_device_->get_pci_device()->allocate_tlb(size, mapping), config);
             return tlb_window;
         } catch (const std::exception& e) {
             log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", size, e.what());

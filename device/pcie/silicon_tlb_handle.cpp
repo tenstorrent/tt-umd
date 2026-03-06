@@ -34,7 +34,7 @@ SiliconTlbHandle::SiliconTlbHandle(PCIDevice& pci_device, size_t size, const Tlb
     tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
 }
 
-SiliconTlbHandle::~SiliconTlbHandle() noexcept { free_tlb(); }
+SiliconTlbHandle::~SiliconTlbHandle() noexcept { SiliconTlbHandle::free_tlb(); }
 
 void SiliconTlbHandle::configure(const tlb_data& new_config) {
     // Use PCIDevice's configure_tlb method instead of KMD ioctl calls

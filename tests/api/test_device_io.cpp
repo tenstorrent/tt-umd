@@ -630,6 +630,12 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(CoreType::TENSIX, CoreType::DRAM),
     [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });
 
+/**
+ * Helper that reads data from a device core using the appropriate mechanism for the
+ * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
+ * dma_read_from_device is used. On other architectures, the standard read_from_device
+ * path is used instead.
+ */
 void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
     if (cluster.get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0) {
         cluster.dma_read_from_device(mem_ptr, size, 0, core, address);

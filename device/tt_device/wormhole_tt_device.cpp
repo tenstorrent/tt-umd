@@ -508,6 +508,7 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
     const auto start = std::chrono::steady_clock::now();
     constexpr auto spin_limit = std::chrono::microseconds(1000);
+    std::cout << "timeout is " << timeout_ms.count() << std::endl;
     while (true) {
         uint32_t bar_read_arc_reset_scratch_status;
 

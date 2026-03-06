@@ -56,6 +56,8 @@ jobs:
 
     env:
       LD_LIBRARY_PATH: ./build/lib
+      PIP_CACHE_DIR: ${{ github.workspace }}/.pip-cache
+      PIP_ROOT_USER_ACTION: ignore
 
     steps:
       - name: Print all params

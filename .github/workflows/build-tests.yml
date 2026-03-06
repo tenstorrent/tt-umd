@@ -124,6 +124,10 @@ jobs:
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 
+    env:
+      PIP_CACHE_DIR: ${{ github.workspace }}/.pip-cache
+      PIP_ROOT_USER_ACTION: ignore
+
     steps:
       - uses: actions/checkout@v4
         with:

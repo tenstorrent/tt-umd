@@ -311,7 +311,7 @@ TEST(TestFirmwareInfoProvider, PowerMetrics) {
         log_info(tt::LogUMD, "Device {}: fw_range={}", pci_device_id, fw_range_label(fw_version));
         log_info(
             tt::LogUMD,
-            ww "fan_speed={} rpm",
+            "fan_speed={} rpm",
             fan_speed.has_value() ? std::to_string(fan_speed.value()) : "nullopt (no fan / not controlled by FW)");
         log_info(tt::LogUMD, "tdp={} W", tdp.has_value() ? std::to_string(tdp.value()) : "nullopt");
         log_info(tt::LogUMD, "tdc={} A", tdc.has_value() ? std::to_string(tdc.value()) : "nullopt");
@@ -354,17 +354,23 @@ TEST(TestFirmwareInfoProvider, DramTrainingStatus) {
             fw_range_label(fw_version),
             num_channels);
 
-        // We should get a status for each requested channel.
+        // Wormhole has 6 DRAM channels, Blackhole has 8.
         EXPECT_EQ(statuses.size(), num_channels);
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            EXPECT_EQ(num_channels, 6u);
+        } else if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_EQ(num_channels, 8u);
+        }
 
         for (uint32_t ch = 0; ch < statuses.size(); ++ch) {
             log_info(tt::LogUMD, "DRAM channel {}: {}", ch, dram_training_status_to_str(statuses[ch]));
         }
 
-        // On a healthy running system, DRAM should have completed training.
+        // IN_PROGRESS on Blackhole means the channel is either still training or has been harvested.
         // Note: Legacy WH (<= 18.3) uses 4-bit-per-channel format, modern uses 2-bit-per-channel.
         for (uint32_t ch = 0; ch < statuses.size(); ++ch) {
-            EXPECT_EQ(statuses[ch], DramTrainingStatus::SUCCESS) << "DRAM channel " << ch << " training not successful";
+            EXPECT_TRUE(statuses[ch] == DramTrainingStatus::SUCCESS || statuses[ch] == DramTrainingStatus::IN_PROGRESS)
+                << "DRAM channel " << ch << " reported FAIL";
         }
     }
 }

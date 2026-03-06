@@ -39,7 +39,7 @@ SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num
         "Only 4 host memory channels are supported per device, but {} requested.",
         num_host_mem_channels);
 
-    init_sysmem(num_host_mem_channels);
+    SiliconSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {

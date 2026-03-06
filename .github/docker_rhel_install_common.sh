@@ -20,7 +20,8 @@ $DNFC \
     xxd \
     cpio \
     libnsl2 \
-    libnsl2-devel
+    libnsl2-devel \
+    pkgconf
 
 ## Fedora ships a recent CMake; no external repo needed.
 

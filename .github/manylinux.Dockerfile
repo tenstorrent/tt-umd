@@ -15,6 +15,7 @@ RUN FILES=(/etc/yum.repos.d/*.repo) && \
 RUN dnf install -y \
     ninja-build \
     hwloc-devel \
+    pkg-config \
     vim-common \
     && dnf clean all
 

@@ -246,22 +246,21 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/common
+        ${TTLOGGER_INCLUDES}
 )
 
 target_link_libraries(
     device
     PRIVATE
         umd::Firmware
-        hwloc
+        PkgConfig::HWLOC
         rt
-        spdlog::spdlog_header_only
-        fmt::fmt-header-only
+        spdlog
+        fmt
         picosha2::picosha2
-        tt-logger::tt-logger
-        yaml-cpp::yaml-cpp
+        yaml-cpp
+        umd_asio_lib
 )
-
-target_link_libraries(device PRIVATE umd_asio_lib)
 
 check_function_exists(
     backtrace

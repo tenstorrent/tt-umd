@@ -33,6 +33,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .value("HARVESTED", CoreType::HARVESTED)
         .value("ETH", CoreType::ETH)
         .value("WORKER", CoreType::WORKER)
+        .value("DRAM_WORKER", CoreType::DRAM_WORKER)
         .def("__str__", [](CoreType ct) { return to_str(ct); })
         .def("__repr__", [](CoreType ct) { return "CoreType." + to_str(ct); });
 

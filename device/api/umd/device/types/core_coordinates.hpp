@@ -34,6 +34,9 @@ enum class CoreType {
     HARVESTED,
     ETH,
     WORKER,
+    // Represents programmable DRISCs on hardware DRAM cores, distinct from CoreType::DRAM
+    // which is used for DRAM bank data-access routing endpoints.
+    DRAM_WORKER,
     COUNT,
 };
 
@@ -74,6 +77,8 @@ static inline std::string to_str(const CoreType core_type) {
             return "ETH";
         case CoreType::WORKER:
             return "WORKER";
+        case CoreType::DRAM_WORKER:
+            return "DRAM_WORKER";
         default:
             return "UNKNOWN";
     }

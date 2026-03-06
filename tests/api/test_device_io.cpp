@@ -296,6 +296,10 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
         GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
     }
 
+    if (is_simulation()) {
+        GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
+    }
+
     const tt_xy_pair grid_size = {8, 8};
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);

@@ -188,14 +188,11 @@ private:
     std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
     std::vector<tt_xy_pair> arc_cores;
     std::vector<tt_xy_pair> workers;
-    std::vector<tt_xy_pair> harvested_workers;
     std::vector<tt_xy_pair> pcie_cores;
     std::vector<std::vector<tt_xy_pair>> dram_cores;  // per channel list of dram cores
-    std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
 
     std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
     std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
-    std::vector<tt_xy_pair> harvested_ethernet_cores;
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;

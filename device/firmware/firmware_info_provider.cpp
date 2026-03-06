@@ -191,11 +191,11 @@ uint8_t FirmwareInfoProvider::get_asic_location() const {
 }
 
 double FirmwareInfoProvider::get_asic_temperature() const {
-    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
-    // have integer part and lower 16 bits have fractional part.
-    // It needs to be divided by 65536 to get temperature in Celsius.
-    return static_cast<double>(tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE)) /
-           65536.0f;
+    // Stored in signed 16.16 fixed-point format (s16.16): high 16 bits are the integer part,
+    // lower 16 bits are the fractional part. Cast through int32_t to preserve the sign bit.
+    return static_cast<double>(static_cast<int32_t>(
+               tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE))) /
+           65536.0;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
@@ -264,8 +264,8 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
-    return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
+    // Stored in signed 16.16 fixed-point format (s16.16). See get_asic_temperature().
+    return static_cast<double>(static_cast<int32_t>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE))) / 65536.0;
 }
 
 uint32_t FirmwareInfoProvider::get_heartbeat() const {

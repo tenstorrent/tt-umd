@@ -65,9 +65,13 @@ TEST(TestTelemetry, RemoteTelemetry) {
     }
     auto remote_chip = umd_cluster->get_remote_chip(*remote_chips.begin());
     TTDevice* remote_device = remote_chip->get_tt_device();
+    ASSERT_TRUE(remote_device != nullptr);
     TTDevice* local_device = remote_chip->get_remote_communication()->get_local_device();
+    ASSERT_TRUE(local_device != nullptr);
     ArcTelemetryReader* remote_telemetry = remote_device->get_arc_telemetry_reader();
+    ASSERT_TRUE(remote_telemetry != nullptr);
     ArcTelemetryReader* local_telemetry = local_device->get_arc_telemetry_reader();
+    ASSERT_TRUE(local_telemetry != nullptr);
 
     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_LOW));
     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_HIGH));

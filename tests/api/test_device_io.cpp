@@ -894,7 +894,7 @@ TEST(TestDeviceIO, DMA3) {
     cluster.write_to_device(zeros.data(), zeros.size(), chip, eth_core, 254304);
     std::vector<uint8_t> readback_zeros(buf_size, 0xFF);
     cluster.read_from_device(readback_zeros.data(), chip, eth_core, 254304, readback_zeros.size());
-    EXPECT_EQ(zeros, readback_zeros) << "Mismatch zeros or core " << eth_core.str() << " addr=0x0"
+    EXPECT_EQ(zeros, readback_zeros) << "Mismatch zeros for core " << eth_core.str() << " addr=0x0"
                                      << " size=" << std::dec << readback_zeros.size();
 
     std::vector<uint8_t> pattern(buf_size, 0);

@@ -179,8 +179,8 @@ std::optional<std::vector<tt::EthLinkStatus>> Wormhole_18_3_FirmwareInfoProvider
     statuses.reserve(max_eth_links);
     for (uint32_t link = 0; link < max_eth_links; ++link) {
         statuses.push_back(tt::EthLinkStatus{
-            .heartbeat = static_cast<bool>(heartbeat_status & (1 << link)),
-            .retrain = static_cast<bool>(retrain_status & (1 << link)),
+            .heartbeat = static_cast<bool>(heartbeat_status & (1u << link)),
+            .retrain = static_cast<bool>(retrain_status & (1u << link)),
         });
     }
     return statuses;

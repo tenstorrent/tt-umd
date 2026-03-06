@@ -1,9 +1,7 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
 option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
 set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
-
-include(cmake/compilers.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -11,27 +9,20 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Generate compile_commands.json for IDEs and tools
 
-if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
-    message(STATUS "Setting C and C++ compiler from environment variables")
-    set(CMAKE_C_COMPILER $ENV{CMAKE_C_COMPILER})
-    set(CMAKE_CXX_COMPILER $ENV{CMAKE_CXX_COMPILER})
-endif()
-
-if(CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
-    message(STATUS "Using specifed C++ compiler: ${CMAKE_CXX_COMPILER}")
-    message(STATUS "Using specifed C compiler: ${CMAKE_C_COMPILER}")
+# Read version from VERSION file (may include prerelease suffix, e.g. 0.9.3-rc1)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION_FULL)
+string(STRIP "${TT_UMD_VERSION_FULL}" TT_UMD_VERSION_FULL)
+# CMake project() VERSION only accepts major.minor.patch[.tweak]; strip any -suffix for it
+string(FIND "${TT_UMD_VERSION_FULL}" "-" _dash_idx)
+if(_dash_idx GREATER_EQUAL 0)
+    string(SUBSTRING "${TT_UMD_VERSION_FULL}" 0 ${_dash_idx} TT_UMD_VERSION_CMAKE)
 else()
-    message(STATUS "No C or C++ compiler specified, defaulting to Clang-17")
-    FIND_AND_SET_CLANG17()
+    set(TT_UMD_VERSION_CMAKE "${TT_UMD_VERSION_FULL}")
 endif()
-
-# Read version from VERSION file
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION)
-string(STRIP "${TT_UMD_VERSION}" TT_UMD_VERSION)
 
 project(
     umd
-    VERSION ${TT_UMD_VERSION}
+    VERSION ${TT_UMD_VERSION_CMAKE}
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES
@@ -42,8 +33,6 @@ project(
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-CHECK_COMPILERS()
-include(check_libcpp)
 
 include(GNUInstallDirs)
 set(MASTER_PROJECT OFF)
@@ -105,6 +94,10 @@ endif()
 
 add_subdirectory(third_party)
 
+# Create a target that aggregates all generated files needed for code analysis.
+# Subdirectories can add dependencies to this target as needed.
+add_custom_target(umd_all_generated_files)
+
 # Configure clang-tidy AFTER third_party so dependencies are not linted
 option(TT_UMD_ENABLE_CLANG_TIDY "Enable clang-tidy checks during the build" ON)
 if(TT_UMD_ENABLE_CLANG_TIDY)
@@ -112,7 +105,7 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
         CLANG_TIDY_EXE
         NAMES
             clang-tidy
-            clang-tidy-17
+            clang-tidy-20
     )
     # These flags are needed because clang-tidy might reference warning options in
     # .clang-tidy config file that aren't supported by your actual compiler
@@ -130,14 +123,10 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
 endif()
 
 # Enable all warnings and treat them as errors
-# Ignore unused variables and functions since there is no harm.
-# TODO: Re-enable sign-compare
 add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
-    -Wno-unused-variable
-    -Wno-unused-function
     -Wno-sign-compare
 )
 

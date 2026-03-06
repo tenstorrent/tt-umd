@@ -65,7 +65,9 @@ class TestSocDescriptor(unittest.TestCase):
             ]
 
             for coord_sys in coord_systems:
-                tensix_cores = soc_descriptor.get_cores(tt_umd.CoreType.TENSIX, coord_sys)
+                tensix_cores = soc_descriptor.get_cores(
+                    tt_umd.CoreType.TENSIX, coord_sys
+                )
                 print(f"\n{coord_sys} - TENSIX cores (count: {len(tensix_cores)}):")
                 if len(tensix_cores) > 0:
                     # Show first 3 cores
@@ -79,7 +81,9 @@ class TestSocDescriptor(unittest.TestCase):
             for core_type in core_types:
                 harvested_cores = soc_descriptor.get_harvested_cores(core_type)
                 if len(harvested_cores) > 0:
-                    print(f"\n{core_type} harvested cores (count: {len(harvested_cores)}):")
+                    print(
+                        f"\n{core_type} harvested cores (count: {len(harvested_cores)}):"
+                    )
                     for i, core in enumerate(harvested_cores[:3]):
                         print(f"  {core}")
                     if len(harvested_cores) > 3:
@@ -106,7 +110,9 @@ class TestSocDescriptor(unittest.TestCase):
             soc_descriptor = tt_umd.SocDescriptor(dev)
 
             # Get some cores to test with
-            tensix_cores = soc_descriptor.get_cores(tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.NOC0)
+            tensix_cores = soc_descriptor.get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.NOC0
+            )
             if len(tensix_cores) == 0:
                 print("No TENSIX cores found. Skipping translate_coord_to test.")
                 continue
@@ -115,32 +121,45 @@ class TestSocDescriptor(unittest.TestCase):
             print("\n=== Testing translate_coord_to with CoreCoord ===")
             test_core = tensix_cores[0]
             print(f"Original core (NOC0): {test_core}")
-            
+
             # Translate to different coordinate systems
-            for target_coord_sys in [tt_umd.CoordSystem.LOGICAL, tt_umd.CoordSystem.NOC1, tt_umd.CoordSystem.TRANSLATED]:
-                translated = soc_descriptor.translate_coord_to(test_core, target_coord_sys)
+            for target_coord_sys in [
+                tt_umd.CoordSystem.LOGICAL,
+                tt_umd.CoordSystem.NOC1,
+                tt_umd.CoordSystem.TRANSLATED,
+            ]:
+                translated = soc_descriptor.translate_coord_to(
+                    test_core, target_coord_sys
+                )
                 print(f"  Translated to {target_coord_sys}: {translated}")
                 # Verify the translated core has the correct coordinate system
-                self.assertEqual(translated.coord_system, target_coord_sys,
-                               f"Translated core should have coord_system {target_coord_sys}")
+                self.assertEqual(
+                    translated.coord_system,
+                    target_coord_sys,
+                    f"Translated core should have coord_system {target_coord_sys}",
+                )
 
             # Test second overload: translate_coord_to(tt_xy_pair, CoordSystem, CoordSystem)
             print("\n=== Testing translate_coord_to with tt_xy_pair ===")
             # Use the x, y coordinates from the test core
             xy_pair = tt_umd.tt_xy_pair(test_core.x, test_core.y)
             print(f"Original xy_pair: {xy_pair}")
-            
+
             # Translate from NOC0 to different coordinate systems
-            for target_coord_sys in [tt_umd.CoordSystem.LOGICAL, tt_umd.CoordSystem.NOC1]:
+            for target_coord_sys in [
+                tt_umd.CoordSystem.LOGICAL,
+                tt_umd.CoordSystem.NOC1,
+            ]:
                 translated = soc_descriptor.translate_coord_to(
-                    xy_pair, 
-                    tt_umd.CoordSystem.NOC0, 
-                    target_coord_sys
+                    xy_pair, tt_umd.CoordSystem.NOC0, target_coord_sys
                 )
                 print(f"  Translated from NOC0 to {target_coord_sys}: {translated}")
                 # Verify the translated core has the correct coordinate system
-                self.assertEqual(translated.coord_system, target_coord_sys,
-                               f"Translated core should have coord_system {target_coord_sys}")
+                self.assertEqual(
+                    translated.coord_system,
+                    target_coord_sys,
+                    f"Translated core should have coord_system {target_coord_sys}",
+                )
 
 
 if __name__ == "__main__":

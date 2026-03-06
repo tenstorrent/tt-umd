@@ -4,7 +4,10 @@
 
 #include "umd/device/arch/grendel_implementation.hpp"
 
+#include <cstdint>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 
 #include "assert.hpp"
 #include "blackhole/eth_interface.h"

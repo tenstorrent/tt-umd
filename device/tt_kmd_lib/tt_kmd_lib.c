@@ -64,13 +64,11 @@ struct tt_dma_t {
 };
 
 int tt_device_open(const char* chardev_path, tt_device_t** out_dev) {
-    struct tt_device_t* dev = malloc(sizeof(struct tt_device_t));
+    struct tt_device_t* dev = calloc(1, sizeof(struct tt_device_t));
 
     if (!dev) {
         return -ENOMEM;
     }
-
-    memset(dev, 0, sizeof(struct tt_device_t));
 
     dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC);
     if (dev->fd == -1) {
@@ -189,7 +187,7 @@ int tt_noc_read32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_
         return -EINVAL;
     }
 
-    tt_tlb_t* tlb;
+    tt_tlb_t* tlb = NULL;
     int ret = tt_tlb_alloc(dev, TT_TLB_SIZE_2M, TT_MMIO_CACHE_MODE_UC, &tlb);
     if (ret != 0) {
         return ret;
@@ -215,7 +213,7 @@ int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32
         return -EINVAL;
     }
 
-    tt_tlb_t* tlb;
+    tt_tlb_t* tlb = NULL;
     int ret = tt_tlb_alloc(dev, TT_TLB_SIZE_2M, TT_MMIO_CACHE_MODE_UC, &tlb);
     if (ret != 0) {
         return ret;
@@ -238,7 +236,7 @@ int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32
 
 int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst, size_t len) {
     uint8_t* dst_ptr = (uint8_t*)dst;
-    tt_tlb_t* tlb;
+    tt_tlb_t* tlb = NULL;
     int32_t ret;
 
     if (addr % 4 != 0 || len % 4 != 0) {
@@ -263,7 +261,13 @@ int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst
             return ret;
         }
 
-        memcpy(dst_ptr, src_ptr, chunk_size);
+        // Bounds check before copy: chunk_size is guaranteed to fit within tlb->size - offset.
+        if (chunk_size > 0 && offset + chunk_size <= tlb->size) {
+            memcpy(dst_ptr, src_ptr, chunk_size);
+        } else {
+            tt_tlb_free(dev, tlb);
+            return -EINVAL;
+        }
 
         dst_ptr += chunk_size;
         len -= chunk_size;
@@ -277,7 +281,7 @@ int tt_noc_read(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, void* dst
 
 int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const void* src, size_t len) {
     const uint8_t* src_ptr = (const uint8_t*)src;
-    tt_tlb_t* tlb;
+    tt_tlb_t* tlb = NULL;
     int32_t ret;
 
     if (addr % 4 != 0 || len % 4 != 0) {
@@ -302,7 +306,13 @@ int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const vo
             return ret;
         }
 
-        memcpy(dst_ptr, src_ptr, chunk_size);
+        // Bounds check before copy: chunk_size is guaranteed to fit within tlb->size - offset.
+        if (chunk_size > 0 && offset + chunk_size <= tlb->size) {
+            memcpy(dst_ptr, src_ptr, chunk_size);
+        } else {
+            tt_tlb_free(dev, tlb);
+            return -EINVAL;
+        }
 
         src_ptr += chunk_size;
         len -= chunk_size;
@@ -320,13 +330,11 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
         return -EINVAL;
     }
 
-    struct tt_dma_t* dma = malloc(sizeof(struct tt_dma_t));
+    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
 
     if (!dma) {
         return -ENOMEM;
     }
-
-    memset(dma, 0, sizeof(struct tt_dma_t));
 
     struct {
         struct tenstorrent_pin_pages_in in;

@@ -4,12 +4,17 @@
 
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
 
+#include <cstdint>
+#include <optional>
+#include <vector>
+
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -35,10 +40,9 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    return get_eth_fw_version_from_telemetry(
-        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION),
-        tt_device->get_arch());
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
+    return SemVer::from_wormhole_eth_firmware_tag(
+        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 }
 
 double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
@@ -163,29 +167,29 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ARC0_HEALTH);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_gddr_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_gddr_fw_version() const {
     // Seems like GDDR FW version is not available in Wormhole 18.3.x firmware.
     return std::nullopt;
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_cm_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_cm_fw_version() const {
     // Seems like CM FW version is not available in Wormhole 18.3.x firmware.
     return std::nullopt;
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_dm_app_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_dm_app_fw_version() const {
     return get_dm_app_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DM_APP_FW_VERSION),
         tt::ARCH::WORMHOLE_B0);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_dm_bl_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_dm_bl_fw_version() const {
     return get_dm_bl_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DM_BL_FW_VERSION),
         tt::ARCH::WORMHOLE_B0);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
 }

@@ -7,13 +7,20 @@
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
@@ -21,7 +28,6 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
@@ -197,6 +203,14 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
     // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
     if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
         return translate_coord_to(core, CoordSystem::TRANSLATED);
+    }
+
+    // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
+    // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
+    // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
+    if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
+        (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
@@ -382,6 +396,7 @@ void SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_in
 
 std::vector<tt_xy_pair> SocDescriptor::convert_to_tt_xy_pair(const std::vector<std::string> &core_strings) {
     std::vector<tt_xy_pair> core_pairs;
+    core_pairs.reserve(core_strings.size());
     for (const auto &core_string : core_strings) {
         core_pairs.push_back(format_node(core_string));
     }
@@ -708,6 +723,7 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const {
     std::vector<CoreCoord> translated_cores;
+    translated_cores.reserve(noc0_cores.size());
     for (const auto &core : noc0_cores) {
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }

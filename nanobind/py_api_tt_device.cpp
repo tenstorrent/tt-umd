@@ -15,6 +15,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -25,6 +26,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/exceptions.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -49,6 +51,13 @@ void bind_tt_device(nb::module_ &m) {
         .value("JTAG", IODeviceType::JTAG)
         .value("Undefined", IODeviceType::UNDEFINED);
 
+    nb::exception<SigbusError>(m, "SigbusError");
+
+    m.def(
+        "raise_sigbus_error_for_testing",
+        []() { throw SigbusError("This is a test exception from C++"); },
+        "A helper function to verify SigbusError propagation");
+
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
         .def_ro("device_id", &PciDeviceInfo::device_id)
@@ -61,22 +70,23 @@ void bind_tt_device(nb::module_ &m) {
         .def_ro("pci_bdf", &PciDeviceInfo::pci_bdf)
         .def("get_arch", &PciDeviceInfo::get_arch);
 
+    nb::enum_<TTDeviceInitResult>(m, "TTDeviceInitResult")
+        .value("UNKNOWN", TTDeviceInitResult::UNKNOWN)
+        .value("UNINITIALIZED", TTDeviceInitResult::UNINITIALIZED)
+        .value("ARC_STARTUP_FAILED", TTDeviceInitResult::ARC_STARTUP_FAILED)
+        .value("ARC_MESSENGER_UNAVAILABLE", TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE)
+        .value("ARC_TELEMETRY_UNAVAILABLE", TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE)
+        .value("FIRMWARE_INFO_PROVIDER_UNAVAILABLE", TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE)
+        .value("SUCCESSFUL", TTDeviceInitResult::SUCCESSFUL);
+
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>())
         .def_static(
-            "enumerate_devices",
-            [](std::unordered_set<int> pci_target_devices = {}) {
-                return PCIDevice::enumerate_devices(pci_target_devices);
-            },
-            nb::arg("pci_target_devices") = std::unordered_set<int>{},
-            "Enumerates PCI devices, optionally filtering by target devices.")
+            "enumerate_devices", []() { return PCIDevice::enumerate_devices(); }, "Enumerates PCI devices.")
         .def_static(
             "enumerate_devices_info",
-            [](std::unordered_set<int> pci_target_devices = {}) {
-                return PCIDevice::enumerate_devices_info(pci_target_devices);
-            },
-            nb::arg("pci_target_devices") = std::unordered_set<int>{},
-            "Enumerates PCI device information, optionally filtering by target devices.")
+            []() { return PCIDevice::enumerate_devices_info(); },
+            "Enumerates PCI device information.")
         .def("get_device_info", &PCIDevice::get_device_info)
         .def("get_device_num", &PCIDevice::get_device_num)
         .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")
@@ -107,11 +117,16 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType)>(&TTDevice::create),
+            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
+            nb::arg("use_safe_api") = true,
             nb::rv_policy::take_ownership)
-        .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+        .def(
+            "init_tt_device",
+            &TTDevice::init_tt_device,
+            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
+            nb::arg("throw_on_arc_failure") = true)
         .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
@@ -119,6 +134,7 @@ void bind_tt_device(nb::module_ &m) {
         .def("board_id", &TTDevice::get_board_id)
         .def("get_board_type", &TTDevice::get_board_type)
         .def("get_communication_device_type", &TTDevice::get_communication_device_type)
+        .def("get_communication_device_id", &TTDevice::get_communication_device_id)
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
         .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
@@ -345,6 +361,54 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
+    nb::class_<SPITTDevice>(m, "SPITTDevice")
+        .def_static(
+            "create",
+            [](TTDevice &device) { return SPITTDevice::create(&device); },
+            nb::arg("device"),
+            nb::rv_policy::take_ownership,
+            "Create an SPITTDevice for the given TTDevice (factory method that returns architecture-specific "
+            "implementation)")
+        .def(
+            "read",
+            [](SPITTDevice &self, uint32_t addr, nb::bytearray data) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.read(addr, data_ptr, data_size);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Read data from SPI flash memory")
+        .def(
+            "write",
+            [](SPITTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.")
+        .def(
+            "write",
+            [](SPITTDevice &self, uint32_t addr, nb::bytearray data, bool skip_write_to_spi = false) -> void {
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
+                size_t data_size = data.size();
+                self.write(addr, data_ptr, data_size, skip_write_to_spi);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::arg("skip_write_to_spi") = false,
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI.")
+        .def(
+            "get_spi_fw_bundle_version",
+            &SPITTDevice::get_spi_fw_bundle_version,
+            "Get firmware bundle version from SPI (Blackhole only). "
+            "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
+
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -356,7 +420,8 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            &RtlSimulationTTDevice::send_tensix_risc_reset,
+            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, bool)>(
+                &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
             nb::arg("deassert"),
             "Send a Tensix RISC reset signal to the RTL simulation device.")

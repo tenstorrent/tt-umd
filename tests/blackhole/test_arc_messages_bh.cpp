@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
@@ -65,16 +68,16 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 }
 
 TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     const uint32_t num_loops = 1000;
 
-    for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
-        TTDevice* tt_device = cluster->get_tt_device(chip_id);
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 
         std::thread thread0([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
@@ -83,8 +86,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
         });
 
         std::thread thread1([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
-
+            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
                 ASSERT_EQ(response, 0);

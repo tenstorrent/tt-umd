@@ -9,6 +9,7 @@
 #include <fmt/ranges.h>
 
 #include <cxxopts.hpp>
+#include <exception>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -22,7 +23,8 @@ int main(int argc, char* argv[]) {
     cxxopts::Options options(
         "warm_reset", "Perform warm reset on Tenstorrent devices. For reseting 6U, apply the --6u flag.");
 
-    options.add_options()("6u", "Perform 6U warm reset.", cxxopts::value<bool>()->default_value("false"));
+    options.add_options()("6u", "Perform 6U warm reset.", cxxopts::value<bool>()->default_value("false"))(
+        "h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
 

@@ -4,7 +4,13 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <vector>
+
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/tlb.hpp"
 
@@ -12,7 +18,7 @@ using namespace tt;
 using namespace tt::umd;
 
 bool is_kmd_version_good() {
-    semver_t kmd_ver = PCIDevice::read_kmd_version();
+    SemVer kmd_ver = PCIDevice::read_kmd_version();
 
     return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }
@@ -53,7 +59,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         uint32_t readback_value = tlb_window->read32(0);
 
@@ -89,7 +95,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
     // do the reconfigure of the TLB window.
     tlb_data config{};
     std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+        std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -119,7 +125,6 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
@@ -149,7 +154,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         tlb_window->configure(config);
 
@@ -167,7 +172,6 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
@@ -191,14 +195,14 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         config_write.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window_write =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tlb_data config_read = config_write;
         std::unique_ptr<TlbWindow> tlb_window_read =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
         uint32_t expect0 = tlb_window_read->read32(4);
@@ -212,7 +216,6 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
@@ -244,11 +247,11 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> read_aligned =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
         std::unique_ptr<TlbWindow> read_unaligned =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
         read_aligned->read_block(one_mb, readback_aligned.data(), readback_aligned.size());
@@ -276,7 +279,6 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
     const ChipId chip = 0;
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
@@ -301,11 +303,11 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> read_aligned =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
         std::unique_ptr<TlbWindow> read_unaligned =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
         read_aligned->read_block(one_mb, readback_aligned.data(), readback_aligned.size());

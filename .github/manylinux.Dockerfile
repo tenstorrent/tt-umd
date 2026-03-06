@@ -20,6 +20,4 @@ RUN dnf install -y \
 
 # Set up environment variables for building
 ENV CC=/opt/rh/gcc-toolset-14/root/bin/gcc
-ENV CMAKE_C_COMPILER=/opt/rh/gcc-toolset-14/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-14/root/bin/g++
-ENV CMAKE_CXX_COMPILER=/opt/rh/gcc-toolset-14/root/bin/g++

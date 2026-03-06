@@ -4,6 +4,9 @@
 
 #include "umd/device/types/risc_type.hpp"
 
+#include <cstdint>
+#include <string>
+
 namespace tt::umd {
 
 std::string RiscTypeToString(RiscType value) {
@@ -119,9 +122,9 @@ std::string RiscTypeToString(RiscType value) {
 }
 
 RiscType invert_selected_options(RiscType selected) {
-    uint32_t selected_bits = static_cast<uint32_t>(selected);
-    uint32_t inverted =
-        (~selected_bits) & static_cast<uint32_t>(RiscType::ALL | RiscType::ALL_TENSIX | RiscType::ALL_NEO);
+    uint64_t selected_bits = static_cast<uint64_t>(selected);
+    uint64_t inverted =
+        (~selected_bits) & static_cast<uint64_t>(RiscType::ALL | RiscType::ALL_TENSIX | RiscType::ALL_NEO);
     return static_cast<RiscType>(inverted);
 }
 

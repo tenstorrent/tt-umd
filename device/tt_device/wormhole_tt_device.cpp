@@ -569,6 +569,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN);
         bool dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
 
+        dma_request = false; // DGAF just start up please.
+
         if (is_queued) {
             message_id = bar_read_arc_reset_scratch_status & 0xFF;
         } else if (is_handling) {

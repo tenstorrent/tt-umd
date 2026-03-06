@@ -129,7 +129,7 @@ void TopologyDiscovery::get_connected_devices() {
         }
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        tt_device->init_tt_device(std::chrono::milliseconds(1000));
 
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {

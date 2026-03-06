@@ -1,0 +1,219 @@
+# YAML Schema for SOC (System on Chip) Descriptor files
+# This schema validates the structure of SOC descriptor YAML files used in tt-umd.
+# See examples in ./tests/soc_descs
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Tenstorrent SOC Descriptor Schema
+description: Schema for Tenstorrent SOC (System on Chip) descriptor YAML files
+type: object
+
+required:
+  - grid
+  - arc
+  - pcie
+  - dram
+  - eth
+  - functional_workers
+  - router_only
+  - worker_l1_size
+  - dram_bank_size
+  - eth_l1_size
+  - arch_name
+  - features
+
+properties:
+  grid:
+    type: object
+    description: Defines the grid dimensions of the SOC
+    required:
+      - x_size
+      - y_size
+    properties:
+      x_size:
+        type: integer
+        minimum: 1
+        description: Number of columns in the grid
+      y_size:
+        type: integer
+        minimum: 1
+        description: Number of rows in the grid
+    additionalProperties: false
+
+  arc:
+    type: array
+    description: List of ARC core coordinates. Usually only one ARC core is present.
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  pcie:
+    type: array
+    description: List of PCIe core coordinates.
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  dram:
+    type: array
+    description: DRAM bank cores grouped by controller
+    items:
+      type: array
+      items:
+        type: string
+        pattern: ^[0-9]+-[0-9]+$
+        description: DRAM bank coordinate in format "x-y"
+      minItems: 1
+
+  eth:
+    type: array
+    description: List of Ethernet core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  functional_workers:
+    type: array
+    description: List of functional worker core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  router_only:
+    type: array
+    description: List of router-only node coordinates (no compute capability)
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  security:
+    type: array
+    description: List of security core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  l2cpu:
+    type: array
+    description: List of L2CPU core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  noc0_x_to_noc1_x:
+    type: array
+    description: Mapping from NOC0 X coordinates to NOC1 X coordinates
+    items:
+      type: integer
+      minimum: 0
+
+  noc0_y_to_noc1_y:
+    type: array
+    description: Mapping from NOC0 Y coordinates to NOC1 Y coordinates
+    items:
+      type: integer
+      minimum: 0
+
+  worker_l1_size:
+    type: integer
+    minimum: 0
+    description: Size of L1 memory per worker core in bytes
+
+  dram_bank_size:
+    type: integer
+    minimum: 0
+    description: Size of each DRAM bank in bytes
+
+  eth_l1_size:
+    type: integer
+    minimum: 0
+    description: Size of L1 memory per Ethernet core.
+
+  arch_name:
+    type: string
+    enum:
+      - BLACKHOLE
+      - WORMHOLE_B0
+      - wormhole_b0
+      - QUASAR
+    description: Architecture name of the chip
+
+  features:
+    type: object
+    description: Feature capabilities and configuration
+    required:
+      - unpacker
+      - math
+      - packer
+      - overlay
+    properties:
+      noc:
+        type: object
+        description: Network on Chip features
+        properties:
+          translation_id_enabled:
+            type: boolean
+            description: Whether NOC translation ID is enabled
+        additionalProperties: false
+
+      unpacker:
+        type: object
+        description: Data unpacker features and configuration
+        required:
+          - version
+          - inline_srca_trans_without_srca_trans_instr
+        properties:
+          version:
+            type: integer
+            minimum: 1
+            description: Unpacker version number
+          inline_srca_trans_without_srca_trans_instr:
+            type: boolean
+            description: Whether inline source A transpose without transpose instruction is supported
+        additionalProperties: false
+
+      math:
+        type: object
+        description: Math unit features and configuration
+        required:
+          - dst_size_alignment
+        properties:
+          dst_size_alignment:
+            type: integer
+            minimum: 1
+            description: Required alignment for destination buffer size in bytes
+        additionalProperties: false
+
+      packer:
+        type: object
+        description: Data packer features and configuration
+        required:
+          - version
+        properties:
+          version:
+            type: integer
+            minimum: 1
+            description: Packer version number
+        additionalProperties: false
+
+      overlay:
+        type: object
+        description: Overlay features and configuration
+        required:
+          - version
+        properties:
+          version:
+            type: integer
+            minimum: 1
+            description: Overlay version number
+        additionalProperties: false
+
+    additionalProperties: false
+
+additionalProperties: false

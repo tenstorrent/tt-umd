@@ -78,7 +78,7 @@ protected:
     bool is_simulation() const { return std::getenv(TT_UMD_SIMULATOR_ENV) != nullptr; }
 };
 
-TEST_F(TestDeviceIOFixture, SimpleIOAllSiliconChips) {
+TEST_F(TestDeviceIOFixture, SimpleIOAllTargets) {
     std::unique_ptr<Cluster> umd_cluster = make_cluster();
 
     // Initialize random data.

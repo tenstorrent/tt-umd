@@ -362,6 +362,8 @@ protected:
 
     tt_xy_pair arc_core;
 
+    virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
+
 private:
     void probe_arc();
 

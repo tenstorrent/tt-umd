@@ -277,8 +277,8 @@ std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
     if (!thm_limit_shutdown_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
-    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_SHUTDOWN)) / 65536.0f;
+    // Stored as a plain integer in degrees Celsius.
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_SHUTDOWN));
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {
@@ -294,8 +294,8 @@ std::optional<double> FirmwareInfoProvider::get_thm_limit_throttle() const {
     if (!thm_limit_throttle_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
-    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_THROTTLE)) / 65536.0f;
+    // Stored as a plain integer in degrees Celsius.
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_THROTTLE));
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {

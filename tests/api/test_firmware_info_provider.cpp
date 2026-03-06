@@ -119,7 +119,7 @@ TEST(TestFirmwareInfoProvider, BoardId) {
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
 
         BoardType board_type = get_board_type_from_board_id(board_id);
-        log_info(tt::LogUMD, "  board_type={}", board_type_to_string(board_type));
+        log_info(tt::LogUMD, "board_type={}", board_type_to_string(board_type));
     }
 }
 
@@ -275,16 +275,13 @@ TEST(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version));
-        log_info(tt::LogUMD, "  gddr_fw_version={}", gddr_ver.has_value() ? gddr_ver.value().to_string() : "nullopt");
-        log_info(tt::LogUMD, "  cm_fw_version={}", cm_ver.has_value() ? cm_ver.value().to_string() : "nullopt");
+        log_info(tt::LogUMD, "gddr_fw_version={}", gddr_ver.has_value() ? gddr_ver.value().to_string() : "nullopt");
+        log_info(tt::LogUMD, "cm_fw_version={}", cm_ver.has_value() ? cm_ver.value().to_string() : "nullopt");
         log_info(
-            tt::LogUMD, "  dm_app_fw_version={}", dm_app_ver.has_value() ? dm_app_ver.value().to_string() : "nullopt");
+            tt::LogUMD, "dm_app_fw_version={}", dm_app_ver.has_value() ? dm_app_ver.value().to_string() : "nullopt");
+        log_info(tt::LogUMD, "dm_bl_fw_version={}", dm_bl_ver.has_value() ? dm_bl_ver.value().to_string() : "nullopt");
         log_info(
-            tt::LogUMD, "  dm_bl_fw_version={}", dm_bl_ver.has_value() ? dm_bl_ver.value().to_string() : "nullopt");
-        log_info(
-            tt::LogUMD,
-            "  tt_flash_version={}",
-            tt_flash_ver.has_value() ? tt_flash_ver.value().to_string() : "nullopt");
+            tt::LogUMD, "tt_flash_version={}", tt_flash_ver.has_value() ? tt_flash_ver.value().to_string() : "nullopt");
 
         // Legacy Wormhole (<= 18.3) does not have GDDR or CM firmware reporting.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
@@ -314,11 +311,11 @@ TEST(TestFirmwareInfoProvider, PowerMetrics) {
         log_info(tt::LogUMD, "Device {}: fw_range={}", pci_device_id, fw_range_label(fw_version));
         log_info(
             tt::LogUMD,
-            "  fan_speed={} rpm",
+            ww "fan_speed={} rpm",
             fan_speed.has_value() ? std::to_string(fan_speed.value()) : "nullopt (no fan / not controlled by FW)");
-        log_info(tt::LogUMD, "  tdp={} W", tdp.has_value() ? std::to_string(tdp.value()) : "nullopt");
-        log_info(tt::LogUMD, "  tdc={} A", tdc.has_value() ? std::to_string(tdc.value()) : "nullopt");
-        log_info(tt::LogUMD, "  vcore={} mV", vcore.has_value() ? std::to_string(vcore.value()) : "nullopt");
+        log_info(tt::LogUMD, "tdp={} W", tdp.has_value() ? std::to_string(tdp.value()) : "nullopt");
+        log_info(tt::LogUMD, "tdc={} A", tdc.has_value() ? std::to_string(tdc.value()) : "nullopt");
+        log_info(tt::LogUMD, "vcore={} mV", vcore.has_value() ? std::to_string(vcore.value()) : "nullopt");
 
         if (tdp.has_value()) {
             // TDP should be in a reasonable range (watts).
@@ -361,7 +358,7 @@ TEST(TestFirmwareInfoProvider, DramTrainingStatus) {
         EXPECT_EQ(statuses.size(), num_channels);
 
         for (uint32_t ch = 0; ch < statuses.size(); ++ch) {
-            log_info(tt::LogUMD, "  DRAM channel {}: {}", ch, dram_training_status_to_str(statuses[ch]));
+            log_info(tt::LogUMD, "DRAM channel {}: {}", ch, dram_training_status_to_str(statuses[ch]));
         }
 
         // On a healthy running system, DRAM should have completed training.

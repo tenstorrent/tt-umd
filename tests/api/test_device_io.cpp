@@ -160,7 +160,7 @@ TEST_F(TestDeviceIOFixture, RemoteFlush) {
     }
 }
 
-TEST_F(TestDeviceIOFixture, SimpleIOSpecificSiliconChips) {
+TEST_F(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     std::unique_ptr<Cluster> umd_cluster = make_cluster(ClusterOptions{
         .target_devices = {0},
     });

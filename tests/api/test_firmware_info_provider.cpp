@@ -146,11 +146,19 @@ TEST(TestFirmwareInfoProvider, Temperature) {
             asic_temp,
             board_temp.has_value() ? fmt::format("{:.2f}", board_temp.value()) : "nullopt");
 
+        tt::ARCH arch = tt_device->get_arch();
+
         // Temperature should be in a sane range for a running chip.
         EXPECT_GT(asic_temp, 0.0);
         EXPECT_LT(asic_temp, 120.0);
 
-        if (board_temp.has_value()) {
+        // BOARD_TEMPERATURE telemetry tag exists and can be read on all architectures.
+        // On Blackhole it always returns 0 because SysEng hasn't wired up the actual I2C
+        // board temp sensor yet.
+        EXPECT_TRUE(board_temp.has_value());
+        if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_DOUBLE_EQ(board_temp.value(), 0.0);
+        } else if (board_temp.has_value()) {
             EXPECT_GT(board_temp.value(), 0.0);
             EXPECT_LT(board_temp.value(), 120.0);
         }

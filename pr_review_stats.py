@@ -11,6 +11,7 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timedelta
 from collections import defaultdict
+from statistics import median
 
 
 REPO = "tenstorrent/tt-umd"
@@ -206,11 +207,12 @@ def main():
     print()
 
     header = (
-        f"{'Author':<25} {'PRs authored':>12} {'Avg wait':>10} {'Min':>7} {'Max':>7}"
-        f" {'PRs reviewed':>13} {'Avg review time':>16}"
+        f"{'Author':<25} {'PRs':>4} {'Avg wait':>10} {'Median':>8} {'Min':>7} {'Max':>7}"
+        f" {'Reviewed':>9} {'Avg rev time':>13} {'Median':>8}"
     )
+    sep = "-" * len(header)
     print(header)
-    print("-" * 91)
+    print(sep)
 
     def sort_key(user):
         days_list = author_stats.get(user, [])
@@ -220,26 +222,37 @@ def main():
         days_list = author_stats.get(user, [])
         resp_list = reviewer_response_times.get(user, [])
         reviewed = len(resp_list)
-        avg_resp = f"{sum(resp_list)/len(resp_list):>16.2f}" if resp_list else f"{'—':>16}"
+
+        if resp_list:
+            avg_resp = f"{sum(resp_list)/len(resp_list):>13.2f}"
+            med_resp = f"{median(resp_list):>8.2f}"
+        else:
+            avg_resp, med_resp = f"{'—':>13}", f"{'—':>8}"
 
         if days_list:
             avg = sum(days_list) / len(days_list)
+            med = median(days_list)
             mn = min(days_list)
             mx = max(days_list)
-            print(f"{user:<25} {len(days_list):>12} {avg:>10.2f} {mn:>7.2f} {mx:>7.2f} {reviewed:>13} {avg_resp}")
+            print(f"{user:<25} {len(days_list):>4} {avg:>10.2f} {med:>8.2f} {mn:>7.2f} {mx:>7.2f} {reviewed:>9} {avg_resp} {med_resp}")
         else:
-            print(f"{user:<25} {'—':>12} {'—':>10} {'—':>7} {'—':>7} {reviewed:>13} {avg_resp}")
+            print(f"{user:<25} {'—':>4} {'—':>10} {'—':>8} {'—':>7} {'—':>7} {reviewed:>9} {avg_resp} {med_resp}")
 
-    print("-" * 91)
+    print(sep)
     if all_days:
         overall_avg = sum(all_days) / len(all_days)
+        overall_med = median(all_days)
         overall_min = min(all_days)
         overall_max = max(all_days)
         all_resp = [d for v in reviewer_response_times.values() for d in v]
-        overall_avg_resp = f"{sum(all_resp)/len(all_resp):>16.2f}" if all_resp else f"{'—':>16}"
+        if all_resp:
+            overall_avg_resp = f"{sum(all_resp)/len(all_resp):>13.2f}"
+            overall_med_resp = f"{median(all_resp):>8.2f}"
+        else:
+            overall_avg_resp, overall_med_resp = f"{'—':>13}", f"{'—':>8}"
         print(
-            f"{'OVERALL':<25} {len(all_days):>12} {overall_avg:>10.2f} {overall_min:>7.2f} {overall_max:>7.2f}"
-            f" {len(all_resp):>13} {overall_avg_resp}"
+            f"{'OVERALL':<25} {len(all_days):>4} {overall_avg:>10.2f} {overall_med:>8.2f}"
+            f" {overall_min:>7.2f} {overall_max:>7.2f} {len(all_resp):>9} {overall_avg_resp} {overall_med_resp}"
         )
     print()
 

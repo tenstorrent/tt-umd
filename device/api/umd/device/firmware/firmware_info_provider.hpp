@@ -141,8 +141,9 @@ public:
 
     /*
      * Get ethernet live status for each link.
-     * Lower 16 bits of telemetry value: heartbeat status (one bit per link).
-     * Upper 16 bits of telemetry value: retrain status (one bit per link).
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Each entry is an EthLinkStatus with two fields: heartbeat and retrain.
+     * Vector indices align with ETH channels (i.e. logical coordinates).
      * @returns Vector of EthLinkStatus (one per link, up to 16), or std::nullopt if unavailable.
      */
     virtual std::optional<std::vector<EthLinkStatus>> get_eth_live_status() const;
@@ -162,6 +163,14 @@ public:
     virtual uint32_t get_heartbeat() const;
 
 protected:
+    /**
+     * Parse a 32-bit ETH_LIVE_STATUS telemetry value into per-link status.
+     * Lower 16 bits: heartbeat status (one bit per link).
+     * Upper 16 bits: retrain status (one bit per link).
+     * Bit indices align with ETH channels (i.e. logical coordinates).
+     */
+    static std::vector<EthLinkStatus> parse_eth_live_status(uint32_t telemetry_data);
+
     TTDevice* tt_device = nullptr;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);

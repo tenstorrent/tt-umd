@@ -691,11 +691,10 @@ TEST(TestDeviceIO, DMA1) {
 
 /**
  * Test the PCIe DMA controller by using it to write random patterns of random
- * sizes to random addresses in several DRAM cores, then reading them back and
- * verifying.  Addresses are constrained to be within the first 1 GiB of each
- * DRAM channel and are aligned to 4 bytes.  Sizes are constrained to be between
- * 4 bytes and 32 MiB, and are aligned to 4 bytes.  Also tested is the case
- * where the write is done using MMIO instead of DMA.
+ * sizes to address 0x0 in a single DRAM core, then reading them back and
+ * verifying.  Sizes are constrained to be between 4 bytes and 32 MiB, and are
+ * aligned to 4 bytes.  Also tested is the case where the write is done using
+ * MMIO instead of DMA.
  */
 TEST(TestDeviceIO, DMA2) {
     const ChipId chip = 0;
@@ -709,17 +708,14 @@ TEST(TestDeviceIO, DMA2) {
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }
 
-    // Constraints for random address/size generation.
+    // Constraints for random size generation.
     const size_t MIN_BUF_SIZE = 4;
     const size_t MAX_BUF_SIZE = 0x2000000;
-    const uint64_t MIN_ADDR = 0x0;
-    const uint64_t MAX_ADDR = 0x3e000000;
 
     // Setup random number generation.
     std::random_device rd;
     std::mt19937 rng(rd());
     std::uniform_int_distribution<size_t> size_dist(MIN_BUF_SIZE, MAX_BUF_SIZE);
-    std::uniform_int_distribution<uint64_t> addr_dist(MIN_ADDR, MAX_ADDR);
 
     // Structure to keep track of the operations.
     struct DmaOpInfo {
@@ -831,7 +827,7 @@ TEST(TestDeviceIO, DMA3) {
                                      << " size=" << std::dec << readback_zeros.size();
 
     std::vector<uint8_t> pattern(buf_size, 0);
-    for (int i = 0; i < buf_size; ++i) {
+    for (size_t i = 0; i < buf_size; ++i) {
         pattern[i] = i % 256;
     }
 

@@ -480,6 +480,7 @@ TEST(TestTelemetry, GddrTelemetry) {
             log_info(tt::LogUMD, "GDDR speed: {} Mbps", dram_speed.value());
         }
 
+        // Only GDDR speed and status are populated on Wormhole and only speed is verified in this test.
         if (arch == ARCH::WORMHOLE_B0) {
             continue;
         }

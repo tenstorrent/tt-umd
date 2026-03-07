@@ -288,7 +288,7 @@ static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
                static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 }
 
-std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) {
+std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) const {
     // Telemetry data is packed in pairs: GDDR_0_1, GDDR_2_3, GDDR_4_5, GDDR_6_7.
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
     const uint8_t pair_index = module_index / 2;  // Which pair: 0, 1, 2, or 3.
@@ -333,7 +333,7 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(Gddr
     return module_telemetry;
 }
 
-std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() {
+std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
     if (!gddr_telemetry_tags_available(tt_device)) {
         return std::nullopt;
     }
@@ -390,7 +390,7 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
     return aggregated_gddr_telemetry;
 }
 
-std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() {
+std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::GDDR_SPEED)) {
         return std::nullopt;
@@ -398,7 +398,7 @@ std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() {
     return static_cast<uint16_t>(telemetry->read_entry(TelemetryTag::GDDR_SPEED));
 }
 
-std::optional<uint16_t> FirmwareInfoProvider::get_current_max_dram_temperature() {
+std::optional<uint16_t> FirmwareInfoProvider::get_current_max_dram_temperature() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::MAX_GDDR_TEMP)) {
         return std::nullopt;

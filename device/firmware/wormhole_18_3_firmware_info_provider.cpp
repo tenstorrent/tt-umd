@@ -199,7 +199,7 @@ std::optional<GddrTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_aggregated_
     return std::nullopt;
 }
 
-std::optional<GddrModuleTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_dram_telemetry(BlackholeGddr gddr_module) {
+std::optional<GddrModuleTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) {
     // SMBUS telemetry does not map to the new style GDDR telemetry structure.
     return std::nullopt;
 }

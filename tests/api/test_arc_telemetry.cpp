@@ -164,14 +164,14 @@ TEST(TestTelemetry, GddrTelemetry) {
         // Test individual module telemetry access.
         log_info(tt::LogUMD, "Testing individual module access:");
         for (auto gddr_index :
-             {BlackholeGddr::GDDR_7,
-              BlackholeGddr::GDDR_6,
-              BlackholeGddr::GDDR_5,
-              BlackholeGddr::GDDR_4,
-              BlackholeGddr::GDDR_3,
-              BlackholeGddr::GDDR_2,
-              BlackholeGddr::GDDR_1,
-              BlackholeGddr::GDDR_0}) {
+             {GddrModule::GDDR_7,
+              GddrModule::GDDR_6,
+              GddrModule::GDDR_5,
+              GddrModule::GDDR_4,
+              GddrModule::GDDR_3,
+              GddrModule::GDDR_2,
+              GddrModule::GDDR_1,
+              GddrModule::GDDR_0}) {
             auto module_telemetry = fw_info->get_dram_telemetry(gddr_index);
             ASSERT_TRUE(module_telemetry.has_value()) << "Individual GDDR module telemetry should be available.";
 

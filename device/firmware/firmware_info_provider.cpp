@@ -288,7 +288,7 @@ static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
                static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 }
 
-std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(BlackholeGddr gddr_module) {
+std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) {
     // Telemetry data is packed in pairs: GDDR_0_1, GDDR_2_3, GDDR_4_5, GDDR_6_7.
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
     const uint8_t pair_index = module_index / 2;  // Which pair: 0, 1, 2, or 3.
@@ -360,8 +360,8 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         const uint32_t temp_word = tt_device->get_arc_telemetry_reader()->read_entry(temp_tags[gddr_index_pair]);
         const uint32_t corr_word = tt_device->get_arc_telemetry_reader()->read_entry(corr_tags[gddr_index_pair]);
         const std::size_t base = gddr_index_pair * 2;
-        const BlackholeGddr gddr_x = static_cast<BlackholeGddr>(base);
-        const BlackholeGddr gddr_y = static_cast<BlackholeGddr>(base + 1);
+        const GddrModule gddr_x = static_cast<GddrModule>(base);
+        const GddrModule gddr_y = static_cast<GddrModule>(base + 1);
 
         // Temperature word layout: [31:24] gddr_y top, [23:16] gddr_y bottom, [15:8] gddr_x top, [7:0] gddr_x bottom.
         aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_bottom = static_cast<uint8_t>(temp_word & 0xFFu);
@@ -379,8 +379,8 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         aggregated_gddr_telemetry.modules[gddr_y].corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> 24) & 0xFFu);
     }
 
-    for (std::size_t i = 0; i < NUM_GDDR_MODULES; ++i) {
-        BlackholeGddr gddr = static_cast<BlackholeGddr>(i);
+    for (std::size_t i = 0; i < get_number_of_dram_modules(tt_device->get_arch()); ++i) {
+        GddrModule gddr = static_cast<GddrModule>(i);
         aggregated_gddr_telemetry.modules[gddr].uncorr_edc_rd_error =
             (uncorrected_errors_mask & (1u << (i * 2))) != 0 ? 1 : 0;
         aggregated_gddr_telemetry.modules[gddr].uncorr_edc_wr_error =

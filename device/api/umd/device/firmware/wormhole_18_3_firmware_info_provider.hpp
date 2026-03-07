@@ -63,7 +63,7 @@ public:
 
     std::optional<GddrTelemetry> get_aggregated_dram_telemetry() override;
 
-    std::optional<GddrModuleTelemetry> get_dram_telemetry(BlackholeGddr gddr_module) override;
+    std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) override;
 
     std::optional<uint16_t> get_dram_speed() override;
 

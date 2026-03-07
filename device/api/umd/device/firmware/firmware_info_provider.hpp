@@ -132,7 +132,7 @@ public:
 
     virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
 
-    virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(BlackholeGddr gddr_module) const;
+    virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module);
 
     virtual std::optional<uint16_t> get_dram_speed() const;
 

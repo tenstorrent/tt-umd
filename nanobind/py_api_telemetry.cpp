@@ -141,16 +141,16 @@ void bind_telemetry(nb::module_& m) {
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 
-    nb::enum_<BlackholeGddr>(m, "BlackholeGddr", "GDDR module indices for Blackhole")
-        .value("GDDR_0", BlackholeGddr::GDDR_0)
-        .value("GDDR_1", BlackholeGddr::GDDR_1)
-        .value("GDDR_2", BlackholeGddr::GDDR_2)
-        .value("GDDR_3", BlackholeGddr::GDDR_3)
-        .value("GDDR_4", BlackholeGddr::GDDR_4)
-        .value("GDDR_5", BlackholeGddr::GDDR_5)
-        .value("GDDR_6", BlackholeGddr::GDDR_6)
-        .value("GDDR_7", BlackholeGddr::GDDR_7)
-        .def("__int__", [](BlackholeGddr gddr) { return static_cast<int>(gddr); });
+    nb::enum_<GddrModule>(m, "GddrModule", "GDDR module indices for Blackhole")
+        .value("GDDR_0", GddrModule::GDDR_0)
+        .value("GDDR_1", GddrModule::GDDR_1)
+        .value("GDDR_2", GddrModule::GDDR_2)
+        .value("GDDR_3", GddrModule::GDDR_3)
+        .value("GDDR_4", GddrModule::GDDR_4)
+        .value("GDDR_5", GddrModule::GDDR_5)
+        .value("GDDR_6", GddrModule::GDDR_6)
+        .value("GDDR_7", GddrModule::GDDR_7)
+        .def("__int__", [](GddrModule gddr) { return static_cast<int>(gddr); });
 
     nb::class_<GddrModuleTelemetry>(m, "GddrModuleTelemetry", "Per-module GDDR telemetry (temp, errors, status).")
         .def_ro("dram_temperature_top", &GddrModuleTelemetry::dram_temperature_top)

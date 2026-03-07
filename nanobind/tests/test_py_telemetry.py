@@ -109,9 +109,9 @@ class TestTelemetry(unittest.TestCase):
             # Test individual module telemetry access
             print(f"Device {pci_id} - Testing individual module access:")
             for gddr_index in [
-                tt_umd.BlackholeGddr.GDDR_0,
-                tt_umd.BlackholeGddr.GDDR_1,
-                tt_umd.BlackholeGddr.GDDR_7,
+                tt_umd.GddrModule.GDDR_0,
+                tt_umd.GddrModule.GDDR_1,
+                tt_umd.GddrModule.GDDR_7,
             ]:
                 module_telemetry = fw_info.get_dram_telemetry(gddr_index)
                 if module_telemetry is not None:

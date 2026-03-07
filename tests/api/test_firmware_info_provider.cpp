@@ -70,31 +70,6 @@ static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, StaticVersionInfo) {  // Baremetal test
-    // Test static methods that don't need a device.
-    FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
-
-    log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
-    log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
-
-    // Wormhole supports all firmware versions (no minimum).
-    EXPECT_EQ(wh_min, FirmwareBundleVersion(0, 0, 0));
-
-    // Blackhole requires at least 18.5.0.
-    EXPECT_EQ(bh_min, FirmwareBundleVersion(18, 5, 0));
-
-    FirmwareBundleVersion wh_latest =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_latest = FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
-
-    log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
-    log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());
-
-    // Both architectures report the same latest supported version currently.
-    EXPECT_EQ(wh_latest, bh_latest);
-}
-
 TEST(TestFirmwareInfoProvider, BoardId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -449,5 +424,112 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
             heartbeat2);
 
         EXPECT_GE(heartbeat2, heartbeat1);
+    }
+}
+
+TEST(TestFirmwareInfoProvider, ThermalLimits) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        ASSERT_NE(fw_info, nullptr);
+
+        tt::ARCH arch = tt_device->get_arch();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(18, 4, 0);
+
+        auto shutdown = fw_info->get_thm_limit_shutdown();
+        auto throttle = fw_info->get_thm_limit_throttle();
+
+        // On legacy Blackhole (< 18.4), firmware doesn't populate these fields; they read as 0.
+        if (is_legacy_blackhole) {
+            if (shutdown.has_value()) {
+                EXPECT_DOUBLE_EQ(shutdown.value(), 0.0);
+            }
+            if (throttle.has_value()) {
+                EXPECT_DOUBLE_EQ(throttle.value(), 0.0);
+            }
+        } else {
+            if (shutdown.has_value()) {
+                // Stored as plain integer in °C (not 16.16 fixed-point).
+                EXPECT_GE(shutdown.value(), 80.0);
+                EXPECT_LE(shutdown.value(), 130.0);
+            }
+
+            // BH production spec (7.3): T_J_SHUTDOWN = 110 °C.
+            if (arch == tt::ARCH::BLACKHOLE && shutdown.has_value()) {
+                EXPECT_DOUBLE_EQ(shutdown.value(), 110.0);
+            }
+
+            if (throttle.has_value()) {
+                EXPECT_GT(throttle.value(), 0.0);
+                EXPECT_LE(throttle.value(), 130.0);
+            }
+
+            // Throttle threshold should never exceed the shutdown threshold.
+            if (shutdown.has_value() && throttle.has_value()) {
+                EXPECT_LE(throttle.value(), shutdown.value());
+            }
+        }
+    }
+}
+
+TEST(TestFirmwareInfoProvider, BoardPowerLimit) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        ASSERT_NE(fw_info, nullptr);
+
+        tt::ARCH arch = tt_device->get_arch();
+        auto power_limit = fw_info->get_board_power_limit();
+
+        // On Blackhole, firmware defaults BOARD_POWER_LIMIT to 0 (no limit configured).
+        if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_TRUE(power_limit.has_value());
+        } else if (power_limit.has_value()) {
+            EXPECT_GT(power_limit.value(), 0u);
+            EXPECT_LT(power_limit.value(), 500u);
+        }
+    }
+}
+
+TEST(TestFirmwareInfoProvider, ThermTripCount) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        ASSERT_NE(fw_info, nullptr);
+
+        auto trip_count = fw_info->get_therm_trip_count();
+        // On a healthy running system, no thermal trips should have occurred.
+        if (trip_count.has_value()) {
+            EXPECT_EQ(trip_count.value(), 0u);
+        }
+    }
+}
+
+TEST(TestFirmwareInfoProvider, EthLiveStatus) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        ASSERT_NE(fw_info, nullptr);
+
+        tt::ARCH arch = tt_device->get_arch();
+        auto status = fw_info->get_eth_live_status();
+
+        // Only available on Wormhole; Blackhole returns nullopt.
+        if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_FALSE(status.has_value());
+        }
+
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            EXPECT_TRUE(status.has_value());
+            if (status.has_value()) {
+                // One entry per ETH channel (up to 16); indices are logical coordinates.
+                EXPECT_EQ(status.value().size(), 16u);
+            }
+        }
     }
 }

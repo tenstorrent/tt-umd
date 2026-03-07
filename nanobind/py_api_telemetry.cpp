@@ -88,7 +88,7 @@ void bind_telemetry(nb::module_ &m) {
         .value("TDP", TelemetryTag::TDP)
         .value("TDC", TelemetryTag::TDC)
         .value("VDD_LIMITS", TelemetryTag::VDD_LIMITS)
-        .value("THM_LIMITS", TelemetryTag::THM_LIMITS)
+        .value("THM_LIMIT_SHUTDOWN", TelemetryTag::THM_LIMIT_SHUTDOWN)
         .value("ASIC_TEMPERATURE", TelemetryTag::ASIC_TEMPERATURE)
         .value("VREG_TEMPERATURE", TelemetryTag::VREG_TEMPERATURE)
         .value("BOARD_TEMPERATURE", TelemetryTag::BOARD_TEMPERATURE)

@@ -115,6 +115,39 @@ public:
      */
     virtual std::optional<double> get_board_temperature() const;
 
+    /*
+     * Get thermal limit shutdown threshold in Celsius.
+     * @returns Thermal limit shutdown threshold [Celsius]
+     */
+    virtual std::optional<double> get_thm_limit_shutdown() const;
+
+    /*
+     * Get board power limit in watts.
+     * @returns Board power limit [W]
+     */
+    virtual std::optional<uint32_t> get_board_power_limit() const;
+
+    /*
+     * Get thermal limit throttle threshold in Celsius.
+     * @returns Thermal limit throttle threshold [Celsius]
+     */
+    virtual std::optional<double> get_thm_limit_throttle() const;
+
+    /*
+     * Get thermal trip count.
+     * @returns Number of thermal trips that have occurred.
+     */
+    virtual std::optional<uint32_t> get_therm_trip_count() const;
+
+    /*
+     * Get ethernet live status for each link.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Each entry is an EthLinkStatus with two fields: heartbeat and retrain.
+     * Vector indices align with ETH channels (i.e. logical coordinates).
+     * @returns Vector of EthLinkStatus (one per link, up to 16), or std::nullopt if unavailable.
+     */
+    virtual std::optional<std::vector<EthLinkStatus>> get_eth_live_status() const;
+
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
     virtual uint32_t get_max_clock_freq() const;
@@ -130,6 +163,14 @@ public:
     virtual uint32_t get_heartbeat() const;
 
 protected:
+    /**
+     * Parse a 32-bit ETH_LIVE_STATUS telemetry value into per-link status.
+     * Lower 16 bits: heartbeat status (one bit per link).
+     * Upper 16 bits: retrain status (one bit per link).
+     * Bit indices align with ETH channels (i.e. logical coordinates).
+     */
+    static std::vector<EthLinkStatus> parse_eth_live_status(uint32_t telemetry_data);
+
     TTDevice* tt_device = nullptr;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
@@ -142,6 +183,11 @@ protected:
     bool tdc_available;
     bool vcore_available;
     bool board_temperature_available;
+    bool thm_limit_shutdown_available;
+    bool board_power_limit_available;
+    bool thm_limit_throttle_available;
+    bool therm_trip_count_available;
+    bool eth_live_status_available;
 };
 
 }  // namespace tt::umd

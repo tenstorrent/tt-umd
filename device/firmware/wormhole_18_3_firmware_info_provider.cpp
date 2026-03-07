@@ -28,6 +28,7 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     tdp_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);
+    eth_live_status_available = telemetry->is_entry_available(wormhole::TelemetryTag::ETH_LIVE_STATUS);
 }
 
 uint64_t Wormhole_18_3_FirmwareInfoProvider::get_board_id() const {
@@ -161,6 +162,14 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     }
     // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
+}
+
+std::optional<std::vector<tt::EthLinkStatus>> Wormhole_18_3_FirmwareInfoProvider::get_eth_live_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    return parse_eth_live_status(telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS));
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {

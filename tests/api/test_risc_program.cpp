@@ -45,10 +45,6 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
     std::unique_ptr<Cluster> cluster =
         std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
@@ -100,10 +96,6 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
     std::unique_ptr<Cluster> cluster =
         std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -174,10 +166,6 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
     std::unique_ptr<Cluster> cluster =
         std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -296,10 +284,6 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     constexpr uint64_t write_address = 0x1000;
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     test_utils::safe_test_cluster_start(cluster.get());
 
     // Initialize random data.
@@ -336,9 +320,7 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
 
 TEST(TestRiscProgram, DISABLED_EriscFirmwareHashCheck) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+
     auto eth_fw_version = cluster->get_ethernet_firmware_version();
     if (!eth_fw_version.has_value()) {
         GTEST_SKIP() << "No ETH cores in Cluster. Skipping test.";
@@ -346,7 +328,7 @@ TEST(TestRiscProgram, DISABLED_EriscFirmwareHashCheck) {
     auto first_chip = cluster->get_chip(*cluster->get_target_device_ids().begin());
     auto first_eth_core = first_chip->get_soc_descriptor().get_cores(tt::CoreType::ETH)[0];
 
-    const std::unordered_map<semver_t, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
+    const std::unordered_map<SemVer, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
     switch (first_chip->get_tt_device()->get_arch()) {
         case ARCH::WORMHOLE_B0:
             eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;

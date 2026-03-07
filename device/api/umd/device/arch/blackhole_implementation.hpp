@@ -286,6 +286,8 @@ inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_A
      {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;
+inline constexpr uint64_t NOC_ID_TRANSLATED_OFFSET =
+    0x148;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 inline constexpr size_t eth_translated_coordinate_start_x = 20;
 inline constexpr size_t eth_translated_coordinate_start_y = 25;
@@ -465,12 +467,18 @@ public:
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
+    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
+
+    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
+
     DeviceL1AddressParams get_l1_address_params() const override;
     DriverHostAddressParams get_host_address_params() const override;
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return blackhole::NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

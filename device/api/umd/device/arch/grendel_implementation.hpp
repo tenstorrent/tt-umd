@@ -214,7 +214,10 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
-static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+inline constexpr uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+
+inline constexpr uint64_t BH_NOC_ID_TRANSLATED_OFFSET =
+    0x148;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
@@ -457,12 +460,18 @@ public:
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
+    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
+
+    uint32_t get_static_tlb_cfg_addr() const override { return grendel::STATIC_TLB_CFG_ADDR; }
+
     DeviceL1AddressParams get_l1_address_params() const override;
     DriverHostAddressParams get_host_address_params() const override;
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return grendel::BH_NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

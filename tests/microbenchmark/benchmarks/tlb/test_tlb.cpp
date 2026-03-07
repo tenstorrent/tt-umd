@@ -40,9 +40,6 @@ TEST(MicrobenchmarkTLB, DRAM) {
         16 * ONE_MIB,
         32 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_cluster_description()->get_number_of_chips() == 0) {
-        GTEST_SKIP() << "No chips found on system.";
-    }
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
@@ -80,9 +77,6 @@ TEST(MicrobenchmarkTLB, Tensix) {
     const std::vector<size_t> BATCH_SIZES = {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_cluster_description()->get_number_of_chips() == 0) {
-        GTEST_SKIP() << "No chips found on system.";
-    }
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
     for (size_t batch_size : BATCH_SIZES) {
         std::vector<uint8_t> pattern(batch_size);
@@ -120,9 +114,6 @@ TEST(MicrobenchmarkTLB, Ethernet) {
     const std::vector<size_t> BATCH_SIZES = {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_cluster_description()->get_number_of_chips() == 0) {
-        GTEST_SKIP() << "No chips found on system.";
-    }
     if (cluster->get_soc_descriptor(CHIP_ID).get_num_eth_channels() == 0) {
         GTEST_SKIP() << "No ETH cores found on system.";
     }
@@ -180,9 +171,6 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
         512 * ONE_KIB,
         1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    if (cluster->get_cluster_description()->get_number_of_chips() == 0) {
-        GTEST_SKIP() << "No chips found on system.";
-    }
     std::vector<Result> results;
     auto tensix_cores = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX);
     for (size_t batch_size : BATCH_SIZES) {

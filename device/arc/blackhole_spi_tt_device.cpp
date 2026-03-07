@@ -42,7 +42,7 @@ std::optional<uint32_t> read_varint(const uint8_t* data, size_t size, size_t& po
 }  // namespace
 
 // Firmware version from which Blackhole SPI write requires unlock (0xC2) before and lock (0xC3) after.
-static const semver_t BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
+static const FirmwareBundleVersion BH_SPI_LOCK_REQUIRED_SINCE_FW(19, 0, 0);
 
 // Maximum boot filesystem entries to scan; safety limit to avoid infinite loop on corrupted table.
 constexpr uint32_t BOOT_FS_MAX_ENTRIES_SCAN = 1000;
@@ -194,9 +194,8 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
     auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
 
     // Since BH_SPI_LOCK_REQUIRED_SINCE_FW, SPI write must be accompanied by unlock (0xC2) before and lock (0xC3) after.
-    semver_t fw_version = device_->get_firmware_version();
-    const bool need_lock_unlock =
-        (semver_t::compare_firmware_bundle(fw_version, BH_SPI_LOCK_REQUIRED_SINCE_FW) >= 0) && !skip_write_to_spi;
+    FirmwareBundleVersion fw_version = device_->get_firmware_version();
+    const bool need_lock_unlock = (fw_version >= BH_SPI_LOCK_REQUIRED_SINCE_FW) && !skip_write_to_spi;
 
     if (need_lock_unlock) {
         std::vector<uint32_t> unlock_ret;

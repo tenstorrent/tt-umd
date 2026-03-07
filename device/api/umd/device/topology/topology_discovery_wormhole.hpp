@@ -6,15 +6,19 @@
 
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options);
+    TopologyDiscoveryWormhole(
+        const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
 
 protected:
+    tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }
+
     struct EthAddresses {
         uint32_t masked_version;
 

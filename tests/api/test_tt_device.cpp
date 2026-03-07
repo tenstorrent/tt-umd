@@ -192,10 +192,6 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
 
     const tt::ARCH arch = pci_devices_info.at(pci_device_ids[0]).get_arch();

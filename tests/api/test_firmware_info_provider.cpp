@@ -320,7 +320,7 @@ TEST(TestFirmwareInfoProvider, PowerMetrics) {
             fw_range_label(fw_version));
         log_info(
             tt::LogUMD,
-            "fan_speed={} rpm",
+            "fan_speed={} %",
             fan_speed.has_value() ? std::to_string(fan_speed.value()) : "nullopt (no fan / not controlled by FW)");
         log_info(tt::LogUMD, "tdp={} W", tdp.has_value() ? std::to_string(tdp.value()) : "nullopt");
         log_info(tt::LogUMD, "tdc={} A", tdc.has_value() ? std::to_string(tdc.value()) : "nullopt");
@@ -449,5 +449,38 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
             heartbeat2);
 
         EXPECT_GE(heartbeat2, heartbeat1);
+    }
+}
+
+TEST(TestFirmwareInfoProvider, FanSpeed) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        ASSERT_NE(fw_info, nullptr);
+
+        tt::ARCH arch = tt_device->get_arch();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+
+        auto speed_percentage = fw_info->get_fan_speed();
+        auto speed_rpm = fw_info->get_fan_rpm();
+
+        if (speed_percentage.has_value()) {
+            EXPECT_GE(speed_percentage.value(), 0u);
+            EXPECT_LE(speed_percentage.value(), 100u);
+        }
+
+        if (speed_rpm.has_value()) {
+            EXPECT_LT(speed_rpm.value(), 20000u);
+        }
+
+        // FAN_RPM is not available in legacy Wormhole (<= 18.3) SMBus telemetry;
+        // only FAN_SPEED (percentage) is reported.
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+            EXPECT_FALSE(speed_rpm.has_value());
+        } else {
+            // On modern firmware, both should be available or both absent.
+            EXPECT_EQ(speed_percentage.has_value(), speed_rpm.has_value());
+        }
     }
 }

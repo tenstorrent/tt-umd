@@ -60,6 +60,14 @@ public:
     std::optional<double> get_board_temperature() const override;
 
     uint32_t get_heartbeat() const override;
+
+    std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const override;
+
+    std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const override;
+
+    std::optional<uint16_t> get_dram_speed() const override;
+
+    std::optional<double> get_current_max_dram_temperature() const override;
 };
 
 }  // namespace tt::umd

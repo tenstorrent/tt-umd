@@ -6,11 +6,13 @@
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -18,7 +20,7 @@ namespace nb = nanobind;
 
 using namespace tt::umd;
 
-void bind_telemetry(nb::module_ &m) {
+void bind_telemetry(nb::module_& m) {
     // Create a submodule for wormhole, so that we can expose telemetry through it.
     // The submodule matches namespace used in C++.
     auto wormhole = m.def_submodule("wormhole", "Wormhole-related functionality");
@@ -38,7 +40,7 @@ void bind_telemetry(nb::module_ &m) {
         .value("ETH_FW_VERSION", wormhole::TelemetryTag::ETH_FW_VERSION)
         .value("DM_BL_FW_VERSION", wormhole::TelemetryTag::DM_BL_FW_VERSION)
         .value("DM_APP_FW_VERSION", wormhole::TelemetryTag::DM_APP_FW_VERSION)
-        .value("DDR_STATUS", wormhole::TelemetryTag::DDR_STATUS)
+        .value("GDDR_STATUS", wormhole::TelemetryTag::DDR_STATUS)
         .value("ETH_STATUS0", wormhole::TelemetryTag::ETH_STATUS0)
         .value("ETH_STATUS1", wormhole::TelemetryTag::ETH_STATUS1)
         .value("PCIE_STATUS", wormhole::TelemetryTag::PCIE_STATUS)
@@ -100,8 +102,8 @@ void bind_telemetry(nb::module_ &m) {
         .value("L2CPUCLK2", TelemetryTag::L2CPUCLK2)
         .value("L2CPUCLK3", TelemetryTag::L2CPUCLK3)
         .value("ETH_LIVE_STATUS", TelemetryTag::ETH_LIVE_STATUS)
-        .value("DDR_STATUS", TelemetryTag::DDR_STATUS)
-        .value("DDR_SPEED", TelemetryTag::DDR_SPEED)
+        .value("GDDR_STATUS", TelemetryTag::GDDR_STATUS)
+        .value("GDDR_SPEED", TelemetryTag::GDDR_SPEED)
         .value("ETH_FW_VERSION", TelemetryTag::ETH_FW_VERSION)
         .value("GDDR_FW_VERSION", TelemetryTag::GDDR_FW_VERSION)
         .value("DM_APP_FW_VERSION", TelemetryTag::DM_APP_FW_VERSION)
@@ -119,6 +121,16 @@ void bind_telemetry(nb::module_ &m) {
         .value("PCIE_USAGE", TelemetryTag::PCIE_USAGE)
         .value("NOC_TRANSLATION", TelemetryTag::NOC_TRANSLATION)
         .value("FAN_RPM", TelemetryTag::FAN_RPM)
+        .value("GDDR_0_1_TEMP", TelemetryTag::GDDR_0_1_TEMP)
+        .value("GDDR_2_3_TEMP", TelemetryTag::GDDR_2_3_TEMP)
+        .value("GDDR_4_5_TEMP", TelemetryTag::GDDR_4_5_TEMP)
+        .value("GDDR_6_7_TEMP", TelemetryTag::GDDR_6_7_TEMP)
+        .value("GDDR_0_1_CORR_ERRS", TelemetryTag::GDDR_0_1_CORR_ERRS)
+        .value("GDDR_2_3_CORR_ERRS", TelemetryTag::GDDR_2_3_CORR_ERRS)
+        .value("GDDR_4_5_CORR_ERRS", TelemetryTag::GDDR_4_5_CORR_ERRS)
+        .value("GDDR_6_7_CORR_ERRS", TelemetryTag::GDDR_6_7_CORR_ERRS)
+        .value("GDDR_UNCORR_ERRS", TelemetryTag::GDDR_UNCORR_ERRS)
+        .value("MAX_GDDR_TEMP", TelemetryTag::MAX_GDDR_TEMP)
         .value("ASIC_LOCATION", TelemetryTag::ASIC_LOCATION)
         .value("TDC_LIMIT_MAX", TelemetryTag::TDC_LIMIT_MAX)
         .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
@@ -129,13 +141,42 @@ void bind_telemetry(nb::module_ &m) {
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
 
+    nb::enum_<GddrModule>(m, "GddrModule", "GDDR module indices for Blackhole")
+        .value("GDDR_0", GddrModule::GDDR_0)
+        .value("GDDR_1", GddrModule::GDDR_1)
+        .value("GDDR_2", GddrModule::GDDR_2)
+        .value("GDDR_3", GddrModule::GDDR_3)
+        .value("GDDR_4", GddrModule::GDDR_4)
+        .value("GDDR_5", GddrModule::GDDR_5)
+        .value("GDDR_6", GddrModule::GDDR_6)
+        .value("GDDR_7", GddrModule::GDDR_7)
+        .def("__int__", [](GddrModule gddr) { return static_cast<int>(gddr); });
+
+    nb::class_<GddrModuleTelemetry>(m, "GddrModuleTelemetry", "Per-module GDDR telemetry (temp, errors, status).")
+        .def_ro("dram_temperature_top", &GddrModuleTelemetry::dram_temperature_top)
+        .def_ro("dram_temperature_bottom", &GddrModuleTelemetry::dram_temperature_bottom)
+        .def_ro("corr_edc_rd_errors", &GddrModuleTelemetry::corr_edc_rd_errors)
+        .def_ro("corr_edc_wr_errors", &GddrModuleTelemetry::corr_edc_wr_errors)
+        .def_ro("uncorr_edc_rd_error", &GddrModuleTelemetry::uncorr_edc_rd_error)
+        .def_ro("uncorr_edc_wr_error", &GddrModuleTelemetry::uncorr_edc_wr_error);
+
+    nb::class_<GddrTelemetry>(
+        m, "GddrTelemetry", "Aggregated GDDR telemetry for monitoring/early warning of DRAM failure.")
+        .def_prop_ro("modules", [](const GddrTelemetry& t) {
+            nb::dict d;
+            for (const auto& [key, value] : t.modules) {
+                d[nb::cast(key)] = nb::cast(value);
+            }
+            return d;
+        });
+
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
     // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
-        .def(nb::init<TTDevice *>(), nb::arg("tt_device"))
+        .def(nb::init<TTDevice*>(), nb::arg("tt_device"))
         .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
 
@@ -162,6 +203,10 @@ void bind_telemetry(nb::module_ &m) {
         .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq)
         .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
         .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat)
+        .def("get_aggregated_dram_telemetry", &FirmwareInfoProvider::get_aggregated_dram_telemetry)
+        .def("get_dram_telemetry", &FirmwareInfoProvider::get_dram_telemetry, nb::arg("gddr_module"))
+        .def("get_dram_speed", &FirmwareInfoProvider::get_dram_speed)
+        .def("get_current_max_dram_temperature", &FirmwareInfoProvider::get_current_max_dram_temperature)
         .def_static(
             "get_minimum_compatible_firmware_version",
             &FirmwareInfoProvider::get_minimum_compatible_firmware_version,

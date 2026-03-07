@@ -18,6 +18,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -37,6 +38,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tdp_available = telemetry->is_entry_available(TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(TelemetryTag::VCORE);
+
     board_temperature_available = telemetry->is_entry_available(TelemetryTag::BOARD_TEMPERATURE);
 }
 
@@ -158,7 +160,7 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
     // Example: 0b 00 00 00 00 00 00 01 10
     // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained and don't
     // have errors. If some channel is harvested the bits are always going to be zero.
-    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
+    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::GDDR_STATUS);
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {
         if (telemetry_data & (1 << (2 * channel))) {
@@ -263,6 +265,153 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
 
 uint32_t FirmwareInfoProvider::get_heartbeat() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::TIMER_HEARTBEAT);
+}
+
+static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
+    return tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS)) &&
+           tt_device->get_arc_telemetry_reader()->is_entry_available(
+               static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+}
+
+// Ensure GDDR telemetry tags are consecutive so pair_index arithmetic is safe.
+static_assert(
+    static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP) - static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) == 3,
+    "GDDR_x_y_TEMP tags must be consecutive");
+static_assert(
+    static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS) - static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) ==
+        3,
+    "GDDR_x_y_CORR_ERRS tags must be consecutive");
+
+std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) const {
+    // Telemetry data is packed in pairs: GDDR_0_1, GDDR_2_3, GDDR_4_5, GDDR_6_7.
+    const uint8_t module_index = static_cast<uint8_t>(gddr_module);
+    const uint8_t pair_index = module_index / 2;  // Which pair: 0, 1, 2, or 3.
+    const bool is_odd_module = (module_index % 2) == 1;
+    const uint8_t bit_shift = is_odd_module ? 16 : 0;  // Odd modules use upper 16 bits.
+
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+
+    // Check if all required telemetry tags for this GDDR pair are available.
+    auto are_tags_available = [telemetry](uint8_t pair_idx) {
+        return telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_idx) &&
+               telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_idx) &&
+               telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    };
+
+    if (!are_tags_available(pair_index)) {
+        return std::nullopt;
+    }
+
+    // Read the packed telemetry word for this pair.
+    const uint32_t temperature_word =
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
+    const uint32_t corrected_errors_word =
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
+    const uint32_t uncorrected_errors_bitmask =
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+
+    // Extract this module's data from the packed word.
+    // Layout per module: [15:8] top temp / write errors, [7:0] bottom temp / read errors.
+    GddrModuleTelemetry module_telemetry{};
+    module_telemetry.dram_temperature_bottom = static_cast<double>((temperature_word >> bit_shift) & 0xFFu);
+    module_telemetry.dram_temperature_top = static_cast<double>((temperature_word >> (bit_shift + 8)) & 0xFFu);
+    module_telemetry.corr_edc_rd_errors = static_cast<uint8_t>((corrected_errors_word >> bit_shift) & 0xFFu);
+    module_telemetry.corr_edc_wr_errors = static_cast<uint8_t>((corrected_errors_word >> (bit_shift + 8)) & 0xFFu);
+
+    // Uncorrected errors: 2 bits per module (bit i*2 = read, bit i*2+1 = write).
+    const uint8_t uncorr_read_bit = module_index * 2;
+    const uint8_t uncorr_write_bit = module_index * 2 + 1;
+    module_telemetry.uncorr_edc_rd_error = (uncorrected_errors_bitmask & (1u << uncorr_read_bit)) != 0 ? 1 : 0;
+    module_telemetry.uncorr_edc_wr_error = (uncorrected_errors_bitmask & (1u << uncorr_write_bit)) != 0 ? 1 : 0;
+
+    return module_telemetry;
+}
+
+std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
+    if (!gddr_telemetry_tags_available(tt_device)) {
+        return std::nullopt;
+    }
+
+    GddrTelemetry aggregated_gddr_telemetry{};
+
+    auto uncorrected_errors_mask =
+        tt_device->get_arc_telemetry_reader()->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+
+    const std::array<uint8_t, 4> temp_tags = {
+        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP),
+        static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP),
+        static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP),
+        static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP),
+    };
+    const std::array<uint8_t, 4> corr_tags = {
+        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS),
+        static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS),
+        static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS),
+        static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS),
+    };
+
+    for (std::size_t gddr_index_pair = 0; gddr_index_pair < 4; ++gddr_index_pair) {
+        const uint32_t temp_word = tt_device->get_arc_telemetry_reader()->read_entry(temp_tags[gddr_index_pair]);
+        const uint32_t corr_word = tt_device->get_arc_telemetry_reader()->read_entry(corr_tags[gddr_index_pair]);
+        const std::size_t base = gddr_index_pair * 2;
+        const GddrModule gddr_x = static_cast<GddrModule>(base);
+        const GddrModule gddr_y = static_cast<GddrModule>(base + 1);
+
+        // Temperature word layout: [31:24] gddr_y top, [23:16] gddr_y bottom, [15:8] gddr_x top, [7:0] gddr_x bottom.
+        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_bottom = static_cast<double>(temp_word & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_top = static_cast<double>((temp_word >> 8) & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_bottom =
+            static_cast<double>((temp_word >> 16) & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_top = static_cast<double>((temp_word >> 24) & 0xFFu);
+
+        // Corrected errors word layout: [31:24] gddr_y write, [23:16] gddr_y read, [15:8] gddr_x write, [7:0] gddr_x
+        // read.
+        aggregated_gddr_telemetry.modules[gddr_x].corr_edc_rd_errors = static_cast<uint8_t>(corr_word & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_x].corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> 8) & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_y].corr_edc_rd_errors = static_cast<uint8_t>((corr_word >> 16) & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_y].corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> 24) & 0xFFu);
+    }
+
+    for (std::size_t i = 0; i < get_number_of_dram_modules(tt_device->get_arch()); ++i) {
+        GddrModule gddr = static_cast<GddrModule>(i);
+        aggregated_gddr_telemetry.modules[gddr].uncorr_edc_rd_error =
+            (uncorrected_errors_mask & (1u << (i * 2))) != 0 ? 1 : 0;
+        aggregated_gddr_telemetry.modules[gddr].uncorr_edc_wr_error =
+            (uncorrected_errors_mask & (1u << (i * 2 + 1))) != 0 ? 1 : 0;
+    }
+
+    return aggregated_gddr_telemetry;
+}
+
+std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::GDDR_SPEED)) {
+        return std::nullopt;
+    }
+    return static_cast<uint16_t>(telemetry->read_entry(TelemetryTag::GDDR_SPEED));
+}
+
+std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!telemetry->is_entry_available(TelemetryTag::MAX_GDDR_TEMP)) {
+        return std::nullopt;
+    }
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::MAX_GDDR_TEMP));
 }
 
 }  // namespace tt::umd

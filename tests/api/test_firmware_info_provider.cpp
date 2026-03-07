@@ -481,9 +481,6 @@ TEST(TestTelemetry, GddrTelemetry) {
         }
 
         if (arch == ARCH::WORMHOLE_B0) {
-            log_debug(
-                tt::LogUMD,
-                "Only GDDR speed and status are populated on Wormhole and only speed is verified in this test.");
             continue;
         }
 

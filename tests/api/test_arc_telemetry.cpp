@@ -158,7 +158,7 @@ TEST(TestTelemetry, GddrTelemetry) {
             max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_bottom);
         }
 
-        EXPECT_DOUBLE_EQ(static_cast<double>(max_temp.value()), max_temp_from_modules)
+        EXPECT_DOUBLE_EQ(max_temp.value(), max_temp_from_modules)
             << "Max temperature should match the maximum from all module temperatures.";
 
         // Test individual module telemetry access.

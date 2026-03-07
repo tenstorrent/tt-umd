@@ -136,7 +136,7 @@ public:
 
     virtual std::optional<uint16_t> get_dram_speed() const;
 
-    virtual std::optional<uint16_t> get_current_max_dram_temperature() const;
+    virtual std::optional<double> get_current_max_dram_temperature() const;
 
 protected:
     TTDevice* tt_device = nullptr;

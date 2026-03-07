@@ -406,12 +406,12 @@ std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() const {
     return static_cast<uint16_t>(telemetry->read_entry(TelemetryTag::GDDR_SPEED));
 }
 
-std::optional<uint16_t> FirmwareInfoProvider::get_current_max_dram_temperature() const {
+std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!telemetry->is_entry_available(TelemetryTag::MAX_GDDR_TEMP)) {
         return std::nullopt;
     }
-    return static_cast<uint16_t>(telemetry->read_entry(TelemetryTag::MAX_GDDR_TEMP));
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::MAX_GDDR_TEMP));
 }
 
 }  // namespace tt::umd

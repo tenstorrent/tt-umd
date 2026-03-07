@@ -4,19 +4,18 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
-#include <array>
+#include <fmt/core.h>
+
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <vector>
 
-#include "fmt/core.h"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 

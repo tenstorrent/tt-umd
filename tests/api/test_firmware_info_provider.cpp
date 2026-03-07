@@ -453,19 +453,10 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
 }
 
 TEST(TestTelemetry, GddrTelemetry) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    ARCH arch = ARCH::Invalid;
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test..";
-    }
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+    ARCH arch = pci_devices_info.at(0).get_arch();
 
-    // Scope ensures PCIDevice is destroyed after reading arch, avoiding holding mappings for the test duration.
-    {
-        PCIDevice pci_device(pci_device_ids.at(0));
-        arch = pci_device.get_arch();
-    }
-
-    for (int pci_device_id : pci_device_ids) {
+    for (auto& [pci_device_id, pci_device_info] : pci_devices_info) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
 

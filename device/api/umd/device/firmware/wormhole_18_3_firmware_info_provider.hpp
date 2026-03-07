@@ -67,7 +67,7 @@ public:
 
     std::optional<uint16_t> get_dram_speed() const override;
 
-    std::optional<uint16_t> get_current_max_dram_temperature() const override;
+    std::optional<double> get_current_max_dram_temperature() const override;
 };
 
 }  // namespace tt::umd

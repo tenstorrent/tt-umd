@@ -210,7 +210,7 @@ std::optional<uint16_t> Wormhole_18_3_FirmwareInfoProvider::get_dram_speed() con
     return std::nullopt;
 }
 
-std::optional<uint16_t> Wormhole_18_3_FirmwareInfoProvider::get_current_max_dram_temperature() const {
+std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_current_max_dram_temperature() const {
     // SMBUS telemetry does not map to the new style GDDR telemetry structure.
     return std::nullopt;
 }

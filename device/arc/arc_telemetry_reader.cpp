@@ -70,6 +70,12 @@ void ArcTelemetryReader::initialize_telemetry() {
         telemetry_values.insert({tag_val, telemetry_data[offset_val]});
         telemetry_offset.insert({tag_val, offset_val});
     }
+
+    // Pre-allocate buffers for read_all_entries().
+    bulk_read_buffer_.resize(entry_count);
+    for (const auto& [tag, offset] : telemetry_offset) {
+        bulk_read_cache_[tag] = 0;
+    }
 }
 
 uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
@@ -94,6 +100,18 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
+}
+
+const std::map<uint32_t, uint32_t>& ArcTelemetryReader::read_all_entries() {
+    // Single bulk DMA read of the entire telemetry values array into pre-allocated buffer.
+    tt_device->dma_read_from_device(
+        bulk_read_buffer_.data(), entry_count * sizeof(uint32_t), arc_core, telemetry_values_addr);
+
+    // Update the pre-allocated cache map (no allocations, just value updates).
+    for (const auto& [tag, offset] : telemetry_offset) {
+        bulk_read_cache_[tag] = bulk_read_buffer_[offset];
+    }
+    return bulk_read_cache_;
 }
 
 }  // namespace tt::umd

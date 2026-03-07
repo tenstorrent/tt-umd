@@ -4,7 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <chrono>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -15,6 +18,57 @@
 
 using namespace tt;
 using namespace tt::umd;
+
+// All defined TelemetryTag values (excluding NUMBER_OF_TAGS which is a sentinel).
+static constexpr std::array<TelemetryTag, 47> ALL_TELEMETRY_TAGS = {{
+    TelemetryTag::BOARD_ID_HIGH,
+    TelemetryTag::BOARD_ID_LOW,
+    TelemetryTag::ASIC_ID,
+    TelemetryTag::HARVESTING_STATE,
+    TelemetryTag::UPDATE_TELEM_SPEED,
+    TelemetryTag::VCORE,
+    TelemetryTag::TDP,
+    TelemetryTag::TDC,
+    TelemetryTag::VDD_LIMITS,
+    TelemetryTag::THM_LIMITS,
+    TelemetryTag::ASIC_TEMPERATURE,
+    TelemetryTag::VREG_TEMPERATURE,
+    TelemetryTag::BOARD_TEMPERATURE,
+    TelemetryTag::AICLK,
+    TelemetryTag::AXICLK,
+    TelemetryTag::ARCCLK,
+    TelemetryTag::L2CPUCLK0,
+    TelemetryTag::L2CPUCLK1,
+    TelemetryTag::L2CPUCLK2,
+    TelemetryTag::L2CPUCLK3,
+    TelemetryTag::ETH_LIVE_STATUS,
+    TelemetryTag::DDR_STATUS,
+    TelemetryTag::DDR_SPEED,
+    TelemetryTag::ETH_FW_VERSION,
+    TelemetryTag::GDDR_FW_VERSION,
+    TelemetryTag::DM_APP_FW_VERSION,
+    TelemetryTag::DM_BL_FW_VERSION,
+    TelemetryTag::FLASH_BUNDLE_VERSION,
+    TelemetryTag::CM_FW_VERSION,
+    TelemetryTag::L2CPU_FW_VERSION,
+    TelemetryTag::FAN_SPEED,
+    TelemetryTag::TIMER_HEARTBEAT,
+    TelemetryTag::TELEMETRY_ENUM_COUNT,
+    TelemetryTag::ENABLED_TENSIX_COL,
+    TelemetryTag::ENABLED_ETH,
+    TelemetryTag::ENABLED_GDDR,
+    TelemetryTag::ENABLED_L2CPU,
+    TelemetryTag::PCIE_USAGE,
+    TelemetryTag::NOC_TRANSLATION,
+    TelemetryTag::FAN_RPM,
+    TelemetryTag::ASIC_LOCATION,
+    TelemetryTag::TDC_LIMIT_MAX,
+    TelemetryTag::TT_FLASH_VERSION,
+    TelemetryTag::ASIC_ID_HIGH,
+    TelemetryTag::ASIC_ID_LOW,
+    TelemetryTag::AICLK_LIMIT_MAX,
+    TelemetryTag::TDP_LIMIT_MAX,
+}};
 
 TEST(TestTelemetry, BasicTelemetry) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -81,4 +135,76 @@ TEST(TestTelemetry, RemoteTelemetry) {
     EXPECT_FALSE(
         remote_telemetry->read_entry(TelemetryTag::ASIC_LOCATION) ==
         local_telemetry->read_entry(TelemetryTag::ASIC_LOCATION));
+}
+
+TEST(TestTelemetry, BulkReadMatchesIndividualReads) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+
+        const auto& bulk = telemetry->read_all_entries();
+        ASSERT_FALSE(bulk.empty());
+
+        // Every tag present in the bulk read must match a single read_entry call.
+        for (const auto& [tag, bulk_value] : bulk) {
+            ASSERT_TRUE(telemetry->is_entry_available(static_cast<uint8_t>(tag)));
+            EXPECT_EQ(bulk_value, telemetry->read_entry(static_cast<uint8_t>(tag)))
+                << "Mismatch for telemetry tag " << tag;
+        }
+    }
+}
+
+TEST(TestTelemetry, BulkReadVsIndividualReadPerformance) {
+    for (int id : PCIDevice::enumerate_devices()) {
+        auto tt_device = TTDevice::create(id);
+        tt_device->init_tt_device();
+        ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+
+        static constexpr int iterations = 100;
+
+        // Individual reads: one read_from_device per tag per iteration.
+        auto t0 = std::chrono::high_resolution_clock::now();
+
+        // Filter to only tags available on this device.
+        std::vector<TelemetryTag> available_tags;
+        for (TelemetryTag tag : ALL_TELEMETRY_TAGS) {
+            if (telemetry->is_entry_available(static_cast<uint8_t>(tag))) {
+                available_tags.push_back(tag);
+            }
+        }
+        ASSERT_FALSE(available_tags.empty());
+
+        for (int i = 0; i < iterations; ++i) {
+            for (TelemetryTag tag : available_tags) {
+                volatile uint32_t val = telemetry->read_entry(static_cast<uint8_t>(tag));
+                (void)val;
+            }
+        }
+        auto t1 = std::chrono::high_resolution_clock::now();
+
+        // Bulk read: one read_from_device for the whole table per iteration.
+        auto t2 = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < iterations; ++i) {
+            const auto& bulk = telemetry->read_all_entries();
+            (void)bulk;
+        }
+        auto t3 = std::chrono::high_resolution_clock::now();
+
+        auto individual_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+        auto bulk_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+        log_info(
+            tt::LogUMD,
+            "Device {}: {} tags, {} iterations — individual: {} us, bulk: {} us, speedup: {:.2f}x",
+            id,
+            available_tags.size(),
+            iterations,
+            individual_us,
+            bulk_us,
+            bulk_us > 0 ? static_cast<double>(individual_us) / static_cast<double>(bulk_us) : 0.0);
+
+        // Bulk read should not be slower than individual reads.
+        EXPECT_LE(bulk_us, individual_us);
+    }
 }

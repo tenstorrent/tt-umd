@@ -6,6 +6,7 @@
 
 #include <map>
 #include <unordered_set>
+#include <vector>
 
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -20,6 +21,15 @@ public:
     virtual uint32_t read_entry(const uint8_t telemetry_tag);
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
+
+    /**
+     * Read the entire telemetry values array in a single bulk read_from_device() call
+     * and return a reference to the cached tag->value map. Does not modify the internal
+     * telemetry_values cache used by read_entry(). Uses pre-allocated buffers so no
+     * heap allocation occurs after initialization.
+     * The returned reference is valid until the next call to read_all_entries().
+     */
+    virtual const std::map<uint32_t, uint32_t>& read_all_entries();
 
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
 
@@ -54,6 +64,10 @@ protected:
     tt_xy_pair arc_core;
 
     TTDevice* tt_device;
+
+    // Pre-allocated buffers for read_all_entries() to avoid per-call allocation.
+    std::vector<uint32_t> bulk_read_buffer_;
+    std::map<uint32_t, uint32_t> bulk_read_cache_;
 
 private:
     const std::unordered_set<uint16_t> static_entries{

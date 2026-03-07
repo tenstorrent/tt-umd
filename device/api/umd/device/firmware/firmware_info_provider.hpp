@@ -130,13 +130,13 @@ public:
      */
     virtual uint32_t get_heartbeat() const;
 
-    virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry();
+    virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
 
-    virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(BlackholeGddr gddr_module);
+    virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(BlackholeGddr gddr_module) const;
 
-    virtual std::optional<uint16_t> get_dram_speed();
+    virtual std::optional<uint16_t> get_dram_speed() const;
 
-    virtual std::optional<uint16_t> get_current_max_dram_temperature();
+    virtual std::optional<uint16_t> get_current_max_dram_temperature() const;
 
 protected:
     TTDevice* tt_device = nullptr;

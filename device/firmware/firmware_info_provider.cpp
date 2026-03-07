@@ -288,6 +288,15 @@ static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
                static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 }
 
+// Ensure GDDR telemetry tags are consecutive so pair_index arithmetic is safe.
+static_assert(
+    static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP) - static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) == 3,
+    "GDDR_x_y_TEMP tags must be consecutive");
+static_assert(
+    static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS) - static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) ==
+        3,
+    "GDDR_x_y_CORR_ERRS tags must be consecutive");
+
 std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) const {
     // Telemetry data is packed in pairs: GDDR_0_1, GDDR_2_3, GDDR_4_5, GDDR_6_7.
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);

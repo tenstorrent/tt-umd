@@ -4,6 +4,7 @@ set(MICROBENCHMARK_SRC_FILES
     benchmarks/open_cluster/test_open_cluster.cpp
     benchmarks/ethernet_io/test_ethernet_io.cpp
     benchmarks/iommu/test_iommu.cpp
+    benchmarks/telemetry/test_telemetry.cpp
 )
 add_executable(umd_microbenchmark ${MICROBENCHMARK_SRC_FILES})
 target_link_libraries(

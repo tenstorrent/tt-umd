@@ -78,10 +78,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDF) {
     // Get all available PCI devices and their BDF addresses.
     auto device_info_map = PCIDevice::enumerate_devices_info();
 
-    if (device_info_map.empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
-    }
-
     // Extract BDF addresses.
     std::vector<std::string> pci_bdf_addresses;
     pci_bdf_addresses.reserve(device_info_map.size());
@@ -142,10 +138,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
-    }
-
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
     }
@@ -171,10 +163,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
 TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
-    }
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
@@ -204,10 +192,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
-    }
-
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
     }
@@ -233,10 +217,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
 
 TEST(TestTTVisibleDevices, OpenChipsByIdException) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
-    }
 
     std::unordered_set<int> target_device_ids;
     target_device_ids.insert(pci_device_ids.size());
@@ -275,9 +255,6 @@ TEST(TestTTVisibleDevices, OpenClusterByLogicalID) {
     std::unordered_map<ChipId, ChipId> chips_with_pcie = cluster_desc->get_chips_with_mmio();
     auto eth_connections = cluster_desc->get_ethernet_connections();
 
-    if (all_chips.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
     // The first cluster will open the first chip only, and the second cluster will open the rest of them.
     ChipId first_chip_only = chips_with_pcie.begin()->first;

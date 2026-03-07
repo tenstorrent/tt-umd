@@ -328,8 +328,8 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(Gddr
     // Extract this module's data from the packed word.
     // Layout per module: [15:8] top temp / write errors, [7:0] bottom temp / read errors.
     GddrModuleTelemetry module_telemetry{};
-    module_telemetry.dram_temperature_bottom = static_cast<uint8_t>((temperature_word >> bit_shift) & 0xFFu);
-    module_telemetry.dram_temperature_top = static_cast<uint8_t>((temperature_word >> (bit_shift + 8)) & 0xFFu);
+    module_telemetry.dram_temperature_bottom = static_cast<double>((temperature_word >> bit_shift) & 0xFFu);
+    module_telemetry.dram_temperature_top = static_cast<double>((temperature_word >> (bit_shift + 8)) & 0xFFu);
     module_telemetry.corr_edc_rd_errors = static_cast<uint8_t>((corrected_errors_word >> bit_shift) & 0xFFu);
     module_telemetry.corr_edc_wr_errors = static_cast<uint8_t>((corrected_errors_word >> (bit_shift + 8)) & 0xFFu);
 
@@ -373,12 +373,11 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         const GddrModule gddr_y = static_cast<GddrModule>(base + 1);
 
         // Temperature word layout: [31:24] gddr_y top, [23:16] gddr_y bottom, [15:8] gddr_x top, [7:0] gddr_x bottom.
-        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_bottom = static_cast<uint8_t>(temp_word & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_top = static_cast<uint8_t>((temp_word >> 8) & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_bottom = static_cast<double>(temp_word & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_top = static_cast<double>((temp_word >> 8) & 0xFFu);
         aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_bottom =
-            static_cast<uint8_t>((temp_word >> 16) & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_top =
-            static_cast<uint8_t>((temp_word >> 24) & 0xFFu);
+            static_cast<double>((temp_word >> 16) & 0xFFu);
+        aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_top = static_cast<double>((temp_word >> 24) & 0xFFu);
 
         // Corrected errors word layout: [31:24] gddr_y write, [23:16] gddr_y read, [15:8] gddr_x write, [7:0] gddr_x
         // read.

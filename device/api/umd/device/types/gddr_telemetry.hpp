@@ -37,9 +37,9 @@ inline size_t get_number_of_dram_modules(const ARCH arch) {
 
 struct GddrModuleTelemetry {
     // Temperature in Celsius of the top DRAM die.
-    uint16_t dram_temperature_top{0};
+    double dram_temperature_top{0.0};
     // Temperature in Celsius of the bottom DRAM die.
-    uint16_t dram_temperature_bottom{0};
+    double dram_temperature_bottom{0.0};
     // Saturates at 255. Number of cumulative corrected EDC errors on read since reset.
     uint8_t corr_edc_rd_errors{0};
     // Saturates at 255. Number of cumulative corrected EDC errors on write since reset.

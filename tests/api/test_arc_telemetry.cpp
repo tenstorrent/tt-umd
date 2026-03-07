@@ -152,13 +152,13 @@ TEST(TestTelemetry, GddrTelemetry) {
                 module_telemetry.uncorr_edc_wr_error);
         }
 
-        uint16_t max_temp_from_modules = 0;
+        double max_temp_from_modules = 0.0;
         for (const auto& [gddr_index, module_telemetry] : gddr_telemetry->modules) {
             max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_top);
             max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_bottom);
         }
 
-        EXPECT_EQ(max_temp.value(), max_temp_from_modules)
+        EXPECT_DOUBLE_EQ(static_cast<double>(max_temp.value()), max_temp_from_modules)
             << "Max temperature should match the maximum from all module temperatures.";
 
         // Test individual module telemetry access.

@@ -519,15 +519,9 @@ TEST(TestTelemetry, GddrTelemetry) {
 
         // Test individual module telemetry access.
         log_info(tt::LogUMD, "Testing individual module access:");
-        for (auto gddr_index :
-             {GddrModule::GDDR_7,
-              GddrModule::GDDR_6,
-              GddrModule::GDDR_5,
-              GddrModule::GDDR_4,
-              GddrModule::GDDR_3,
-              GddrModule::GDDR_2,
-              GddrModule::GDDR_1,
-              GddrModule::GDDR_0}) {
+        size_t num_modules = get_number_of_dram_modules(arch);
+        for (size_t i = num_modules; i > 0; --i) {
+            GddrModule gddr_index = static_cast<GddrModule>(i - 1);
             auto module_telemetry = fw_info->get_dram_telemetry(gddr_index);
             ASSERT_TRUE(module_telemetry.has_value()) << "Individual GDDR module telemetry should be available.";
 

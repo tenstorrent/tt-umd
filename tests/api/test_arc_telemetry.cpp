@@ -135,14 +135,14 @@ TEST(TestTelemetry, GddrTelemetry) {
         // Max temperature is fetched from the same telemetry source (all GDDR module temperatures).
         auto max_temp = fw_info->get_current_max_dram_temperature();
         if (max_temp.has_value()) {
-            log_info(tt::LogUMD, "Max GDDR temperature from all modules: {}C", max_temp.value());
+            log_info(tt::LogUMD, "Max GDDR temperature from all modules: {} ºC", max_temp.value());
         }
 
         log_info(tt::LogUMD, "Per-module GDDR telemetry:");
         for (const auto& [gddr_index, module_telemetry] : gddr_telemetry->modules) {
             log_info(
                 tt::LogUMD,
-                "GDDR_{}: top={}C bottom={}C corr_rd={} corr_wr={} uncorr_rd={} uncorr_wr={}",
+                "GDDR_{}: top={} ºC bottom={} ºC corr_rd={} corr_wr={} uncorr_rd={} uncorr_wr={}",
                 static_cast<int>(gddr_index),
                 module_telemetry.dram_temperature_top,
                 module_telemetry.dram_temperature_bottom,
@@ -177,7 +177,7 @@ TEST(TestTelemetry, GddrTelemetry) {
 
             log_info(
                 tt::LogUMD,
-                "GDDR_{}: top={}C bottom={}C",
+                "GDDR_{}: top={} ºC bottom={} ºC",
                 static_cast<int>(gddr_index),
                 module_telemetry->dram_temperature_top,
                 module_telemetry->dram_temperature_bottom);

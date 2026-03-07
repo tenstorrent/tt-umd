@@ -5,11 +5,9 @@
 #pragma once
 
 #include <map>
-#include <optional>
 #include <unordered_set>
 
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 

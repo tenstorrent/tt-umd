@@ -23,6 +23,8 @@ public:
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 
+    uint32_t get_entry_count() const;
+
     /**
      * Read the entire telemetry values array in a single bulk read_from_device() call
      * and return a reference to the cached tag->value map. Does not modify the internal

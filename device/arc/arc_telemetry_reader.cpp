@@ -102,6 +102,8 @@ bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
 }
 
+uint32_t ArcTelemetryReader::get_entry_count() const { return entry_count; }
+
 const std::map<uint32_t, std::optional<uint32_t>>& ArcTelemetryReader::read_all_entries() {
     // Single bulk DMA read of the entire telemetry values array into pre-allocated buffer.
     tt_device->dma_read_from_device(

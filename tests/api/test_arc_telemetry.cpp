@@ -146,6 +146,19 @@ TEST(TestTelemetry, BulkReadMatchesIndividualReads) {
         const auto& bulk = telemetry->read_all_entries();
         ASSERT_FALSE(bulk.empty());
 
+        uint32_t device_entry_count = telemetry->get_entry_count();
+        if (bulk.size() != device_entry_count) {
+            log_warning(
+                tt::LogUMD,
+                "Device {}: bulk read returned {} entries but device reports {} entries",
+                id,
+                bulk.size(),
+                device_entry_count);
+        } else {
+            log_info(
+                tt::LogUMD, "Device {}: bulk read and device entry count match: {} entries", id, device_entry_count);
+        }
+
         // Every tag present in the bulk read should either have a value or be nullopt.
         // Tags with values must match a single read_entry call.
         for (const auto& [tag, bulk_value] : bulk) {

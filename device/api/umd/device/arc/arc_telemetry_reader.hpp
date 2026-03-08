@@ -27,7 +27,8 @@ public:
      * and return a reference to the cached tag->value map. Does not modify the internal
      * telemetry_values cache used by read_entry(). Uses pre-allocated buffers so no
      * heap allocation occurs after initialization.
-     * The returned reference is valid until the next call to read_all_entries().
+     * The returned reference is valid for the lifetime of this ArcTelemetryReader;
+     * the values within the map are updated on each subsequent call.
      */
     virtual const std::map<uint32_t, uint32_t>& read_all_entries();
 

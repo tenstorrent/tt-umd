@@ -74,7 +74,7 @@ void ArcTelemetryReader::initialize_telemetry() {
     // Pre-allocate buffers for read_all_entries().
     bulk_read_buffer_.resize(entry_count);
     for (const auto& [tag, offset] : telemetry_offset) {
-        bulk_read_cache_[tag] = 0;
+        bulk_read_cache_[tag] = std::nullopt;
     }
 }
 
@@ -102,12 +102,14 @@ bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
 }
 
-const std::map<uint32_t, uint32_t>& ArcTelemetryReader::read_all_entries() {
+const std::map<uint32_t, std::optional<uint32_t>>& ArcTelemetryReader::read_all_entries() {
     // Single bulk DMA read of the entire telemetry values array into pre-allocated buffer.
     tt_device->dma_read_from_device(
         bulk_read_buffer_.data(), entry_count * sizeof(uint32_t), arc_core, telemetry_values_addr);
 
     // Update the pre-allocated cache map (no allocations, just value updates).
+    // Tags present in telemetry_offset are available and get their value;
+    // any tag not in telemetry_offset remains std::nullopt from initialization.
     for (const auto& [tag, offset] : telemetry_offset) {
         bulk_read_cache_[tag] = bulk_read_buffer_[offset];
     }

@@ -22,6 +22,8 @@ public:
 
     bool is_entry_available(const uint8_t telemetry_tag) override;
 
+    const std::map<uint32_t, std::optional<uint32_t>>& read_all_entries() override;
+
 protected:
     void get_telemetry_address() override;
 

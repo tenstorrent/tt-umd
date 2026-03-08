@@ -5,6 +5,7 @@
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -49,6 +50,20 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool SmBusArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_tag >= 0 && telemetry_tag < wormhole::TelemetryTag::NUMBER_OF_TAGS;
+}
+
+const std::map<uint32_t, std::optional<uint32_t>>& SmBusArcTelemetryReader::read_all_entries() {
+    // SmBus tags are contiguous [0, NUMBER_OF_TAGS). Single bulk read of the entire table.
+    static constexpr uint32_t num_tags = wormhole::TelemetryTag::NUMBER_OF_TAGS;
+    bulk_read_buffer_.resize(num_tags);
+    tt_device->read_from_device(
+        bulk_read_buffer_.data(), arc_core, telemetry_base_noc_addr, num_tags * sizeof(uint32_t));
+
+    // All tags in [0, NUMBER_OF_TAGS) are available.
+    for (uint32_t tag = 0; tag < num_tags; ++tag) {
+        bulk_read_cache_[tag] = bulk_read_buffer_[tag];
+    }
+    return bulk_read_cache_;
 }
 
 }  // namespace tt::umd

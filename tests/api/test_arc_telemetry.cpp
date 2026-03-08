@@ -146,11 +146,17 @@ TEST(TestTelemetry, BulkReadMatchesIndividualReads) {
         const auto& bulk = telemetry->read_all_entries();
         ASSERT_FALSE(bulk.empty());
 
-        // Every tag present in the bulk read must match a single read_entry call.
+        // Every tag present in the bulk read should either have a value or be nullopt.
+        // Tags with values must match a single read_entry call.
         for (const auto& [tag, bulk_value] : bulk) {
-            ASSERT_TRUE(telemetry->is_entry_available(static_cast<uint8_t>(tag)));
-            EXPECT_EQ(bulk_value, telemetry->read_entry(static_cast<uint8_t>(tag)))
-                << "Mismatch for telemetry tag " << tag;
+            if (bulk_value.has_value()) {
+                ASSERT_TRUE(telemetry->is_entry_available(static_cast<uint8_t>(tag)));
+                EXPECT_EQ(bulk_value.value(), telemetry->read_entry(static_cast<uint8_t>(tag)))
+                    << "Mismatch for telemetry tag " << tag;
+            } else {
+                EXPECT_FALSE(telemetry->is_entry_available(static_cast<uint8_t>(tag)))
+                    << "Tag " << tag << " is nullopt in bulk but available individually";
+            }
         }
     }
 }

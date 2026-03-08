@@ -5,6 +5,7 @@
 #pragma once
 
 #include <map>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 
@@ -29,8 +30,9 @@ public:
      * heap allocation occurs after initialization.
      * The returned reference is valid for the lifetime of this ArcTelemetryReader;
      * the values within the map are updated on each subsequent call.
+     * Tags that are not available are set to std::nullopt.
      */
-    virtual const std::map<uint32_t, uint32_t>& read_all_entries();
+    virtual const std::map<uint32_t, std::optional<uint32_t>>& read_all_entries();
 
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
 
@@ -68,7 +70,7 @@ protected:
 
     // Pre-allocated buffers for read_all_entries() to avoid per-call allocation.
     std::vector<uint32_t> bulk_read_buffer_;
-    std::map<uint32_t, uint32_t> bulk_read_cache_;
+    std::map<uint32_t, std::optional<uint32_t>> bulk_read_cache_;
 
 private:
     const std::unordered_set<uint16_t> static_entries{

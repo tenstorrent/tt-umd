@@ -142,6 +142,19 @@ jobs:
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
 
+      - name: Build UMD api_tests with simulation support
+        run: |
+          cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
+            -S tt-metal/tt_metal/third_party/umd \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests
+
       - name: Run tt-sim wormhole tests
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
@@ -151,6 +164,13 @@ jobs:
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+
+      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/tests/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
 
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         env:

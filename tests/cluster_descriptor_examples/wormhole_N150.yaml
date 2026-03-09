@@ -18,10 +18,4 @@ harvesting: {
    0: {noc_translation: true, harvest_mask: 32},
 }
 
-boards: {
-   0: {
-      board_id: 72059269369839682,
-      board_type: n150,
-      chips: [0],
-   },
-}
+boards: [[{board_id: 72059269369839682}, {board_type: n150}, {chips: [0]}]]

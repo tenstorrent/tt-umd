@@ -498,7 +498,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             }
 
             uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
-            const std::string& board_type_str = boardEntry[1]["board_type"].as<std::string>();
+            const std::string &board_type_str = boardEntry[1]["board_type"].as<std::string>();
             BoardType board_type = board_type_from_string(board_type_str);
 
             for (const auto &chip : boardEntry[2]["chips"]) {

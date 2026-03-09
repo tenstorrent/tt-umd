@@ -18,10 +18,4 @@ harvesting: {
    0: {noc_translation: false, harvest_mask: 0, eth_harvesting_mask: 16383},
 }
 
-boards: {
-   0: {
-      board_id: 4609331458111,
-      board_type: p100,
-      chips: [0],
-   },
-}
+boards: [[{board_id: 4609331458111}, {board_type: p100}, {chips: [0]}]]

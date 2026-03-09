@@ -636,3 +636,37 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     EXPECT_EQ(value1, value0);
     EXPECT_EQ(value2, value0);
 }
+
+/**
+ * Test the PCIe DMA controller by using it to write and read fixed-size patterns
+ * to and from a single ETH core at device address 254304 (0x3E160), then verify
+ * that the data read back matches what was written.
+ */
+TEST(TestDeviceIO, DMA3) {
+    const ChipId chip = 0;
+    Cluster cluster;
+
+    CoreCoord eth_core = cluster.get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
+
+    size_t buf_size = 768;
+
+    std::vector<uint8_t> zeros(buf_size, 1);
+    cluster.write_to_device(zeros.data(), zeros.size(), chip, eth_core, 254304);
+    std::vector<uint8_t> readback_zeros(buf_size, 0xFF);
+    cluster.read_from_device(readback_zeros.data(), chip, eth_core, 254304, readback_zeros.size());
+    EXPECT_EQ(zeros, readback_zeros) << "Mismatch zeros for core " << eth_core.str() << " addr=0x0"
+                                     << " size=" << std::dec << readback_zeros.size();
+
+    std::vector<uint8_t> pattern(buf_size, 0);
+    for (size_t i = 0; i < buf_size; ++i) {
+        pattern[i] = i % 256;
+    }
+
+    cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, eth_core, 254304);
+
+    std::vector<uint8_t> readback(buf_size, 1);
+    cluster.read_from_device(readback.data(), chip, eth_core, 254304, readback.size());
+
+    EXPECT_EQ(pattern, readback) << "Mismatch for core " << eth_core.str() << " addr=0x0"
+                                 << " size=" << std::dec << readback.size();
+}

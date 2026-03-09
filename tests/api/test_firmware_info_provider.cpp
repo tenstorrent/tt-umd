@@ -71,7 +71,25 @@ static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, StaticVersionInfo) {
+class TestFirmwareInfoProvider : public ::testing::Test {
+public:
+    void SetUp() override {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        for (int pci_device_id : pci_device_ids) {
+            auto tt_device = TTDevice::create(pci_device_id);
+            tt_device->init_tt_device();
+            ASSERT_NE(tt_device->get_firmware_info_provider(), nullptr);
+            tt_devices_.push_back(std::move(tt_device));
+        }
+    }
+
+    const std::vector<std::unique_ptr<TTDevice>>& get_tt_devices() const { return tt_devices_; }
+
+private:
+    std::vector<std::unique_ptr<TTDevice>> tt_devices_;
+};
+
+TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     // Test static methods that don't need a device.
     FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
     FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
@@ -94,15 +112,10 @@ TEST(TestFirmwareInfoProvider, StaticVersionInfo) {
     EXPECT_GE(bh_latest, bh_min);
 }
 
-TEST(TestFirmwareInfoProvider, BoardId) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, BoardId) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         uint64_t board_id = fw_info->get_board_id();
         log_info(
@@ -122,15 +135,10 @@ TEST(TestFirmwareInfoProvider, BoardId) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, Temperature) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, Temperature) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
@@ -166,15 +174,10 @@ TEST(TestFirmwareInfoProvider, Temperature) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, ClockFrequencies) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -221,15 +224,10 @@ TEST(TestFirmwareInfoProvider, ClockFrequencies) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, EthFirmwareVersion) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, EthFirmwareVersion) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -256,15 +254,10 @@ TEST(TestFirmwareInfoProvider, EthFirmwareVersion) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -297,15 +290,10 @@ TEST(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, PowerMetrics) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
@@ -353,15 +341,10 @@ TEST(TestFirmwareInfoProvider, PowerMetrics) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, DramTrainingStatus) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, DramTrainingStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -398,15 +381,10 @@ TEST(TestFirmwareInfoProvider, DramTrainingStatus) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, AsicLocation) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, AsicLocation) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -427,15 +405,10 @@ TEST(TestFirmwareInfoProvider, AsicLocation) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, Heartbeat) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, Heartbeat) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 

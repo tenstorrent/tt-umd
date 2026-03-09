@@ -469,7 +469,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
 
     uint32_t write_test_data = 0xDEADBEEF;
 
-    auto chip_id = *cluster->get_target_device_ids().begin();
+    auto chip_id = *cluster->get_target_mmio_device_ids().begin();
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
     tt_device->bar_write32(

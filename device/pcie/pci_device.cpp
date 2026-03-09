@@ -362,6 +362,14 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
     return infos;
 }
 
+std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
+    if (umd_logical_id < 0 || umd_logical_id >= static_cast<int>(enumerated_ids.size())) {
+        return std::nullopt;
+    }
+    return enumerated_ids[umd_logical_id];
+}
+
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),

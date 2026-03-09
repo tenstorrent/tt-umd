@@ -31,7 +31,12 @@ static inline void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t
 static inline void read_data_from_device(
     Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
     size_buffer_to_capacity(vec, size);
-    cluster.read_from_device(vec.data(), chip_id, core, addr, size);
+    // Use architecture-specific read method: DMA for WORMHOLE_B0, regular read for others (including Blackhole).
+    if (cluster.get_tt_device(chip_id)->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        cluster.dma_read_from_device(vec.data(), size, chip_id, core, addr);
+    } else {
+        cluster.read_from_device(vec.data(), chip_id, core, addr, size);
+    }
 }
 
 inline void fill_with_random_bytes(uint8_t* data, size_t n) {

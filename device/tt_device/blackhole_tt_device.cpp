@@ -222,11 +222,7 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
-void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+void BlackholeTTDevice::dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
     }
@@ -302,32 +298,6 @@ void BlackholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src,
             throw std::runtime_error("DMA timeout.");
         }
     }
-}
-
-void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
-    }
-
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size.");
-    }
-
-    memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
-}
-
-void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
-    }
-    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
-}
-
-void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {

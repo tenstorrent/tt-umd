@@ -132,7 +132,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         target);
 }
 
-void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+void WormholeTTDevice::dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_d2h_transfer is not applicable for JTAG communication type.");
     }
@@ -211,7 +211,7 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
     }
 }
 
-void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
     }
@@ -294,47 +294,6 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
 // interrupts.  With a driver-based implementation we can also avoid the need to
 // memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
 // the application will require IOMMU support.  One day...
-void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_d2h is not applicable for JTAG communication type.");
-    }
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
-    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
-    memcpy(dst, dma_buffer.buffer, size);
-}
-
-void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
-    }
-    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
-    memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
-}
-
-void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
-    }
-    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
-}
-
-void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
-    }
-    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
-}
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {

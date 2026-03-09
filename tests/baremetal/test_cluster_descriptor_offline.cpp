@@ -296,6 +296,35 @@ TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
     }
 }
 
+TEST(ApiClusterDescriptorOfflineTest, RemoteEthernetConnectionsPreservedWhenConstrained) {
+    // Load descriptor that has ethernet_connections_to_remote_devices (N300 with remote links)
+    std::string cluster_desc_path =
+        test_utils::GetClusterDescAbsPath("wormhole_N300_with_remote_connections.yaml");
+    std::unique_ptr<ClusterDescriptor> full_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    ASSERT_NE(full_desc, nullptr);
+
+    const auto& full_remote = full_desc->get_ethernet_connections_to_remote_devices();
+    ASSERT_FALSE(full_remote.empty()) << "Test requires cluster with remote ethernet connections";
+
+    // Constrain to chips 0 and 1 (N300 board expansion keeps both)
+    std::unordered_set<ChipId> target_chips = {0, 1};
+    std::unique_ptr<ClusterDescriptor> constrained_desc =
+        ClusterDescriptor::create_constrained_cluster_descriptor(full_desc.get(), target_chips);
+
+    const auto& constrained_remote = constrained_desc->get_ethernet_connections_to_remote_devices();
+
+    // Remote connections for all visible chips must be preserved
+    for (const auto& [chip_id, remote_conns] : full_remote) {
+        if (constrained_desc->get_all_chips().count(chip_id) == 0) {
+            continue;
+        }
+        EXPECT_TRUE(constrained_remote.find(chip_id) != constrained_remote.end())
+            << "Chip " << chip_id << "'s remote ethernet connections must be present in constrained descriptor";
+        EXPECT_EQ(constrained_remote.at(chip_id).size(), remote_conns.size())
+            << "All of chip " << chip_id << "'s remote connections must be preserved";
+    }
+}
+
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
     for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
         log_info(LogUMD, "Testing mock cluster creation from: {}", descriptor_file);

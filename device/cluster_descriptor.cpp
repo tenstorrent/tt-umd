@@ -348,6 +348,16 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         }
     }
 
+    // Copy remote ethernet connections for visible chips (connects to devices outside this cluster).
+    for (const auto &[chip_id, remote_eth_connections] : full_cluster_desc->ethernet_connections_to_remote_devices) {
+        if (visible_chips.find(chip_id) == visible_chips.end()) {
+            continue;
+        }
+        for (const auto &[eth_id, remote_chip_and_chan] : remote_eth_connections) {
+            desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = remote_chip_and_chan;
+        }
+    }
+
     for (const auto &[rack_id, shelf_map] : full_cluster_desc->coords_to_chip_ids) {
         for (const auto &[shelf_id, y_map] : shelf_map) {
             for (const auto &[y_dim, x_map] : y_map) {

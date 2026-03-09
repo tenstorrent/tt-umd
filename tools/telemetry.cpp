@@ -33,7 +33,7 @@
 
 using namespace tt::umd;
 
-std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firmware_info_provider, tt::ARCH arch) {
+std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firmware_info_provider) {
     if (firmware_info_provider == nullptr) {
         return fmt::format("Could not get information for chip ID {}.", chip_id);
     }
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
     int frequency_us = result["freq"].as<int>();
     int telemetry_tag = result["tag"].as<int>();
 
-    auto [[maybe_unused]] [cluster_desc, tt_devices_map] = TopologyDiscovery::discover();
+    auto [cluster_desc, tt_devices_map] = TopologyDiscovery::discover();
 
     std::ofstream output_file;
     if (result.count("outfile")) {
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
             if (telemetry_tag == -1) {
                 auto arch = tt_devices.at(i)->get_arch();
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-                    telemetry_message = run_default_telemetry(chip_id, firmware_info_provider, arch);
+                    telemetry_message = run_default_telemetry(chip_id, firmware_info_provider);
                 } else {
                     throw std::runtime_error("Unsupported device architecture");
                 }

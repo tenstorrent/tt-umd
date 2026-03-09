@@ -71,20 +71,20 @@ public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
-    SocDescriptor(const std::string &device_descriptor_path, const ChipInfo chip_info = {});
+    SocDescriptor(const std::string& device_descriptor_path, const ChipInfo chip_info = {});
 
     SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
 
     // Helpers for extracting info from soc descriptor file.
-    static tt::ARCH get_arch_from_soc_descriptor_path(const std::string &soc_descriptor_path);
-    static tt_xy_pair get_grid_size_from_soc_descriptor_path(const std::string &soc_descriptor_path);
+    static tt::ARCH get_arch_from_soc_descriptor_path(const std::string& soc_descriptor_path);
+    static tt_xy_pair get_grid_size_from_soc_descriptor_path(const std::string& soc_descriptor_path);
 
     // CoreCoord conversions.
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
     std::unordered_set<CoreCoord> translate_coords_to(
-        const std::unordered_set<CoreCoord> &core_coord, const CoordSystem coord_system) const;
+        const std::unordered_set<CoreCoord>& core_coord, const CoordSystem coord_system) const;
     std::unordered_set<tt_xy_pair> translate_coords_to_xy_pair(
-        const std::unordered_set<CoreCoord> &core_coord, const CoordSystem coord_system) const;
+        const std::unordered_set<CoreCoord>& core_coord, const CoordSystem coord_system) const;
     CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
     CoreCoord translate_coord_to(
         const tt_xy_pair core_location,
@@ -95,7 +95,7 @@ public:
     // Serialize the soc descriptor to a YAML string, or directly to a file.
     // A default file in /tmp directory will be used if no path is passed.
     std::string serialize() const;
-    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
+    std::filesystem::path serialize_to_file(const std::filesystem::path& dest_file = "") const;
 
     std::vector<CoreCoord> get_cores(
         const CoreType core_type,
@@ -110,7 +110,6 @@ public:
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
     std::vector<std::vector<CoreCoord>> get_dram_cores() const;
-    std::vector<std::vector<CoreCoord>> get_harvested_dram_cores() const;
 
     int get_num_dram_channels() const;
 
@@ -123,14 +122,14 @@ public:
         int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::NOC0) const;
     CoreCoord get_eth_core_for_channel(uint32_t eth_chan, const CoordSystem coord_system = CoordSystem::NOC0) const;
     std::unordered_set<CoreCoord> get_eth_cores_for_channels(
-        const std::set<uint32_t> &eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const std::set<uint32_t>& eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
     std::unordered_set<tt_xy_pair> get_eth_xy_pairs_for_channels(
-        const std::set<uint32_t> &eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const std::set<uint32_t>& eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
     uint32_t get_eth_channel_for_core(
-        const CoreCoord &core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const CoreCoord& core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
     // First element is the channel, second element is the subchannel.
     std::pair<int, int> get_dram_channel_for_core(
-        const CoreCoord &core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
+        const CoreCoord& core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;
@@ -161,27 +160,27 @@ public:
 private:
     void create_coordinate_manager(const BoardType board_type, const uint8_t asic_location);
     void get_cores_and_grid_size_from_coordinate_manager();
-    void load_from_yaml(YAML::Node &device_descriptor_yaml);
-    void load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
-    void load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
-    void load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
+    void load_from_yaml(YAML::Node& device_descriptor_yaml);
+    void load_from_soc_desc_info(const SocDescriptorInfo& soc_desc_info);
+    void load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo& soc_desc_info);
+    void load_soc_features_from_soc_desc_info(const SocDescriptorInfo& soc_desc_info);
 
-    static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string> &core_strings);
+    static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string>& core_strings);
     static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(
-        YAML::Node &device_descriptor_yaml, const std::string &dram_core = "dram");
+        YAML::Node& device_descriptor_yaml, const std::string& dram_core = "dram");
 
     static SocDescriptorInfo get_soc_descriptor_info(tt::ARCH arch);
 
-    static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
+    static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair>& cores);
     std::vector<CoreCoord> translate_coordinates(
-        const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const;
+        const std::vector<CoreCoord>& noc0_cores, const CoordSystem coord_system) const;
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 
     // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter.
-    void write_coords(void *out, const CoreCoord &core) const;
-    void write_core_locations(void *out, const CoreType &core_type) const;
-    void serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const;
+    void write_coords(void* out, const CoreCoord& core) const;
+    void write_core_locations(void* out, const CoreType& core_type) const;
+    void serialize_dram_cores(void* out, const std::vector<std::vector<CoreCoord>>& cores) const;
 
     // Internal structures, read from yaml.
     tt_xy_pair worker_grid_size;
@@ -212,7 +211,6 @@ private:
     // DRAM cores are kept in additional vector struct since one DRAM bank
     // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
     std::vector<std::vector<CoreCoord>> dram_cores_core_coord;
-    std::vector<std::vector<CoreCoord>> harvested_dram_cores_core_coord;
 };
 
 }  // namespace tt::umd

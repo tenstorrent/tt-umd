@@ -567,28 +567,12 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::PCIE);
     out << YAML::EndSeq;
 
-    out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
-    serialize_dram_cores(&out, get_harvested_dram_cores());
-    out << YAML::EndSeq;
-
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
     serialize_dram_cores(&out, get_dram_cores());
     out << YAML::EndSeq;
 
-    out << YAML::Key << "harvested_eth" << YAML::Value << YAML::BeginSeq;
-    for (const auto &eth : get_harvested_cores(CoreType::ETH)) {
-        write_coords(&out, eth);
-    }
-    out << YAML::EndSeq;
-
     out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
     write_core_locations(&out, CoreType::ETH);
-    out << YAML::EndSeq;
-
-    out << YAML::Key << "harvested_workers" << YAML::Value << YAML::BeginSeq;
-    for (const auto &worker : get_harvested_cores(CoreType::TENSIX)) {
-        write_coords(&out, worker);
-    }
     out << YAML::EndSeq;
 
     out << YAML::Key << "functional_workers" << YAML::Value << YAML::BeginSeq;
@@ -696,15 +680,6 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     }
 
     const std::vector<CoreCoord> harvested_dram_cores = harvested_cores_map.at(CoreType::DRAM);
-    const tt_xy_pair harvested_dram_grid_size = harvested_grid_size_map.at(CoreType::DRAM);
-
-    harvested_dram_cores_core_coord.resize(harvested_dram_grid_size.x);
-    for (size_t bank = 0; bank < harvested_dram_grid_size.x; bank++) {
-        for (size_t noc_port = 0; noc_port < harvested_dram_grid_size.y; noc_port++) {
-            harvested_dram_cores_core_coord[bank].push_back(
-                harvested_dram_cores[bank * harvested_dram_grid_size.y + noc_port]);
-        }
-    }
 }
 
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(
@@ -796,10 +771,6 @@ tt_xy_pair SocDescriptor::get_harvested_grid_size(const CoreType core_type) cons
 }
 
 std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const { return dram_cores_core_coord; }
-
-std::vector<std::vector<CoreCoord>> SocDescriptor::get_harvested_dram_cores() const {
-    return harvested_dram_cores_core_coord;
-}
 
 uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
 

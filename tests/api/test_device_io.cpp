@@ -418,7 +418,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     uint32_t channels_to_test;
     if (is_simulation()) {
         channels = 4;
-        channels_to_test = 1;
+        channels_to_test = 3;
     } else {
         const bool is_vm = test_utils::is_virtual_machine();
         const bool has_iommu = test_utils::is_iommu_available();
@@ -444,41 +444,31 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     }
 
     for (uint32_t channel = 0; channel < channels_to_test; channel++) {
-        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
+        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(0, 0, channel));
 
         ASSERT_NE(sysmem, nullptr);
 
-        if (is_simulation()) {
-            for (size_t i = 0; i < ONE_GIG; i++) {
-                sysmem[i] = i % 256;
-            }
-        } else {
-            test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
-        }
+        test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
 
         std::vector<uint64_t> test_offsets;
-        if (is_simulation()) {
-            test_offsets = {0x0};
-        } else {
-            test_offsets = {
-                0x0,
-                (ONE_GIG / 4) - 0x1000,
-                (ONE_GIG / 4) - 0x0004,
-                (ONE_GIG / 4),
-                (ONE_GIG / 4) + 0x0004,
-                (ONE_GIG / 4) + 0x1000,
-                (ONE_GIG / 2) - 0x1000,
-                (ONE_GIG / 2) - 0x0004,
-                (ONE_GIG / 2),
-                (ONE_GIG / 2) + 0x0004,
-                (ONE_GIG / 2) + 0x1000,
-                (ONE_GIG - 0x1000),
-                (ONE_GIG - 0x0004),
-            };
-            for (size_t i = 0; i < 8192; ++i) {
-                uint64_t address = random_address_between(0, ONE_GIG);
-                test_offsets.push_back(address);
-            }
+        test_offsets = {
+            0x0,
+            (ONE_GIG / 4) - 0x1000,
+            (ONE_GIG / 4) - 0x0004,
+            (ONE_GIG / 4),
+            (ONE_GIG / 4) + 0x0004,
+            (ONE_GIG / 4) + 0x1000,
+            (ONE_GIG / 2) - 0x1000,
+            (ONE_GIG / 2) - 0x0004,
+            (ONE_GIG / 2),
+            (ONE_GIG / 2) + 0x0004,
+            (ONE_GIG / 2) + 0x1000,
+            (ONE_GIG - 0x1000),
+            (ONE_GIG - 0x0004),
+        };
+        for (size_t i = 0; i < 8192; ++i) {
+            uint64_t address = random_address_between(0, ONE_GIG);
+            test_offsets.push_back(address);
         }
 
         // Read test - read the sysmem at the various offsets.
@@ -529,6 +519,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
             uint64_t noc_addr = base_address + device_offset;
             uint32_t value = 0;
             cluster->write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
+
             cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
         }
 

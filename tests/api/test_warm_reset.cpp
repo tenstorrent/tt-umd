@@ -482,8 +482,11 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             WarmReset::warm_reset();
             break;
         case WarmResetMethod::CHIP_IDS: {
-            std::vector<int> chip_ids(
-                cluster->get_target_mmio_device_ids().begin(), cluster->get_target_mmio_device_ids().end());
+            std::vector<int> chip_ids;
+            chip_ids.reserve(cluster->get_target_mmio_device_ids().size());
+            for (auto& id : cluster->get_target_mmio_device_ids()) {
+                chip_ids.push_back(id);
+            }
             WarmReset::warm_reset_chip_id(chip_ids);
             break;
         }

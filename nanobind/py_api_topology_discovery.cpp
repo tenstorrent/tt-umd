@@ -74,6 +74,7 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("cmfw_unsupported_action", &TopologyDiscoveryOptions::cmfw_unsupported_action)
         .def_rw("eth_fw_mismatch_action", &TopologyDiscoveryOptions::eth_fw_mismatch_action)
         .def_rw("unexpected_routing_firmware_config", &TopologyDiscoveryOptions::unexpected_routing_firmware_config)
+        .def_rw("eth_fw_heartbeat_failure", &TopologyDiscoveryOptions::eth_fw_heartbeat_failure)
         .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
         .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
         .def_rw("perform_eth_fw_hash_check", &TopologyDiscoveryOptions::perform_eth_fw_hash_check)

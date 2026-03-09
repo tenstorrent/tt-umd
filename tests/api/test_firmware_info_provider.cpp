@@ -12,7 +12,6 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -91,8 +90,9 @@ TEST(TestFirmwareInfoProvider, StaticVersionInfo) {  // Baremetal test
     log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
     log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());
 
-    // Both architectures report the same latest supported version currently.
-    EXPECT_EQ(wh_latest, bh_latest);
+    // The latest supported version must be at least the minimum compatible version for each architecture.
+    EXPECT_GE(wh_latest, wh_min);
+    EXPECT_GE(bh_latest, bh_min);
 }
 
 TEST(TestFirmwareInfoProvider, BoardId) {

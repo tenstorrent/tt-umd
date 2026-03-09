@@ -47,18 +47,6 @@ static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
     }
 }
 
-// Helper to get the number of DRAM channels for the given architecture.
-static uint32_t get_num_dram_channels(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            return 6;
-        case tt::ARCH::BLACKHOLE:
-            return 8;
-        default:
-            throw std::runtime_error("Unsupported architecture for get_num_dram_channels.");
-    }
-}
-
 // Helper to get the maximum clock frequency (AICLK_BUSY_VAL) for the given architecture.
 static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
     switch (arch) {
@@ -348,7 +336,9 @@ TEST_F(TestFirmwareInfoProvider, DramTrainingStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
-        uint32_t num_channels = get_num_dram_channels(arch);
+
+        auto arch_impl = tt_device->get_architecture_implementation();
+        uint32_t num_channels = arch_impl->get_dram_banks_number();
 
         std::vector<DramTrainingStatus> statuses = fw_info->get_dram_training_status(num_channels);
 

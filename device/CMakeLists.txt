@@ -212,6 +212,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_discovery_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
+                api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/exceptions.hpp
                 api/umd/device/utils/timeouts.hpp

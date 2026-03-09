@@ -77,7 +77,7 @@ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_versio
 FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return FirmwareBundleVersion(0, 0, 0);
+            return FirmwareBundleVersion(18, 3, 0);
         }
         case tt::ARCH::BLACKHOLE: {
             return FirmwareBundleVersion(18, 5, 0);

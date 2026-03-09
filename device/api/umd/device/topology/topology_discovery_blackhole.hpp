@@ -50,7 +50,7 @@ protected:
 
     bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
-    bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
+    void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override {}
 
     std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;

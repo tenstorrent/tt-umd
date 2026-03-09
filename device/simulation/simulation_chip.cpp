@@ -10,6 +10,7 @@
 #include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -90,7 +91,7 @@ void SimulationChip::noc_multicast_write(
             if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
                 continue;
             }
-            write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size);
+            write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), dst, addr, size);
         }
     }
 }

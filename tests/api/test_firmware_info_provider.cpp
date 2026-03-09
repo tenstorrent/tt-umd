@@ -4,15 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -54,7 +55,7 @@ static uint32_t get_num_dram_channels(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return 8;
         default:
-            return 0;
+            throw std::runtime_error("Unsupported architecture for get_num_dram_channels.");
     }
 }
 
@@ -66,11 +67,11 @@ static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return blackhole::AICLK_BUSY_VAL;
         default:
-            return 0;
+            throw std::runtime_error("Unsupported architecture for get_aiclk_busy_val.");
     }
 }
 
-TEST(TestFirmwareInfoProvider, StaticVersionInfo) {  // Baremetal test
+TEST(TestFirmwareInfoProvider, StaticVersionInfo) {
     // Test static methods that don't need a device.
     FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
     FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
@@ -78,10 +79,7 @@ TEST(TestFirmwareInfoProvider, StaticVersionInfo) {  // Baremetal test
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
 
-    // Wormhole supports all firmware versions (no minimum).
-    EXPECT_EQ(wh_min, FirmwareBundleVersion(0, 0, 0));
-
-    // Blackhole requires at least 18.5.0.
+    EXPECT_EQ(wh_min, FirmwareBundleVersion(18, 3, 0));
     EXPECT_EQ(bh_min, FirmwareBundleVersion(18, 5, 0));
 
     FirmwareBundleVersion wh_latest =
@@ -91,8 +89,9 @@ TEST(TestFirmwareInfoProvider, StaticVersionInfo) {  // Baremetal test
     log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
     log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());
 
-    // Both architectures report the same latest supported version currently.
-    EXPECT_EQ(wh_latest, bh_latest);
+    // The latest supported version must be at least the minimum compatible version for each architecture.
+    EXPECT_GE(wh_latest, wh_min);
+    EXPECT_GE(bh_latest, bh_min);
 }
 
 TEST(TestFirmwareInfoProvider, BoardId) {
@@ -116,9 +115,9 @@ TEST(TestFirmwareInfoProvider, BoardId) {
         EXPECT_NE(board_id, 0);
 
         // Board ID should map to a known board type.
-        EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
+        BoardType board_type;
+        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id));
 
-        BoardType board_type = get_board_type_from_board_id(board_id);
         log_info(tt::LogUMD, "board_type={}", board_type_to_string(board_type));
     }
 }
@@ -152,13 +151,15 @@ TEST(TestFirmwareInfoProvider, Temperature) {
         EXPECT_GT(asic_temp, 0.0);
         EXPECT_LT(asic_temp, 120.0);
 
-        // BOARD_TEMPERATURE telemetry tag exists and can be read on all architectures.
-        // On Blackhole it always returns 0 because SysEng hasn't wired up the actual I2C
-        // board temp sensor yet.
-        EXPECT_TRUE(board_temp.has_value());
+        // Board temperature is available on Wormhole and Blackhole, but the API
+        // returns std::nullopt when the telemetry tag is absent, so only assert
+        // ranges for architectures where the tag is known to be present.
         if (arch == tt::ARCH::BLACKHOLE) {
+            // SysEng hasn't wired up the actual I2C board temp sensor yet.
+            ASSERT_TRUE(board_temp.has_value());
             EXPECT_DOUBLE_EQ(board_temp.value(), 0.0);
-        } else if (board_temp.has_value()) {
+        } else if (arch == tt::ARCH::WORMHOLE_B0) {
+            ASSERT_TRUE(board_temp.has_value());
             EXPECT_GT(board_temp.value(), 0.0);
             EXPECT_LT(board_temp.value(), 120.0);
         }
@@ -205,6 +206,9 @@ TEST(TestFirmwareInfoProvider, ClockFrequencies) {
             EXPECT_LE(aiclk.value(), aiclk_busy_val);
         }
 
+        // AXICLK and ARCCLK operate on different clock domains and typically run at lower
+        // frequencies than AICLK. Using aiclk_busy_val as an upper bound is intentionally a
+        // loose sanity check — it catches garbage values without requiring per-domain limits.
         if (axiclk.has_value()) {
             EXPECT_GT(axiclk.value(), 0u);
             EXPECT_LE(axiclk.value(), aiclk_busy_val);
@@ -435,9 +439,9 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        // Read heartbeat twice and verify it doesn't decrease (monotonically non-decreasing).
-        // Legacy WH reads from ARC0_HEALTH, modern reads from TIMER_HEARTBEAT.
+        // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
         uint32_t heartbeat1 = fw_info->get_heartbeat();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         uint32_t heartbeat2 = fw_info->get_heartbeat();
 
         log_info(
@@ -448,7 +452,7 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
             heartbeat1,
             heartbeat2);
 
-        EXPECT_GE(heartbeat2, heartbeat1);
+        EXPECT_GT(heartbeat2, heartbeat1);
     }
 }
 

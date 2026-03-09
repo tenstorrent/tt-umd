@@ -4,9 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
@@ -53,7 +55,6 @@ static uint32_t get_num_dram_channels(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return 8;
         default:
-
             throw std::runtime_error("Unsupported architecture for get_num_dram_channels.");
     }
 }
@@ -66,7 +67,6 @@ static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return blackhole::AICLK_BUSY_VAL;
         default:
-
             throw std::runtime_error("Unsupported architecture for get_aiclk_busy_val.");
     }
 }
@@ -209,6 +209,9 @@ TEST(TestFirmwareInfoProvider, ClockFrequencies) {
             EXPECT_LE(aiclk.value(), aiclk_busy_val);
         }
 
+        // AXICLK and ARCCLK operate on different clock domains and typically run at lower
+        // frequencies than AICLK. Using aiclk_busy_val as an upper bound is intentionally a
+        // loose sanity check — it catches garbage values without requiring per-domain limits.
         if (axiclk.has_value()) {
             EXPECT_GT(axiclk.value(), 0u);
             EXPECT_LE(axiclk.value(), aiclk_busy_val);
@@ -439,9 +442,9 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        // Read heartbeat twice and verify it doesn't decrease (monotonically non-decreasing).
-        // Legacy WH reads from ARC0_HEALTH, modern reads from TIMER_HEARTBEAT.
+        // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
         uint32_t heartbeat1 = fw_info->get_heartbeat();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         uint32_t heartbeat2 = fw_info->get_heartbeat();
 
         log_info(
@@ -452,6 +455,6 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
             heartbeat1,
             heartbeat2);
 
-        EXPECT_GE(heartbeat2, heartbeat1);
+        EXPECT_GT(heartbeat2, heartbeat1);
     }
 }

@@ -79,10 +79,7 @@ TEST(TestFirmwareInfoProvider, StaticVersionInfo) {
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
 
-    // Wormhole supports all firmware versions (no minimum).
-    EXPECT_EQ(wh_min, FirmwareBundleVersion(0, 0, 0));
-
-    // Blackhole requires at least 18.5.0.
+    EXPECT_EQ(wh_min, FirmwareBundleVersion(18, 3, 0));
     EXPECT_EQ(bh_min, FirmwareBundleVersion(18, 5, 0));
 
     FirmwareBundleVersion wh_latest =

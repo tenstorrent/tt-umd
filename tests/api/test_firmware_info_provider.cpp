@@ -440,8 +440,9 @@ TEST(TestFirmwareInfoProvider, Heartbeat) {
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
         // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
+        // Heartbeat increments every 100ms, so wait at least that long.
         uint32_t heartbeat1 = fw_info->get_heartbeat();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
         uint32_t heartbeat2 = fw_info->get_heartbeat();
 
         log_info(

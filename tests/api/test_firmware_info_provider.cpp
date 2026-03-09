@@ -400,22 +400,18 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
     }
 }
 
-TEST(TestTelemetry, GddrTelemetry) {
-    auto pci_devices_info = PCIDevice::enumerate_devices_info();
-    ARCH arch = pci_devices_info.at(0).get_arch();
-
-    for (auto& [pci_device_id, pci_device_info] : pci_devices_info) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
-        auto fw_info = FirmwareInfoProvider::create_firmware_info_provider(tt_device.get());
+TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
+    for (const auto& tt_device : get_tt_devices()) {
+        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
+        int pci_device_id = tt_device->get_communication_device_id();
+        tt::ARCH arch = tt_device->get_arch();
 
         log_info(tt::LogUMD, "Testing GDDR Telemetry with PCI ID {}.", pci_device_id);
 
         auto dram_speed = fw_info->get_dram_speed();
 
         // DRAM speed telemetry on Wormhole is available starting from firmware 18.4.0.
-        if (arch == ARCH::WORMHOLE_B0 && tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
             EXPECT_FALSE(dram_speed.has_value()) << "GDDR speed should not be available for Wormhole firmware version "
                                                  << tt_device->get_firmware_version().to_string() << " < 18.4.0";
             log_info(tt::LogUMD, "GDDR speed not available for Wormhole firmware < 18.4.0.");
@@ -429,7 +425,7 @@ TEST(TestTelemetry, GddrTelemetry) {
         }
 
         // Only GDDR speed and status are populated on Wormhole and only speed is verified in this test.
-        if (arch == ARCH::WORMHOLE_B0) {
+        if (arch == tt::ARCH::WORMHOLE_B0) {
             continue;
         }
 
@@ -467,7 +463,7 @@ TEST(TestTelemetry, GddrTelemetry) {
 
         // Test individual module telemetry access.
         log_info(tt::LogUMD, "Testing individual module access:");
-        size_t num_modules = get_number_of_dram_modules(arch);
+        size_t num_modules = get_number_of_dram_modules(tt_device->get_arch());
         for (size_t i = num_modules; i > 0; --i) {
             GddrModule gddr_index = static_cast<GddrModule>(i - 1);
             auto module_telemetry = fw_info->get_dram_telemetry(gddr_index);

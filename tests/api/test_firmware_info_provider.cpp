@@ -12,8 +12,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -44,18 +42,6 @@ static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
         return "TRANSITIONAL (18.4 - 18.7)";
     } else {
         return "MODERN (> 18.7)";
-    }
-}
-
-// Helper to get the maximum clock frequency (AICLK_BUSY_VAL) for the given architecture.
-static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            return wormhole::AICLK_BUSY_VAL;
-        case tt::ARCH::BLACKHOLE:
-            return blackhole::AICLK_BUSY_VAL;
-        default:
-            throw std::runtime_error("Unsupported architecture for get_aiclk_busy_val.");
     }
 }
 
@@ -169,8 +155,10 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        auto arch_impl = tt_device->get_architecture_implementation();
+
         std::string range = fw_range_label(fw_version);
-        uint32_t aiclk_busy_val = get_aiclk_busy_val(arch);
+        uint32_t aiclk_busy_val = arch_impl->get_aiclk_busy_val();
 
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();

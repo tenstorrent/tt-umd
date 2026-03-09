@@ -12,8 +12,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -24,17 +22,14 @@
 using namespace tt;
 using namespace tt::umd;
 
-static std::string dram_training_status_to_str(DramTrainingStatus status) {
-    switch (status) {
-        case DramTrainingStatus::IN_PROGRESS:
-            return "IN_PROGRESS";
-        case DramTrainingStatus::FAIL:
-            return "FAIL";
-        case DramTrainingStatus::SUCCESS:
-            return "SUCCESS";
-        default:
-            return "UNKNOWN";
-    }
+static std::string opt_str(const std::optional<uint32_t>& v) {
+    return v.has_value() ? std::to_string(v.value()) : "nullopt";
+}
+
+static std::string opt_str(const std::optional<SemVer>& v) { return v.has_value() ? v.value().to_string() : "nullopt"; }
+
+static std::string opt_str(const std::optional<double>& v, const std::string& fmt_spec = "{:.2f}") {
+    return v.has_value() ? fmt::format(fmt::runtime(fmt_spec), v.value()) : "nullopt";
 }
 
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
@@ -47,31 +42,25 @@ static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
     }
 }
 
-// Helper to get the number of DRAM channels for the given architecture.
-static uint32_t get_num_dram_channels(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            return 6;
-        case tt::ARCH::BLACKHOLE:
-            return 8;
-        default:
-            throw std::runtime_error("Unsupported architecture for get_num_dram_channels.");
+class TestFirmwareInfoProvider : public ::testing::Test {
+public:
+    void SetUp() override {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        for (int pci_device_id : pci_device_ids) {
+            auto tt_device = TTDevice::create(pci_device_id);
+            tt_device->init_tt_device();
+            ASSERT_NE(tt_device->get_firmware_info_provider(), nullptr);
+            tt_devices_.push_back(std::move(tt_device));
+        }
     }
-}
 
-// Helper to get the maximum clock frequency (AICLK_BUSY_VAL) for the given architecture.
-static uint32_t get_aiclk_busy_val(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            return wormhole::AICLK_BUSY_VAL;
-        case tt::ARCH::BLACKHOLE:
-            return blackhole::AICLK_BUSY_VAL;
-        default:
-            throw std::runtime_error("Unsupported architecture for get_aiclk_busy_val.");
-    }
-}
+    const std::vector<std::unique_ptr<TTDevice>>& get_tt_devices() const { return tt_devices_; }
 
-TEST(TestFirmwareInfoProvider, StaticVersionInfo) {
+private:
+    std::vector<std::unique_ptr<TTDevice>> tt_devices_;
+};
+
+TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     // Test static methods that don't need a device.
     FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
     FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
@@ -94,15 +83,10 @@ TEST(TestFirmwareInfoProvider, StaticVersionInfo) {
     EXPECT_GE(bh_latest, bh_min);
 }
 
-TEST(TestFirmwareInfoProvider, BoardId) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, BoardId) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         uint64_t board_id = fw_info->get_board_id();
         log_info(
@@ -122,15 +106,10 @@ TEST(TestFirmwareInfoProvider, BoardId) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, Temperature) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, Temperature) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
@@ -143,7 +122,7 @@ TEST(TestFirmwareInfoProvider, Temperature) {
             pci_device_id,
             fw_range_label(fw_version),
             asic_temp,
-            board_temp.has_value() ? fmt::format("{:.2f}", board_temp.value()) : "nullopt");
+            opt_str(board_temp));
 
         tt::ARCH arch = tt_device->get_arch();
 
@@ -166,20 +145,17 @@ TEST(TestFirmwareInfoProvider, Temperature) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, ClockFrequencies) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        auto arch_impl = tt_device->get_architecture_implementation();
+
         std::string range = fw_range_label(fw_version);
-        uint32_t aiclk_busy_val = get_aiclk_busy_val(arch);
+        uint32_t aiclk_busy_val = arch_impl->get_aiclk_busy_val();
 
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();
@@ -192,9 +168,9 @@ TEST(TestFirmwareInfoProvider, ClockFrequencies) {
             pci_device_id,
             arch_to_str(arch),
             range,
-            aiclk.has_value() ? std::to_string(aiclk.value()) : "nullopt",
-            axiclk.has_value() ? std::to_string(axiclk.value()) : "nullopt",
-            arcclk.has_value() ? std::to_string(arcclk.value()) : "nullopt",
+            opt_str(aiclk),
+            opt_str(axiclk),
+            opt_str(arcclk),
             max_clock,
             aiclk_busy_val);
 
@@ -221,15 +197,10 @@ TEST(TestFirmwareInfoProvider, ClockFrequencies) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, EthFirmwareVersion) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, EthFirmwareVersion) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -242,7 +213,7 @@ TEST(TestFirmwareInfoProvider, EthFirmwareVersion) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            eth_fw_version_semver.has_value() ? eth_fw_version_semver.value().to_string() : "nullopt");
+            opt_str(eth_fw_version_semver));
 
         // Blackhole does not report ETH FW version via telemetry (NotAvailable across all FW ranges).
         if (arch == tt::ARCH::BLACKHOLE) {
@@ -256,15 +227,10 @@ TEST(TestFirmwareInfoProvider, EthFirmwareVersion) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -281,13 +247,11 @@ TEST(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version));
-        log_info(tt::LogUMD, "gddr_fw_version={}", gddr_ver.has_value() ? gddr_ver.value().to_string() : "nullopt");
-        log_info(tt::LogUMD, "cm_fw_version={}", cm_ver.has_value() ? cm_ver.value().to_string() : "nullopt");
-        log_info(
-            tt::LogUMD, "dm_app_fw_version={}", dm_app_ver.has_value() ? dm_app_ver.value().to_string() : "nullopt");
-        log_info(tt::LogUMD, "dm_bl_fw_version={}", dm_bl_ver.has_value() ? dm_bl_ver.value().to_string() : "nullopt");
-        log_info(
-            tt::LogUMD, "tt_flash_version={}", tt_flash_ver.has_value() ? tt_flash_ver.value().to_string() : "nullopt");
+        log_info(tt::LogUMD, "gddr_fw_version={}", opt_str(gddr_ver));
+        log_info(tt::LogUMD, "cm_fw_version={}", opt_str(cm_ver));
+        log_info(tt::LogUMD, "dm_app_fw_version={}", opt_str(dm_app_ver));
+        log_info(tt::LogUMD, "dm_bl_fw_version={}", opt_str(dm_bl_ver));
+        log_info(tt::LogUMD, "tt_flash_version={}", opt_str(tt_flash_ver));
 
         // Legacy Wormhole (<= 18.3) does not have GDDR or CM firmware reporting.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
@@ -297,15 +261,10 @@ TEST(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, PowerMetrics) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
@@ -322,13 +281,10 @@ TEST(TestFirmwareInfoProvider, PowerMetrics) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version));
-        log_info(
-            tt::LogUMD,
-            "fan_speed={} rpm",
-            fan_speed.has_value() ? std::to_string(fan_speed.value()) : "nullopt (no fan / not controlled by FW)");
-        log_info(tt::LogUMD, "tdp={} W", tdp.has_value() ? std::to_string(tdp.value()) : "nullopt");
-        log_info(tt::LogUMD, "tdc={} A", tdc.has_value() ? std::to_string(tdc.value()) : "nullopt");
-        log_info(tt::LogUMD, "vcore={} mV", vcore.has_value() ? std::to_string(vcore.value()) : "nullopt");
+        log_info(tt::LogUMD, "fan_speed={} rpm", opt_str(fan_speed));
+        log_info(tt::LogUMD, "tdp={} W", opt_str(tdp));
+        log_info(tt::LogUMD, "tdc={} A", opt_str(tdc));
+        log_info(tt::LogUMD, "vcore={} mV", opt_str(vcore));
 
         // On legacy Blackhole (< 18.4), TDP and VCORE are not populated by firmware
         // and report 0.
@@ -353,19 +309,16 @@ TEST(TestFirmwareInfoProvider, PowerMetrics) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, DramTrainingStatus) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, DramTrainingStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
-        uint32_t num_channels = get_num_dram_channels(arch);
+
+        auto arch_impl = tt_device->get_architecture_implementation();
+        uint32_t num_channels = arch_impl->get_dram_banks_number();
 
         std::vector<DramTrainingStatus> statuses = fw_info->get_dram_training_status(num_channels);
 
@@ -398,15 +351,10 @@ TEST(TestFirmwareInfoProvider, DramTrainingStatus) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, AsicLocation) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, AsicLocation) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
@@ -427,15 +375,10 @@ TEST(TestFirmwareInfoProvider, AsicLocation) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, Heartbeat) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-
+TEST_F(TestFirmwareInfoProvider, Heartbeat) {
+    for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+        int pci_device_id = tt_device->get_communication_device_id();
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 

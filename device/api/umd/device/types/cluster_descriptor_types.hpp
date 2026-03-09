@@ -291,7 +291,7 @@ enum class DramTrainingStatus : uint8_t {
     SUCCESS = 2,
 };
 
-static std::string dram_training_status_to_str(DramTrainingStatus status) {
+inline std::string dram_training_status_to_str(DramTrainingStatus status) {
     switch (status) {
         case DramTrainingStatus::IN_PROGRESS:
             return "IN_PROGRESS";

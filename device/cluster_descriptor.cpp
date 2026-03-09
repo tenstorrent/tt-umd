@@ -284,7 +284,22 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         visible_chips = get_target_chip_ids_from_visible_devices(full_cluster_desc);
     }
 
-    visible_chips = full_cluster_desc->get_chips_from_same_boards(visible_chips);
+    // Expand to same boards only for multi-board topologies (e.g. T3K: 2 chips per N300).
+    // Skip expansion for Galaxy-style (many chips per board) so TT_VISIBLE_DEVICES is honored.
+    bool expand_to_same_boards = false;
+    if (!full_cluster_desc->chip_to_board_id.empty()) {
+        expand_to_same_boards = true;
+        for (const auto &chip_id : visible_chips) {
+            uint64_t board_id = full_cluster_desc->get_board_id_for_chip(chip_id);
+            if (full_cluster_desc->get_board_chips(board_id).size() > 2) {
+                expand_to_same_boards = false;
+                break;
+            }
+        }
+        if (expand_to_same_boards) {
+            visible_chips = full_cluster_desc->get_chips_from_same_boards(visible_chips);
+        }
+    }
 
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 

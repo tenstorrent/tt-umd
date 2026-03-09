@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -226,6 +227,73 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
     // This is not serialized into yaml, but we'd expect it to also be constrained.
     EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
+}
+
+TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
+    // Load the 3 pod 16x8 BH Galaxy cluster descriptor
+    std::string cluster_desc_path = test_utils::GetAbsPath(
+        "../../../../tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors/3_pod_16x8_bh_galaxy_cluster_desc/"
+        "3_pod_16x8_bh_galaxy_cluster_desc_bh-glx-c01u02.yaml");
+    
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    ASSERT_NE(cluster_desc, nullptr) << "Failed to load cluster descriptor from: " << cluster_desc_path;
+
+    // Test 1: With explicit target_chip_ids, should NOT expand to include all chips on the same boards
+    std::unordered_set<ChipId> target_chips = {0, 1, 2, 3};
+    std::unique_ptr<ClusterDescriptor> constrained_desc =
+        ClusterDescriptor::create_constrained_cluster_descriptor(cluster_desc.get(), target_chips);
+    
+    ASSERT_NE(constrained_desc, nullptr);
+    std::unordered_set<ChipId> constrained_chips = constrained_desc->get_all_chips();
+    
+    // Should have exactly the specified chips, not all chips on the same board
+    EXPECT_EQ(constrained_chips.size(), target_chips.size())
+        << "Should have exactly " << target_chips.size() << " chips, not all chips on the same board";
+    
+    // Verify only target chips are present
+    for (ChipId chip : constrained_chips) {
+        EXPECT_TRUE(target_chips.count(chip) > 0)
+            << "Chip " << chip << " should not be included (not in target_chips)";
+    }
+    
+    for (ChipId chip : target_chips) {
+        EXPECT_TRUE(constrained_chips.count(chip) > 0)
+            << "Target chip " << chip << " should be included";
+    }
+
+    // Test 2: With TT_VISIBLE_DEVICES, should NOT expand to include all chips on the same boards
+    std::string tt_visible_devices_value = "0,15,20,10,2,9,17,29,5,26,12,8,21,7,31,22";
+    if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), tt_visible_devices_value.c_str(), 1) != 0) {
+        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+    }
+
+    std::unordered_set<ChipId> expected_chips = {0, 15, 20, 10, 2, 9, 17, 29, 5, 26, 12, 8, 21, 7, 31, 22};
+    std::unique_ptr<ClusterDescriptor> constrained_desc_tt =
+        ClusterDescriptor::create_constrained_cluster_descriptor(cluster_desc.get(), {});
+
+    ASSERT_NE(constrained_desc_tt, nullptr);
+    std::unordered_set<ChipId> constrained_chips_tt = constrained_desc_tt->get_all_chips();
+    
+    // Should have exactly the chips specified in TT_VISIBLE_DEVICES (16 chips), not all 32
+    EXPECT_EQ(constrained_chips_tt.size(), expected_chips.size())
+        << "Expected exactly " << expected_chips.size() << " chips from TT_VISIBLE_DEVICES, but got " << constrained_chips_tt.size();
+    
+    // Verify all expected chips from TT_VISIBLE_DEVICES are present
+    for (ChipId expected_chip : expected_chips) {
+        EXPECT_TRUE(constrained_chips_tt.count(expected_chip) > 0)
+            << "Expected chip " << expected_chip << " from TT_VISIBLE_DEVICES not found in constrained descriptor";
+    }
+    
+    // Verify no unexpected chips (chips not in TT_VISIBLE_DEVICES)
+    for (ChipId chip : constrained_chips_tt) {
+        EXPECT_TRUE(expected_chips.count(chip) > 0)
+            << "Unexpected chip " << chip << " found in constrained descriptor (not in TT_VISIBLE_DEVICES)";
+    }
+
+    // Clean up: unset TT_VISIBLE_DEVICES
+    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
+    }
 }
 
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {

@@ -115,7 +115,7 @@ TEST(TestFirmwareInfoProvider, BoardId) {
         EXPECT_NE(board_id, 0);
 
         // Board ID should map to a known board type.
-        BoardType board_type;
+        BoardType board_type = BoardType::UNKNOWN;
         ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id));
 
         log_info(tt::LogUMD, "board_type={}", board_type_to_string(board_type));

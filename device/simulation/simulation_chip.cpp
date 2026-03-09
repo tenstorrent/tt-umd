@@ -40,7 +40,7 @@ SimulationChip::SimulationChip(
     int num_host_mem_channels) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator binary not found at: ", simulator_directory_);
+        TT_THROW("Simulator binary not found at: {}", simulator_directory_);
     }
 
     sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);

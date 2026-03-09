@@ -202,7 +202,7 @@ void TopologyDiscovery::discover_remote_devices() {
                     current_device_asic_id,
                     eth_core.str(),
                     get_eth_postcode(tt_device, eth_core));
-                if (!options.no_eth_firmware_strictness) {
+                if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
                     TT_THROW(msg);
                 } else {
                     log_warning(LogUMD, msg);

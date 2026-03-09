@@ -52,6 +52,14 @@ struct TopologyDiscoveryOptions {
     Action unexpected_routing_firmware_config = Action::THROW;
 
     /**
+     * @brief Action to take when Ethernet firmware hearbeat check fails.
+     * This means that Ethernet firmware on a particular core has crashed and cannot serve I/O.
+     * If set to IGNORE, discovery from this core is skipped as it is certain not to be possible.
+     * Defaults to THROW.
+     */
+    Action eth_fw_heartbeat_failure = Action::THROW;
+
+    /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.
      * If false, only locally connected devices will be discovered.
      * Defaults to true.

@@ -176,7 +176,18 @@ void WarmReset::warm_reset_arch_agnostic(
         pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
     }
 
-    log_info(tt::LogUMD, "Starting reset on devices at PCI indices: {}", fmt::join(pci_device_id_set, ", "));
+    auto all_pci_ids = PCIDevice::enumerate_devices();
+    std::map<int, int> pci_to_umd_id;
+    for (int umd_id = 0; umd_id < static_cast<int>(all_pci_ids.size()); umd_id++) {
+        pci_to_umd_id[all_pci_ids[umd_id]] = umd_id;
+    }
+    std::vector<std::string> device_infos;
+    for (auto pci_id : pci_device_ids) {
+        int umd_id = pci_to_umd_id.count(pci_id) ? pci_to_umd_id[pci_id] : -1;
+        const auto& bdf = pci_bdfs.count(pci_id) ? pci_bdfs.at(pci_id) : std::string("unknown");
+        device_infos.push_back(fmt::format("(PCI index: {}, UMD logical ID: {}, BDF: {})", pci_id, umd_id, bdf));
+    }
+    log_info(tt::LogUMD, "Starting reset on devices: {}", fmt::join(device_infos, ", "));
     if (secondary_bus_reset) {
         PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
     }

@@ -8,10 +8,9 @@
 #include <optional>
 #include <unordered_set>
 
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -22,25 +21,6 @@
 namespace tt::umd {
 
 class ClusterDescriptor;
-
-struct TopologyDiscoveryOptions {
-    // Skip discovery of devices connected via Ethernet.
-    bool no_remote_discovery = false;
-
-    // Skip waiting for ETH core training.
-    bool no_wait_for_eth_training = false;
-
-    // Allow unsupported ETH firmware versions and do not fail when
-    // cores have different ETH firmware versions.
-    bool no_eth_firmware_strictness = false;
-
-    // Predict ETH firmware version for entire cluster from the known
-    // ETH firmware version bundled with the firmware bundle.
-    bool predict_eth_fw_version = false;
-
-    // Enables verifying ERISC FW on cores to ensure reliability of discovery.
-    bool verify_eth_fw_hash = false;
-};
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
@@ -144,7 +124,7 @@ protected:
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
-    virtual bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
+    virtual void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -177,7 +157,7 @@ protected:
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    virtual bool verify_fw_bundle_version(TTDevice* tt_device);
+    void verify_fw_bundle_version(TTDevice* tt_device);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.

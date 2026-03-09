@@ -291,6 +291,19 @@ enum class DramTrainingStatus : uint8_t {
     SUCCESS = 2,
 };
 
+static std::string dram_training_status_to_str(DramTrainingStatus status) {
+    switch (status) {
+        case DramTrainingStatus::IN_PROGRESS:
+            return "IN_PROGRESS";
+        case DramTrainingStatus::FAIL:
+            return "FAIL";
+        case DramTrainingStatus::SUCCESS:
+            return "SUCCESS";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 // Per-link ethernet live status.
 // Derived from ETH_LIVE_STATUS telemetry: lower 16 bits are heartbeat status,
 // upper 16 bits are retrain status (one bit per link).

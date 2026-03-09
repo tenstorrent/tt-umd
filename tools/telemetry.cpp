@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
                 }
             } else {
                 uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);
-                telemetry_message = fmt::format("Chip id {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
+                telemetry_message = fmt::format("Chip ID {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
             }
             if (output_file.is_open()) {
                 auto timestamp = std::chrono::system_clock::now();

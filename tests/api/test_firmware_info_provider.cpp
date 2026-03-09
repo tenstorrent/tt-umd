@@ -22,6 +22,16 @@
 using namespace tt;
 using namespace tt::umd;
 
+static std::string opt_str(const std::optional<uint32_t>& v) {
+    return v.has_value() ? std::to_string(v.value()) : "nullopt";
+}
+
+static std::string opt_str(const std::optional<SemVer>& v) { return v.has_value() ? v.value().to_string() : "nullopt"; }
+
+static std::string opt_str(const std::optional<double>& v, const std::string& fmt_spec = "{:.2f}") {
+    return v.has_value() ? fmt::format(fmt::runtime(fmt_spec), v.value()) : "nullopt";
+}
+
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
     if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
         return "LEGACY (<= 18.3)";
@@ -112,7 +122,7 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
             pci_device_id,
             fw_range_label(fw_version),
             asic_temp,
-            board_temp.has_value() ? fmt::format("{:.2f}", board_temp.value()) : "nullopt");
+            opt_str(board_temp));
 
         tt::ARCH arch = tt_device->get_arch();
 
@@ -158,9 +168,9 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
             pci_device_id,
             arch_to_str(arch),
             range,
-            aiclk.has_value() ? std::to_string(aiclk.value()) : "nullopt",
-            axiclk.has_value() ? std::to_string(axiclk.value()) : "nullopt",
-            arcclk.has_value() ? std::to_string(arcclk.value()) : "nullopt",
+            opt_str(aiclk),
+            opt_str(axiclk),
+            opt_str(arcclk),
             max_clock,
             aiclk_busy_val);
 
@@ -203,7 +213,7 @@ TEST_F(TestFirmwareInfoProvider, EthFirmwareVersion) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            eth_fw_version_semver.has_value() ? eth_fw_version_semver.value().to_string() : "nullopt");
+            opt_str(eth_fw_version_semver));
 
         // Blackhole does not report ETH FW version via telemetry (NotAvailable across all FW ranges).
         if (arch == tt::ARCH::BLACKHOLE) {
@@ -237,13 +247,11 @@ TEST_F(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version));
-        log_info(tt::LogUMD, "gddr_fw_version={}", gddr_ver.has_value() ? gddr_ver.value().to_string() : "nullopt");
-        log_info(tt::LogUMD, "cm_fw_version={}", cm_ver.has_value() ? cm_ver.value().to_string() : "nullopt");
-        log_info(
-            tt::LogUMD, "dm_app_fw_version={}", dm_app_ver.has_value() ? dm_app_ver.value().to_string() : "nullopt");
-        log_info(tt::LogUMD, "dm_bl_fw_version={}", dm_bl_ver.has_value() ? dm_bl_ver.value().to_string() : "nullopt");
-        log_info(
-            tt::LogUMD, "tt_flash_version={}", tt_flash_ver.has_value() ? tt_flash_ver.value().to_string() : "nullopt");
+        log_info(tt::LogUMD, "gddr_fw_version={}", opt_str(gddr_ver));
+        log_info(tt::LogUMD, "cm_fw_version={}", opt_str(cm_ver));
+        log_info(tt::LogUMD, "dm_app_fw_version={}", opt_str(dm_app_ver));
+        log_info(tt::LogUMD, "dm_bl_fw_version={}", opt_str(dm_bl_ver));
+        log_info(tt::LogUMD, "tt_flash_version={}", opt_str(tt_flash_ver));
 
         // Legacy Wormhole (<= 18.3) does not have GDDR or CM firmware reporting.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
@@ -273,13 +281,10 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version));
-        log_info(
-            tt::LogUMD,
-            "fan_speed={} rpm",
-            fan_speed.has_value() ? std::to_string(fan_speed.value()) : "nullopt (no fan / not controlled by FW)");
-        log_info(tt::LogUMD, "tdp={} W", tdp.has_value() ? std::to_string(tdp.value()) : "nullopt");
-        log_info(tt::LogUMD, "tdc={} A", tdc.has_value() ? std::to_string(tdc.value()) : "nullopt");
-        log_info(tt::LogUMD, "vcore={} mV", vcore.has_value() ? std::to_string(vcore.value()) : "nullopt");
+        log_info(tt::LogUMD, "fan_speed={} rpm", opt_str(fan_speed));
+        log_info(tt::LogUMD, "tdp={} W", opt_str(tdp));
+        log_info(tt::LogUMD, "tdc={} A", opt_str(tdc));
+        log_info(tt::LogUMD, "vcore={} mV", opt_str(vcore));
 
         // On legacy Blackhole (< 18.4), TDP and VCORE are not populated by firmware
         // and report 0.

@@ -410,20 +410,18 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
-    auto time_taken_port = std::chrono::milliseconds(0);
-    auto start = std::chrono::steady_clock::now();
+    auto duration = std::chrono::milliseconds(0);
 
     tt_xy_pair actual_eth_core = eth_core;
     if (is_selected_noc1()) {
         actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
     }
 
-    start = std::chrono::steady_clock::now();
+    auto start = std::chrono::steady_clock::now();
     while (read_eth_core_training_status(actual_eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        time_taken_port = duration;
-        if (time_taken_port > timeout_ms) {
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}",
@@ -442,7 +440,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
             }
         }
     }
-    return time_taken_port;
+    return duration;
 }
 
 EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {

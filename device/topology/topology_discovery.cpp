@@ -529,7 +529,7 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 }
 
 bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
-    auto start = std::chrono::steady_clock().now();
+    const auto start = std::chrono::steady_clock::now();
     uint32_t previous_reading = 0;
     while (true) {
         uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
@@ -553,11 +553,13 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
         if (utils::check_timeout(
                 start,
                 timeout::ETH_STARTUP_TIMEOUT,
-                "Timed out waiting for ETH hearbeat.",
+                "Timed out waiting for ETH heartbeat.",
                 utils::TimeoutAction::Return)) {
             return false;
         }
         previous_reading = current_reading;
+
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
     return false;
 }

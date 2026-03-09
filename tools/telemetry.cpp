@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
     int frequency_us = result["freq"].as<int>();
     int telemetry_tag = result["tag"].as<int>();
 
-    auto [cluster_desc, tt_devices_map] = TopologyDiscovery::discover();
+    auto [[maybe_unused]] [cluster_desc, tt_devices_map] = TopologyDiscovery::discover();
 
     std::ofstream output_file;
     if (result.count("outfile")) {

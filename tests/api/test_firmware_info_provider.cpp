@@ -22,19 +22,6 @@
 using namespace tt;
 using namespace tt::umd;
 
-static std::string dram_training_status_to_str(DramTrainingStatus status) {
-    switch (status) {
-        case DramTrainingStatus::IN_PROGRESS:
-            return "IN_PROGRESS";
-        case DramTrainingStatus::FAIL:
-            return "FAIL";
-        case DramTrainingStatus::SUCCESS:
-            return "SUCCESS";
-        default:
-            return "UNKNOWN";
-    }
-}
-
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
     if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
         return "LEGACY (<= 18.3)";

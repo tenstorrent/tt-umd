@@ -32,8 +32,6 @@ protected:
         static constexpr uint64_t ERISC_REMOTE_ETH_ID_OFFSET = 76;
     };
 
-    bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
-
     uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     uint64_t get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
@@ -55,8 +53,6 @@ protected:
     uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
     uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
-
-    uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;

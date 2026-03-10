@@ -388,8 +388,7 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
         EXPECT_EQ(zeros, tlb_read_zeros) << "TLB read of zeros mismatch at loop " << loop;
 
         std::vector<uint8_t> direct_read_zeros(data_size, 0xFF);
-        tt_device->get_communicator()->tile_read_bytes(
-            core.x, core.y, addr, direct_read_zeros.data(), data_size);
+        tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read_zeros.data(), data_size);
         EXPECT_EQ(zeros, direct_read_zeros) << "Direct read of zeros mismatch at loop " << loop;
     }
 }

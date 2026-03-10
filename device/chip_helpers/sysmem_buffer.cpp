@@ -168,7 +168,7 @@ uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
 
 void SysmemBuffer::validate(const size_t offset) const {
     if (offset >= buffer_size_) {
-        TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {#:x}", offset, buffer_size_);
+        TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {:#x}", offset, buffer_size_);
     }
 }
 

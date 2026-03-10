@@ -290,6 +290,20 @@ enum class DramTrainingStatus : uint8_t {
     FAIL = 1,
     SUCCESS = 2,
 };
+
+inline std::string dram_training_status_to_str(DramTrainingStatus status) {
+    switch (status) {
+        case DramTrainingStatus::IN_PROGRESS:
+            return "IN_PROGRESS";
+        case DramTrainingStatus::FAIL:
+            return "FAIL";
+        case DramTrainingStatus::SUCCESS:
+            return "SUCCESS";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 }  // namespace tt
 
 namespace std {

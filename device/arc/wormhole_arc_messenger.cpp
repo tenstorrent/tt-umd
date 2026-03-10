@@ -81,7 +81,7 @@ uint32_t WormholeArcMessenger::send_message(
     tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
 
     if (misc & (1 << 16)) {
-        log_error(LogUMD, "trigger_fw_int failed on device {}", 0);
+        log_error(LogUMD, "trigger_fw_int failed on device {}", tt_device->get_communication_device_id());
         return 1;
     } else {
         uint32_t val_wr = misc | (1 << 16);

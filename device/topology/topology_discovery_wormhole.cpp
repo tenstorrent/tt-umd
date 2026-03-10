@@ -231,7 +231,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
     remote_tt_device->init_tt_device();
-    if (!options.no_wait_for_eth_training) {
+    if (options.wait_on_ethernet_link_training) {
         wait_eth_cores_training(remote_tt_device.get());
     }
     return remote_tt_device;
@@ -310,7 +310,7 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         eth_fw_problem = true;
     }
 
-    if (options.verify_eth_fw_hash) {
+    if (options.perform_eth_fw_hash_check) {
         auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
         if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
@@ -324,12 +324,12 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, 
         }
     }
 
-    return options.no_eth_firmware_strictness || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
 
-bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
+void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
     uint32_t routing_firmware_disabled;
     tt_device->read_from_device(
         &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
@@ -338,9 +338,9 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             "Routing FW on 6U unexpectedly enabled on device {} core {}.",
             get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.no_eth_firmware_strictness) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
             log_warning(LogUMD, message);
-            return false;
+            return;
         }
         TT_THROW(message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
@@ -348,13 +348,12 @@ bool TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             "Routing FW unexpectedly disabled on device {} core {}.",
             get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.no_eth_firmware_strictness) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
             log_warning(LogUMD, message);
-            return false;
+            return;
         }
         TT_THROW(message);
     }
-    return true;
 }
 
 }  // namespace tt::umd

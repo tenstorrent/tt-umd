@@ -117,3 +117,8 @@ TEST(TestCluster, GetEthernetFirmware) {
         EXPECT_TRUE(eth_version.has_value());
     }
 }
+
+TEST(TestCluster, ETHRepro) {
+    WarmReset::warm_reset();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+}

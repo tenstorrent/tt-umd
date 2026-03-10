@@ -205,7 +205,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value()) {
                     eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
+                    log_debug(
+                        LogUMD,
+                        "Device ASIC ID: {} has ETH coord: {}",
+                        current_device_asic_id,
+                        local_eth_coord.value());
                 }
             }
 
@@ -253,9 +257,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
-                if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
-                }
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(

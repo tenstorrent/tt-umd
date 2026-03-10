@@ -205,7 +205,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value()) {
                     eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
+                    log_debug(
+                        LogUMD,
+                        "Device ASIC ID: {} has ETH coord: {}",
+                        current_device_asic_id,
+                        local_eth_coord.value());
                 }
             }
 

@@ -178,10 +178,6 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
 
-bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
-    return board_ids.find(board_id) != board_ids.end();
-}
-
 uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t asic_location) {
     return ((board_id << 5) | (asic_location & 0x1F));
 }

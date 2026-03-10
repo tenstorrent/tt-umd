@@ -259,22 +259,6 @@ void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
         TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());
 }
 
-bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
-    // Since at the moment we don't want to go outside of single host on 6U,
-    // we just check for board ids that are discovered from TT_VISIBLE_DEVICES.
-    if (is_running_on_6u) {
-        return board_ids.find(board_id) != board_ids.end();
-    }
-
-    // This is TG case, board_type is set to 0. We want to include even the TG board that is not
-    // connected over PCIe, so we always want to include it.
-    if (board_type == 0) {
-        return true;
-    }
-
-    return board_ids.find(board_id) != board_ids.end();
-}
-
 bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
     return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }

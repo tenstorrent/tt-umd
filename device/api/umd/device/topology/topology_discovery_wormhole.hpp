@@ -34,8 +34,6 @@ protected:
         uint64_t erisc_remote_eth_id_offset;
     };
 
-    bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
-
     static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
 
     uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;

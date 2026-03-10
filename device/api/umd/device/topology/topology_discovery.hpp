@@ -57,8 +57,7 @@ protected:
         TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     // board_type is not used for all configs.
-    // We need to know that we are seeing TG board and that we should include it in the topology.
-    virtual bool is_board_id_included(uint64_t board_id, uint64_t board_type) const = 0;
+    virtual bool is_board_id_included(uint64_t board_id) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.

@@ -56,18 +56,12 @@ protected:
     virtual void wait_eth_cores_training(
         TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    // board_type is not used for all configs.
-    virtual bool does_board_belong_to_host(uint64_t board_id) const;
+    virtual bool is_board_id_included(uint64_t board_id) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
     // eth_core should be in physical (NOC0) coordinates.
     virtual uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
-
-    // Returns mangled remote board type from local ETH core.
-    // This information can still be used to unique identify a board.
-    // eth_core should be in physical (NOC0) coordinates.
-    virtual uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.

@@ -113,16 +113,6 @@ uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, tt_x
     return ((board_id >> 4) & 0xF0000000) | (board_id & 0x0FFFFFFF);
 }
 
-uint64_t TopologyDiscoveryWormhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t board_id;
-    tt_device->read_from_device(
-        &board_id,
-        eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_type_offset),
-        sizeof(uint32_t));
-    return board_id;
-}
-
 uint64_t TopologyDiscoveryWormhole::get_local_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t asic_id_lo;
     tt_device->read_from_device(

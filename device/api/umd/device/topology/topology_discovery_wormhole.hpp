@@ -58,8 +58,6 @@ protected:
 
     uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) override;
-
     std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;
 

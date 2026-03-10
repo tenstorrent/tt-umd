@@ -146,11 +146,6 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_x
     return remote_eth_id;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
-    // This function is not important for Blackhole, so we can return any value here.
-    return 0;
-}
-
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     return get_remote_eth_id(tt_device, local_eth_core);
 }

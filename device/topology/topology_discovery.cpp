@@ -254,9 +254,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
-                if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
-                }
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(

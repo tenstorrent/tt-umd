@@ -123,7 +123,7 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() cons
         return std::nullopt;
     }
     const uint32_t fan_speed = telemetry->read_entry(wormhole::TelemetryTag::FAN_SPEED);
-    // All ones mean fans not present on board, or not under control of firmware.
+    // The value 0xFFFFFFFF means fans are not present on board, or not under control of firmware.
     if (fan_speed == 0xFFFFFFFF) {
         return std::nullopt;
     }

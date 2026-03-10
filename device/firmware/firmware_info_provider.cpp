@@ -222,7 +222,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
         return std::nullopt;
     }
     const uint32_t fan_speed = telemetry->read_entry(TelemetryTag::FAN_SPEED);
-    // All ones mean fans not present on board, or not under control of firmware.
+    // The value 0xFFFFFFFF means fans are not present on board, or not under control of firmware.
     if (fan_speed == 0xFFFFFFFF) {
         return std::nullopt;
     }
@@ -235,7 +235,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const {
         return std::nullopt;
     }
     const uint32_t fan_rpm = telemetry->read_entry(TelemetryTag::FAN_RPM);
-    // All ones mean fans not present on board, or not under control of firmware.
+    // The value 0xFFFFFFFF means fans are not present on board, or not under control of firmware.
     if (fan_rpm == 0xFFFFFFFF) {
         return std::nullopt;
     }

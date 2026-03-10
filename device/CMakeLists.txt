@@ -113,10 +113,17 @@ target_sources(
         tt_device/remote_communication_legacy_firmware.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
-        tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
         arc/blackhole_spi_tt_device.cpp
 )
+
+if(NOT TT_UMD_BUILD_SIMULATION)
+    target_sources(
+        device
+        PRIVATE
+            tt_kmd_lib/tt_kmd_lib.c
+    )
+endif()
 
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(

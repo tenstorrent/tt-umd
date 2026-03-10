@@ -308,10 +308,9 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
 
 std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
     static constexpr uint32_t max_eth_links = 16;
-    std::vector<bool> statuses;
-    statuses.reserve(max_eth_links);
+    std::vector<bool> statuses(max_eth_links);
     for (uint32_t link = 0; link < max_eth_links; ++link) {
-        statuses.push_back(static_cast<bool>(bitmask & (1u << link)));
+        statuses[link] = static_cast<bool>(bitmask & (1u << link));
     }
     return statuses;
 }

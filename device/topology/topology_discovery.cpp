@@ -224,7 +224,7 @@ void TopologyDiscovery::discover_remote_devices() {
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
             uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
 
-            if (!is_board_id_included(get_remote_board_id(tt_device, eth_core)) ||
+            if (!does_board_belong_to_host(get_remote_board_id(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_devices.find(remote_asic_id) == discovered_devices.end())) {
                 ethernet_connections_to_remote_devices.push_back(
@@ -486,7 +486,7 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
     }
 }
 
-bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+bool TopologyDiscovery::does_board_belong_to_host(uint64_t board_id) const {
     return board_ids.find(board_id) != board_ids.end();
 }
 

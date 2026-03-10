@@ -181,9 +181,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         log_device_summary();
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            use_ethernet_broadcast &= true;
-            // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is
-            // enabled.
+            // Virtual coordinates can be used for broadcast headers if NOC translation is enabled.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
                 use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;

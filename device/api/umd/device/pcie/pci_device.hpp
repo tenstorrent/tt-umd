@@ -314,6 +314,16 @@ public:
     static bool is_arch_agnostic_reset_supported();
 
     /**
+     * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).
+     * When busy is true, all power domains are requested (max AI clock, PHY wakeup, Tensix and L2CPU enabled).
+     * When busy is false, all power flags are released, allowing the device to enter a low-power idle state.
+     * Has no effect on KMD versions older than 2.6.0.
+     *
+     * @param busy true to request full power, false to release power flags.
+     */
+    void set_power_state(bool busy);
+
+    /**
      * Get the tt_device handle for low-level operations.
      * @return Pointer to the tt_device handle
      */

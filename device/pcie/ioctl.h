@@ -30,6 +30,7 @@
 #define TENSTORRENT_IOCTL_FREE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 12)
 #define TENSTORRENT_IOCTL_CONFIGURE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 13)
 #define TENSTORRENT_IOCTL_SET_NOC_CLEANUP		_IO(TENSTORRENT_IOCTL_MAGIC, 14)
+#define TENSTORRENT_IOCTL_SET_POWER_STATE		_IO(TENSTORRENT_IOCTL_MAGIC, 15)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED		0
@@ -333,6 +334,40 @@ struct tenstorrent_set_noc_cleanup {
 	__u32 reserved0;
 	__u64 addr;
 	__u64 data;
+};
+
+/**
+ * TENSTORRENT_IOCTL_SET_POWER_STATE - Set per-client power requirements
+ *
+ * Declares the power requirements of this file descriptor to the driver.
+ * The driver aggregates requirements across all open file descriptors,
+ * applying bitwise OR for power_flags and maximum for power_settings.
+ * When the file descriptor is closed, its contribution is removed.
+ *
+ * Opening the device with O_APPEND opts out of legacy mode, allowing
+ * the device to enter low-power idle states when no client holds power flags.
+ *
+ * @argsz: Must be sizeof(struct tenstorrent_power_state).
+ * @flags: Reserved for future use, must be 0.
+ * @validity: Encodes how many flags and settings fields are valid.
+ * @power_flags: Bitmask of power domain requests.
+ * @power_settings: Array of numeric power settings.
+ */
+struct tenstorrent_power_state {
+	__u32 argsz;
+	__u32 flags;
+	__u8 reserved0;
+	__u8 validity;
+#define TT_POWER_VALIDITY_FLAGS(n)    (((n) & 0xF) << 0)
+#define TT_POWER_VALIDITY_SETTINGS(n) (((n) & 0xF) << 4)
+#define TT_POWER_VALIDITY(flags_count, settings_count) \
+	(TT_POWER_VALIDITY_FLAGS(flags_count) | TT_POWER_VALIDITY_SETTINGS(settings_count))
+	__u16 power_flags;
+#define TT_POWER_FLAG_MAX_AI_CLK       (1U << 0) /* 1=Max AI Clock,  0=Min AI Clock */
+#define TT_POWER_FLAG_MRISC_PHY_WAKEUP (1U << 1) /* 1=PHY Wakeup,    0=PHY Powerdown */
+#define TT_POWER_FLAG_TENSIX_ENABLE    (1U << 2) /* 1=Enable Tensix, 0=Clock Gate Tensix */
+#define TT_POWER_FLAG_L2CPU_ENABLE     (1U << 3) /* 1=Enable L2CPU,  0=Clock Gate L2CPU */
+	__u16 power_settings[14];
 };
 
 #endif

@@ -386,10 +386,19 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
+static int open_pci_device(const std::string &device_path) {
+    // O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states.
+    int flags = O_RDWR | O_CLOEXEC;
+    if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE) {
+        flags |= O_APPEND;
+    }
+    return open(device_path.c_str(), flags);
+}
+
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open(device_path.c_str(), O_RDWR | O_CLOEXEC)),
+    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(pci_device_file_desc)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
@@ -1002,6 +1011,28 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
+
+void PCIDevice::set_power_state(bool busy) {
+    if (kmd_version < KMD_POWER_STATE) {
+        return;
+    }
+
+    tenstorrent_power_state power_state{};
+    power_state.argsz = sizeof(power_state);
+    power_state.validity = TT_POWER_VALIDITY(4, 0);
+
+    if (busy) {
+        power_state.power_flags = TT_POWER_FLAG_MAX_AI_CLK | TT_POWER_FLAG_MRISC_PHY_WAKEUP |
+                                  TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
+    } else {
+        power_state.power_flags = 0;
+    }
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_SET_POWER_STATE, &power_state) == -1) {
+        log_warning(
+            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(errno));
+    }
+}
 
 std::vector<int> PCIDevice::get_all_device_ids() {
     std::vector<int> device_ids;

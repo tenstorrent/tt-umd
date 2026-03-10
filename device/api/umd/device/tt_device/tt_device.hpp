@@ -272,6 +272,14 @@ public:
 
     virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
 
+    /**
+     * Request full power domains from KMD (busy=true) or release them (busy=false).
+     * No-op for remote devices and on KMD versions older than 2.6.0.
+     *
+     * @param busy true to claim all power domains, false to release them.
+     */
+    virtual void set_power_state(bool busy);
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();

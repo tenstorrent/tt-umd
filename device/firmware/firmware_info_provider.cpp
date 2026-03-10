@@ -289,49 +289,43 @@ static_assert(
         3,
     "GDDR_x_y_CORR_ERRS tags must be consecutive");
 
+// Decode a single GDDR module's telemetry from the packed pair words.
+// Telemetry packs two modules per 32-bit word.  Even modules (0,2,4,6) occupy bits [15:0],
+// odd modules (1,3,5,7) occupy bits [31:16].  Within each half:
+//   [7:0]  = bottom temp / read errors     [15:8] = top temp / write errors
+// Uncorrected errors use a separate bitmask: bit module_index*2 = read, bit module_index*2+1 = write.
+static GddrModuleTelemetry decode_gddr_module_telemetry(
+    uint8_t module_index, uint32_t temp_word, uint32_t corr_word, uint32_t uncorr_bitmask) {
+    const uint8_t bit_shift = (module_index % 2 == 1) ? 16 : 0;
+
+    GddrModuleTelemetry module{};
+    module.dram_temperature_bottom = static_cast<double>((temp_word >> bit_shift) & 0xFFu);
+    module.dram_temperature_top = static_cast<double>((temp_word >> (bit_shift + 8)) & 0xFFu);
+    module.corr_edc_rd_errors = static_cast<uint8_t>((corr_word >> bit_shift) & 0xFFu);
+    module.corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> (bit_shift + 8)) & 0xFFu);
+    module.uncorr_edc_rd_error = (uncorr_bitmask & (1u << (module_index * 2))) != 0 ? 1 : 0;
+    module.uncorr_edc_wr_error = (uncorr_bitmask & (1u << (module_index * 2 + 1))) != 0 ? 1 : 0;
+    return module;
+}
+
 std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) const {
-    // Telemetry data is packed in pairs: GDDR_0_1, GDDR_2_3, GDDR_4_5, GDDR_6_7.
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
-    const uint8_t pair_index = module_index / 2;  // Which pair: 0, 1, 2, or 3.
-    const bool is_odd_module = (module_index % 2) == 1;
-    const uint8_t bit_shift = is_odd_module ? 16 : 0;  // Odd modules use upper 16 bits.
+    const uint8_t pair_index = module_index / 2;
 
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
 
-    // Check if all required telemetry tags for this GDDR pair are available.
-    auto are_tags_available = [telemetry](uint8_t pair_idx) {
-        return telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_idx) &&
-               telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_idx) &&
-               telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
-    };
-
-    if (!are_tags_available(pair_index)) {
+    if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index) ||
+        !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index) ||
+        !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS))) {
         return std::nullopt;
     }
 
-    // Read the packed telemetry word for this pair.
-    const uint32_t temperature_word =
-        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
-    const uint32_t corrected_errors_word =
+    const uint32_t temp_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
+    const uint32_t corr_word =
         telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
-    const uint32_t uncorrected_errors_bitmask =
-        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 
-    // Extract this module's data from the packed word.
-    // Layout per module: [15:8] top temp / write errors, [7:0] bottom temp / read errors.
-    GddrModuleTelemetry module_telemetry{};
-    module_telemetry.dram_temperature_bottom = static_cast<double>((temperature_word >> bit_shift) & 0xFFu);
-    module_telemetry.dram_temperature_top = static_cast<double>((temperature_word >> (bit_shift + 8)) & 0xFFu);
-    module_telemetry.corr_edc_rd_errors = static_cast<uint8_t>((corrected_errors_word >> bit_shift) & 0xFFu);
-    module_telemetry.corr_edc_wr_errors = static_cast<uint8_t>((corrected_errors_word >> (bit_shift + 8)) & 0xFFu);
-
-    // Uncorrected errors: 2 bits per module (bit i*2 = read, bit i*2+1 = write).
-    const uint8_t uncorr_read_bit = module_index * 2;
-    const uint8_t uncorr_write_bit = module_index * 2 + 1;
-    module_telemetry.uncorr_edc_rd_error = (uncorrected_errors_bitmask & (1u << uncorr_read_bit)) != 0 ? 1 : 0;
-    module_telemetry.uncorr_edc_wr_error = (uncorrected_errors_bitmask & (1u << uncorr_write_bit)) != 0 ? 1 : 0;
-
-    return module_telemetry;
+    return decode_gddr_module_telemetry(module_index, temp_word, corr_word, uncorr_bitmask);
 }
 
 std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
@@ -339,55 +333,25 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         return std::nullopt;
     }
 
-    GddrTelemetry aggregated_gddr_telemetry{};
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    GddrTelemetry aggregated{};
 
-    auto uncorrected_errors_mask =
-        tt_device->get_arc_telemetry_reader()->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 
-    constexpr std::array<uint8_t, 4> temp_tags = {
-        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP),
-        static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP),
-        static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP),
-        static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP),
-    };
-    constexpr std::array<uint8_t, 4> corr_tags = {
-        static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS),
-        static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS),
-        static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS),
-        static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS),
-    };
+    for (uint8_t pair = 0; pair < 4; ++pair) {
+        const uint32_t temp_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair);
+        const uint32_t corr_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair);
 
-    for (std::size_t gddr_index_pair = 0; gddr_index_pair < 4; ++gddr_index_pair) {
-        const uint32_t temp_word = tt_device->get_arc_telemetry_reader()->read_entry(temp_tags[gddr_index_pair]);
-        const uint32_t corr_word = tt_device->get_arc_telemetry_reader()->read_entry(corr_tags[gddr_index_pair]);
-        const std::size_t base = gddr_index_pair * 2;
-        const GddrModule gddr_x = static_cast<GddrModule>(base);
-        const GddrModule gddr_y = static_cast<GddrModule>(base + 1);
+        const uint8_t even_module = pair * 2;
+        const uint8_t odd_module = pair * 2 + 1;
 
-        // Temperature word layout: [31:24] gddr_y top, [23:16] gddr_y bottom, [15:8] gddr_x top, [7:0] gddr_x bottom.
-        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_bottom = static_cast<double>(temp_word & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_x].dram_temperature_top = static_cast<double>((temp_word >> 8) & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_bottom =
-            static_cast<double>((temp_word >> 16) & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_y].dram_temperature_top = static_cast<double>((temp_word >> 24) & 0xFFu);
-
-        // Corrected errors word layout: [31:24] gddr_y write, [23:16] gddr_y read, [15:8] gddr_x write, [7:0] gddr_x
-        // read.
-        aggregated_gddr_telemetry.modules[gddr_x].corr_edc_rd_errors = static_cast<uint8_t>(corr_word & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_x].corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> 8) & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_y].corr_edc_rd_errors = static_cast<uint8_t>((corr_word >> 16) & 0xFFu);
-        aggregated_gddr_telemetry.modules[gddr_y].corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> 24) & 0xFFu);
+        aggregated.modules[static_cast<GddrModule>(even_module)] =
+            decode_gddr_module_telemetry(even_module, temp_word, corr_word, uncorr_bitmask);
+        aggregated.modules[static_cast<GddrModule>(odd_module)] =
+            decode_gddr_module_telemetry(odd_module, temp_word, corr_word, uncorr_bitmask);
     }
 
-    for (std::size_t i = 0; i < get_number_of_dram_modules(tt_device->get_arch()); ++i) {
-        GddrModule gddr = static_cast<GddrModule>(i);
-        aggregated_gddr_telemetry.modules[gddr].uncorr_edc_rd_error =
-            (uncorrected_errors_mask & (1u << (i * 2))) != 0 ? 1 : 0;
-        aggregated_gddr_telemetry.modules[gddr].uncorr_edc_wr_error =
-            (uncorrected_errors_mask & (1u << (i * 2 + 1))) != 0 ? 1 : 0;
-    }
-
-    return aggregated_gddr_telemetry;
+    return aggregated;
 }
 
 std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() const {

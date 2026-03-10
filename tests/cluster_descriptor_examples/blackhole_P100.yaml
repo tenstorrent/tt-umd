@@ -1,21 +1,35 @@
-arch: {
-   0: Blackhole,
-}
-
-chips: {
-}
-
-ethernet_connections: [
-]
-
-chips_with_mmio: [
-   0: 0,
-]
-
-# harvest_mask is the bit indicating which tensix row is harvested. So bit 0 = first tensix row; bit 1 = second tensix row etc...
-# on P100 we harvest all ETH cores
-harvesting: {
-   0: {noc_translation: false, harvest_mask: 0, eth_harvesting_mask: 16383},
-}
-
-boards: [[{board_id: 4609331458111}, {board_type: p100}, {chips: [0]}]]
+arch:
+  0: blackhole
+chips:
+  {}
+chip_unique_ids:
+  0: 17716556166399396846
+ethernet_connections:
+  []
+ethernet_connections_to_remote_devices:
+  []
+chips_with_mmio:
+  - 0: 0
+io_device_type: PCIe
+harvesting:
+  0:
+    noc_translation: true
+    harvest_mask: 192
+    dram_harvesting_mask: 8
+    eth_harvesting_mask: 16383
+    pcie_harvesting_mask: 2
+    l2cpu_harvesting_mask: 0
+chip_to_boardtype:
+  0: p100
+chip_to_bus_id:
+  0: 0x0061
+boards:
+  -
+    - board_id: 4613626507328
+    - board_type: p100
+    - chips:
+        - 0
+asic_locations:
+  0: 0
+chip_pci_bdfs:
+  0: 0000:61:00.0

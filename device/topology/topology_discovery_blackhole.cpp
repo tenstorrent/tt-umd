@@ -12,7 +12,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -232,7 +231,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
     if (!expected_eth_fw_version.has_value()) {
         expected_eth_fw_version =
             get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
-        if (options.predict_eth_fw_version && expected_eth_fw_version.has_value()) {
+        if (options.predict_eth_fw_version_from_cmfw_version && expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
@@ -256,7 +255,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         eth_fw_problem = true;
     }
 
-    if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
+    if (options.perform_eth_fw_hash_check) {
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
         if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
@@ -270,17 +269,13 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         }
     }
 
-    return options.no_eth_firmware_strictness || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
     uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
-}
-
-bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return true;
 }
 
 }  // namespace tt::umd

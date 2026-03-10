@@ -25,6 +25,7 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     axiclk_available = telemetry->is_entry_available(wormhole::TelemetryTag::AXICLK);
     arcclk_available = telemetry->is_entry_available(wormhole::TelemetryTag::ARCCLK);
     fan_speed_available = telemetry->is_entry_available(wormhole::TelemetryTag::FAN_SPEED);
+    fan_rpm_available = false;
     tdp_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);

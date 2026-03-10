@@ -15,6 +15,7 @@ required:
   - ethernet_connections
   - chips_with_mmio
   - harvesting
+  - boards
 
 properties:
   # Architecture specification for each chip.
@@ -173,38 +174,6 @@ properties:
             description: L2CPU harvesting mask
         required: [noc_translation, harvest_mask]
         additionalProperties: false
-    additionalProperties: false
-
-  # Board type mapping for each chip
-  chip_to_boardtype:
-    type: object
-    description: Maps Chip ID to its board type
-    patternProperties:
-      "^[0-9]+$":
-        type: string
-        enum:
-          - n150
-          - n300
-          - p100
-          - p150
-          - p300
-          - ubb
-    additionalProperties: false
-
-  # Alternative name for chip_to_boardtype (seen in some files)
-  boardtype:
-    type: object
-    description: Alternative name for chip_to_boardtype mapping
-    patternProperties:
-      "^[0-9]+$":
-        type: string
-        enum:
-          - n150
-          - n300
-          - p100
-          - p150
-          - p300
-          - ubb
     additionalProperties: false
 
   # Bus ID mapping for each chip

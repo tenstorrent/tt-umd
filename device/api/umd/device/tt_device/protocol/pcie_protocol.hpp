@@ -6,17 +6,13 @@
 #pragma once
 
 #include <memory>
-#include <mutex>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 
 class PCIDevice;
-class TlbWindow;
-struct tlb_data;
 
 /**
  * PcieProtocol implements DeviceProtocol and PcieInterface for PCIe-connected devices.
@@ -60,27 +56,9 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
 
 private:
-    template <bool safe>
-    void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    template <bool safe>
-    void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    TlbWindow* get_cached_tlb_window();
-    TlbWindow* get_cached_pcie_dma_tlb_window(tlb_data config);
-
-    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
-    void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
-
     std::shared_ptr<PCIDevice> pci_device_;
     int communication_device_id_;
     architecture_implementation* architecture_impl_;
-    std::unique_ptr<TlbWindow> cached_tlb_window;
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window;
-    bool use_safe_api_;
-    std::mutex pcie_io_lock;
-    std::mutex dma_mutex_;
-    LockManager lock_manager;
 };
 
 }  // namespace tt::umd

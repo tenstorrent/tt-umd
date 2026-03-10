@@ -60,7 +60,7 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     return options;
 }
 
-class TestDeviceIOFixture : public ::testing::Test {
+class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {
 protected:
     static constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
 
@@ -78,7 +78,8 @@ protected:
     bool is_simulation() const { return std::getenv(TT_UMD_SIMULATOR_ENV) != nullptr; }
 };
 
-TEST_F(TestDeviceIOFixture, SimpleIOAllTargets) {
+TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
+    const CoreType core_type = GetParam();
     std::unique_ptr<Cluster> umd_cluster = make_cluster();
 
     // Initialize random data.
@@ -94,8 +95,9 @@ TEST_F(TestDeviceIOFixture, SimpleIOAllTargets) {
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -107,8 +109,9 @@ TEST_F(TestDeviceIOFixture, SimpleIOAllTargets) {
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -119,7 +122,8 @@ TEST_F(TestDeviceIOFixture, SimpleIOAllTargets) {
     }
 }
 
-TEST_F(TestDeviceIOFixture, RemoteFlush) {
+TEST_P(TestDeviceIOFixture, RemoteFlush) {
+    const CoreType core_type = GetParam();
     std::unique_ptr<Cluster> umd_cluster = make_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
@@ -133,8 +137,9 @@ TEST_F(TestDeviceIOFixture, RemoteFlush) {
 
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         if (!cluster_desc->is_chip_remote(chip_id)) {
             std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
@@ -160,7 +165,8 @@ TEST_F(TestDeviceIOFixture, RemoteFlush) {
     }
 }
 
-TEST_F(TestDeviceIOFixture, SimpleIOSpecificDevices) {
+TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
+    const CoreType core_type = GetParam();
     std::unique_ptr<Cluster> umd_cluster = make_cluster(ClusterOptions{
         .target_devices = {0},
     });
@@ -178,8 +184,9 @@ TEST_F(TestDeviceIOFixture, SimpleIOSpecificDevices) {
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -191,8 +198,9 @@ TEST_F(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -203,9 +211,10 @@ TEST_F(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     }
 }
 
-TEST_F(TestDeviceIOFixture, DynamicTLB_RW) {
+TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs
     // to be reconfigured for each transaction
+    const CoreType core_type = GetParam();
 
     std::unique_ptr<Cluster> cluster = make_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
 
@@ -220,9 +229,10 @@ TEST_F(TestDeviceIOFixture, DynamicTLB_RW) {
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses.
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
-        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        const auto& cores = soc_desc.get_cores(core_type);
+
         for (int loop = 0; loop < num_loops; loop++) {
-            for (auto& core : tensix_cores) {
+            for (const auto& core : cores) {
                 cluster->write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
 
@@ -613,3 +623,9 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
         EXPECT_EQ(write_data_l1[i], readback_value);
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    CoreTypes,
+    TestDeviceIOFixture,
+    ::testing::Values(CoreType::TENSIX, CoreType::DRAM),
+    [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });

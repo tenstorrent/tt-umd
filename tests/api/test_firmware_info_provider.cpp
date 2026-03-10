@@ -22,6 +22,11 @@
 using namespace tt;
 using namespace tt::umd;
 
+// Firmware version boundaries used across multiple tests.
+static constexpr FirmwareBundleVersion FW_VERSION_18_3(18, 3, 0);
+static constexpr FirmwareBundleVersion FW_VERSION_18_4(18, 4, 0);
+static constexpr FirmwareBundleVersion FW_VERSION_18_7(18, 7, 0);
+
 static std::string opt_str(const std::optional<uint32_t>& v) {
     return v.has_value() ? std::to_string(v.value()) : "nullopt";
 }
@@ -33,9 +38,9 @@ static std::string opt_str(const std::optional<double>& v, const std::string& fm
 }
 
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
-    if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+    if (fw_version <= FW_VERSION_18_3) {
         return "LEGACY (<= 18.3)";
-    } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
+    } else if (fw_version <= FW_VERSION_18_7) {
         return "TRANSITIONAL (18.4 - 18.7)";
     } else {
         return "MODERN (> 18.7)";
@@ -68,7 +73,7 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
 
-    EXPECT_EQ(wh_min, FirmwareBundleVersion(18, 3, 0));
+    EXPECT_EQ(wh_min, FW_VERSION_18_3);
     EXPECT_EQ(bh_min, FirmwareBundleVersion(18, 5, 0));
 
     FirmwareBundleVersion wh_latest =
@@ -254,7 +259,7 @@ TEST_F(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
         log_info(tt::LogUMD, "tt_flash_version={}", opt_str(tt_flash_ver));
 
         // Legacy Wormhole (<= 18.3) does not have GDDR or CM firmware reporting.
-        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
             EXPECT_FALSE(gddr_ver.has_value());
             EXPECT_FALSE(cm_ver.has_value());
         }
@@ -288,7 +293,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         // On legacy Blackhole (< 18.4), TDP and VCORE are not populated by firmware
         // and report 0.
-        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(18, 4, 0);
+        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FW_VERSION_18_4;
 
         if (is_legacy_blackhole) {
             if (tdp.has_value()) {
@@ -369,7 +374,7 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
             static_cast<uint32_t>(asic_location));
 
         // Legacy Wormhole (<= 18.3) hardcodes ASIC_LOCATION to 0 (FixedValue).
-        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
             EXPECT_EQ(asic_location, 0);
         }
     }
@@ -406,7 +411,7 @@ TEST_F(TestFirmwareInfoProvider, ThermalLimits) {
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
-        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(18, 4, 0);
+        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FW_VERSION_18_4;
 
         auto shutdown = fw_info->get_thm_limit_shutdown();
         auto throttle = fw_info->get_thm_limit_throttle();

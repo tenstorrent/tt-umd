@@ -19,9 +19,6 @@ functional_workers:
    1-1,
   ]
 
-harvested_workers:
-  []
-
 router_only:
   [
    1-0, 0-1

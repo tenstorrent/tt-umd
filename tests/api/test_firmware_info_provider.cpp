@@ -25,6 +25,7 @@ using namespace tt::umd;
 // Firmware version boundaries used across multiple tests.
 static constexpr FirmwareBundleVersion FW_VERSION_18_3(18, 3, 0);
 static constexpr FirmwareBundleVersion FW_VERSION_18_4(18, 4, 0);
+static constexpr FirmwareBundleVersion FW_VERSION_18_5(18, 5, 0);
 static constexpr FirmwareBundleVersion FW_VERSION_18_7(18, 7, 0);
 
 static std::string opt_str(const std::optional<uint32_t>& v) {
@@ -74,7 +75,7 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
 
     EXPECT_EQ(wh_min, FW_VERSION_18_3);
-    EXPECT_EQ(bh_min, FirmwareBundleVersion(18, 5, 0));
+    EXPECT_EQ(bh_min, FW_VERSION_18_5);
 
     FirmwareBundleVersion wh_latest =
         FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
@@ -291,11 +292,9 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
         log_info(tt::LogUMD, "tdc={} A", opt_str(tdc));
         log_info(tt::LogUMD, "vcore={} mV", opt_str(vcore));
 
-        // On legacy Blackhole (< 18.4), TDP and VCORE are not populated by firmware
-        // and report 0.
-        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FW_VERSION_18_4;
-
-        if (is_legacy_blackhole) {
+        // On Wormhole FW < 18.4, TDP and VCORE are not populated by firmware and report 0.
+        // Blackhole minimum FW is 18.5, so this case does not apply.
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FW_VERSION_18_4) {
             if (tdp.has_value()) {
                 EXPECT_EQ(tdp.value(), 0u);
             }
@@ -348,7 +347,7 @@ TEST_F(TestFirmwareInfoProvider, DramTrainingStatus) {
         }
 
         // IN_PROGRESS on Blackhole means the channel is either still training or has been harvested.
-        // Note: Legacy WH (<= 18.3) uses 4-bit-per-channel format, modern uses 2-bit-per-channel.
+        // Note: WH FW <= 18.3 uses 4-bit-per-channel format, newer FW uses 2-bit-per-channel.
         for (uint32_t ch = 0; ch < statuses.size(); ++ch) {
             EXPECT_TRUE(statuses[ch] == DramTrainingStatus::SUCCESS || statuses[ch] == DramTrainingStatus::IN_PROGRESS)
                 << "DRAM channel " << ch << " reported FAIL";
@@ -373,7 +372,7 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
             fw_range_label(fw_version),
             static_cast<uint32_t>(asic_location));
 
-        // Legacy Wormhole (<= 18.3) hardcodes ASIC_LOCATION to 0 (FixedValue).
+        // Wormhole FW <= 18.3 hardcodes ASIC_LOCATION to 0 (FixedValue).
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
             EXPECT_EQ(asic_location, 0);
         }
@@ -411,13 +410,13 @@ TEST_F(TestFirmwareInfoProvider, ThermalLimits) {
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
-        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FW_VERSION_18_4;
 
         auto shutdown = fw_info->get_thm_limit_shutdown();
         auto throttle = fw_info->get_thm_limit_throttle();
 
-        // On legacy Blackhole (< 18.4), firmware doesn't populate these fields; they read as 0.
-        if (is_legacy_blackhole) {
+        // On Wormhole FW < 18.4, firmware doesn't populate these fields; they read as 0.
+        // Blackhole minimum FW is 18.5, so this case does not apply.
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FW_VERSION_18_4) {
             if (shutdown.has_value()) {
                 EXPECT_DOUBLE_EQ(shutdown.value(), 0.0);
             }

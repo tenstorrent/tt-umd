@@ -153,6 +153,13 @@ std::unique_ptr<TTDevice> TTDevice::create(
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
+void TTDevice::set_power_state(bool busy) {
+    if (is_remote_tt_device || !pci_device_) {
+        return;
+    }
+    pci_device_->set_power_state(busy);
+}
+
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
 std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }

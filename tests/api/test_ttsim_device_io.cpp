@@ -15,8 +15,9 @@
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
-using namespace tt::umd;
+namespace tt::umd {
 
 class TTSimDeviceIOFixture : public ::testing::Test {
 protected:
@@ -392,3 +393,5 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
         EXPECT_EQ(zeros, direct_read_zeros) << "Direct read of zeros mismatch at loop " << loop;
     }
 }
+
+}  // namespace tt::umd

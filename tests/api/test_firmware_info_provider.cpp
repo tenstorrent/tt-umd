@@ -434,9 +434,9 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
             EXPECT_FALSE(speed_rpm.has_value());
         } else {
-            // On modern firmware, both should be available or both absent.
-            EXPECT_TRUE(speed_percentage.has_value());
-            EXPECT_TRUE(speed_rpm.has_value());
+            // On modern firmware, both should be available or both absent
+            // (nullopt when fans are not present on board or not controlled by FW).
+            EXPECT_EQ(speed_percentage.has_value(), speed_rpm.has_value());
         }
     }
 }

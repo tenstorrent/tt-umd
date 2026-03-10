@@ -400,18 +400,25 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
     }
 }
 
-TEST(TestFirmwareInfoProvider, FanSpeed) {
-    for (int id : PCIDevice::enumerate_devices()) {
-        auto tt_device = TTDevice::create(id);
-        tt_device->init_tt_device();
-        auto* fw_info = tt_device->get_firmware_info_provider();
-        ASSERT_NE(fw_info, nullptr);
+TEST_F(TestFirmwareInfoProvider, FanSpeed) {
+    for (const auto& tt_device : get_tt_devices()) {
+        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
         auto speed_percentage = fw_info->get_fan_speed();
         auto speed_rpm = fw_info->get_fan_rpm();
+
+        log_info(
+            tt::LogUMD,
+            "Device {}: arch={}, fw_range={}, fan_speed={} %, fan_rpm={} rpm",
+            pci_device_id,
+            arch_to_str(arch),
+            fw_range_label(fw_version),
+            opt_str(speed_percentage),
+            opt_str(speed_rpm));
 
         if (speed_percentage.has_value()) {
             EXPECT_GE(speed_percentage.value(), 0u);

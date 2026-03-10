@@ -167,7 +167,7 @@ jobs:
 
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
         env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
 

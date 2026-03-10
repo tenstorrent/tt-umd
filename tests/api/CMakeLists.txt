@@ -17,8 +17,11 @@ set(API_TESTS_SRCS
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
     test_tt_visible_devices.cpp
-    test_ttsim_device_io.cpp
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
+endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)

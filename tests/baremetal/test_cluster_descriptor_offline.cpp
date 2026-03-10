@@ -334,7 +334,7 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
         ClusterDescriptor::create_constrained_cluster_descriptor(full_desc.get(), target_chips);
     ASSERT_NE(constrained_desc, nullptr);
 
-    // Get actual visible chips after filtering (may include board expansion)
+    // Get actual visible chips after filtering (may include board expansion).
     std::unordered_set<ChipId> visible_chips = constrained_desc->get_all_chips();
     ASSERT_FALSE(visible_chips.empty()) << "Should have at least one visible chip";
 
@@ -342,7 +342,7 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
     const auto& constrained_remote = constrained_desc->get_ethernet_connections_to_remote_devices();
     const auto& chip_unique_ids = full_desc->get_chip_unique_ids();
 
-    // Verify connections from visible chips to non-visible chips are converted to remote connections
+    // Verify connections from visible chips to non-visible chips are converted to remote connections.
     for (const auto& [chip_id, connections] : full_desc->get_ethernet_connections()) {
         if (visible_chips.count(chip_id) == 0) {
             continue;
@@ -350,17 +350,17 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
         for (const auto& [eth_channel, remote_chip_and_channel] : connections) {
             ChipId remote_chip = std::get<0>(remote_chip_and_channel);
             if (visible_chips.count(remote_chip) == 0) {
-                // Should be converted to remote connection with correct unique_id
+                // Should be converted to remote connection with correct unique_id.
                 ASSERT_TRUE(constrained_remote.find(chip_id) != constrained_remote.end())
                     << "Chip " << chip_id << " should have remote connections";
                 ASSERT_TRUE(constrained_remote.at(chip_id).find(eth_channel) != constrained_remote.at(chip_id).end())
-                    << "Connection from chip " << chip_id << " channel " << eth_channel
-                    << " to non-visible chip " << remote_chip << " should be in remote connections";
+                    << "Connection from chip " << chip_id << " channel " << eth_channel << " to non-visible chip "
+                    << remote_chip << " should be in remote connections";
                 auto [remote_unique_id, remote_channel] = constrained_remote.at(chip_id).at(eth_channel);
                 EXPECT_EQ(remote_unique_id, chip_unique_ids.at(remote_chip))
                     << "Remote unique_id should match chip_unique_ids";
             } else {
-                // Should remain as local connection
+                // Should remain as local connection.
                 ASSERT_TRUE(constrained_local.find(chip_id) != constrained_local.end())
                     << "Chip " << chip_id << " should have local connections";
                 EXPECT_TRUE(constrained_local.at(chip_id).find(eth_channel) != constrained_local.at(chip_id).end())

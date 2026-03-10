@@ -268,24 +268,16 @@ uint32_t FirmwareInfoProvider::get_heartbeat() const {
 }
 
 static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
-    return tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS)) &&
-           tt_device->get_arc_telemetry_reader()->is_entry_available(
-               static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    // All GDDR telemetry tags from GDDR_0_1_TEMP through MAX_GDDR_TEMP must be present.
+    for (uint8_t tag = static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP);
+         tag <= static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP);
+         ++tag) {
+        if (!telemetry->is_entry_available(tag)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Ensure GDDR telemetry tags are consecutive so pair_index arithmetic is safe.
@@ -352,13 +344,13 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
     auto uncorrected_errors_mask =
         tt_device->get_arc_telemetry_reader()->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 
-    const std::array<uint8_t, 4> temp_tags = {
+    constexpr std::array<uint8_t, 4> temp_tags = {
         static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP),
         static_cast<uint8_t>(TelemetryTag::GDDR_2_3_TEMP),
         static_cast<uint8_t>(TelemetryTag::GDDR_4_5_TEMP),
         static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP),
     };
-    const std::array<uint8_t, 4> corr_tags = {
+    constexpr std::array<uint8_t, 4> corr_tags = {
         static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS),
         static_cast<uint8_t>(TelemetryTag::GDDR_2_3_CORR_ERRS),
         static_cast<uint8_t>(TelemetryTag::GDDR_4_5_CORR_ERRS),

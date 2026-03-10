@@ -435,7 +435,8 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
             EXPECT_FALSE(speed_rpm.has_value());
         } else {
             // On modern firmware, both should be available or both absent.
-            EXPECT_EQ(speed_percentage.has_value(), speed_rpm.has_value());
+            EXPECT_TRUE(speed_percentage.has_value());
+            EXPECT_TRUE(speed_rpm.has_value());
         }
     }
 }

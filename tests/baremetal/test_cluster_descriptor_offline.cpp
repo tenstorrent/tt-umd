@@ -230,35 +230,33 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
-    // Load the 6u cluster descriptor (Galaxy-style with many chips per board)
+    // Load the 6u cluster descriptor (Galaxy-style with many chips per board).
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("6u_cluster_desc.yaml"));
     ASSERT_NE(cluster_desc, nullptr) << "Failed to load cluster descriptor";
 
-    // Test 1: With explicit target_chip_ids, should NOT expand to include all chips on the same boards
+    // Test 1: With explicit target_chip_ids, should NOT expand to include all chips on the same boards.
     std::unordered_set<ChipId> target_chips = {0, 1, 2, 3};
     std::unique_ptr<ClusterDescriptor> constrained_desc =
         ClusterDescriptor::create_constrained_cluster_descriptor(cluster_desc.get(), target_chips);
-    
+
     ASSERT_NE(constrained_desc, nullptr);
     std::unordered_set<ChipId> constrained_chips = constrained_desc->get_all_chips();
-    
-    // Should have exactly the specified chips, not all chips on the same board
+
+    // Should have exactly the specified chips, not all chips on the same board.
     EXPECT_EQ(constrained_chips.size(), target_chips.size())
         << "Should have exactly " << target_chips.size() << " chips, not all chips on the same board";
-    
-    // Verify only target chips are present
+
+    // Verify only target chips are present.
     for (ChipId chip : constrained_chips) {
-        EXPECT_TRUE(target_chips.count(chip) > 0)
-            << "Chip " << chip << " should not be included (not in target_chips)";
-    }
-    
-    for (ChipId chip : target_chips) {
-        EXPECT_TRUE(constrained_chips.count(chip) > 0)
-            << "Target chip " << chip << " should be included";
+        EXPECT_TRUE(target_chips.count(chip) > 0) << "Chip " << chip << " should not be included (not in target_chips)";
     }
 
-    // Test 2: With TT_VISIBLE_DEVICES, should NOT expand to include all chips on the same boards
+    for (ChipId chip : target_chips) {
+        EXPECT_TRUE(constrained_chips.count(chip) > 0) << "Target chip " << chip << " should be included";
+    }
+
+    // Test 2: With TT_VISIBLE_DEVICES, should NOT expand to include all chips on the same boards.
     std::string tt_visible_devices_value = "0,15,20,10,2,9,17,29,5,26,12,8,21,7,31,22";
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), tt_visible_devices_value.c_str(), 1) != 0) {
         ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
@@ -270,47 +268,47 @@ TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
 
     ASSERT_NE(constrained_desc_tt, nullptr);
     std::unordered_set<ChipId> constrained_chips_tt = constrained_desc_tt->get_all_chips();
-    
-    // Should have exactly the chips specified in TT_VISIBLE_DEVICES (16 chips), not all 32
+
+    // Should have exactly the chips specified in TT_VISIBLE_DEVICES (16 chips), not all 32.
     EXPECT_EQ(constrained_chips_tt.size(), expected_chips.size())
-        << "Expected exactly " << expected_chips.size() << " chips from TT_VISIBLE_DEVICES, but got " << constrained_chips_tt.size();
-    
-    // Verify all expected chips from TT_VISIBLE_DEVICES are present
+        << "Expected exactly " << expected_chips.size() << " chips from TT_VISIBLE_DEVICES, but got "
+        << constrained_chips_tt.size();
+
+    // Verify all expected chips from TT_VISIBLE_DEVICES are present.
     for (ChipId expected_chip : expected_chips) {
         EXPECT_TRUE(constrained_chips_tt.count(expected_chip) > 0)
             << "Expected chip " << expected_chip << " from TT_VISIBLE_DEVICES not found in constrained descriptor";
     }
-    
-    // Verify no unexpected chips (chips not in TT_VISIBLE_DEVICES)
+
+    // Verify no unexpected chips (chips not in TT_VISIBLE_DEVICES).
     for (ChipId chip : constrained_chips_tt) {
         EXPECT_TRUE(expected_chips.count(chip) > 0)
             << "Unexpected chip " << chip << " found in constrained descriptor (not in TT_VISIBLE_DEVICES)";
     }
 
-    // Clean up: unset TT_VISIBLE_DEVICES
+    // Clean up: unset TT_VISIBLE_DEVICES.
     if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
         ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
     }
 }
 
 TEST(ApiClusterDescriptorOfflineTest, RemoteEthernetConnectionsPreservedWhenConstrained) {
-    // Load descriptor that has ethernet_connections_to_remote_devices (N300 with remote links)
-    std::string cluster_desc_path =
-        test_utils::GetClusterDescAbsPath("wormhole_N300_with_remote_connections.yaml");
+    // Load descriptor that has ethernet_connections_to_remote_devices (N300 with remote links).
+    std::string cluster_desc_path = test_utils::GetClusterDescAbsPath("wormhole_N300_with_remote_connections.yaml");
     std::unique_ptr<ClusterDescriptor> full_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
     ASSERT_NE(full_desc, nullptr);
 
     const auto& full_remote = full_desc->get_ethernet_connections_to_remote_devices();
     ASSERT_FALSE(full_remote.empty()) << "Test requires cluster with remote ethernet connections";
 
-    // Constrain to chips 0 and 1 (N300 board expansion keeps both)
+    // Constrain to chips 0 and 1 (N300 board expansion keeps both).
     std::unordered_set<ChipId> target_chips = {0, 1};
     std::unique_ptr<ClusterDescriptor> constrained_desc =
         ClusterDescriptor::create_constrained_cluster_descriptor(full_desc.get(), target_chips);
 
     const auto& constrained_remote = constrained_desc->get_ethernet_connections_to_remote_devices();
 
-    // Remote connections for all visible chips must be preserved
+    // Remote connections for all visible chips must be preserved.
     for (const auto& [chip_id, remote_conns] : full_remote) {
         if (constrained_desc->get_all_chips().count(chip_id) == 0) {
             continue;

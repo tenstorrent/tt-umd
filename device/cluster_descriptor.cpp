@@ -501,6 +501,15 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             const std::string &board_type_str = boardEntry[1]["board_type"].as<std::string>();
             BoardType board_type = board_type_from_string(board_type_str);
 
+            if (board_type == BoardType::UNKNOWN) {
+                log_warning(
+                    LogUMD,
+                    "Unknown board type '{}' for board id {}. "
+                    "Defaulting to UNKNOWN",
+                    board_type_str,
+                    board_id);
+            }
+
             for (const auto &chip : boardEntry[2]["chips"]) {
                 add_chip_to_board(chip.as<ChipId>(), board_id);
                 chip_board_type.insert({chip.as<ChipId>(), board_type});

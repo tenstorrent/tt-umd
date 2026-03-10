@@ -164,12 +164,22 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
 }
 
-std::optional<std::vector<tt::EthLinkStatus>> Wormhole_18_3_FirmwareInfoProvider::get_eth_live_status() const {
+std::optional<std::vector<bool>> Wormhole_18_3_FirmwareInfoProvider::get_eth_heartbeat_status() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!eth_live_status_available) {
         return std::nullopt;
     }
-    return parse_eth_live_status(telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS));
+    uint32_t data = telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+}
+
+std::optional<std::vector<bool>> Wormhole_18_3_FirmwareInfoProvider::get_eth_retrain_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    uint32_t data = telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {

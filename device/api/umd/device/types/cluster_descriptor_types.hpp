@@ -304,13 +304,6 @@ inline std::string dram_training_status_to_str(DramTrainingStatus status) {
     }
 }
 
-// Per-link ethernet live status.
-// Derived from ETH_LIVE_STATUS telemetry: lower 16 bits are heartbeat status,
-// upper 16 bits are retrain status (one bit per link).
-struct EthLinkStatus {
-    bool heartbeat;  // true if the link heartbeat is active.
-    bool retrain;    // true if the link has been retrained.
-};
 }  // namespace tt
 
 namespace std {

@@ -169,6 +169,8 @@ void bind_telemetry(nb::module_ &m) {
         .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit)
         .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle)
         .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count)
+        .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status)
+        .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status)
         .def_static(
             "get_minimum_compatible_firmware_version",
             &FirmwareInfoProvider::get_minimum_compatible_firmware_version,

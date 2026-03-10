@@ -140,13 +140,20 @@ public:
     virtual std::optional<uint32_t> get_therm_trip_count() const;
 
     /*
-     * Get ethernet live status for each link.
+     * Get per-link ethernet heartbeat status.
      * Only available on Wormhole for now; returns std::nullopt on Blackhole.
-     * Each entry is an EthLinkStatus with two fields: heartbeat and retrain.
-     * Vector indices align with ETH channels (i.e. logical coordinates).
-     * @returns Vector of EthLinkStatus (one per link, up to 16), or std::nullopt if unavailable.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
      */
-    virtual std::optional<std::vector<EthLinkStatus>> get_eth_live_status() const;
+    virtual std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+
+    /*
+     * Get per-link ethernet retrain status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
+     */
+    virtual std::optional<std::vector<bool>> get_eth_retrain_status() const;
 
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
@@ -164,12 +171,10 @@ public:
 
 protected:
     /**
-     * Parse a 32-bit ETH_LIVE_STATUS telemetry value into per-link status.
-     * Lower 16 bits: heartbeat status (one bit per link).
-     * Upper 16 bits: retrain status (one bit per link).
+     * Parse a 16-bit bitmask into a per-link boolean vector.
      * Bit indices align with ETH channels (i.e. logical coordinates).
      */
-    static std::vector<EthLinkStatus> parse_eth_live_status(uint32_t telemetry_data);
+    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
 
     TTDevice* tt_device = nullptr;
 

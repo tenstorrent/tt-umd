@@ -306,27 +306,32 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
     return telemetry->read_entry(TelemetryTag::THERM_TRIP_COUNT);
 }
 
-std::vector<tt::EthLinkStatus> FirmwareInfoProvider::parse_eth_live_status(uint32_t telemetry_data) {
+std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
     static constexpr uint32_t max_eth_links = 16;
-    uint16_t heartbeat_status = telemetry_data & 0xFFFF;
-    uint16_t retrain_status = (telemetry_data >> 16) & 0xFFFF;
-    std::vector<tt::EthLinkStatus> statuses;
+    std::vector<bool> statuses;
     statuses.reserve(max_eth_links);
     for (uint32_t link = 0; link < max_eth_links; ++link) {
-        statuses.push_back(tt::EthLinkStatus{
-            .heartbeat = static_cast<bool>(heartbeat_status & (1u << link)),
-            .retrain = static_cast<bool>(retrain_status & (1u << link)),
-        });
+        statuses.push_back(static_cast<bool>(bitmask & (1u << link)));
     }
     return statuses;
 }
 
-std::optional<std::vector<tt::EthLinkStatus>> FirmwareInfoProvider::get_eth_live_status() const {
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (!eth_live_status_available) {
         return std::nullopt;
     }
-    return parse_eth_live_status(telemetry->read_entry(TelemetryTag::ETH_LIVE_STATUS));
+    uint32_t data = telemetry->read_entry(TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+}
+
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    uint32_t data = telemetry->read_entry(TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 }  // namespace tt::umd

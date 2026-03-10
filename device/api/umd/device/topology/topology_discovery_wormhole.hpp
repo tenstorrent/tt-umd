@@ -20,23 +20,19 @@ protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }
 
     struct EthAddresses {
-        uint32_t masked_version;
-
-        uint64_t eth_param_table;
-        uint64_t routing_firmware_state;
-        uint64_t node_info;
-        uint64_t eth_conn_info;
-        uint64_t results_buf;
-        uint64_t erisc_remote_board_type_offset;
-        uint64_t erisc_local_board_type_offset;
-        uint64_t erisc_local_board_id_lo_offset;
-        uint64_t erisc_remote_board_id_lo_offset;
-        uint64_t erisc_remote_eth_id_offset;
+        static constexpr uint64_t ETH_PARAM_TABLE = 0x1000;
+        static constexpr uint64_t ROUTING_FIRMWARE_STATE = 0x104c;
+        static constexpr uint64_t NODE_INFO = 0x1100;
+        static constexpr uint64_t ETH_CONN_INFO = 0x1200;
+        static constexpr uint64_t RESULTS_BUF = 0x1ec0;
+        static constexpr uint64_t ERISC_REMOTE_BOARD_TYPE_OFFSET = 77;
+        static constexpr uint64_t ERISC_LOCAL_BOARD_TYPE_OFFSET = 69;
+        static constexpr uint64_t ERISC_LOCAL_BOARD_ID_LO_OFFSET = 64;
+        static constexpr uint64_t ERISC_REMOTE_BOARD_ID_LO_OFFSET = 72;
+        static constexpr uint64_t ERISC_REMOTE_ETH_ID_OFFSET = 76;
     };
 
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
-
-    static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
 
     uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
@@ -72,8 +68,6 @@ protected:
     bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
     void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
-
-    EthAddresses eth_addresses;
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
 

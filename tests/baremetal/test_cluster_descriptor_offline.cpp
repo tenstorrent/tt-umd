@@ -230,13 +230,10 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
-    // Load the 3 pod 16x8 BH Galaxy cluster descriptor
-    std::string cluster_desc_path = test_utils::GetAbsPath(
-        "../../../../tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors/3_pod_16x8_bh_galaxy_cluster_desc/"
-        "3_pod_16x8_bh_galaxy_cluster_desc_bh-glx-c01u02.yaml");
-    
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
-    ASSERT_NE(cluster_desc, nullptr) << "Failed to load cluster descriptor from: " << cluster_desc_path;
+    // Load the 6u cluster descriptor (Galaxy-style with many chips per board)
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("6u_cluster_desc.yaml"));
+    ASSERT_NE(cluster_desc, nullptr) << "Failed to load cluster descriptor";
 
     // Test 1: With explicit target_chip_ids, should NOT expand to include all chips on the same boards
     std::unordered_set<ChipId> target_chips = {0, 1, 2, 3};

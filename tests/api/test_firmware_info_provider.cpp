@@ -22,7 +22,8 @@
 using namespace tt;
 using namespace tt::umd;
 
-static std::string opt_str(const std::optional<uint32_t>& v) {
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+static std::string opt_str(const std::optional<T>& v) {
     return v.has_value() ? std::to_string(v.value()) : "nullopt";
 }
 
@@ -420,9 +421,7 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
 
         // For Wormhole with firmware >= 18.4.0 and all Blackhole firmware DRAM speed should be available.
         EXPECT_TRUE(dram_speed.has_value()) << "GDDR speed should be available.";
-        if (dram_speed.has_value()) {
-            log_info(tt::LogUMD, "GDDR speed: {} Mbps", dram_speed.value());
-        }
+        log_info(tt::LogUMD, "GDDR speed: {} Mbps", opt_str(dram_speed));
 
         // Only GDDR speed and status are populated on Wormhole and only speed is verified in this test.
         if (arch == tt::ARCH::WORMHOLE_B0) {

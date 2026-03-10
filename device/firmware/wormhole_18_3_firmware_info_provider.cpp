@@ -29,6 +29,9 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     tdc_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);
     eth_live_status_available = telemetry->is_entry_available(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    // Firmware < 18.4 doesn't populate thermal limit fields; the tags exist but contain garbage.
+    thm_limit_shutdown_available = false;
+    thm_limit_throttle_available = false;
 }
 
 uint64_t Wormhole_18_3_FirmwareInfoProvider::get_board_id() const {

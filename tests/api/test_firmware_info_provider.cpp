@@ -292,23 +292,12 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
         log_info(tt::LogUMD, "tdc={} A", opt_str(tdc));
         log_info(tt::LogUMD, "vcore={} mV", opt_str(vcore));
 
-        // On Wormhole FW < 18.4, TDP and VCORE are not populated by firmware and report 0.
-        // Blackhole minimum FW is 18.5, so this case does not apply.
-        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FW_VERSION_18_4) {
-            if (tdp.has_value()) {
-                EXPECT_EQ(tdp.value(), 0u);
-            }
-            if (vcore.has_value()) {
-                EXPECT_EQ(vcore.value(), 0u);
-            }
-        } else {
-            if (tdp.has_value()) {
-                EXPECT_LT(tdp.value(), 500u);
-            }
-            if (vcore.has_value()) {
-                EXPECT_GT(vcore.value(), 0u);
-                EXPECT_LT(vcore.value(), 2000u);
-            }
+        if (tdp.has_value()) {
+            EXPECT_LT(tdp.value(), 500u);
+        }
+        if (vcore.has_value()) {
+            EXPECT_GT(vcore.value(), 0u);
+            EXPECT_LT(vcore.value(), 2000u);
         }
     }
 }
@@ -414,15 +403,11 @@ TEST_F(TestFirmwareInfoProvider, ThermalLimits) {
         auto shutdown = fw_info->get_thm_limit_shutdown();
         auto throttle = fw_info->get_thm_limit_throttle();
 
-        // On Wormhole FW < 18.4, firmware doesn't populate these fields; they read as 0.
+        // On Wormhole FW < 18.4, firmware doesn't populate these fields; expect nullopt.
         // Blackhole minimum FW is 18.5, so this case does not apply.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FW_VERSION_18_4) {
-            if (shutdown.has_value()) {
-                EXPECT_DOUBLE_EQ(shutdown.value(), 0.0);
-            }
-            if (throttle.has_value()) {
-                EXPECT_DOUBLE_EQ(throttle.value(), 0.0);
-            }
+            EXPECT_FALSE(shutdown.has_value());
+            EXPECT_FALSE(throttle.has_value());
         } else {
             if (shutdown.has_value()) {
                 // Stored as plain integer in °C (not 16.16 fixed-point).

@@ -97,10 +97,6 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
         const auto& cores = soc_desc.get_cores(core_type);
 
-        if (cores.empty()) {
-            GTEST_SKIP() << "No cores of type " << to_str(core_type) << " available on chip " << chip_id;
-        }
-
         const CoreCoord& any_core = cores[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
@@ -114,10 +110,6 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
         const auto& cores = soc_desc.get_cores(core_type);
-
-        if (cores.empty()) {
-            GTEST_SKIP() << "No cores of type " << to_str(core_type) << " available on chip " << chip_id;
-        }
 
         const CoreCoord& any_core = cores[0];
 
@@ -146,10 +138,6 @@ TEST_P(TestDeviceIOFixture, RemoteFlush) {
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
         const auto& cores = soc_desc.get_cores(core_type);
-
-        if (cores.empty()) {
-            GTEST_SKIP() << "No cores of type " << to_str(core_type) << " available on chip " << chip_id;
-        }
 
         const CoreCoord& any_core = cores[0];
 
@@ -198,10 +186,6 @@ TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
         const auto& cores = soc_desc.get_cores(core_type);
 
-        if (cores.empty()) {
-            GTEST_SKIP() << "No cores of type " << to_str(core_type) << " available on chip " << chip_id;
-        }
-
         const CoreCoord& any_core = cores[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
@@ -215,10 +199,6 @@ TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
         const auto& cores = soc_desc.get_cores(core_type);
-
-        if (cores.empty()) {
-            GTEST_SKIP() << "No cores of type " << to_str(core_type) << " available on chip " << chip_id;
-        }
 
         const CoreCoord& any_core = cores[0];
 
@@ -250,10 +230,6 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
         // Write to each core a 100 times at different statically mapped addresses.
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
         const auto& cores = soc_desc.get_cores(core_type);
-
-        if (cores.empty()) {
-            GTEST_SKIP() << "No cores of type " << to_str(core_type) << " available on chip " << chip;
-        }
 
         for (int loop = 0; loop < num_loops; loop++) {
             for (const auto& core : cores) {

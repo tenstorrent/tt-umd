@@ -341,10 +341,22 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
         for (const auto &[eth_id, connection] : eth_connections) {
             const auto &[remote_chip_id, remote_eth_id] = connection;
-            if (visible_chips.find(remote_chip_id) == visible_chips.end()) {
-                continue;
+            if (visible_chips.find(remote_chip_id) != visible_chips.end()) {
+                // Both chips are visible: keep as local connection
+                desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
+            } else {
+                // Local chip is visible but remote chip is not: convert to remote connection
+                // Look up the remote chip's unique_id from the full cluster descriptor
+                auto unique_id_it = full_cluster_desc->chip_unique_ids.find(remote_chip_id);
+                if (unique_id_it != full_cluster_desc->chip_unique_ids.end()) {
+                    desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = {
+                        unique_id_it->second, remote_eth_id};
+                } else {
+                    // Fallback: use chip_id as unique_id if not found (shouldn't happen in normal operation)
+                    desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = {
+                        static_cast<uint64_t>(remote_chip_id), remote_eth_id};
+                }
             }
-            desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
         }
     }
 

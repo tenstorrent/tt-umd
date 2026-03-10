@@ -359,6 +359,8 @@ private:
      */
     static std::vector<int> get_all_device_ids();
 
+    static std::vector<int> sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids);
+
     /**
      * Get mapping of BDF to device ID without considering TT_VISIBLE_DEVICES environment variable.
      * @return map from BDF string to device ID

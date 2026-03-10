@@ -245,22 +245,18 @@ TEST(TestTTVisibleDevices, OpenChipsByIdException) {
 TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
 
-    if (enumerated_ids.empty()) {
-        GTEST_SKIP() << "No PCI devices found.";
-    }
-
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     // Verify that for each logical ID i, the PCI device behind it matches
     // the i-th device returned by enumerate_devices() (which is BDF-sorted).
-    for (int i = 0; i < static_cast<int>(enumerated_ids.size()); i++) {
-        TTDevice* tt_device = cluster->get_tt_device(i);
-        ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << i;
+    for (const ChipId chip_id : cluster->get_target_mmio_device_ids()) {
+        TTDevice* tt_device = cluster->get_tt_device(chip_id);
+        ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << chip_id;
         std::shared_ptr<PCIDevice> pci_device = tt_device->get_pci_device();
-        ASSERT_NE(pci_device, nullptr) << "No PCI device found for logical ID " << i;
-        EXPECT_EQ(pci_device->get_device_num(), enumerated_ids[i])
-            << "Logical ID " << i << " maps to PCI device " << pci_device->get_device_num()
-            << " but enumerate_devices() returned " << enumerated_ids[i] << " at index " << i;
+        ASSERT_NE(pci_device, nullptr) << "No PCI device found for logical ID " << chip_id;
+        EXPECT_EQ(pci_device->get_device_num(), enumerated_ids[chip_id])
+            << "Chip ID " << chip_id << " maps to PCI device " << pci_device->get_device_num()
+            << " but enumerate_devices() returned " << enumerated_ids[chip_id] << " at index " << chip_id;
     }
 }
 

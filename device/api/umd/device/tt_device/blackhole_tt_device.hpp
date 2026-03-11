@@ -65,6 +65,9 @@ protected:
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
+    // Number of retrain attempts is chosen based on syseng team testing.
+    uint32_t get_max_dram_retrain_attempts() const override { return 3; }
+
 private:
     int get_pcie_x_coordinate();
 

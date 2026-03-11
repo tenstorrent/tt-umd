@@ -360,6 +360,8 @@ protected:
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
+    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
+
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;

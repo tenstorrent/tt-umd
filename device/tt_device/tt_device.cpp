@@ -246,7 +246,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
             dram_channel,
             architecture_impl_->get_dram_banks_number() - 1));
     }
-    uint32_t num_retrain_dram_core = 5;
+    const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
+    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
     auto start = std::chrono::steady_clock::now();
     while (true) {
         std::vector<DramTrainingStatus> dram_training_status =
@@ -259,11 +260,19 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
             if (num_retrain_dram_core > 0) {
+                log_warning(
+                    LogUMD,
+                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
+                    dram_channel,
+                    num_retrain_dram_core - 1);
                 retrain_dram_core(dram_channel);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 num_retrain_dram_core--;
             } else {
-                throw std::runtime_error("DRAM training failed");
+                throw std::runtime_error(fmt::format(
+                    "DRAM training failed for channel {} after {} retrain attempts",
+                    dram_channel,
+                    MAX_DRAM_RETRAIN_ATTEMPTS));
             }
         }
 

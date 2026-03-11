@@ -701,7 +701,3 @@ TEST(SocDescriptor, SerializeSimulatorQuasar) {
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
 }
-
-TEST(SocDescriptor, SocDescriptorCreatFromSerialized) {
-    SocDescriptor soc_desc_yaml(test_utils::GetSocDescAbsPath("serialized.yaml"), {.noc_translation_enabled = true});
-}

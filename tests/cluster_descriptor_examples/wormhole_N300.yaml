@@ -23,10 +23,4 @@ harvesting: {
    1: {noc_translation: true, harvest_mask: 5},
 }
 
-# This value will be null if the boardtype is unknown, should never happen in practice but to be defensive it would be useful to throw an error on this case.
-boardtype: {
-   0: n300,
-   1: n300,
-}
-
 boards: [[{board_id: 72058994491072686}, {board_type: n300}, {chips: [0,1]}]]

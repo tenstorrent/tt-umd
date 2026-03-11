@@ -10,6 +10,7 @@
 #include "assert.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -40,7 +41,7 @@ SimulationChip::SimulationChip(
     int num_host_mem_channels) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator binary not found at: ", simulator_directory_);
+        TT_THROW("Simulator binary not found at: {}", simulator_directory_);
     }
 
     sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);
@@ -90,7 +91,7 @@ void SimulationChip::noc_multicast_write(
             if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
                 continue;
             }
-            write_to_device(CoreCoord(x, y, core_start.core_type, core_start.coord_system), dst, addr, size);
+            write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), dst, addr, size);
         }
     }
 }

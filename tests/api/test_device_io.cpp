@@ -41,6 +41,7 @@ using namespace tt::umd;
 // These tests are intended to be run with the same code on all kinds of systems:
 // N150. N300
 // Galaxy.
+// They also support TTSim simulation when TT_UMD_SIMULATOR env var is set.
 
 constexpr std::uint32_t L1_BARRIER_BASE = 12;
 constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
@@ -59,8 +60,27 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     return options;
 }
 
-TEST(TestDeviceIO, SimpleIOAllSiliconChips) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {
+protected:
+    static constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
+
+    // Creates a Cluster with the given options, overriding chip_type/target_devices/simulator_directory
+    // to use simulation when TT_UMD_SIMULATOR is set.
+    std::unique_ptr<Cluster> make_cluster(ClusterOptions options = {}) {
+        if (const char* sim_path = std::getenv(TT_UMD_SIMULATOR_ENV)) {
+            options.chip_type = ChipType::SIMULATION;
+            options.target_devices = {0};
+            options.simulator_directory = std::filesystem::path(sim_path);
+        }
+        return std::make_unique<Cluster>(options);
+    }
+
+    bool is_simulation() const { return std::getenv(TT_UMD_SIMULATOR_ENV) != nullptr; }
+};
+
+TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
+    const CoreType core_type = GetParam();
+    std::unique_ptr<Cluster> umd_cluster = make_cluster();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -75,8 +95,9 @@ TEST(TestDeviceIO, SimpleIOAllSiliconChips) {
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -88,8 +109,9 @@ TEST(TestDeviceIO, SimpleIOAllSiliconChips) {
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -100,8 +122,9 @@ TEST(TestDeviceIO, SimpleIOAllSiliconChips) {
     }
 }
 
-TEST(TestDeviceIO, RemoteFlush) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+TEST_P(TestDeviceIOFixture, RemoteFlush) {
+    const CoreType core_type = GetParam();
+    std::unique_ptr<Cluster> umd_cluster = make_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -114,8 +137,9 @@ TEST(TestDeviceIO, RemoteFlush) {
 
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         if (!cluster_desc->is_chip_remote(chip_id)) {
             std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
@@ -141,10 +165,9 @@ TEST(TestDeviceIO, RemoteFlush) {
     }
 }
 
-TEST(TestDeviceIO, SimpleIOSpecificSiliconChips) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
+    const CoreType core_type = GetParam();
+    std::unique_ptr<Cluster> umd_cluster = make_cluster(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -161,8 +184,9 @@ TEST(TestDeviceIO, SimpleIOSpecificSiliconChips) {
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -174,8 +198,9 @@ TEST(TestDeviceIO, SimpleIOSpecificSiliconChips) {
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const auto& cores = soc_desc.get_cores(core_type);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const CoreCoord& any_core = cores[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -186,11 +211,12 @@ TEST(TestDeviceIO, SimpleIOSpecificSiliconChips) {
     }
 }
 
-TEST(TestDeviceIO, DynamicTLB_RW) {
+TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs
     // to be reconfigured for each transaction
+    const CoreType core_type = GetParam();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster = make_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -203,9 +229,10 @@ TEST(TestDeviceIO, DynamicTLB_RW) {
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses.
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
-        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        const auto& cores = soc_desc.get_cores(core_type);
+
         for (int loop = 0; loop < num_loops; loop++) {
-            for (auto& core : tensix_cores) {
+            for (const auto& core : cores) {
                 cluster->write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
 
@@ -230,8 +257,8 @@ TEST(TestDeviceIO, DynamicTLB_RW) {
     cluster->close_device();
 }
 
-TEST(TestDeviceIO, TestMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+TEST_F(TestDeviceIOFixture, TestMulticastWrite) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
 
     const tt_xy_pair grid_size = {8, 8};
 
@@ -272,11 +299,15 @@ TEST(TestDeviceIO, TestMulticastWrite) {
     }
 }
 
-TEST(TestDeviceIO, TestDmaMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
 
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
+    }
+
+    if (is_simulation()) {
+        GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
     }
 
     const tt_xy_pair grid_size = {8, 8};
@@ -318,47 +349,11 @@ TEST(TestDeviceIO, TestDmaMulticastWrite) {
     }
 }
 
-TEST(TestDeviceIO, TTSimReadWriteL1) {
-    std::vector<ClusterOptions> options = get_cluster_options_for_param_test();
-    if (options.size() == 1) {
-        GTEST_SKIP() << "This test is only for TTSim simulation.";
-    }
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options[1]);
-
-    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-
-    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
-    std::vector<uint8_t> data(tensix_l1_size, 0);
-    for (int i = 0; i < tensix_l1_size; i++) {
-        data[i] = i % 256;
-    }
-
-    // Set elements to 1 since the first readback will be of zero data, so want to confirm that
-    // elements actually changed.
-    std::vector<uint8_t> readback_data(tensix_l1_size, 1);
-
-    for (auto chip_id : cluster->get_target_device_ids()) {
-        const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
-
-        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
-
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
-
-        EXPECT_EQ(zero_data, readback_data);
-
-        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
-
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
-
-        EXPECT_EQ(data, readback_data);
-    }
-}
-
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
-    if (options.chip_type == SIMULATION) {
+    if (options.chip_type == ChipType::SIMULATION) {
         cluster->start_device({.init_device = true});
     }
 
@@ -410,9 +405,7 @@ INSTANTIATE_TEST_SUITE_P(
             default:
                 return "Unknown";
         }
-    }
-
-);
+    });
 
 /**
  * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
@@ -427,25 +420,27 @@ INSTANTIATE_TEST_SUITE_P(
  * 4. Zeros out sysmem (via hardware write) at various offsets.
  * 5. Verifies that the offsets have been zeroed from host's perspective.
  */
-TEST(TestDeviceIO, SysmemReadWrite) {
+TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     constexpr size_t ONE_GIG = 1ULL << 30;
     constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
-    const bool is_vm = test_utils::is_virtual_machine();
-    const bool has_iommu = test_utils::is_iommu_available();
 
-    // 3 for BM with IOMMU to test more of the address space while avoiding
-    // the legacy hack for getting to 3.75 on WH.
-    // 1 for BM without IOMMU, to avoid making assumptions RE: # of hugepages.
-    // 1 for VM because it'll work if vIOMMU; if no vIOMMU it avoids assuming
-    // >1 hugepages are available.
-    const uint32_t channels = is_vm ? 1 : has_iommu ? 3 : 1;
-    Cluster cluster(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = channels,
-    });
+    uint32_t channels;
+    uint32_t channels_to_test;
+    if (is_simulation()) {
+        channels = 4;
+        channels_to_test = 1;
+    } else {
+        const bool is_vm = test_utils::is_virtual_machine();
+        const bool has_iommu = test_utils::is_iommu_available();
+        channels = is_vm ? 1 : has_iommu ? 3 : 1;
+        channels_to_test = channels;
+    }
+
+    std::unique_ptr<Cluster> cluster = make_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
     constexpr auto mmio_chip_id = 0;
-    const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+    const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
     const auto pcie_core = pci_cores.at(0);
-    const auto base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
+    const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
 
     auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
         static std::random_device rd;
@@ -454,33 +449,46 @@ TEST(TestDeviceIO, SysmemReadWrite) {
         return dis(gen);
     };
 
-    test_utils::safe_test_cluster_start(&cluster);
+    if (!is_simulation()) {
+        test_utils::safe_test_cluster_start(cluster.get());
+    }
 
-    for (uint32_t channel = 0; channel < channels; channel++) {
-        uint8_t* sysmem = static_cast<uint8_t*>(cluster.host_dma_address(mmio_chip_id, 0, channel));
+    for (uint32_t channel = 0; channel < channels_to_test; channel++) {
+        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
 
         ASSERT_NE(sysmem, nullptr);
-        test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
 
-        std::vector<uint64_t> test_offsets = {
-            0x0,
-            (ONE_GIG / 4) - 0x1000,
-            (ONE_GIG / 4) - 0x0004,
-            (ONE_GIG / 4),
-            (ONE_GIG / 4) + 0x0004,
-            (ONE_GIG / 4) + 0x1000,
-            (ONE_GIG / 2) - 0x1000,
-            (ONE_GIG / 2) - 0x0004,
-            (ONE_GIG / 2),
-            (ONE_GIG / 2) + 0x0004,
-            (ONE_GIG / 2) + 0x1000,
-            (ONE_GIG - 0x1000),
-            (ONE_GIG - 0x0004),
-        };
+        if (is_simulation()) {
+            for (size_t i = 0; i < ONE_GIG; i++) {
+                sysmem[i] = i % 256;
+            }
+        } else {
+            test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
+        }
 
-        for (size_t i = 0; i < 8192; ++i) {
-            uint64_t address = random_address_between(0, ONE_GIG);
-            test_offsets.push_back(address);
+        std::vector<uint64_t> test_offsets;
+        if (is_simulation()) {
+            test_offsets = {0x0};
+        } else {
+            test_offsets = {
+                0x0,
+                (ONE_GIG / 4) - 0x1000,
+                (ONE_GIG / 4) - 0x0004,
+                (ONE_GIG / 4),
+                (ONE_GIG / 4) + 0x0004,
+                (ONE_GIG / 4) + 0x1000,
+                (ONE_GIG / 2) - 0x1000,
+                (ONE_GIG / 2) - 0x0004,
+                (ONE_GIG / 2),
+                (ONE_GIG / 2) + 0x0004,
+                (ONE_GIG / 2) + 0x1000,
+                (ONE_GIG - 0x1000),
+                (ONE_GIG - 0x0004),
+            };
+            for (size_t i = 0; i < 8192; ++i) {
+                uint64_t address = random_address_between(0, ONE_GIG);
+                test_offsets.push_back(address);
+            }
         }
 
         // Read test - read the sysmem at the various offsets.
@@ -493,10 +501,12 @@ TEST(TestDeviceIO, SysmemReadWrite) {
 
             std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
 
-            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
 
-            if (value != expected) {
+            if (!is_simulation() && value != expected) {
                 std::stringstream error_msg;
+                const bool is_vm = test_utils::is_virtual_machine();
+                const bool has_iommu = test_utils::is_iommu_available();
                 error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
                           << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")"
                           << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
@@ -514,74 +524,12 @@ TEST(TestDeviceIO, SysmemReadWrite) {
                 }
 
                 FAIL() << error_msg.str();
+            } else {
+                EXPECT_EQ(value, expected)
+                    << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex << aligned_offset
+                    << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")\n"
+                    << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
             }
-        }
-
-        // Write test - zero out the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
-            uint32_t value = 0;
-            cluster.write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
-            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-        }
-
-        // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint32_t value = 0xffffffff;
-            std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
-            EXPECT_EQ(value, 0);
-        }
-    }
-}
-
-TEST(TestDeviceIO, TTSimSysmemReadWrite) {
-    std::vector<ClusterOptions> options = get_cluster_options_for_param_test();
-    if (options.size() == 1) {
-        GTEST_SKIP() << "This test is only for TTSim simulation.";
-    }
-    constexpr size_t ONE_GIG = 1ULL << 30;
-    constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
-    const uint32_t channels = 4;
-
-    options[1].num_host_mem_ch_per_mmio_device = channels;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options[1]);
-
-    constexpr auto mmio_chip_id = 0;
-    const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
-    const auto pcie_core = pci_cores.at(0);
-    const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
-
-    for (uint32_t channel = 0; channel < 1; channel++) {
-        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
-
-        ASSERT_NE(sysmem, nullptr);
-        for (int i = 0; i < ONE_GIG; i++) {
-            sysmem[i] = i % 256;
-        }
-
-        std::vector<uint64_t> test_offsets = {
-            0x0,
-        };
-
-        // Read test - read the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
-            uint32_t expected = 0;
-            uint32_t value = 0;
-
-            std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
-
-            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-
-            EXPECT_EQ(value, expected) << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
-                                       << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr
-                                       << std::dec << ")\n"
-                                       << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
         }
 
         // Write test - zero out the sysmem at the various offsets.
@@ -604,8 +552,8 @@ TEST(TestDeviceIO, TTSimSysmemReadWrite) {
     }
 }
 
-TEST(TestDeviceIO, RegReadWrite) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+TEST_F(TestDeviceIOFixture, RegReadWrite) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -649,8 +597,8 @@ TEST(TestDeviceIO, RegReadWrite) {
     }
 }
 
-TEST(TestDeviceIO, WriteDataReadReg) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -675,3 +623,9 @@ TEST(TestDeviceIO, WriteDataReadReg) {
         EXPECT_EQ(write_data_l1[i], readback_value);
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    CoreTypes,
+    TestDeviceIOFixture,
+    ::testing::Values(CoreType::TENSIX, CoreType::DRAM),
+    [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });

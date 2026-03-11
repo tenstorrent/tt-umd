@@ -21,9 +21,7 @@ namespace tt::umd::erisc_firmware {
 
 // ERISC FW versions required by UMD.
 constexpr SemVer BH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(1, 4, 1);
-constexpr SemVer WH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(6, 0, 0);
-constexpr SemVer WH_MIN_ERISC_FW_ETH_BROADCAST_SUPPORTED = SemVer(6, 5, 0);
-constexpr SemVer WH_MIN_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS = SemVer(6, 8, 0);
+constexpr SemVer WH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(6, 14, 0);
 
 // Maps firmware bundle versions to their corresponding ERISC firmware versions.
 // Bundle versions between entries inherit the ERISC version from the previous entry.

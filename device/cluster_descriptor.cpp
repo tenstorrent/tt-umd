@@ -32,6 +32,7 @@
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
+#include "common/utils.hpp"
 #include "disjoint_set.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -196,47 +197,164 @@ std::unordered_set<ChipId> filter_chip_collection(
     return filtered_collection;
 }
 
+std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_devices(
+    const ClusterDescriptor *full_cluster_desc) {
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::unordered_set<ChipId> target_chip_ids;
+
+    auto chip_bdfs = full_cluster_desc->get_chip_pci_bdfs();
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = utils::is_bdf_string(device_token);
+
+        if (is_bdf) {
+            bool matched_bdf_pattern = false;
+            for (const auto &[chip, bdf] : chip_bdfs) {
+                if (bdf == device_token) {
+                    target_chip_ids.insert(chip);
+                    log_debug(LogUMD, "Added chip id {} with BDF {}.", chip, device_token);
+                    matched_bdf_pattern = true;
+                }
+            }
+            if (!matched_bdf_pattern) {
+                TT_THROW(
+                    "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
+                    device_token);
+            }
+            continue;
+        }
+
+        bool is_integer = utils::is_integer_string(device_token);
+
+        if (is_integer) {
+            if (std::find(
+                    full_cluster_desc->get_all_chips().begin(),
+                    full_cluster_desc->get_all_chips().end(),
+                    std::stoi(device_token)) != full_cluster_desc->get_all_chips().end()) {
+                target_chip_ids.insert(std::stoi(device_token));
+                log_debug(
+                    LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
+            } else {
+                TT_THROW(
+                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
+                    "the cluster.",
+                    device_token);
+            }
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
+        }
+    }
+
+    return target_chip_ids;
+}
+
+std::unordered_set<ChipId> ClusterDescriptor::get_chips_from_same_boards(
+    const std::unordered_set<ChipId> &chips) const {
+    std::unordered_set<ChipId> chips_from_same_boards;
+    for (const auto &chip_id : chips) {
+        uint64_t board_id = get_board_id_for_chip(chip_id);
+        std::unordered_set<ChipId> chips_on_same_board = get_board_chips(board_id);
+        chips_from_same_boards.insert(chips_on_same_board.begin(), chips_on_same_board.end());
+    }
+    return chips_from_same_boards;
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
+    std::unordered_set<ChipId> visible_chips;
+
+    if (!target_chip_ids.empty()) {
+        visible_chips = target_chip_ids;
+    } else {
+        visible_chips = get_target_chip_ids_from_visible_devices(full_cluster_desc);
+    }
+
+    // Expand to same boards only for multi-board topologies (e.g. T3K: 2 chips per N300).
+    // Skip expansion for Galaxy-style (many chips per board) so TT_VISIBLE_DEVICES is honored.
+    bool expand_to_same_boards = false;
+    if (!full_cluster_desc->chip_to_board_id.empty()) {
+        expand_to_same_boards = true;
+        for (const auto &chip_id : visible_chips) {
+            uint64_t board_id = full_cluster_desc->get_board_id_for_chip(chip_id);
+            if (full_cluster_desc->get_board_chips(board_id).size() > 2) {
+                expand_to_same_boards = false;
+                break;
+            }
+        }
+        if (expand_to_same_boards) {
+            visible_chips = full_cluster_desc->get_chips_from_same_boards(visible_chips);
+        }
+    }
+
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
-    desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
-    desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
-    desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, target_chip_ids);
-    desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, target_chip_ids);
+    desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, visible_chips);
+    desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, visible_chips);
+    desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, visible_chips);
+    desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, visible_chips);
     // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
-    desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
-    desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
-    desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, target_chip_ids);
+    desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, visible_chips);
+    desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, visible_chips);
+    desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, visible_chips);
     // Note that these preserve the full set of channels. So some channels will be reported as active
     // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
     // so that the client doesn't try to do anything on these ETH cores which could break these links.
-    desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, target_chip_ids);
-    desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, target_chip_ids);
+    desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, visible_chips);
+    desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, visible_chips);
 
-    desc->chip_to_bus_id = filter_chip_collection(full_cluster_desc->chip_to_bus_id, target_chip_ids);
+    desc->chip_to_bus_id = filter_chip_collection(full_cluster_desc->chip_to_bus_id, visible_chips);
 
-    desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, target_chip_ids);
+    desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, visible_chips);
 
-    desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, target_chip_ids);
+    desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, visible_chips);
     desc->io_device_type = full_cluster_desc->io_device_type;
     desc->eth_fw_version = full_cluster_desc->eth_fw_version;
     desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
 
-    desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, target_chip_ids);
+    desc->chip_to_board_id = filter_chip_collection(full_cluster_desc->chip_to_board_id, visible_chips);
+    for (const auto &[chip_id, board_id] : desc->chip_to_board_id) {
+        desc->board_to_chips[board_id].insert(chip_id);
+    }
+
+    desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, visible_chips);
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
-        if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+        if (visible_chips.find(chip_id) == visible_chips.end()) {
             continue;
         }
 
         for (const auto &[eth_id, connection] : eth_connections) {
             const auto &[remote_chip_id, remote_eth_id] = connection;
-            if (target_chip_ids.find(remote_chip_id) == target_chip_ids.end()) {
+            if (visible_chips.find(remote_chip_id) == visible_chips.end()) {
                 continue;
             }
             desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
+        }
+    }
+
+    // Copy remote ethernet connections for visible chips (connects to devices outside this cluster).
+    for (const auto &[chip_id, remote_eth_connections] : full_cluster_desc->ethernet_connections_to_remote_devices) {
+        if (visible_chips.find(chip_id) == visible_chips.end()) {
+            continue;
+        }
+        for (const auto &[eth_id, remote_chip_and_chan] : remote_eth_connections) {
+            desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = remote_chip_and_chan;
         }
     }
 
@@ -244,7 +362,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         for (const auto &[shelf_id, y_map] : shelf_map) {
             for (const auto &[y_dim, x_map] : y_map) {
                 for (const auto &[x_dim, chip_id] : x_map) {
-                    if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+                    if (visible_chips.find(chip_id) == visible_chips.end()) {
                         continue;
                     }
                     desc->coords_to_chip_ids[rack_id][shelf_id][y_dim][x_dim] = chip_id;
@@ -254,14 +372,42 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     }
 
     for (const auto &[chip_id, chip_group] : full_cluster_desc->chips_grouped_by_closest_mmio) {
-        if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+        if (visible_chips.find(chip_id) == visible_chips.end()) {
             continue;
         }
 
-        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, target_chip_ids);
+        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, visible_chips);
     }
 
     return desc;
+}
+
+// Utility functions for TT_VISIBLE_DEVICES support in mock clusters.
+
+/**
+ * Generate deterministic BDF string for mock device logical IDs.
+ * Uses format similar to real hardware: "0000:04:XX.0" where XX is based on logical ID.
+ */
+static std::string generate_mock_bdf(ChipId logical_id) {
+    // Use a deterministic formula to generate BDF for mock devices
+    // Start from bus 0x04 and increment device number based on logical ID.
+    uint8_t bus = 0x04 + (logical_id / 8);  // 8 devices per bus
+    uint8_t device = logical_id % 8;        // device number within bus
+    uint8_t function = 0;                   // always use function 0
+
+    return fmt::format("{:04x}:{:02x}:{:02x}.{}", 0, bus, device, function);
+}
+
+/**
+ * Generate deterministic board ID for mock device logical IDs.
+ */
+static uint64_t generate_mock_board_id(ChipId logical_id, BoardType board_type) {
+    switch (board_type) {
+        case BoardType::N150:
+            return (0x18ULL << 36) + logical_id;
+        default:
+            return (0x40ULL << 36) + logical_id;
+    }
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
@@ -299,6 +445,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         desc->chip_unique_ids.insert({logical_id, logical_id});
         desc->noc_translation_enabled.insert({logical_id, noc_translation_enabled});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
+        desc->add_chip_to_board(logical_id, generate_mock_board_id(logical_id, board_type));
         desc->fill_mock_hardcoded_data(logical_id);
     }
     desc->fill_chips_grouped_by_closest_mmio();
@@ -318,6 +465,10 @@ void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
     // realistic bus/tray associations. Use a known X12DPG-QT6 ordering and repeat if more than 4 devices.
     static const uint16_t kMockBusIds[4] = {0x00b1, 0x00ca, 0x0031, 0x004b};
     this->chip_to_bus_id.insert({logical_id, kMockBusIds[logical_id % 4]});
+
+    // Generate deterministic BDF for TT_VISIBLE_DEVICES BDF support.
+    std::string bdf = generate_mock_bdf(logical_id);
+    this->chip_pci_bdfs.insert({logical_id, bdf});
 
     // Provide a default ASIC location placeholder (0) for all chips; callers can override per-arch rules.
     this->asic_locations.insert({logical_id, static_cast<uint8_t>(0)});
@@ -486,41 +637,6 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         log_debug(LogUMD, "\tchip: {}, coord: {}", chip_id, chip_location);
     }
 
-    if (yaml["chip_to_boardtype"]) {
-        for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = yaml_chip_board_type.first;
-            const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
-            if (board_type == BoardType::UNKNOWN) {
-                log_warning(
-                    LogUMD,
-                    "Unknown board type for chip {}. This might happen because chip is running old firmware. "
-                    "Defaulting to UNKNOWN",
-                    chip);
-            }
-            chip_board_type.insert({chip, board_type});
-        }
-    } else if (yaml["boardtype"]) {
-        // Legacy format support: parse old "boardtype" field for backward compatibility.
-        for (const auto &yaml_chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = yaml_chip_board_type.first;
-            const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
-            if (board_type == BoardType::UNKNOWN) {
-                log_warning(
-                    LogUMD,
-                    "Unknown board type for chip {} from legacy boardtype field. "
-                    "Defaulting to UNKNOWN",
-                    chip);
-            }
-            chip_board_type.insert({chip, board_type});
-        }
-    } else {
-        for (const auto &chip : all_chips) {
-            chip_board_type.insert({chip, BoardType::UNKNOWN});
-        }
-    }
-
     if (yaml["boards"]) {
         YAML::Node boardsNode = yaml["boards"];
         if (!boardsNode || !boardsNode.IsSequence()) {
@@ -533,9 +649,21 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             }
 
             uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
+            const std::string &board_type_str = boardEntry[1]["board_type"].as<std::string>();
+            BoardType board_type = board_type_from_string(board_type_str);
+
+            if (board_type == BoardType::UNKNOWN) {
+                log_warning(
+                    LogUMD,
+                    "Unknown board type '{}' for board id {}. "
+                    "Defaulting to UNKNOWN",
+                    board_type_str,
+                    board_id);
+            }
 
             for (const auto &chip : boardEntry[2]["chips"]) {
                 add_chip_to_board(chip.as<ChipId>(), board_id);
+                chip_board_type.insert({chip.as<ChipId>(), board_type});
             }
         }
     }
@@ -834,12 +962,6 @@ std::string ClusterDescriptor::serialize() const {
         out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << harvesting.pcie_harvesting_mask;
         out << YAML::Key << "l2cpu_harvesting_mask" << YAML::Value << harvesting.l2cpu_harvesting_mask;
         out << YAML::EndMap;
-    }
-    out << YAML::EndMap;
-
-    out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips_map) {
-        out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
     }
     out << YAML::EndMap;
 

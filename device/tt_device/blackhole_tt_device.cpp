@@ -195,10 +195,10 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
                 start,
                 timeout_ms,
                 fmt::format(
-                    "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                    "ARC core {} startup timed out after: {}. Status: 0x{:x}",
+                    arc_core.str(),
                     timeout_ms.count(),
-                    arc_core.x,
-                    arc_core.y),
+                    arc_boot_status),
                 utils::TimeoutAction::Return)) {
             return false;
         }

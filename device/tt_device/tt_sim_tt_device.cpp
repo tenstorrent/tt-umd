@@ -9,12 +9,10 @@
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/pcie/pci_ids.h"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
-
-static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
-static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
@@ -46,13 +44,14 @@ TTSimTTDevice::TTSimTTDevice(
     log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
-    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
+        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         // Compute physical address of BAR0 from PCI config registers.
         bar0_base = communicator_->pci_config_read32(0, 0x10);
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
-        if (libttsim_pci_device_id == WH_PCIE_DEVICE_ID) {
+        if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
         } else {
             tlb_region_size_ = 2 * 1024 * 1024;
@@ -82,11 +81,12 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
 
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
+        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint32_t reset_value = uint32_t(soft_resets);
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else if (libttsim_pci_device_id == 0xFEED) {  // QSR
+    } else if (libttsim_pci_device_id == TT_GRENDEL_PCI_DEVICE_ID) {
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint64_t reset_value = uint64_t(soft_resets);
         if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {

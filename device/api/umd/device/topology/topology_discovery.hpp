@@ -56,19 +56,12 @@ protected:
     virtual void wait_eth_cores_training(
         TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    // board_type is not used for all configs.
-    // We need to know that we are seeing TG board and that we should include it in the topology.
-    virtual bool is_board_id_included(uint64_t board_id, uint64_t board_type) const = 0;
+    virtual bool is_board_id_included(uint64_t board_id) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
     // eth_core should be in physical (NOC0) coordinates.
     virtual uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
-
-    // Returns mangled remote board type from local ETH core.
-    // This information can still be used to unique identify a board.
-    // eth_core should be in physical (NOC0) coordinates.
-    virtual uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.
@@ -80,6 +73,12 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
+
+    virtual bool eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core);
+
+    virtual uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
+
+    virtual uint32_t get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     uint64_t get_asic_id(TTDevice* tt_device);
 

@@ -19,8 +19,6 @@ class PCIDevice;
  *
  * Handles all device I/O through PCIe TLB windows, including DMA transfers,
  * register access, and multicast writes.
- *
- * Method implementations will be migrated from TTDevice in subsequent PRs.
  */
 class PcieProtocol : public DeviceProtocol, public PcieInterface {
 public:

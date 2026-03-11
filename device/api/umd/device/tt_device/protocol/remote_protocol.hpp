@@ -18,8 +18,6 @@ class RemoteCommunication;
  * RemoteProtocol implements DeviceProtocol and RemoteInterface for remote/Ethernet-connected devices.
  *
  * Wraps a RemoteCommunication object and delegates I/O operations through it.
- *
- * Method implementations will be migrated from TTDevice in subsequent PRs.
  */
 class RemoteProtocol : public DeviceProtocol, public RemoteInterface {
 public:

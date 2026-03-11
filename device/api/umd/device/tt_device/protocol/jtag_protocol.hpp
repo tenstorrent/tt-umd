@@ -16,8 +16,6 @@ class JtagDevice;
 
 /**
  * JtagProtocol implements DeviceProtocol and JtagInterface for JTAG-connected devices.
- *
- * Method implementations will be migrated from TTDevice in subsequent PRs.
  */
 class JtagProtocol : public DeviceProtocol, public JtagInterface {
 public:

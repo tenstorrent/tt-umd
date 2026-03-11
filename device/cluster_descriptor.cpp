@@ -353,6 +353,13 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
                         unique_id_it->second, remote_eth_id};
                 } else {
                     // Fallback: use chip_id as unique_id if not found (shouldn't happen in normal operation).
+                    log_warning(
+                        LogUMD,
+                        "Remote chip {} unique_id not found in cluster descriptor, using chip_id as unique_id for "
+                        "ethernet connection (chip: {}, eth_id: {}).",
+                        remote_chip_id,
+                        chip_id,
+                        eth_id);
                     desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = {
                         static_cast<uint64_t>(remote_chip_id), remote_eth_id};
                 }

@@ -292,8 +292,12 @@ void TTSimTlbManager::initialize_architecture_config() {
         tlb_4gb_allocated_.resize(tlb_4gb_count_, false);
 
     } else {
-        throw std::runtime_error(
-            "Unsupported architecture for TTSim TLB Manager: " + std::to_string(static_cast<int>(architecture_)));
+        log_debug(
+            LogUMD,
+            fmt::format(
+                "Architecture {} does not yet have support for TLB management in TTSim. UMD will use legacy "
+                "tile_wr_bytes and tile_rd_bytes path.",
+                tt::arch_to_str(architecture_)));
     }
 }
 

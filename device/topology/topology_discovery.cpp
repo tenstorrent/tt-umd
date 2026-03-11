@@ -4,7 +4,10 @@
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -13,6 +16,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -29,6 +33,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -191,6 +196,20 @@ void TopologyDiscovery::discover_remote_devices() {
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
 
+            if (!eth_heartbeat_running(tt_device, eth_core)) {
+                std::string msg = fmt::format(
+                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
+                    current_device_asic_id,
+                    eth_core.str(),
+                    get_eth_postcode(tt_device, eth_core));
+                if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
+                    TT_THROW(msg);
+                } else {
+                    log_warning(LogUMD, msg);
+                    continue;
+                }
+            }
+
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
                     LogUMD,
@@ -205,7 +224,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value()) {
                     eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
+                    log_debug(
+                        LogUMD,
+                        "Device ASIC ID: {} has ETH coord: {}",
+                        current_device_asic_id,
+                        local_eth_coord.value());
                 }
             }
 
@@ -224,8 +247,7 @@ void TopologyDiscovery::discover_remote_devices() {
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
             uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
 
-            if (!is_board_id_included(
-                    get_remote_board_id(tt_device, eth_core), get_remote_board_type(tt_device, eth_core)) ||
+            if (!is_board_id_included(get_remote_board_id(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_devices.find(remote_asic_id) == discovered_devices.end())) {
                 ethernet_connections_to_remote_devices.push_back(
@@ -254,9 +276,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
-                if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
-                }
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(
@@ -487,6 +506,10 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
     }
 }
 
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+    return board_ids.find(board_id) != board_ids.end();
+}
+
 SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
     // HACK: This methods shows that SocDescriptor is needed with almost every use of
     // TTDevice in TopologyDiscovery, so the SocDescriptor itself should be owned by
@@ -507,6 +530,42 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 
     soc_descriptor_cache[tt_device] = soc_descriptor;
     return soc_descriptor;
+}
+
+bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
+    const auto start = std::chrono::steady_clock::now();
+    uint32_t previous_reading = 0;
+    while (true) {
+        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+
+        // ERISC FW might take a long time to start up after warm reset.
+        // The value being read is 0 until ERISC FW starts.
+        if (current_reading != 0 && previous_reading != 0) {
+            // Heartbeat must be in the format 0xABCDxxxx.
+            if ((current_reading >> 16) != 0xABCD) {
+                log_warning(
+                    LogUMD,
+                    "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+                    current_reading,
+                    eth_core.str());
+                return false;
+            }
+            if (previous_reading != current_reading) {
+                return true;
+            }
+        }
+        if (utils::check_timeout(
+                start,
+                timeout::ETH_STARTUP_TIMEOUT,
+                "Timed out waiting for ETH heartbeat.",
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+        previous_reading = current_reading;
+
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
+    return false;
 }
 
 }  // namespace tt::umd

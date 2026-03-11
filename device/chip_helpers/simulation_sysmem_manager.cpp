@@ -42,12 +42,15 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         total_size -= 256 * (1ULL << 20);
     }
 
-    system_memory_.resize(total_size, 0);
+    system_memory_ =
+        static_cast<uint8_t *>(mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
+    TT_ASSERT(system_memory_ != MAP_FAILED, "system_memory mmap() failed");
+    system_memory_size_ = total_size;
 
     for (int i = 0; i < num_host_mem_channels; i++) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
         hugepage_mapping_per_channel.push_back(
-            {system_memory_.data() + i * (1ULL << 30), channel_size, pcie_base_ + i * (1ULL << 30)});
+            {system_memory_ + i * (1ULL << 30), channel_size, pcie_base_ + i * (1ULL << 30)});
     }
 
     return true;
@@ -57,7 +60,14 @@ bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 
 SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
-void SimulationSysmemManager::unpin_or_unmap_sysmem() { hugepage_mapping_per_channel.clear(); }
+void SimulationSysmemManager::unpin_or_unmap_sysmem() {
+    hugepage_mapping_per_channel.clear();
+    if (system_memory_ != nullptr) {
+        munmap(system_memory_, system_memory_size_);
+        system_memory_ = nullptr;
+        system_memory_size_ = 0;
+    }
+}
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {

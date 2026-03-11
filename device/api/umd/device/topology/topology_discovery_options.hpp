@@ -53,6 +53,7 @@ struct TopologyDiscoveryOptions {
 
     /**
      * @brief Action to take when Ethernet firmware heartbeat check fails.
+     * The Ethernet firmware check is done on every ETH core on a device.
      * This means that Ethernet firmware on a particular core has crashed and cannot serve I/O.
      * If set to IGNORE, discovery from this core is skipped as it is certain not to be possible.
      * Defaults to THROW.

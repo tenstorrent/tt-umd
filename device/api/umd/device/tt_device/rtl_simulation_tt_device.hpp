@@ -72,6 +72,7 @@ private:
     std::recursive_mutex device_lock;
 
     std::filesystem::path simulator_directory_;
+    SocDescriptor soc_descriptor_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
 };
 }  // namespace tt::umd

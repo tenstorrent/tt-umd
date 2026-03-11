@@ -413,11 +413,6 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
 
-void BlackholeTTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
-}
-
 void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     uint32_t ret_code = get_arc_messenger()->send_message(
         static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});

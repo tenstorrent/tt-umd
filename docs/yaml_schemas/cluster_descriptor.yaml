@@ -248,17 +248,4 @@ properties:
         description: PCI BDF in format DDDD:BB:DD.F
     additionalProperties: false
 
-# Ensure either chip_to_boardtype or boardtype is present, but not both
-anyOf:
-  - required: [chip_to_boardtype]
-    not:
-      required: [boardtype]
-  - required: [boardtype]
-    not:
-      required: [chip_to_boardtype]
-  - not:
-      anyOf:
-        - required: [chip_to_boardtype]
-        - required: [boardtype]
-
 additionalProperties: false

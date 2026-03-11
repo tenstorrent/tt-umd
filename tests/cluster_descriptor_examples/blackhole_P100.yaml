@@ -19,8 +19,6 @@ harvesting:
     eth_harvesting_mask: 16383
     pcie_harvesting_mask: 2
     l2cpu_harvesting_mask: 0
-chip_to_boardtype:
-  0: p100
 chip_to_bus_id:
   0: 0x0061
 boards:

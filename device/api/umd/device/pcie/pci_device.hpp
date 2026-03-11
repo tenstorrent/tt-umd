@@ -359,6 +359,12 @@ private:
      */
     static std::vector<int> get_all_device_ids();
 
+    /**
+     * Sort a list of device IDs by their PCI BDF (Bus:Device.Function) order.
+     * Any IDs that cannot be mapped to a BDF are appended at the end in their original order.
+     * @param pci_device_ids list of device IDs to sort
+     * @return sorted device IDs
+     */
     static std::vector<int> sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids);
 
     /**

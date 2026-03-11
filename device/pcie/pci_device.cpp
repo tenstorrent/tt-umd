@@ -10,7 +10,6 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
-#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdint>
@@ -343,8 +342,20 @@ std::vector<int> PCIDevice::enumerate_devices() {
 std::vector<int> PCIDevice::sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids) {
     std::vector<int> sorted_ids_based_on_bdf;
     std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+    std::unordered_set<int> input_ids(pci_device_ids.begin(), pci_device_ids.end());
+    std::unordered_set<int> mapped_ids;
+
     for (const auto &[bdf, device_id] : bdf_to_device_id_map) {
-        if (std::find(pci_device_ids.begin(), pci_device_ids.end(), device_id) != pci_device_ids.end()) {
+        if (input_ids.count(device_id)) {
+            sorted_ids_based_on_bdf.push_back(device_id);
+            mapped_ids.insert(device_id);
+        }
+    }
+
+    // Append any IDs that could not be mapped to a BDF, preserving input order.
+    for (int device_id : pci_device_ids) {
+        if (!mapped_ids.count(device_id)) {
+            log_debug(tt::LogUMD, "Device ID {} could not be mapped to a BDF, appending at end.", device_id);
             sorted_ids_based_on_bdf.push_back(device_id);
         }
     }

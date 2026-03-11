@@ -254,6 +254,9 @@ TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
         ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << chip_id;
         std::shared_ptr<PCIDevice> pci_device = tt_device->get_pci_device();
         ASSERT_NE(pci_device, nullptr) << "No PCI device found for logical ID " << chip_id;
+        ASSERT_LT(chip_id, enumerated_ids.size())
+            << "Logical chip ID " << chip_id << " is out of bounds for enumerate_devices() result of size "
+            << enumerated_ids.size();
         EXPECT_EQ(pci_device->get_device_num(), enumerated_ids[chip_id])
             << "Chip ID " << chip_id << " maps to PCI device " << pci_device->get_device_num()
             << " but enumerate_devices() returned " << enumerated_ids[chip_id] << " at index " << chip_id;

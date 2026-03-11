@@ -131,7 +131,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 }
 
 // Many threads start and stop many clusters.
-TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
+TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {

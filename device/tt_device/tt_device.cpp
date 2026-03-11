@@ -114,26 +114,24 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
 
-        switch (jtag_device->get_jtag_arch(device_number)) {
-            case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
-            case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(jtag_device, device_number));
-            default:
-                return nullptr;
+        ARCH arch = jtag_device->get_jtag_arch(device_number);
+        if (arch == ARCH::WORMHOLE_B0) {
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
+        } else if (arch == ARCH::BLACKHOLE) {
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
         }
+        return nullptr;
     }
 
     auto pci_device = std::make_unique<PCIDevice>(device_number);
+    ARCH arch = pci_device->get_arch();
 
-    switch (pci_device->get_arch()) {
-        case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device, use_safe_api));
-        case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device, use_safe_api));
-        default:
-            return nullptr;
+    if (arch == ARCH::WORMHOLE_B0) {
+        return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
+    } else if (arch == ARCH::BLACKHOLE) {
+        return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
     }
+    return nullptr;
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(
@@ -309,7 +307,14 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    get_pcie_interface()->noc_multicast_write(dst, size, core_start, core_end, addr);
+    if (!device_protocol_->write_to_device_range(dst, core_start, core_end, addr, size)) {
+        // Software fallback: unicast to each core in the range.
+        for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+            for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+                device_protocol_->write_to_device(dst, tt_xy_pair(x, y), addr, size);
+            }
+        }
+    }
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }

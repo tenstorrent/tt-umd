@@ -21,7 +21,7 @@ void RemoteProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("RemoteProtocol::read_from_device not yet implemented");
 }
 
-bool RemoteProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+bool RemoteProtocol::write_to_device_range(void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
 RemoteCommunication* RemoteProtocol::get_remote_communication() { return remote_communication_.get(); }
 

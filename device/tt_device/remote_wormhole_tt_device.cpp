@@ -18,8 +18,11 @@ namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) :
-    WormholeTTDevice(remote_communication->get_local_device()->get_pci_device(), use_safe_api),
     remote_communication_(std::move(remote_communication)) {
+    // Remote device borrows the local device's communication identity but doesn't own its PCIDevice.
+    // All I/O is routed through remote_communication_, so no PCIe protocol is needed.
+    communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
+    communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();
     is_remote_tt_device = true;
 }
 

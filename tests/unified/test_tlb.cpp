@@ -41,7 +41,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     uint32_t value_check = 0;
 
@@ -87,7 +87,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     uint32_t value_check = 0;
 
@@ -136,7 +136,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -179,7 +179,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config_write;
@@ -224,7 +224,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     std::vector<uint8_t> write_pattern(0x100, 0);
     for (size_t i = 0; i < write_pattern.size(); ++i) {
@@ -287,7 +287,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;

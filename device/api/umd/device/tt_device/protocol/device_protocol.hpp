@@ -29,7 +29,7 @@ public:
     // [[nodiscard]] ensures the caller handles the software fallback
     // if the hardware does not support multicast.
     [[nodiscard]] virtual bool write_to_device_range(
-        const void* mem_ptr, tt_xy_pair start, tt_xy_pair end, uint64_t addr, uint32_t size) = 0;
+        void* mem_ptr, tt_xy_pair start, tt_xy_pair end, uint64_t addr, uint32_t size) = 0;
 };
 
 }  // namespace tt::umd

@@ -110,30 +110,52 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Run baremetal tests
-        if: ${{ inputs.arch == 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
-
-      - name: Run API tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
-
-      - name: Run arch-specific UMD unit tests
+      - name: Run unified tests 1
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run PCI tests
+      - name: Run unified tests 2
+        if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run MISC tests
+      - name: Run unified tests 3
+        if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run unified tests
+      - name: Run unified tests 4
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run unified tests 5
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run unified tests 6
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run unified tests 7
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run unified tests 8
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run unified tests 9
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run unified tests 10
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

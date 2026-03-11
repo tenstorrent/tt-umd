@@ -24,26 +24,6 @@ void RemoteProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
 
 bool RemoteProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
-tt::ARCH RemoteProtocol::get_arch() { return architecture_impl_->get_architecture(); }
-
-architecture_implementation* RemoteProtocol::get_architecture_implementation() { return architecture_impl_; }
-
-int RemoteProtocol::get_communication_device_id() const {
-    return remote_communication_->get_local_device()->get_communication_device_id();
-}
-
-IODeviceType RemoteProtocol::get_communication_device_type() {
-    return remote_communication_->get_local_device()->get_communication_device_type();
-}
-
-void RemoteProtocol::detect_hang_read(uint32_t) {
-    throw std::runtime_error("RemoteProtocol::detect_hang_read not yet implemented");
-}
-
-bool RemoteProtocol::is_hardware_hung() {
-    throw std::runtime_error("RemoteProtocol::is_hardware_hung not yet implemented");
-}
-
 RemoteCommunication* RemoteProtocol::get_remote_communication() { return remote_communication_.get(); }
 
 void RemoteProtocol::wait_for_non_mmio_flush() {

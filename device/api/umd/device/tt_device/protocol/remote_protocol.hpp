@@ -33,12 +33,6 @@ public:
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     bool write_to_device_range(
         const void* mem_ptr, tt_xy_pair start, tt_xy_pair end, uint64_t addr, uint32_t size) override;
-    tt::ARCH get_arch() override;
-    architecture_implementation* get_architecture_implementation() override;
-    int get_communication_device_id() const override;
-    IODeviceType get_communication_device_type() override;
-    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE) override;
-    bool is_hardware_hung() override;
 
     // RemoteInterface.
     RemoteCommunication* get_remote_communication() override;

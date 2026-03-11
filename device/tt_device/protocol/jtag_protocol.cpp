@@ -24,18 +24,6 @@ void JtagProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
 
 bool JtagProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
-tt::ARCH JtagProtocol::get_arch() { return architecture_impl_->get_architecture(); }
-
-architecture_implementation* JtagProtocol::get_architecture_implementation() { return architecture_impl_; }
-
-int JtagProtocol::get_communication_device_id() const { return communication_device_id_; }
-
-IODeviceType JtagProtocol::get_communication_device_type() { return IODeviceType::JTAG; }
-
-void JtagProtocol::detect_hang_read(uint32_t) {}
-
-bool JtagProtocol::is_hardware_hung() { return false; }
-
 JtagDevice* JtagProtocol::get_jtag_device() { return jtag_device_.get(); }
 
 }  // namespace tt::umd

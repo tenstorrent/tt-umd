@@ -28,22 +28,6 @@ void PcieProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
 
 bool PcieProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
-tt::ARCH PcieProtocol::get_arch() { return architecture_impl_->get_architecture(); }
-
-architecture_implementation* PcieProtocol::get_architecture_implementation() { return architecture_impl_; }
-
-int PcieProtocol::get_communication_device_id() const { return communication_device_id_; }
-
-IODeviceType PcieProtocol::get_communication_device_type() { return IODeviceType::PCIe; }
-
-void PcieProtocol::detect_hang_read(uint32_t) {
-    throw std::runtime_error("PcieProtocol::detect_hang_read not yet implemented");
-}
-
-bool PcieProtocol::is_hardware_hung() {
-    throw std::runtime_error("PcieProtocol::is_hardware_hung not yet implemented");
-}
-
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 void PcieProtocol::dma_write_to_device(const void*, size_t, tt_xy_pair, uint64_t) {

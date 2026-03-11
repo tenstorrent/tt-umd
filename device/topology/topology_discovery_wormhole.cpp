@@ -282,9 +282,10 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
     }
 
     for (uint32_t attempt = 0; attempt < ETH_RETRAIN_ATTEMPT_COUNT; attempt++) {
+        log_debug(LogUMD, "Retraining ETH cores on Wormhole B0 devices, iteration {}.", attempt + 1);
         bool all_eth_cores_trained = true;
 
-        for (const auto& [asic_id, tt_device] : devices) {
+        for (const auto& [asic_id, tt_device] : devices_to_discover) {
             auto* wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
             for (const CoreCoord& eth_core :
@@ -318,7 +319,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
             break;
         }
 
-        for (const auto& [asic_id, tt_device] : devices) {
+        for (const auto& [asic_id, tt_device] : devices_to_discover) {
             log_debug(LogUMD, "Waiting for ETH cores to finish training after retrain on device {}.", asic_id);
             wait_eth_cores_training(tt_device.get());
         }

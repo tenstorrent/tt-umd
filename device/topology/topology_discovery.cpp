@@ -79,9 +79,8 @@ TopologyDiscovery::TopologyDiscovery(
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
     get_connected_devices();
-    // retrain_eth_cores();
-    discover_remote_devices();
     retrain_eth_cores();
+    discover_remote_devices();
     log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }

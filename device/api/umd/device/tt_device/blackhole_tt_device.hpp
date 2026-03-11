@@ -60,7 +60,8 @@ protected:
 
     size_t get_pcie_dma_tlb_size() const override { return 2 * 1024 * 1024; }
 
-    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size) override;
+    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) override;
+    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
 
 private:
     std::mutex dma_mutex_;

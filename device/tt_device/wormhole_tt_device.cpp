@@ -132,7 +132,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         target);
 }
 
-void WormholeTTDevice::dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size) {
+void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_d2h_transfer is not applicable for JTAG communication type.");
     }
@@ -211,7 +211,7 @@ void WormholeTTDevice::dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size)
     }
 }
 
-void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size) {
+void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
     }

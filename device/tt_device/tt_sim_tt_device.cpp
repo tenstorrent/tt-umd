@@ -174,6 +174,14 @@ void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
+void TTSimTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
+}
+
+void TTSimTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
+}
+
 void TTSimTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in TTSim simulation device.");
 }

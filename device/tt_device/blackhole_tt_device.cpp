@@ -222,7 +222,11 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
-void BlackholeTTDevice::dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size) {
+void BlackholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    throw std::runtime_error("D2H DMA transfer is not supported on Blackhole.");
+}
+
+void BlackholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
     }
@@ -268,29 +272,34 @@ void BlackholeTTDevice::dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size
 
     auto read_reg = [&](uint32_t offset) -> uint32_t { return *reinterpret_cast<volatile uint32_t *>(bar2 + offset); };
 
+    // Configure interrupt setup: enable local interrupt (bit 3) and remote stop interrupt (bit 5).
     write_reg(INT_SETUP_OFF_RDCH_0, 0x28);
+    // Set the MSI write address for the DMA "done" interrupt to the completion flag physical address.
     write_reg(MSI_STOP_LOW_OFF_RDCH_0, static_cast<uint32_t>(dma_buffer.completion_pa & 0xFFFFFFFF));
     write_reg(MSI_STOP_HIGH_OFF_RDCH_0, static_cast<uint32_t>((dma_buffer.completion_pa >> 32) & 0xFFFFFFFF));
+    // Set the MSI write address for the DMA "abort" interrupt to the word after the completion flag.
     write_reg(
         MSI_ABORT_LOW_OFF_RDCH_0, static_cast<uint32_t>((dma_buffer.completion_pa + sizeof(uint32_t)) & 0xFFFFFFFF));
     write_reg(
         MSI_ABORT_HIGH_OFF_RDCH_0,
         static_cast<uint32_t>(((dma_buffer.completion_pa + sizeof(uint32_t)) >> 32) & 0xFFFFFFFF));
+    // MSI message data written on completion (unused for polling, set to 0).
     write_reg(MSI_MSGD_OFF_RDCH_0, 0);
+    // Enable the DMA read channel.
     write_reg(EN_OFF_RDCH_0, 0x1);
+    // Set the source address (host physical address of the DMA buffer).
     write_reg(SAR_LOW_OFF_RDCH_0, static_cast<uint32_t>(src & 0xFFFFFFFF));
     write_reg(SAR_HIGH_OFF_RDCH_0, static_cast<uint32_t>((src >> 32) & 0xFFFFFFFF));
+    // Set the destination address (device AXI address). BH uses a 32-bit device address space.
     write_reg(DAR_LOW_OFF_RDCH_0, dst);
     write_reg(DAR_HIGH_OFF_RDCH_0, 0);
+    // Set transfer size and ring the doorbell to start the DMA.
     write_reg(XFERSIZE_OFF_RDCH_0, static_cast<uint32_t>(size));
     write_reg(DOORBELL_OFF_RDCH_0, 0x1);
 
+    // Poll until XFERSIZE reaches 0, which indicates the transfer is complete.
     auto start = std::chrono::steady_clock::now();
-    for (;;) {
-        if (read_reg(XFERSIZE_OFF_RDCH_0) == 0) {
-            break;
-        }
-
+    while (read_reg(XFERSIZE_OFF_RDCH_0) != 0) {
         auto now = std::chrono::steady_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 

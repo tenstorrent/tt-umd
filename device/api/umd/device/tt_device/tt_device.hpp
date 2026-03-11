@@ -377,7 +377,7 @@ protected:
      * @param size number of bytes
      * @throws std::runtime_error if the transfer is not supported or fails
      */
-    virtual void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
+    virtual void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) = 0;
 
     /**
      * Device-specific DMA transfer from host to device.
@@ -388,7 +388,7 @@ protected:
      * @param size number of bytes
      * @throws std::runtime_error if the transfer fails
      */
-    virtual void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
+    virtual void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) = 0;
 
 private:
     void probe_arc();

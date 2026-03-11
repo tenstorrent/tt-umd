@@ -584,14 +584,6 @@ void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
 }
 
-void TTDevice::dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA transfer is not supported on this device.");
-}
-
-void TTDevice::dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size) {
-    throw std::runtime_error("H2D DMA transfer is not implemented for this device type.");
-}
-
 TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
         cached_pcie_dma_tlb_window = std::make_unique<SiliconTlbWindow>(

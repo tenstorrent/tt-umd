@@ -87,7 +87,6 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
         architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
         // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
-        return;
     } else {
         get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
     }

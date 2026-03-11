@@ -109,10 +109,17 @@ std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     if (!telemetry->is_entry_available(TelemetryTag::ETH_FW_VERSION)) {
         return std::nullopt;
     }
+    uint32_t tag_value = get_eth_fw_version();
+    // Return early if tag value is 0, meaning no ETH cores on chip or version not populated.
+    if (tag_value == 0) {
+        return std::nullopt;
+    }
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return SemVer::from_wormhole_eth_firmware_tag(get_eth_fw_version());
-        default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
+            return SemVer::from_wormhole_eth_firmware_tag(tag_value);
+        case tt::ARCH::BLACKHOLE:
+            return SemVer::from_blackhole_eth_firmware_tag(tag_value);
+        default:
             return std::nullopt;
     }
 }

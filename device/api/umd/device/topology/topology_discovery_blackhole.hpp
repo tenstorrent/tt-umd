@@ -57,6 +57,10 @@ protected:
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
+    uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    uint32_t get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
     void retrain_eth_cores() override;
 };
 

@@ -4,11 +4,7 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
-#include <vector>
-
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd::wormhole {
@@ -29,5 +25,8 @@ inline constexpr SemVer MIN_ETH_FW_VERSION_FOR_RETRAIN = SemVer(7, 2, 0);
 // Port disabled:    LINK_INACTIVE_PORT_MASKED_OFF: 14
 // On GLX6U with ETH train issues, the error status was 2, everything up to 4 is interpreted as config error.
 inline constexpr uint32_t ETH_LINK_UNUSED_ERROR_CODE_RANGE_START = 11;
+
+inline constexpr uint32_t ETH_POSTCODE_ADDR = 0xFFB3010C;
+inline constexpr uint32_t ETH_HEARTBEAT_ADDR = 0x1F80;  // test_results[48];
 
 }  // namespace tt::umd::wormhole

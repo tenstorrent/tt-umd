@@ -4,7 +4,10 @@
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -13,6 +16,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -29,6 +33,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -191,6 +196,20 @@ void TopologyDiscovery::discover_remote_devices() {
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
+
+            if (!eth_heartbeat_running(tt_device, eth_core)) {
+                std::string msg = fmt::format(
+                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
+                    current_device_asic_id,
+                    eth_core.str(),
+                    get_eth_postcode(tt_device, eth_core));
+                if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
+                    TT_THROW(msg);
+                } else {
+                    log_warning(LogUMD, msg);
+                    continue;
+                }
+            }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
@@ -512,6 +531,42 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 
     soc_descriptor_cache[tt_device] = soc_descriptor;
     return soc_descriptor;
+}
+
+bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
+    const auto start = std::chrono::steady_clock::now();
+    uint32_t previous_reading = 0;
+    while (true) {
+        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+
+        // ERISC FW might take a long time to start up after warm reset.
+        // The value being read is 0 until ERISC FW starts.
+        if (current_reading != 0 && previous_reading != 0) {
+            // Heartbeat must be in the format 0xABCDxxxx.
+            if ((current_reading >> 16) != 0xABCD) {
+                log_warning(
+                    LogUMD,
+                    "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+                    current_reading,
+                    eth_core.str());
+                return false;
+            }
+            if (previous_reading != current_reading) {
+                return true;
+            }
+        }
+        if (utils::check_timeout(
+                start,
+                timeout::ETH_STARTUP_TIMEOUT,
+                "Timed out waiting for ETH heartbeat.",
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+        previous_reading = current_reading;
+
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
+    return false;
 }
 
 }  // namespace tt::umd

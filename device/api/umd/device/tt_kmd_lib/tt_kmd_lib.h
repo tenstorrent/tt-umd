@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "umd/device/pcie/pci_ids.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

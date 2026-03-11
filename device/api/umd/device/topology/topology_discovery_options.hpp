@@ -52,6 +52,15 @@ struct TopologyDiscoveryOptions {
     Action unexpected_routing_firmware_config = Action::THROW;
 
     /**
+     * @brief Action to take when Ethernet firmware heartbeat check fails.
+     * The Ethernet firmware check is done on every ETH core on a device.
+     * This means that Ethernet firmware on a particular core has crashed and cannot serve I/O.
+     * If set to IGNORE, discovery from this core is skipped as it is certain not to be possible.
+     * Defaults to THROW.
+     */
+    Action eth_fw_heartbeat_failure = Action::THROW;
+
+    /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.
      * If false, only locally connected devices will be discovered.
      * Defaults to true.
@@ -80,7 +89,7 @@ struct TopologyDiscoveryOptions {
      * If set to true, the expected ETH FW version will be determined by observing the CMFW version.
      * If set to false, the expected ETH FW version will be determined by reading the ETH FW version
      * from the first observed ETH core during discovery. Defaults to false.
-     * TODO: This option should be removed once ETH FW hearbeat checks are implemented, because
+     * TODO: This option should be removed once ETH FW heartbeat checks are implemented, because
      * that will be used to check ETH core health instead of ETH FW version value.
      */
     bool predict_eth_fw_version_from_cmfw_version = false;

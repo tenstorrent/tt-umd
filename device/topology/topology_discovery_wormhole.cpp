@@ -276,6 +276,18 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     }
 }
 
+uint32_t TopologyDiscoveryWormhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t heartbeat_value = 0;
+    tt_device->read_from_device(&heartbeat_value, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));
+    return heartbeat_value;
+}
+
+uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t postcode = 0;
+    tt_device->read_from_device(&postcode, eth_core, wormhole::ETH_POSTCODE_ADDR, sizeof(uint32_t));
+    return postcode;
+}
+
 void TopologyDiscoveryWormhole::retrain_eth_cores() {
     if (!is_running_on_6u || !options.perform_6u_eth_retrain) {
         return;
@@ -325,5 +337,4 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
         }
     }
 }
-
 }  // namespace tt::umd

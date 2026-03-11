@@ -70,6 +70,11 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
 set(CPACK_RPM_PACKAGE_GROUP "Development/Libraries")
 
+# Include CPack configuration only if not building as a static library
+if(NOT TT_UMD_BUILD_STATIC)
+    include(CPack)
+endif()
+
 # 1. The runtime library package (libdevice.so)
 cpack_add_component(
     umd-runtime
@@ -94,8 +99,3 @@ cpack_add_component(
     DEPENDS
         umd-runtime # Makes the python package depend on the runtime
 )
-
-# Include CPack configuration only if not building as a static library
-if(NOT TT_UMD_BUILD_STATIC)
-    include(CPack)
-endif()

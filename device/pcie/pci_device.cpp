@@ -130,8 +130,6 @@ static std::string get_pci_bdf(
     return fmt::format("{:04x}:{:02x}:{:02x}.{:x}", pci_domain, pci_bus, pci_device, pci_function);
 }
 
-static bool is_number(const std::string &str) { return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit); }
-
 static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &target_bdf) {
     std::string base_path = "/sys/bus/pci/slots";
 
@@ -141,7 +139,7 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
         }
 
         std::string dir_name = entry.path().filename().string();
-        if (!is_number(dir_name)) {
+        if (!tt::umd::utils::is_integer_string(dir_name)) {
             continue;
         }
 
@@ -278,8 +276,7 @@ std::vector<int> PCIDevice::enumerate_devices() {
 
     for (const auto &device_token : device_tokens) {
         // Check if token is BDF format (contains colon and dot).
-        bool is_bdf = (device_token.find(':') != std::string::npos || device_token.find('.') != std::string::npos) &&
-                      (device_token.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
+        bool is_bdf = tt::umd::utils::is_bdf_string(device_token);
 
         if (is_bdf) {
             bool matched_bdf_pattern = false;
@@ -307,7 +304,7 @@ std::vector<int> PCIDevice::enumerate_devices() {
             continue;
         }
 
-        bool is_integer = !device_token.empty() && std::all_of(device_token.begin(), device_token.end(), ::isdigit);
+        bool is_integer = tt::umd::utils::is_integer_string(device_token);
 
         if (is_integer) {
             int logical_device_id = std::stoi(device_token);
@@ -782,7 +779,7 @@ SemVer PCIDevice::read_kmd_version() {
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     try {
-        return std::make_unique<TlbHandle>(*this, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             TT_THROW(
@@ -825,7 +822,7 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
     }
 
-    log_debug(
+    log_trace(
         LogUMD,
         "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
         tlb_index,
@@ -990,7 +987,7 @@ std::vector<int> PCIDevice::get_all_device_ids() {
     // Enumerate all devices, ignoring TT_VISIBLE_DEVICES.
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
-        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
+        if (tt::umd::utils::is_integer_string(filename)) {
             int pci_device_id = std::stoi(filename);
             device_ids.push_back(pci_device_id);
         }

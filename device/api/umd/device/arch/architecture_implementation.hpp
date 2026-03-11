@@ -45,6 +45,7 @@ public:
     virtual uint32_t get_dram_channel_0_x() const = 0;
     virtual uint32_t get_dram_channel_0_y() const = 0;
     virtual uint32_t get_dram_banks_number() const = 0;
+    virtual uint32_t get_aiclk_busy_val() const = 0;
     virtual uint32_t get_broadcast_tlb_index() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_base() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_size() const = 0;
@@ -94,6 +95,7 @@ public:
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 
     virtual uint64_t get_noc_node_id_offset() const = 0;
+    virtual uint64_t get_noc_node_translated_id_offset() const = 0;
     virtual uint64_t get_noc_reg_base(
         const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 

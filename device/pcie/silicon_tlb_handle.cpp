@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/silicon_tlb_handle.hpp"
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -18,7 +18,7 @@
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping) :
+SiliconTlbHandle::SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping) :
     tlb_size(size), pci_device_(pci_device), tlb_mapping(tlb_mapping) {
     tt_device_t* tt_device = pci_device_.get_tt_device_handle();
 
@@ -34,9 +34,9 @@ TlbHandle::TlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_ma
     tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
 }
 
-TlbHandle::~TlbHandle() noexcept { free_tlb(); }
+SiliconTlbHandle::~SiliconTlbHandle() noexcept { SiliconTlbHandle::free_tlb(); }
 
-void TlbHandle::configure(const tlb_data& new_config) {
+void SiliconTlbHandle::configure(const tlb_data& new_config) {
     // Use PCIDevice's configure_tlb method instead of KMD ioctl calls
     // This configures TLB registers directly in user space via BAR0.
     // PCIDevice' configure methods expects exact bits going into TLB configuration registers.
@@ -49,16 +49,16 @@ void TlbHandle::configure(const tlb_data& new_config) {
     tlb_config = new_config;
 }
 
-uint8_t* TlbHandle::get_base() { return tlb_base; }
+uint8_t* SiliconTlbHandle::get_base() { return tlb_base; }
 
-size_t TlbHandle::get_size() const { return tlb_size; }
+size_t SiliconTlbHandle::get_size() const { return tlb_size; }
 
-const tlb_data& TlbHandle::get_config() const { return tlb_config; }
+const tlb_data& SiliconTlbHandle::get_config() const { return tlb_config; }
 
-TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
+TlbMapping SiliconTlbHandle::get_tlb_mapping() const { return tlb_mapping; }
 
-void TlbHandle::free_tlb() noexcept { tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_); }
+void SiliconTlbHandle::free_tlb() noexcept { tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_); }
 
-int TlbHandle::get_tlb_id() const { return tlb_id; }
+int SiliconTlbHandle::get_tlb_id() const { return tlb_id; }
 
 }  // namespace tt::umd

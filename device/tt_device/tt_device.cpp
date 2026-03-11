@@ -22,7 +22,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -35,7 +35,7 @@
 namespace tt::umd {
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
-    TlbWindow::set_sigbus_safe_handler(set_safe_handler);
+    SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
 TTDevice::TTDevice(
@@ -182,7 +182,7 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 
 TlbWindow *TTDevice::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
-        cached_tlb_window = std::make_unique<TlbWindow>(
+        cached_tlb_window = std::make_unique<SiliconTlbWindow>(
             get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC));
         return cached_tlb_window.get();
     }
@@ -528,8 +528,8 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
 
 TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
-        cached_pcie_dma_tlb_window =
-            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        cached_pcie_dma_tlb_window = std::make_unique<SiliconTlbWindow>(
+            get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
         return cached_pcie_dma_tlb_window.get();
     }
 

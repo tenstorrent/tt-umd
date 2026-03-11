@@ -214,7 +214,10 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
-static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+inline constexpr uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+
+inline constexpr uint64_t BH_NOC_ID_TRANSLATED_OFFSET =
+    0x148;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
@@ -365,6 +368,8 @@ public:
 
     uint32_t get_dram_banks_number() const override { return grendel::NUM_DRAM_BANKS; }
 
+    uint32_t get_aiclk_busy_val() const override { return grendel::AICLK_BUSY_VAL; }
+
     uint32_t get_broadcast_tlb_index() const override { return grendel::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return grendel::DYNAMIC_TLB_2M_BASE; }
@@ -467,6 +472,8 @@ public:
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return grendel::BH_NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

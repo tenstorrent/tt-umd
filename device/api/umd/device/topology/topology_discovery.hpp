@@ -8,11 +8,11 @@
 #include <optional>
 #include <unordered_set>
 
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -21,28 +21,6 @@
 namespace tt::umd {
 
 class ClusterDescriptor;
-
-struct TopologyDiscoveryOptions {
-    // Skip discovery of devices connected via Ethernet.
-    bool no_remote_discovery = false;
-
-    // Skip waiting for ETH core training.
-    bool no_wait_for_eth_training = false;
-
-    // Allow unsupported ETH firmware versions and do not fail when
-    // cores have different ETH firmware versions.
-    bool no_eth_firmware_strictness = false;
-
-    // Predict ETH firmware version for entire cluster from the known
-    // ETH firmware version bundled with the firmware bundle.
-    bool predict_eth_fw_version = false;
-
-    // Enables verifying ERISC FW on cores to ensure reliability of discovery.
-    bool verify_eth_fw_hash = false;
-
-    // Number of times to retrain ETH cores before giving up.
-    uint32_t retrain_eth_count = 0;
-};
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
@@ -65,6 +43,8 @@ protected:
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");
 
+    virtual tt::ARCH get_topology_arch() const = 0;
+
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
     void get_connected_devices();
@@ -76,19 +56,12 @@ protected:
     virtual void wait_eth_cores_training(
         TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    // board_type is not used for all configs.
-    // We need to know that we are seeing TG board and that we should include it in the topology.
-    virtual bool is_board_id_included(uint64_t board_id, uint64_t board_type) const = 0;
+    virtual bool is_board_id_included(uint64_t board_id) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
     // eth_core should be in physical (NOC0) coordinates.
     virtual uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
-
-    // Returns mangled remote board type from local ETH core.
-    // This information can still be used to unique identify a board.
-    // eth_core should be in physical (NOC0) coordinates.
-    virtual uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.
@@ -138,7 +111,7 @@ protected:
 
     virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
-    virtual bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
+    virtual void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -173,7 +146,7 @@ protected:
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    virtual bool verify_fw_bundle_version(TTDevice* tt_device);
+    void verify_fw_bundle_version(TTDevice* tt_device);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.

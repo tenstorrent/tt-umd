@@ -19,6 +19,7 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -273,4 +274,15 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     }
 }
 
+uint32_t TopologyDiscoveryWormhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t heartbeat_value = 0;
+    tt_device->read_from_device(&heartbeat_value, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));
+    return heartbeat_value;
+}
+
+uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t postcode = 0;
+    tt_device->read_from_device(&postcode, eth_core, wormhole::ETH_POSTCODE_ADDR, sizeof(uint32_t));
+    return postcode;
+}
 }  // namespace tt::umd

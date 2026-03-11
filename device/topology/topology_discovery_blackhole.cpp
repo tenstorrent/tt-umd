@@ -269,4 +269,28 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_devi
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
+uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    uint32_t heartbeat_value = 0;
+    tt_device->read_from_device(
+        &heartbeat_value,
+        translated_eth_core,
+        blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, heartbeat[0]),
+        sizeof(uint32_t));
+    return heartbeat_value;
+}
+
+uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    uint32_t postcode = 0;
+    tt_device->read_from_device(
+        &postcode,
+        translated_eth_core,
+        blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, postcode),
+        sizeof(uint32_t));  // eth_status.postcode
+    return postcode;
+}
+
 }  // namespace tt::umd

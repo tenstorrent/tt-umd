@@ -4,11 +4,7 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
-#include <vector>
-
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd::wormhole {
 
@@ -17,6 +13,8 @@ inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
 inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
 inline constexpr uint32_t ETH_LINK_ERR_STATUS_ADDR = 0x1440;
 inline constexpr uint32_t ETH_TRIGGER_RETRAIN_VAL = 1;
+inline constexpr uint32_t ETH_POSTCODE_ADDR = 0xFFB3010C;
+inline constexpr uint32_t ETH_HEARTBEAT_ADDR = 0x1F80;  // test_results[48];
 
 // Errors >= this code are used for reporting unconnected/unused ETH links (e.g. LINK_INACTIVE_TIMEOUT_SIGDET: 11),
 // not true training failures.

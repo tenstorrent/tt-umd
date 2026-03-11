@@ -4,8 +4,10 @@
 
 ### Changed
 
-TopologyDiscoveryOption fix.
-TopologyDiscoveryOption to retrain ETH links.
+TopologyDiscoveryOptions refactoring.
+TopologyDiscoveryOption to retrain ETH links on 6u.
+TLBs for TTsim.
+DRAM retrain support.
 
 ## [0.9.3] - 2026-02-24
 

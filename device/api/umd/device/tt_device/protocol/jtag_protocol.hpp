@@ -34,6 +34,7 @@ public:
 
 private:
     std::shared_ptr<JtagDevice> jtag_device_;
+    int communication_device_id_;
 };
 
 }  // namespace tt::umd

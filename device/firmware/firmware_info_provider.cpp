@@ -107,10 +107,17 @@ std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     if (!telemetry->is_entry_available(TelemetryTag::ETH_FW_VERSION)) {
         return std::nullopt;
     }
+    uint32_t tag_value = get_eth_fw_version();
+    // Return early if tag value is 0, meaning no ETH cores on chip or version not populated.
+    if (tag_value == 0) {
+        return std::nullopt;
+    }
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return SemVer::from_wormhole_eth_firmware_tag(get_eth_fw_version());
-        default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
+            return SemVer::from_wormhole_eth_firmware_tag(tag_value);
+        case tt::ARCH::BLACKHOLE:
+            return SemVer::from_blackhole_eth_firmware_tag(tag_value);
+        default:
             return std::nullopt;
     }
 }
@@ -163,8 +170,8 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
     // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
     // Lower of the two bits reports the training error and higher of the two bits reports the training status.
     // Example: 0b 00 00 00 00 00 00 01 10
-    // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained and don't
-    // have errors. If some channel is harvested the bits are always going to be zero.
+    // would mean that only channel 0 is trained, channel 1 has the error and other channels are not trained and
+    // don't have errors. If some channel is harvested the bits are always going to be zero.
     uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> statuses;
     for (uint32_t channel = 0; channel < num_dram_channels; ++channel) {

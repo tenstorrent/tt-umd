@@ -420,12 +420,14 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
         EXPECT_TRUE(dram_speed.has_value()) << "GDDR speed should be available.";
         log_info(tt::LogUMD, "GDDR speed: {} Mbps", opt_str(dram_speed));
 
+        auto gddr_telemetry = fw_info->get_aggregated_dram_telemetry();
+
         // Only GDDR speed and status are populated on Wormhole and only speed is verified in this test.
         if (arch == tt::ARCH::WORMHOLE_B0) {
+            ASSERT_FALSE(gddr_telemetry.has_value()) << "GDDR telemetry shouldn't be available on Wormhole.";
             continue;
         }
 
-        auto gddr_telemetry = fw_info->get_aggregated_dram_telemetry();
         ASSERT_TRUE(gddr_telemetry.has_value()) << "GDDR telemetry should be available on Blackhole.";
 
         // Max temperature is fetched from the same telemetry source (all GDDR module temperatures).

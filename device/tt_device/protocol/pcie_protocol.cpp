@@ -15,7 +15,7 @@
 
 namespace tt::umd {
 
-PcieProtocol::PcieProtocol(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
     pci_device_(std::move(pci_device)), use_safe_api_(use_safe_api) {}
 
 PcieProtocol::~PcieProtocol() = default;

@@ -24,7 +24,7 @@ class TlbWindow;
  */
 class PcieProtocol : public DeviceProtocol, public PcieInterface {
 public:
-    explicit PcieProtocol(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api = false);
+    explicit PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api = false);
 
     ~PcieProtocol() override;
 
@@ -59,7 +59,7 @@ private:
     template <bool safe>
     void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
-    std::shared_ptr<PCIDevice> pci_device_;
+    std::unique_ptr<PCIDevice> pci_device_;
     bool use_safe_api_;
     std::mutex io_lock_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;

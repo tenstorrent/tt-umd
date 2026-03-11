@@ -20,6 +20,8 @@ inline const std::unordered_map<DeviceFamily, tt::ARCH> device_family_to_arch = 
     {DeviceFamily::DEVICE_FAMILY_BLACKHOLE, tt::ARCH::BLACKHOLE},
     {DeviceFamily::DEVICE_FAMILY_UNKNOWN, tt::ARCH::Invalid}};
 
+namespace tt::umd {
+
 class JtagDevice {
 public:
     explicit JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices = {});
@@ -95,3 +97,5 @@ private:
     std::vector<uint32_t> efuse_harvesting;
     static std::optional<uint8_t> curr_device_idx;
 };
+
+}  // namespace tt::umd

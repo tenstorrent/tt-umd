@@ -70,12 +70,25 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
+        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
+        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
+        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return;
+    }
+
     get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
+        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
+        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
+        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    } else {
+        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+    }
     communicator_->advance_clock(10);
 }
 
@@ -234,8 +247,14 @@ TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
             case ARCH::WORMHOLE_B0:
                 cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
                 break;
-            default:
-                TT_THROW("Unsupported architecture for TTSimTTDevice.");
+            default: {
+                log_debug(
+                    LogUMD,
+                    fmt::format(
+                        "Architecture {} does not yet have support for TLB allocation.",
+                        tt::arch_to_str(architecture_impl_->get_architecture())));
+                return nullptr;
+            }
         }
     }
 

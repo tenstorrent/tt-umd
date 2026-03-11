@@ -71,5 +71,13 @@ protected:
 
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
+
+    // Ethernet link retraining configuration.
+    static constexpr uint32_t ETH_RETRAIN_ATTEMPT_COUNT = 3;
+
+    // Whether to retrain UNCONNECTED connections in addition to FAIL.
+    // Set to true because detecting whether the eth has a connection is unreliable.
+    // 6u chips can sometimes report UNCONNECTED status for links which we expect.
+    static constexpr bool RETRAIN_UNCONNECTED = true;
 };
 }  // namespace tt::umd

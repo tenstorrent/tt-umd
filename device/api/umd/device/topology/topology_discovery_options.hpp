@@ -84,5 +84,12 @@ struct TopologyDiscoveryOptions {
      * that will be used to check ETH core health instead of ETH FW version value.
      */
     bool predict_eth_fw_version_from_cmfw_version = false;
+
+    /**
+     * @brief If true, enables Ethernet link retraining on 6U machines when training fails.
+     * When enabled, failed Ethernet links will be retrained up to a configured number of attempts.
+     * Defaults to false.
+     */
+    bool perform_6u_eth_retrain = false;
 };
 }  // namespace tt::umd

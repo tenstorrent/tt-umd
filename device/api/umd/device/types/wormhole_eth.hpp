@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd::wormhole {
 
@@ -19,7 +20,8 @@ inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
 inline constexpr uint32_t ETH_LINK_ERR_STATUS_ADDR = 0x1440;
 inline constexpr uint32_t ETH_TRIGGER_RETRAIN_VAL = 1;
 inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
-inline constexpr semver_t MIN_ETH_FW_VERSION_FOR_RETRAIN = semver_t(7, 2, 0);
+// Minimum ETH FW version required to support triggering a retrain.
+inline constexpr SemVer MIN_ETH_FW_VERSION_FOR_RETRAIN = SemVer(7, 2, 0);
 
 // Not connected:     LINK_INACTIVE_TIMEOUT_SIGDET: 11
 // Not connected:     LINK_INACTIVE_TIMEOUT_PG_RCV: 12

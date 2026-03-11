@@ -114,24 +114,26 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
 
-        ARCH arch = jtag_device->get_jtag_arch(device_number);
-        if (arch == ARCH::WORMHOLE_B0) {
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
-        } else if (arch == ARCH::BLACKHOLE) {
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
+        switch (jtag_device->get_jtag_arch(device_number)) {
+            case ARCH::WORMHOLE_B0:
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
+            case ARCH::BLACKHOLE:
+                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
+            default:
+                return nullptr;
         }
-        return nullptr;
     }
 
     auto pci_device = std::make_unique<PCIDevice>(device_number);
-    ARCH arch = pci_device->get_arch();
 
-    if (arch == ARCH::WORMHOLE_B0) {
-        return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
-    } else if (arch == ARCH::BLACKHOLE) {
-        return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
+    switch (pci_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
+        case ARCH::BLACKHOLE:
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
+        default:
+            return nullptr;
     }
-    return nullptr;
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(

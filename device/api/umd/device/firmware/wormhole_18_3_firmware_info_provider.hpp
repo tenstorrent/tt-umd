@@ -59,6 +59,10 @@ public:
 
     std::optional<double> get_board_temperature() const override;
 
+    std::optional<std::vector<bool>> get_eth_heartbeat_status() const override;
+
+    std::optional<std::vector<bool>> get_eth_retrain_status() const override;
+
     uint32_t get_heartbeat() const override;
 };
 

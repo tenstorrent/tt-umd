@@ -216,4 +216,25 @@ std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version()
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
 }
 
+std::optional<GddrTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
+std::optional<GddrModuleTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_dram_telemetry(
+    GddrModule gddr_module) const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
+std::optional<uint16_t> Wormhole_18_3_FirmwareInfoProvider::get_dram_speed() const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
+std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_current_max_dram_temperature() const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
 }  // namespace tt::umd

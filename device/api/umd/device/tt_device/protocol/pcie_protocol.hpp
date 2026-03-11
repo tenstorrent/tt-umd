@@ -24,8 +24,7 @@ class PCIDevice;
  */
 class PcieProtocol : public DeviceProtocol, public PcieInterface {
 public:
-    explicit PcieProtocol(
-        std::shared_ptr<PCIDevice> pci_device, architecture_implementation* architecture_impl, bool use_safe_api);
+    explicit PcieProtocol(std::shared_ptr<PCIDevice> pci_device);
 
     ~PcieProtocol() override = default;
 
@@ -53,8 +52,6 @@ public:
 
 private:
     std::shared_ptr<PCIDevice> pci_device_;
-    int communication_device_id_;
-    architecture_implementation* architecture_impl_;
 };
 
 }  // namespace tt::umd

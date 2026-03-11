@@ -23,8 +23,7 @@ class RemoteCommunication;
  */
 class RemoteProtocol : public DeviceProtocol, public RemoteInterface {
 public:
-    explicit RemoteProtocol(
-        std::unique_ptr<RemoteCommunication> remote_communication, architecture_implementation* architecture_impl);
+    explicit RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication);
 
     ~RemoteProtocol() override = default;
 
@@ -40,7 +39,6 @@ public:
 
 private:
     std::unique_ptr<RemoteCommunication> remote_communication_;
-    architecture_implementation* architecture_impl_;
 };
 
 }  // namespace tt::umd

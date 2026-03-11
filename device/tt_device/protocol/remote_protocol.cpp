@@ -10,9 +10,8 @@
 
 namespace tt::umd {
 
-RemoteProtocol::RemoteProtocol(
-    std::unique_ptr<RemoteCommunication> remote_communication, architecture_implementation* architecture_impl) :
-    remote_communication_(std::move(remote_communication)), architecture_impl_(architecture_impl) {}
+RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
+    remote_communication_(std::move(remote_communication)) {}
 
 void RemoteProtocol::write_to_device(const void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("RemoteProtocol::write_to_device not yet implemented");

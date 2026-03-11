@@ -21,8 +21,7 @@ class JtagDevice;
  */
 class JtagProtocol : public DeviceProtocol, public JtagInterface {
 public:
-    JtagProtocol(
-        std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id, architecture_implementation* architecture_impl);
+    JtagProtocol(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     ~JtagProtocol() override = default;
 
@@ -37,8 +36,6 @@ public:
 
 private:
     std::shared_ptr<JtagDevice> jtag_device_;
-    int communication_device_id_;
-    architecture_implementation* architecture_impl_;
 };
 
 }  // namespace tt::umd

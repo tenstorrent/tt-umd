@@ -10,13 +10,7 @@
 
 namespace tt::umd {
 
-PcieProtocol::PcieProtocol(
-    std::shared_ptr<PCIDevice> pci_device, architecture_implementation* architecture_impl, bool use_safe_api) :
-    pci_device_(std::move(pci_device)),
-    communication_device_id_(pci_device_->get_device_num()),
-    architecture_impl_(architecture_impl) {
-    (void)use_safe_api;
-}
+PcieProtocol::PcieProtocol(std::shared_ptr<PCIDevice> pci_device) : pci_device_(std::move(pci_device)) {}
 
 void PcieProtocol::write_to_device(const void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("PcieProtocol::write_to_device not yet implemented");

@@ -10,9 +10,8 @@
 
 namespace tt::umd {
 
-JtagProtocol::JtagProtocol(
-    std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id, architecture_implementation* architecture_impl) :
-    jtag_device_(std::move(jtag_device)), communication_device_id_(jlink_id), architecture_impl_(architecture_impl) {}
+JtagProtocol::JtagProtocol(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+    jtag_device_(std::move(jtag_device)) {}
 
 void JtagProtocol::write_to_device(const void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("JtagProtocol::write_to_device not yet implemented");

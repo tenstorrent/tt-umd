@@ -205,7 +205,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value()) {
                     eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
+                    log_debug(
+                        LogUMD,
+                        "Device ASIC ID: {} has ETH coord: {}",
+                        current_device_asic_id,
+                        local_eth_coord.value());
                 }
             }
 
@@ -224,8 +228,7 @@ void TopologyDiscovery::discover_remote_devices() {
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
             uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
 
-            if (!is_board_id_included(
-                    get_remote_board_id(tt_device, eth_core), get_remote_board_type(tt_device, eth_core)) ||
+            if (!is_board_id_included(get_remote_board_id(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_devices.find(remote_asic_id) == discovered_devices.end())) {
                 ethernet_connections_to_remote_devices.push_back(
@@ -254,9 +257,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
-                if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
-                }
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(
@@ -485,6 +485,10 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
 
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
+}
+
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+    return board_ids.find(board_id) != board_ids.end();
 }
 
 SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {

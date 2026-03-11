@@ -40,6 +40,13 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     vcore_available = telemetry->is_entry_available(TelemetryTag::VCORE);
 
     board_temperature_available = telemetry->is_entry_available(TelemetryTag::BOARD_TEMPERATURE);
+    thm_limit_shutdown_available = telemetry->is_entry_available(TelemetryTag::THM_LIMIT_SHUTDOWN);
+    board_power_limit_available = telemetry->is_entry_available(TelemetryTag::BOARD_POWER_LIMIT);
+    thm_limit_throttle_available = telemetry->is_entry_available(TelemetryTag::THM_LIMIT_THROTTLE);
+    therm_trip_count_available = telemetry->is_entry_available(TelemetryTag::THERM_TRIP_COUNT);
+    // ETH_LIVE_STATUS is not implemented for Blackhole; the tag exists but always returns zeros.
+    eth_live_status_available =
+        telemetry->is_entry_available(TelemetryTag::ETH_LIVE_STATUS) && tt_device->get_arch() != tt::ARCH::BLACKHOLE;
 }
 
 std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
@@ -186,11 +193,11 @@ uint8_t FirmwareInfoProvider::get_asic_location() const {
 }
 
 double FirmwareInfoProvider::get_asic_temperature() const {
-    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
-    // have integer part and lower 16 bits have fractional part.
-    // It needs to be divided by 65536 to get temperature in Celsius.
-    return static_cast<double>(tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE)) /
-           65536.0f;
+    // Stored in signed 16.16 fixed-point format (s16.16): high 16 bits are the integer part,
+    // lower 16 bits are the fractional part. Cast through int32_t to preserve the sign bit.
+    return static_cast<double>(static_cast<int32_t>(
+               tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE))) /
+           65536.0;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
@@ -259,8 +266,8 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See FirmwareInfoProvider::get_asic_temperature().
-    return static_cast<double>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
+    // Stored in signed 16.16 fixed-point format (s16.16). See get_asic_temperature().
+    return static_cast<double>(static_cast<int32_t>(telemetry->read_entry(TelemetryTag::BOARD_TEMPERATURE))) / 65536.0;
 }
 
 uint32_t FirmwareInfoProvider::get_heartbeat() const {
@@ -368,6 +375,67 @@ std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() c
         return std::nullopt;
     }
     return static_cast<double>(telemetry->read_entry(TelemetryTag::MAX_GDDR_TEMP));
+}
+
+std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!thm_limit_shutdown_available) {
+        return std::nullopt;
+    }
+    // Stored as a plain integer in degrees Celsius.
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_SHUTDOWN));
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!board_power_limit_available) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::BOARD_POWER_LIMIT);
+}
+
+std::optional<double> FirmwareInfoProvider::get_thm_limit_throttle() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!thm_limit_throttle_available) {
+        return std::nullopt;
+    }
+    // Stored as a plain integer in degrees Celsius.
+    return static_cast<double>(telemetry->read_entry(TelemetryTag::THM_LIMIT_THROTTLE));
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!therm_trip_count_available) {
+        return std::nullopt;
+    }
+    return telemetry->read_entry(TelemetryTag::THERM_TRIP_COUNT);
+}
+
+std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
+    static constexpr uint32_t max_eth_links = 16;
+    std::vector<bool> statuses(max_eth_links);
+    for (uint32_t link = 0; link < max_eth_links; ++link) {
+        statuses[link] = static_cast<bool>(bitmask & (1u << link));
+    }
+    return statuses;
+}
+
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    uint32_t data = telemetry->read_entry(TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+}
+
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    uint32_t data = telemetry->read_entry(TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 }  // namespace tt::umd

@@ -116,6 +116,46 @@ public:
      */
     virtual std::optional<double> get_board_temperature() const;
 
+    /*
+     * Get thermal limit shutdown threshold in Celsius.
+     * @returns Thermal limit shutdown threshold [Celsius]
+     */
+    virtual std::optional<double> get_thm_limit_shutdown() const;
+
+    /*
+     * Get board power limit in watts.
+     * @returns Board power limit [W]
+     */
+    virtual std::optional<uint32_t> get_board_power_limit() const;
+
+    /*
+     * Get thermal limit throttle threshold in Celsius.
+     * @returns Thermal limit throttle threshold [Celsius]
+     */
+    virtual std::optional<double> get_thm_limit_throttle() const;
+
+    /*
+     * Get thermal trip count.
+     * @returns Number of thermal trips that have occurred.
+     */
+    virtual std::optional<uint32_t> get_therm_trip_count() const;
+
+    /*
+     * Get per-link ethernet heartbeat status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
+     */
+    virtual std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+
+    /*
+     * Get per-link ethernet retrain status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
+     */
+    virtual std::optional<std::vector<bool>> get_eth_retrain_status() const;
+
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
     virtual uint32_t get_max_clock_freq() const;
@@ -139,6 +179,12 @@ public:
     virtual std::optional<double> get_current_max_dram_temperature() const;
 
 protected:
+    /**
+     * Parse a 16-bit bitmask into a per-link boolean vector.
+     * Bit indices align with ETH channels (i.e. logical coordinates).
+     */
+    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
+
     TTDevice* tt_device = nullptr;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
@@ -151,6 +197,11 @@ protected:
     bool tdc_available;
     bool vcore_available;
     bool board_temperature_available;
+    bool thm_limit_shutdown_available;
+    bool board_power_limit_available;
+    bool thm_limit_throttle_available;
+    bool therm_trip_count_available;
+    bool eth_live_status_available;
 };
 
 }  // namespace tt::umd

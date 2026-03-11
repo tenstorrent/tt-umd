@@ -90,7 +90,7 @@ void bind_telemetry(nb::module_& m) {
         .value("TDP", TelemetryTag::TDP)
         .value("TDC", TelemetryTag::TDC)
         .value("VDD_LIMITS", TelemetryTag::VDD_LIMITS)
-        .value("THM_LIMITS", TelemetryTag::THM_LIMITS)
+        .value("THM_LIMIT_SHUTDOWN", TelemetryTag::THM_LIMIT_SHUTDOWN)
         .value("ASIC_TEMPERATURE", TelemetryTag::ASIC_TEMPERATURE)
         .value("VREG_TEMPERATURE", TelemetryTag::VREG_TEMPERATURE)
         .value("BOARD_TEMPERATURE", TelemetryTag::BOARD_TEMPERATURE)
@@ -132,8 +132,11 @@ void bind_telemetry(nb::module_& m) {
         .value("GDDR_UNCORR_ERRS", TelemetryTag::GDDR_UNCORR_ERRS)
         .value("MAX_GDDR_TEMP", TelemetryTag::MAX_GDDR_TEMP)
         .value("ASIC_LOCATION", TelemetryTag::ASIC_LOCATION)
+        .value("BOARD_POWER_LIMIT", TelemetryTag::BOARD_POWER_LIMIT)
         .value("TDC_LIMIT_MAX", TelemetryTag::TDC_LIMIT_MAX)
+        .value("THM_LIMIT_THROTTLE", TelemetryTag::THM_LIMIT_THROTTLE)
         .value("TT_FLASH_VERSION", TelemetryTag::TT_FLASH_VERSION)
+        .value("THERM_TRIP_COUNT", TelemetryTag::THERM_TRIP_COUNT)
         .value("ASIC_ID_HIGH", TelemetryTag::ASIC_ID_HIGH)
         .value("ASIC_ID_LOW", TelemetryTag::ASIC_ID_LOW)
         .value("AICLK_LIMIT_MAX", TelemetryTag::AICLK_LIMIT_MAX)
@@ -207,6 +210,12 @@ void bind_telemetry(nb::module_& m) {
         .def("get_dram_telemetry", &FirmwareInfoProvider::get_dram_telemetry, nb::arg("gddr_module"))
         .def("get_dram_speed", &FirmwareInfoProvider::get_dram_speed)
         .def("get_current_max_dram_temperature", &FirmwareInfoProvider::get_current_max_dram_temperature)
+        .def("get_thm_limit_shutdown", &FirmwareInfoProvider::get_thm_limit_shutdown)
+        .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit)
+        .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle)
+        .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count)
+        .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status)
+        .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status)
         .def_static(
             "get_minimum_compatible_firmware_version",
             &FirmwareInfoProvider::get_minimum_compatible_firmware_version,

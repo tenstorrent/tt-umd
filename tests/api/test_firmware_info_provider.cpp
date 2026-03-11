@@ -22,8 +22,18 @@
 using namespace tt;
 using namespace tt::umd;
 
+// Firmware version boundaries used across multiple tests.
+static constexpr FirmwareBundleVersion FW_VERSION_18_3(18, 3, 0);
+static constexpr FirmwareBundleVersion FW_VERSION_18_4(18, 4, 0);
+static constexpr FirmwareBundleVersion FW_VERSION_18_5(18, 5, 0);
+static constexpr FirmwareBundleVersion FW_VERSION_18_7(18, 7, 0);
+
 template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
 static std::string opt_str(const std::optional<T>& v) {
+    return v.has_value() ? std::to_string(v.value()) : "nullopt";
+}
+
+static std::string opt_str(const std::optional<uint32_t>& v) {
     return v.has_value() ? std::to_string(v.value()) : "nullopt";
 }
 
@@ -34,9 +44,9 @@ static std::string opt_str(const std::optional<double>& v, const std::string& fm
 }
 
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
-    if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+    if (fw_version <= FW_VERSION_18_3) {
         return "LEGACY (<= 18.3)";
-    } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
+    } else if (fw_version <= FW_VERSION_18_7) {
         return "TRANSITIONAL (18.4 - 18.7)";
     } else {
         return "MODERN (> 18.7)";
@@ -69,8 +79,8 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
 
-    EXPECT_EQ(wh_min, FirmwareBundleVersion(18, 3, 0));
-    EXPECT_EQ(bh_min, FirmwareBundleVersion(18, 5, 0));
+    EXPECT_EQ(wh_min, FW_VERSION_18_3);
+    EXPECT_EQ(bh_min, FW_VERSION_18_5);
 
     FirmwareBundleVersion wh_latest =
         FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
@@ -255,7 +265,7 @@ TEST_F(TestFirmwareInfoProvider, SubcomponentFirmwareVersions) {
         log_info(tt::LogUMD, "tt_flash_version={}", opt_str(tt_flash_ver));
 
         // Legacy Wormhole (<= 18.3) does not have GDDR or CM firmware reporting.
-        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
             EXPECT_FALSE(gddr_ver.has_value());
             EXPECT_FALSE(cm_ver.has_value());
         }
@@ -287,25 +297,12 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
         log_info(tt::LogUMD, "tdc={} A", opt_str(tdc));
         log_info(tt::LogUMD, "vcore={} mV", opt_str(vcore));
 
-        // On legacy Blackhole (< 18.4), TDP and VCORE are not populated by firmware
-        // and report 0.
-        bool is_legacy_blackhole = arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(18, 4, 0);
-
-        if (is_legacy_blackhole) {
-            if (tdp.has_value()) {
-                EXPECT_EQ(tdp.value(), 0u);
-            }
-            if (vcore.has_value()) {
-                EXPECT_EQ(vcore.value(), 0u);
-            }
-        } else {
-            if (tdp.has_value()) {
-                EXPECT_LT(tdp.value(), 500u);
-            }
-            if (vcore.has_value()) {
-                EXPECT_GT(vcore.value(), 0u);
-                EXPECT_LT(vcore.value(), 2000u);
-            }
+        if (tdp.has_value()) {
+            EXPECT_LT(tdp.value(), 500u);
+        }
+        if (vcore.has_value()) {
+            EXPECT_GT(vcore.value(), 0u);
+            EXPECT_LT(vcore.value(), 2000u);
         }
     }
 }
@@ -344,7 +341,7 @@ TEST_F(TestFirmwareInfoProvider, DramTrainingStatus) {
         }
 
         // IN_PROGRESS on Blackhole means the channel is either still training or has been harvested.
-        // Note: Legacy WH (<= 18.3) uses 4-bit-per-channel format, modern uses 2-bit-per-channel.
+        // Note: WH FW <= 18.3 uses 4-bit-per-channel format, newer FW uses 2-bit-per-channel.
         for (uint32_t ch = 0; ch < statuses.size(); ++ch) {
             EXPECT_TRUE(statuses[ch] == DramTrainingStatus::SUCCESS || statuses[ch] == DramTrainingStatus::IN_PROGRESS)
                 << "DRAM channel " << ch << " reported FAIL";
@@ -369,8 +366,8 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
             fw_range_label(fw_version),
             static_cast<uint32_t>(asic_location));
 
-        // Legacy Wormhole (<= 18.3) hardcodes ASIC_LOCATION to 0 (FixedValue).
-        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+        // Wormhole FW <= 18.3 hardcodes ASIC_LOCATION to 0 (FixedValue).
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
             EXPECT_EQ(asic_location, 0);
         }
     }
@@ -481,6 +478,117 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
             EXPECT_EQ(
                 module_telemetry->dram_temperature_bottom,
                 gddr_telemetry->modules.at(gddr_index).dram_temperature_bottom);
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, ThermalLimits) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        tt::ARCH arch = tt_device->get_arch();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+
+        auto shutdown = fw_info->get_thm_limit_shutdown();
+        auto throttle = fw_info->get_thm_limit_throttle();
+
+        // On Wormhole FW < 18.4, firmware doesn't populate these fields; expect nullopt.
+        // Blackhole minimum FW is 18.5, so this case does not apply.
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FW_VERSION_18_4) {
+            EXPECT_FALSE(shutdown.has_value());
+            EXPECT_FALSE(throttle.has_value());
+        } else {
+            if (shutdown.has_value()) {
+                // Stored as plain integer in °C (not 16.16 fixed-point).
+                EXPECT_GE(shutdown.value(), 80.0);
+                EXPECT_LE(shutdown.value(), 130.0);
+            }
+
+            // BH production spec (7.3): T_J_SHUTDOWN = 110 °C.
+            if (arch == tt::ARCH::BLACKHOLE && shutdown.has_value()) {
+                EXPECT_DOUBLE_EQ(shutdown.value(), 110.0);
+            }
+
+            if (throttle.has_value()) {
+                EXPECT_GT(throttle.value(), 0.0);
+                EXPECT_LE(throttle.value(), 130.0);
+            }
+
+            // Throttle threshold should never exceed the shutdown threshold.
+            if (shutdown.has_value() && throttle.has_value()) {
+                EXPECT_LE(throttle.value(), shutdown.value());
+            }
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, BoardPowerLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        tt::ARCH arch = tt_device->get_arch();
+        auto power_limit = fw_info->get_board_power_limit();
+
+        // On Blackhole, firmware defaults BOARD_POWER_LIMIT to 0 (no limit configured).
+        if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_TRUE(power_limit.has_value());
+        } else if (power_limit.has_value()) {
+            EXPECT_GT(power_limit.value(), 0u);
+            EXPECT_LT(power_limit.value(), 500u);
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        auto trip_count = fw_info->get_therm_trip_count();
+        // On a healthy running system, no thermal trips should have occurred.
+        if (trip_count.has_value()) {
+            EXPECT_EQ(trip_count.value(), 0u);
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        tt::ARCH arch = tt_device->get_arch();
+        auto heartbeats = fw_info->get_eth_heartbeat_status();
+
+        // Only available on Wormhole; Blackhole returns nullopt.
+        if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_FALSE(heartbeats.has_value());
+        }
+
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            EXPECT_TRUE(heartbeats.has_value());
+            if (heartbeats.has_value()) {
+                EXPECT_EQ(heartbeats.value().size(), 16u);
+            }
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        tt::ARCH arch = tt_device->get_arch();
+        auto retrains = fw_info->get_eth_retrain_status();
+
+        // Only available on Wormhole; Blackhole returns nullopt.
+        if (arch == tt::ARCH::BLACKHOLE) {
+            EXPECT_FALSE(retrains.has_value());
+        }
+
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            EXPECT_TRUE(retrains.has_value());
+            if (retrains.has_value()) {
+                EXPECT_EQ(retrains.value().size(), 16u);
+            }
         }
     }
 }

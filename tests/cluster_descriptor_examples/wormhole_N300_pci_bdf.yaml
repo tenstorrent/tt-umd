@@ -47,8 +47,8 @@ harvesting:
     pcie_harvesting_mask: 0
     l2cpu_harvesting_mask: 0
 chip_to_bus_id:
-  0: 0x0041
-  1: 0x0041
+  0: "0x0041"
+  1: "0x0041"
 boards:
   -
     - board_id: 72058990194901188

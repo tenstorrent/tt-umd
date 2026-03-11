@@ -21,9 +21,6 @@ namespace tt::umd {
  * providing a uniform way to perform basic device I/O regardless of the underlying
  * transport.
  *
- * In later PRs, TTDevice methods will be migrated to delegate to DeviceProtocol,
- * enabling cleaner separation between the device abstraction and the communication
- * mechanism.
  */
 class DeviceProtocol {
 public:
@@ -31,6 +28,11 @@ public:
 
     virtual void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) = 0;
     virtual void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) = 0;
+
+    // [[nodiscard]] ensures the caller handles the software fallback
+    // if the hardware does not support multicast.
+    [[nodiscard]] virtual bool write_to_device_range(
+        const void* mem_ptr, tt_xy_pair start, tt_xy_pair end, uint64_t addr, uint32_t size) = 0;
 
     virtual tt::ARCH get_arch() = 0;
     virtual architecture_implementation* get_architecture_implementation() = 0;

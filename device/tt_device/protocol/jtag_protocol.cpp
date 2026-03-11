@@ -22,6 +22,8 @@ void JtagProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("JtagProtocol::read_from_device not yet implemented");
 }
 
+bool JtagProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+
 tt::ARCH JtagProtocol::get_arch() { return architecture_impl_->get_architecture(); }
 
 architecture_implementation* JtagProtocol::get_architecture_implementation() { return architecture_impl_; }

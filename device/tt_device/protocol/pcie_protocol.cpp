@@ -26,6 +26,8 @@ void PcieProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("PcieProtocol::read_from_device not yet implemented");
 }
 
+bool PcieProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+
 tt::ARCH PcieProtocol::get_arch() { return architecture_impl_->get_architecture(); }
 
 architecture_implementation* PcieProtocol::get_architecture_implementation() { return architecture_impl_; }

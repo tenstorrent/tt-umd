@@ -42,9 +42,6 @@
 
 namespace tt::umd {
 
-static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
-static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
-
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
     const auto sysfs_path = fmt::format(
@@ -236,9 +233,9 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == WH_PCIE_DEVICE_ID) {
+    if (this->device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == BH_PCIE_DEVICE_ID) {
+    } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
     }
     return tt::ARCH::Invalid;

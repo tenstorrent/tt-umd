@@ -182,7 +182,7 @@ properties:
     description: Maps chip ID to its PCI bus ID
     patternProperties:
       "^[0-9]+$":
-        type: integer
+        type: string
         pattern: "^0x[0-9a-fA-F]+$"
         description: Hexadecimal bus ID
     additionalProperties: false

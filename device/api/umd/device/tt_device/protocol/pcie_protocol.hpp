@@ -15,6 +15,7 @@ namespace tt::umd {
 
 class PCIDevice;
 class TlbWindow;
+struct tlb_data;
 
 /**
  * PcieProtocol implements DeviceProtocol and PcieInterface for PCIe-connected devices.
@@ -52,6 +53,10 @@ public:
 
 private:
     TlbWindow* get_cached_tlb_window();
+    TlbWindow* get_cached_dma_tlb_window(tlb_data config);
+
+    void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
+    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
 
     template <bool safe>
     void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
@@ -62,7 +67,9 @@ private:
     std::unique_ptr<PCIDevice> pci_device_;
     bool use_safe_api_;
     std::mutex io_lock_;
+    std::mutex dma_mutex_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
+    std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 };
 
 }  // namespace tt::umd

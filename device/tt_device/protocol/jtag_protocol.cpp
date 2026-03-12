@@ -6,21 +6,22 @@
 
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 
-#include <stdexcept>
-
+#include "noc_access.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 
 namespace tt::umd {
 
-JtagProtocol::JtagProtocol(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    jtag_device_(std::move(jtag_device)) {}
+JtagProtocol::JtagProtocol(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+    jtag_device_(std::move(jtag_device)), communication_device_id_(jlink_id) {}
 
-void JtagProtocol::write_to_device(const void*, tt_xy_pair, uint64_t, uint32_t) {
-    throw std::runtime_error("JtagProtocol::write_to_device not yet implemented");
+JtagProtocol::~JtagProtocol() = default;
+
+void JtagProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
 }
 
-void JtagProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
-    throw std::runtime_error("JtagProtocol::read_from_device not yet implemented");
+void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
 }
 
 bool JtagProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }

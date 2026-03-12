@@ -68,12 +68,12 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
     }
 }
 
-bool PcieProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
-
-void PcieProtocol::noc_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+bool PcieProtocol::write_to_device_range(
+    void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) {
     std::lock_guard<std::mutex> lock(io_lock_);
-    get_cached_tlb_window()->noc_multicast_write_reconfigure(src, size, core_start, core_end, addr, tlb_data::Strict);
+    get_cached_tlb_window()->noc_multicast_write_reconfigure(
+        mem_ptr, size, core_start, core_end, addr, tlb_data::Strict);
+    return true;
 }
 
 void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {
@@ -102,10 +102,8 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-namespace {
-constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
-}  // namespace
+inline constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+inline constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {
@@ -406,7 +404,7 @@ void PcieProtocol::dma_multicast_write(
             "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) multicast "
             "write.",
             pci_device_->get_device_num());
-        noc_multicast_write(src, size, core_start, core_end, addr);
+        write_to_device_range(src, core_start, core_end, addr, size);
         return;
     }
 

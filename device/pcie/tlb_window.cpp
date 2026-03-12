@@ -78,7 +78,7 @@ void TlbWindow::write_block_reconfigure(
 
 void TlbWindow::noc_multicast_write_reconfigure(
     void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
-    uint8_t* buffer_addr = static_cast<uint8_t*>(dst);
+    const uint8_t* buffer_addr = static_cast<const uint8_t*>(dst);
     tlb_data config{};
     config.local_offset = addr;
     config.x_start = core_start.x;

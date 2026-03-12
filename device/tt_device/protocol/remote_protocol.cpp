@@ -6,6 +6,8 @@
 
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 
+#include <stdexcept>
+
 #include "umd/device/tt_device/remote_communication.hpp"
 
 namespace tt::umd {

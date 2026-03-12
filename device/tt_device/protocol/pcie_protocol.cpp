@@ -102,8 +102,10 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
+namespace {
+constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
+}  // namespace
 
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {

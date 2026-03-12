@@ -29,8 +29,10 @@
 
 namespace tt::umd {
 
-static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
+namespace {
+constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
+}  // namespace
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {

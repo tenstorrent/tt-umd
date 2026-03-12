@@ -35,17 +35,10 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 }
 
 SimulationChip::SimulationChip(
-    const std::filesystem::path& simulator_directory,
-    const SocDescriptor& soc_descriptor,
-    ChipId chip_id,
-    int num_host_mem_channels) :
+    const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: {}", simulator_directory_);
-    }
-
-    if (num_host_mem_channels > 0) {
-        sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);
     }
 }
 
@@ -157,7 +150,7 @@ TTDevice* SimulationChip::get_tt_device() {
     throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
 }
 
-SysmemManager* SimulationChip::get_sysmem_manager() { return sysmem_manager_.get(); }
+SysmemManager* SimulationChip::get_sysmem_manager() { return nullptr; }
 
 TLBManager* SimulationChip::get_tlb_manager() {
     throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");

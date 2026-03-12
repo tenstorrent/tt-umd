@@ -37,7 +37,7 @@ public:
     virtual void dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) = 0;
 
     virtual void noc_multicast_write(
-        void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
+        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
 
     virtual void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) = 0;
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;

@@ -192,6 +192,14 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
+      - name: Smoke test tools
+        run: |
+          cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools/build/tools/umd
+          for tool in telemetry topology harvesting system_health warm_reset tlb_virus; do
+            echo "Smoke testing $tool..."
+            ./$tool --help
+          done
+
       - name: Rebuild package for python without wheel
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}

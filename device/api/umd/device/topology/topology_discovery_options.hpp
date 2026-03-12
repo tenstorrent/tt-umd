@@ -80,5 +80,12 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool perform_eth_fw_hash_check = false;
+
+    /**
+     * @brief If true, enables Ethernet link retraining on 6U machines when training fails.
+     * When enabled, failed Ethernet links will be retrained up to a configured number of attempts.
+     * Defaults to false.
+     */
+    bool perform_6u_eth_retrain = false;
 };
 }  // namespace tt::umd

@@ -470,6 +470,11 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth
     return static_cast<EthTrainingStatus>(training_status);
 }
 
+void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
+    uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
+    write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
+}
+
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
@@ -607,6 +612,10 @@ bool WormholeTTDevice::is_hardware_hung() {
         6 * 4);
 
     return (scratch_data == HANG_READ_VALUE);
+}
+
+void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    TT_THROW("DRAM retraining is not supported on WormholeTTDevice.");
 }
 
 }  // namespace tt::umd

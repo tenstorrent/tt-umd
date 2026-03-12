@@ -220,10 +220,9 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version =
-            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
-        if (options.predict_eth_fw_version_from_cmfw_version && expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
             log_debug(
@@ -291,6 +290,10 @@ uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, tt_xy
         blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, postcode),
         sizeof(uint32_t));  // eth_status.postcode
     return postcode;
+}
+
+void TopologyDiscoveryBlackhole::retrain_eth_cores() {
+    log_debug(LogUMD, "Retraining ETH cores skipped for Blackhole.");
 }
 
 }  // namespace tt::umd

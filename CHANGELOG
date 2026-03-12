@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.4] - 2026-03-11
+
+### Changed
+
+TopologyDiscoveryOptions refactoring.
+TopologyDiscoveryOption to retrain ETH links on 6u.
+TLBs for TTsim.
+DRAM retrain support.
+
 ## [0.9.3] - 2026-02-24
 
 ### Changed

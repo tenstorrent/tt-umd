@@ -10,7 +10,6 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
-#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdint>
@@ -41,9 +40,6 @@
 #include "utils.hpp"
 
 namespace tt::umd {
-
-static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
-static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -236,9 +232,9 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == WH_PCIE_DEVICE_ID) {
+    if (this->device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == BH_PCIE_DEVICE_ID) {
+    } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
     }
     return tt::ARCH::Invalid;
@@ -254,7 +250,7 @@ std::vector<int> PCIDevice::enumerate_devices() {
 
     const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
     if (!tt_visible_devices_env) {
-        return get_all_device_ids();
+        return sort_ids_based_on_bdf(get_all_device_ids());
     }
 
     std::string tt_visible_devices_str(tt_visible_devices_env);
@@ -337,8 +333,31 @@ std::vector<int> PCIDevice::enumerate_devices() {
         device_ids.push_back(filtered_device_id);
     }
 
-    std::sort(device_ids.begin(), device_ids.end());
-    return device_ids;
+    return sort_ids_based_on_bdf(device_ids);
+}
+
+std::vector<int> PCIDevice::sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids) {
+    std::vector<int> sorted_ids_based_on_bdf;
+    std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+    std::unordered_set<int> input_ids(pci_device_ids.begin(), pci_device_ids.end());
+    std::unordered_set<int> mapped_ids;
+
+    for (const auto &[bdf, device_id] : bdf_to_device_id_map) {
+        if (input_ids.count(device_id)) {
+            sorted_ids_based_on_bdf.push_back(device_id);
+            mapped_ids.insert(device_id);
+        }
+    }
+
+    // Append any IDs that could not be mapped to a BDF, preserving input order.
+    for (int device_id : pci_device_ids) {
+        if (!mapped_ids.count(device_id)) {
+            log_debug(tt::LogUMD, "Device ID {} could not be mapped to a BDF, appending at end.", device_id);
+            sorted_ids_based_on_bdf.push_back(device_id);
+        }
+    }
+
+    return sorted_ids_based_on_bdf;
 }
 
 std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
@@ -357,6 +376,14 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
         close(fd);
     }
     return infos;
+}
+
+std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
+    if (umd_logical_id < 0 || umd_logical_id >= static_cast<int>(enumerated_ids.size())) {
+        return std::nullopt;
+    }
+    return enumerated_ids[umd_logical_id];
 }
 
 PCIDevice::PCIDevice(int pci_device_number) :
@@ -993,7 +1020,6 @@ std::vector<int> PCIDevice::get_all_device_ids() {
         }
     }
 
-    std::sort(device_ids.begin(), device_ids.end());
     return device_ids;
 }
 

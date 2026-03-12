@@ -87,6 +87,31 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
 }
 
+void WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset) {
+    std::vector<int> pci_ids;
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
+    for (const auto& id : chip_ids) {
+        if (id >= static_cast<int>(enumerated_ids.size())) {
+            log_warning(tt::LogUMD, "Provided UMD ID {} is out of range. Skipping.", id);
+            continue;
+        }
+        pci_ids.push_back(enumerated_ids[id]);
+    }
+    warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+}
+
+void WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bool reset_m3, bool secondary_bus_reset) {
+    std::vector<int> pci_ids;
+    std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
+    for (const auto& [id, info] : pci_devices_info) {
+        if (std::find(pci_bdfs.begin(), pci_bdfs.end(), info.pci_bdf) != pci_bdfs.end()) {
+            pci_ids.push_back(id);
+        }
+    }
+
+    warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+}
+
 int wait_for_pci_bdf_to_reappear(
     const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
     log_debug(tt::LogUMD, "Waiting for device {} to reappear on pci bus.", bdf);
@@ -151,7 +176,18 @@ void WarmReset::warm_reset_arch_agnostic(
         pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
     }
 
-    log_info(tt::LogUMD, "Starting reset on devices at PCI indices: {}", fmt::join(pci_device_id_set, ", "));
+    auto all_pci_ids = PCIDevice::enumerate_devices();
+    std::map<int, int> pci_to_umd_id;
+    for (int umd_id = 0; umd_id < static_cast<int>(all_pci_ids.size()); umd_id++) {
+        pci_to_umd_id[all_pci_ids[umd_id]] = umd_id;
+    }
+    std::vector<std::string> device_infos;
+    for (auto pci_id : pci_device_ids) {
+        int umd_id = pci_to_umd_id.count(pci_id) ? pci_to_umd_id[pci_id] : -1;
+        const auto& bdf = pci_bdfs.count(pci_id) ? pci_bdfs.at(pci_id) : std::string("unknown");
+        device_infos.push_back(fmt::format("(PCI index: {}, UMD logical ID: {}, BDF: {})", pci_id, umd_id, bdf));
+    }
+    log_info(tt::LogUMD, "Starting reset on devices: {}", fmt::join(device_infos, ", "));
     if (secondary_bus_reset) {
         PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
     }

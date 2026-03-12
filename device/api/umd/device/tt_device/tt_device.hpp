@@ -44,7 +44,7 @@ enum class EthTrainingStatus {
     IN_PROGRESS = 0,
     SUCCESS = 1,
     FAIL = 2,
-    NOT_CONNECTED = 3,
+    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
 };
 
 class TTDevice {
@@ -357,6 +357,10 @@ protected:
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+
+    virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
+
+    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
     bool is_remote_tt_device = false;
 

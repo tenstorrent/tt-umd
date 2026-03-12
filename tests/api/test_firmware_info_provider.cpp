@@ -484,13 +484,52 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
     }
 }
 
-TEST_F(TestFirmwareInfoProvider, ThermalLimits) {
+TEST_F(TestFirmwareInfoProvider, FanSpeed) {
     for (const auto& tt_device : get_tt_devices()) {
-        auto* fw_info = tt_device->get_firmware_info_provider();
+        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
+        int pci_device_id = tt_device->get_communication_device_id();
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
+        auto speed_percentage = fw_info->get_fan_speed();
+        auto speed_rpm = fw_info->get_fan_rpm();
+
+        log_info(
+            tt::LogUMD,
+            "Device {}: arch={}, fw_range={}, fan_speed={} %, fan_rpm={} rpm",
+            pci_device_id,
+            arch_to_str(arch),
+            fw_range_label(fw_version),
+            opt_str(speed_percentage),
+            opt_str(speed_rpm));
+
+        if (speed_percentage.has_value()) {
+            EXPECT_GE(speed_percentage.value(), 0u);
+            EXPECT_LE(speed_percentage.value(), 100u);
+        }
+
+        if (speed_rpm.has_value()) {
+            EXPECT_LT(speed_rpm.value(), 20000u);
+        }
+
+        // FAN_RPM is not available in legacy Wormhole (<= 18.3) SMBus telemetry;
+        // only FAN_SPEED (percentage) is reported.
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
+            EXPECT_FALSE(speed_rpm.has_value());
+        } else {
+            // On modern firmware, both should be available or both absent
+            // (nullopt when fans are not present on board or not controlled by FW).
+            EXPECT_EQ(speed_percentage.has_value(), speed_rpm.has_value());
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, ThermalLimits) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        tt::ARCH arch = tt_device->get_arch();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
         auto shutdown = fw_info->get_thm_limit_shutdown();
         auto throttle = fw_info->get_thm_limit_throttle();
 

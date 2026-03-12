@@ -28,8 +28,9 @@ public:
 
     // [[nodiscard]] ensures the caller handles the software fallback
     // if the hardware does not support multicast.
+    // Returns true if the hardware multicast was performed, false if the caller must do a software unicast fallback.
     [[nodiscard]] virtual bool write_to_device_range(
-        void* mem_ptr, tt_xy_pair start, tt_xy_pair end, uint64_t addr, uint32_t size) = 0;
+        void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) = 0;
 };
 
 }  // namespace tt::umd

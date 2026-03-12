@@ -102,11 +102,6 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-namespace {
-constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
-}  // namespace
-
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {
         cached_dma_tlb_window_ =
@@ -123,6 +118,8 @@ void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, cons
         throw std::runtime_error("DMA is not supported on Blackhole.");
     }
 
+    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -200,6 +197,8 @@ void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, cons
         throw std::runtime_error("DMA is not supported on Blackhole.");
     }
 
+    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;

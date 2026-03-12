@@ -94,9 +94,7 @@ bool ClusterDescriptor::is_chip_remote(const ChipId chip_id) const { return !is_
 
 // Returns the closest mmio chip to the given chip.
 ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
-    // log_debug(LogUMD, "get_closest_mmio_chip to chip{}", chip);
-
-    return 0;
+    log_debug(LogUMD, "get_closest_mmio_chip to chip{}", chip);
 
     if (this->is_chip_mmio_capable(chip)) {
         return chip;

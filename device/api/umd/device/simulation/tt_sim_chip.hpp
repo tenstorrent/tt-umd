@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <filesystem>
 
-#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
@@ -41,7 +40,7 @@ public:
 
     TTDevice* get_tt_device() override { return tt_device_.get(); }
 
-    TLBManager* get_tlb_manager() override { return tt_device_->get_tlb_manager(); }
+    TLBManager* get_tlb_manager() override;
 
 private:
     void create_simulator_binary();

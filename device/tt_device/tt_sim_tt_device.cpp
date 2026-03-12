@@ -33,7 +33,7 @@ TTSimTTDevice::TTSimTTDevice(
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels)) {
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -235,16 +235,12 @@ void TTSimTTDevice::initialize_sysmem_functions() {
 }
 
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
-    std::cout << "pci_dma_read_bytes: paddr=0x" << std::hex << paddr << " size=" << std::dec << size << std::endl;
-    throw std::runtime_error("PCI DMA write is not supported in TTSim simulation device.");
     uint64_t channel = paddr / (1ULL << 30);
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->read_from_sysmem(channel, p, offset, size);
 }
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
-    std::cout << "pci_dma_write_bytes: paddr=0x" << std::hex << paddr << " size=" << std::dec << size << std::endl;
-    throw std::runtime_error("PCI DMA write is not supported in TTSim simulation device.");
     uint64_t channel = paddr / (1ULL << 30);
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->write_to_sysmem(channel, p, offset, size);
@@ -276,5 +272,7 @@ TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in TTSim device.");
 }
+
+TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

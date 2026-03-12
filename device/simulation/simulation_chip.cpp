@@ -44,7 +44,7 @@ SimulationChip::SimulationChip(
         TT_THROW("Simulator binary not found at: {}", simulator_directory_);
     }
 
-    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);
+    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch);
 }
 
 // Base class implementations (common simple methods).

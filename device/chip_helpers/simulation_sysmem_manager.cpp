@@ -22,6 +22,7 @@
 namespace tt::umd {
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) {
+    pcie_base_ = 0x800000000;
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 

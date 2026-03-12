@@ -398,6 +398,104 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, visible_chips);
     }
 
+    // When TT_VISIBLE_DEVICES filters to a subset (e.g. mock clusters), remap chip IDs to 0-based consecutive
+    // indices. This matches silicon behavior where the cluster assigns logical IDs starting from 0.
+    if (visible_chips.size() < full_cluster_desc->get_all_chips().size()) {
+        std::vector<ChipId> ordered_chips = desc->get_chips_local_first(visible_chips);
+        std::unordered_map<ChipId, ChipId> old_to_new;
+        for (size_t i = 0; i < ordered_chips.size(); i++) {
+            old_to_new[ordered_chips[i]] = static_cast<ChipId>(i);
+        }
+
+        auto remapped = std::make_unique<ClusterDescriptor>();
+        remapped->io_device_type = desc->io_device_type;
+        remapped->eth_fw_version = desc->eth_fw_version;
+        remapped->fw_bundle_version = desc->fw_bundle_version;
+
+        for (const auto &[old_id, new_id] : old_to_new) {
+            remapped->all_chips.insert(new_id);
+            if (desc->chip_locations.count(old_id)) {
+                remapped->chip_locations[new_id] = desc->chip_locations.at(old_id);
+            }
+            if (desc->chips_with_mmio.count(old_id)) {
+                ChipId mmio_val = desc->chips_with_mmio.at(old_id);
+                remapped->chips_with_mmio[new_id] =
+                    old_to_new.count(mmio_val) ? old_to_new.at(mmio_val) : new_id;
+            }
+            if (desc->chip_board_type.count(old_id)) {
+                remapped->chip_board_type[new_id] = desc->chip_board_type.at(old_id);
+            }
+            if (desc->chip_arch.count(old_id)) {
+                remapped->chip_arch[new_id] = desc->chip_arch.at(old_id);
+            }
+            if (desc->chip_unique_ids.count(old_id)) {
+                remapped->chip_unique_ids[new_id] = desc->chip_unique_ids.at(old_id);
+            }
+            if (desc->noc_translation_enabled.count(old_id)) {
+                remapped->noc_translation_enabled[new_id] = desc->noc_translation_enabled.at(old_id);
+            }
+            if (desc->chip_to_bus_id.count(old_id)) {
+                remapped->chip_to_bus_id[new_id] = desc->chip_to_bus_id.at(old_id);
+            }
+            if (desc->chip_pci_bdfs.count(old_id)) {
+                remapped->chip_pci_bdfs[new_id] = desc->chip_pci_bdfs.at(old_id);
+            }
+            if (desc->harvesting_masks_map.count(old_id)) {
+                remapped->harvesting_masks_map[new_id] = desc->harvesting_masks_map.at(old_id);
+            }
+            if (desc->asic_locations.count(old_id)) {
+                remapped->asic_locations[new_id] = desc->asic_locations.at(old_id);
+            }
+            if (desc->active_eth_channels.count(old_id)) {
+                remapped->active_eth_channels[new_id] = desc->active_eth_channels.at(old_id);
+            }
+            if (desc->idle_eth_channels.count(old_id)) {
+                remapped->idle_eth_channels[new_id] = desc->idle_eth_channels.at(old_id);
+            }
+        }
+
+        for (const auto &[chip_id, board_id] : desc->chip_to_board_id) {
+            ChipId new_id = old_to_new.at(chip_id);
+            remapped->chip_to_board_id[new_id] = board_id;
+            remapped->board_to_chips[board_id].insert(new_id);
+        }
+
+        for (const auto &[chip_id, eth_conns] : desc->ethernet_connections) {
+            ChipId new_chip_id = old_to_new.at(chip_id);
+            for (const auto &[eth_id, conn] : eth_conns) {
+                ChipId new_remote_id = old_to_new.at(std::get<0>(conn));
+                remapped->ethernet_connections[new_chip_id][eth_id] = {new_remote_id, std::get<1>(conn)};
+            }
+        }
+
+        for (const auto &[chip_id, remote_conns] : desc->ethernet_connections_to_remote_devices) {
+            ChipId new_chip_id = old_to_new.at(chip_id);
+            for (const auto &[eth_id, remote] : remote_conns) {
+                remapped->ethernet_connections_to_remote_devices[new_chip_id][eth_id] = remote;
+            }
+        }
+
+        for (const auto &[rack_id, shelf_map] : desc->coords_to_chip_ids) {
+            for (const auto &[shelf_id, y_map] : shelf_map) {
+                for (const auto &[y_dim, x_map] : y_map) {
+                    for (const auto &[x_dim, chip_id] : x_map) {
+                        remapped->coords_to_chip_ids[rack_id][shelf_id][y_dim][x_dim] = old_to_new.at(chip_id);
+                    }
+                }
+            }
+        }
+
+        for (const auto &[chip_id, chip_group] : desc->chips_grouped_by_closest_mmio) {
+            ChipId new_chip_id = old_to_new.at(chip_id);
+            for (ChipId g : chip_group) {
+                remapped->chips_grouped_by_closest_mmio[new_chip_id].insert(old_to_new.at(g));
+            }
+        }
+
+        remapped->verify_cluster_descriptor_info();
+        return remapped;
+    }
+
     return desc;
 }
 

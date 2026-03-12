@@ -6,6 +6,8 @@
 
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
+#include <stdexcept>
+
 #include "umd/device/pcie/pci_device.hpp"
 
 namespace tt::umd {

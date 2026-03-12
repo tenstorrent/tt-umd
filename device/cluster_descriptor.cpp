@@ -419,8 +419,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
             }
             if (desc->chips_with_mmio.count(old_id)) {
                 ChipId mmio_val = desc->chips_with_mmio.at(old_id);
-                remapped->chips_with_mmio[new_id] =
-                    old_to_new.count(mmio_val) ? old_to_new.at(mmio_val) : new_id;
+                remapped->chips_with_mmio[new_id] = old_to_new.count(mmio_val) ? old_to_new.at(mmio_val) : new_id;
             }
             if (desc->chip_board_type.count(old_id)) {
                 remapped->chip_board_type[new_id] = desc->chip_board_type.at(old_id);

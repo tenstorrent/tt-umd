@@ -12,7 +12,7 @@
 
 namespace tt::umd {
 
-JtagProtocol::JtagProtocol(std::shared_ptr<JtagDevice> jtag_device, [[maybe_unused]] uint8_t jlink_id) :
+JtagProtocol::JtagProtocol(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     jtag_device_(std::move(jtag_device)) {}
 
 void JtagProtocol::write_to_device(const void*, tt_xy_pair, uint64_t, uint32_t) {

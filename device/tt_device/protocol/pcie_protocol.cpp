@@ -67,9 +67,9 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 bool PcieProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
 void PcieProtocol::noc_multicast_write(
-    void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     std::lock_guard<std::mutex> lock(io_lock_);
-    get_cached_tlb_window()->noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, tlb_data::Strict);
+    get_cached_tlb_window()->noc_multicast_write_reconfigure(src, size, core_start, core_end, addr, tlb_data::Strict);
 }
 
 void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {

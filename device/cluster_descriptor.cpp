@@ -968,8 +968,10 @@ std::string ClusterDescriptor::serialize() const {
     out << YAML::Key << "chip_to_bus_id" << YAML::Value << YAML::BeginMap;
     std::map<ChipId, uint16_t> sorted_chip_to_bus_id(chip_to_bus_id.begin(), chip_to_bus_id.end());
     for (const auto &[chip, bus_id] : sorted_chip_to_bus_id) {
-        std::string hex_bus_id = fmt::format("\"0x{:04x}\"", bus_id);
-        out << YAML::Key << chip << YAML::Value << hex_bus_id;
+        std::string hex_bus_id = fmt::format("{:#04x}", bus_id);
+        // Add double quotes to ensure value is string to conform to schema.
+        // Value needs to be string so the 0x prefix can be enforced.
+        out << YAML::Key << chip << YAML::Value << YAML::DoubleQuoted << hex_bus_id;
     }
     out << YAML::EndMap;
 

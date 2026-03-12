@@ -5,9 +5,9 @@
  */
 #pragma once
 
-class JtagDevice;
-
 namespace tt::umd {
+
+class JtagDevice;
 
 /**
  * JtagInterface defines JTAG-specific operations beyond the basic DeviceProtocol.

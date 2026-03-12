@@ -10,9 +10,9 @@
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 
-class JtagDevice;
-
 namespace tt::umd {
+
+class JtagDevice;
 
 /**
  * JtagProtocol implements DeviceProtocol and JtagInterface for JTAG-connected devices.

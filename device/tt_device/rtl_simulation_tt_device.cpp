@@ -159,6 +159,14 @@ void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, siz
     TT_THROW("dma_h2d_zero_copy not supported for RTL simulation");
 }
 
+void RtlSimulationTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
 void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     TT_THROW("read_from_arc_apb not supported for RTL simulation");
 }
@@ -211,6 +219,10 @@ bool RtlSimulationTTDevice::get_noc_translation_enabled() {
 void RtlSimulationTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     TT_THROW("dma_multicast_write not supported for RTL simulation");
+}
+
+void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
 }
 
 }  // namespace tt::umd

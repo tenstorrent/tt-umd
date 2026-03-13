@@ -320,6 +320,56 @@ TEST(ApiClusterDescriptorOfflineTest, RemoteEthernetConnectionsPreservedWhenCons
     }
 }
 
+TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFiltering) {
+    // Load T3K cluster descriptor (8 chips: 0-7) and filter to chip 0 only.
+    // Chip 0 has connections to chips 1, 2, and 4.
+    // After filtering (with board expansion), chip 1 will also be visible (same board as 0).
+    // Connections from visible chips to non-visible chips (2-7, except 1) should become remote connections.
+    std::unique_ptr<ClusterDescriptor> full_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+    ASSERT_NE(full_desc, nullptr);
+
+    std::unordered_set<ChipId> target_chips = {0};
+    std::unique_ptr<ClusterDescriptor> constrained_desc =
+        ClusterDescriptor::create_constrained_cluster_descriptor(full_desc.get(), target_chips);
+    ASSERT_NE(constrained_desc, nullptr);
+
+    // Get actual visible chips after filtering (may include board expansion).
+    std::unordered_set<ChipId> visible_chips = constrained_desc->get_all_chips();
+    ASSERT_FALSE(visible_chips.empty()) << "Should have at least one visible chip";
+
+    const auto& constrained_local = constrained_desc->get_ethernet_connections();
+    const auto& constrained_remote = constrained_desc->get_ethernet_connections_to_remote_devices();
+    const auto& chip_unique_ids = full_desc->get_chip_unique_ids();
+
+    // Verify connections from visible chips to non-visible chips are converted to remote connections.
+    for (const auto& [chip_id, connections] : full_desc->get_ethernet_connections()) {
+        if (visible_chips.count(chip_id) == 0) {
+            continue;
+        }
+        for (const auto& [eth_channel, remote_chip_and_channel] : connections) {
+            ChipId remote_chip = std::get<0>(remote_chip_and_channel);
+            if (visible_chips.count(remote_chip) == 0) {
+                // Should be converted to remote connection with correct unique_id.
+                ASSERT_TRUE(constrained_remote.find(chip_id) != constrained_remote.end())
+                    << "Chip " << chip_id << " should have remote connections";
+                ASSERT_TRUE(constrained_remote.at(chip_id).find(eth_channel) != constrained_remote.at(chip_id).end())
+                    << "Connection from chip " << chip_id << " channel " << eth_channel << " to non-visible chip "
+                    << remote_chip << " should be in remote connections";
+                auto [remote_unique_id, remote_channel] = constrained_remote.at(chip_id).at(eth_channel);
+                EXPECT_EQ(remote_unique_id, chip_unique_ids.at(remote_chip))
+                    << "Remote unique_id should match chip_unique_ids";
+            } else {
+                // Should remain as local connection.
+                ASSERT_TRUE(constrained_local.find(chip_id) != constrained_local.end())
+                    << "Chip " << chip_id << " should have local connections";
+                EXPECT_TRUE(constrained_local.at(chip_id).find(eth_channel) != constrained_local.at(chip_id).end())
+                    << "Connection between visible chips should remain local";
+            }
+        }
+    }
+}
+
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
     for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
         log_info(LogUMD, "Testing mock cluster creation from: {}", descriptor_file);

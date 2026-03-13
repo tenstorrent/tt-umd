@@ -52,6 +52,15 @@ struct TopologyDiscoveryOptions {
     Action unexpected_routing_firmware_config = Action::THROW;
 
     /**
+     * @brief Action to take when Ethernet firmware heartbeat check fails.
+     * The Ethernet firmware check is done on every ETH core on a device.
+     * This means that Ethernet firmware on a particular core has crashed and cannot serve I/O.
+     * If set to IGNORE, discovery from this core is skipped as it is certain not to be possible.
+     * Defaults to THROW.
+     */
+    Action eth_fw_heartbeat_failure = Action::THROW;
+
+    /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.
      * If false, only locally connected devices will be discovered.
      * Defaults to true.
@@ -73,16 +82,10 @@ struct TopologyDiscoveryOptions {
     bool perform_eth_fw_hash_check = false;
 
     /**
-     * @brief Controls how to determine the expect ETH FW version on Blackhole.
-     * Blackhole does not provide ETH FW version in ARC telemetry.
-     * This option has no effect on Wormhole.
-     * Used only for tt-exalens tests that break ETH FW.
-     * If set to true, the expected ETH FW version will be determined by observing the CMFW version.
-     * If set to false, the expected ETH FW version will be determined by reading the ETH FW version
-     * from the first observed ETH core during discovery. Defaults to false.
-     * TODO: This option should be removed once ETH FW hearbeat checks are implemented, because
-     * that will be used to check ETH core health instead of ETH FW version value.
+     * @brief If true, enables Ethernet link retraining on 6U machines when training fails.
+     * When enabled, failed Ethernet links will be retrained up to a configured number of attempts.
+     * Defaults to false.
      */
-    bool predict_eth_fw_version_from_cmfw_version = false;
+    bool perform_6u_eth_retrain = false;
 };
 }  // namespace tt::umd

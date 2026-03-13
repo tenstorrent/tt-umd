@@ -42,6 +42,17 @@ public:
         return SemVer(major, minor, patch);
     }
 
+    /*
+     * Create a SemVer from a 32-bit integer by unpacking the following bits:
+     * 0xAAAABBCC where A is major, B is minor and C is patch.
+     */
+    static SemVer from_blackhole_eth_firmware_tag(std::uint32_t version) {
+        uint64_t major = (version >> 16) & 0xFFFF;
+        uint64_t minor = (version >> 8) & 0xFF;
+        uint64_t patch = version & 0xFF;
+        return SemVer(major, minor, patch);
+    }
+
     SemVer(const std::string& version_str) : SemVer(parse(version_str)) {}
 
     std::string str() const {

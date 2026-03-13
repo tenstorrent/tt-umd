@@ -541,20 +541,32 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
 
         // ERISC FW might take a long time to start up after warm reset.
         // The value being read is 0 until ERISC FW starts.
-        if (current_reading != 0 && previous_reading != 0) {
-            // Heartbeat must be in the format 0xABCDxxxx.
-            if ((current_reading >> 16) != 0xABCD) {
-                log_warning(
-                    LogUMD,
-                    "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
-                    current_reading,
-                    eth_core.str());
+        if (current_reading == 0 && previous_reading == 0) {
+            if (utils::check_timeout(
+                    start,
+                    timeout::ETH_STARTUP_TIMEOUT,
+                    "Timed out waiting for ETH heartbeat.",
+                    utils::TimeoutAction::Return)) {
                 return false;
             }
-            if (previous_reading != current_reading) {
-                return true;
-            }
+            previous_reading = current_reading;
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            continue;
         }
+
+        // Heartbeat must be in the format 0xABCDxxxx.
+        if ((current_reading >> 16) != 0xABCD) {
+            log_warning(
+                LogUMD,
+                "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+                current_reading,
+                eth_core.str());
+            return false;
+        }
+        if (previous_reading != current_reading) {
+            return true;
+        }
+
         if (utils::check_timeout(
                 start,
                 timeout::ETH_STARTUP_TIMEOUT,
@@ -566,7 +578,6 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
 
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
-    return false;
 }
 
 }  // namespace tt::umd

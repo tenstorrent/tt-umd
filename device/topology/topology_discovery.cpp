@@ -536,7 +536,7 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
     const auto start = std::chrono::steady_clock::now();
     uint32_t previous_reading = 0;
-    // First loop: Wait until heartbeat is non-zero.
+    // First loop: Wait until heartbeat changes from 0 (post reset).
     while (true) {
         uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
 
@@ -559,7 +559,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 
-    // Second loop: Wait for heartbeat to change (up to 10ms).
+    // Second loop: Wait for heartbeat to change.
     const auto second_start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);

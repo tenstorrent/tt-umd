@@ -291,6 +291,14 @@ enum class DramTrainingStatus : uint8_t {
     SUCCESS = 2,
 };
 
+// Represents the status of the ETH core.
+enum class EthTrainingStatus {
+    IN_PROGRESS = 0,
+    SUCCESS = 1,
+    FAIL = 2,
+    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
+};
+
 inline std::string dram_training_status_to_str(DramTrainingStatus status) {
     switch (status) {
         case DramTrainingStatus::IN_PROGRESS:

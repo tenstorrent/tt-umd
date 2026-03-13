@@ -4,9 +4,13 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
 #include <mutex>
+#include <queue>
+#include <thread>
 
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -125,15 +129,42 @@ public:
      */
     SimulationHost &get_host() { return host_; }
 
+    // Structure for received messages queued by the notification thread.
+    struct ReceivedMessage {
+        void *data = nullptr;
+        size_t size = 0;
+    };
+
 private:
+    // Wait for a regular command response from the command queue.
+    ReceivedMessage wait_for_command_response();
+
+    // Notification handler thread entry point.
+    void notification_handler_thread();
+
+    // Handle AXI RAM write notification from the simulator.
+    void handle_ram_write_notification(const void *notification);
+
+    // Handle AXI RAM read notification from the simulator.
+    void handle_ram_read_notification(const void *notification);
+
     // Simulator directory path.
     std::filesystem::path simulator_directory_;
 
     // Simulation host for communication.
     SimulationHost host_;
 
-    // Thread safety.
+    // Thread safety for send operations.
     mutable std::mutex device_lock_;
+
+    // Notification handler thread.
+    std::thread notification_thread_;
+    std::atomic<bool> notification_thread_running_{false};
+
+    // Queue for regular command responses (non-notification messages).
+    std::queue<ReceivedMessage> command_queue_;
+    std::mutex command_queue_mutex_;
+    std::condition_variable command_queue_cv_;
 };
 
 }  // namespace tt::umd

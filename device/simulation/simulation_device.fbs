@@ -11,6 +11,9 @@ enum DEVICE_COMMAND : byte {
     ALL_NEO_DMS_RESET_ASSERT = 7,
     NEO_DM_RESET_ASSERT = 8,
     NEO_DM_RESET_DEASSERT = 9,
+    // AXI RAM notifications (remote → host).
+    AXI_RAM_WRITE_NOTIFICATION = 10,
+    AXI_RAM_READ_NOTIFICATION = 11,
 }
 
 struct tt_vcs_core {

@@ -97,3 +97,33 @@ You can run the following for more information:
 ```
 ./build/tools/umd/warm_reset --help
 ```
+
+## Lock Virus tool
+
+The lock virus tool inspects all UMD shared-memory locks present in `/dev/shm` and
+reports their state. For each lock it reports whether it is free or held, and if
+held, the PID and TID of the owning thread. It also enumerates all PCIe devices
+and cross-checks against the set of locks that should exist for each device,
+reporting any that are missing (i.e. UMD has not yet been used with that device
+since the last reboot).
+
+You can run the following for more information:
+```
+./build/tools/umd/lock_virus --help
+```
+
+Example output:
+```
+=== UMD locks found in /dev/shm (8) ===
+  [ARC_MSG                                      ]  FREE
+  [ARC_MSG_0_PCIe                               ]  LOCKED  PID=12345 TID=12345
+  [CHIP_IN_USE_0_PCIe                           ]  LOCKED  PID=12345 TID=12346
+  [MEM_BARRIER_0_PCIe                           ]  FREE
+  ...
+
+=== PCIe devices found (1) ===
+  device 0
+
+=== Expected locks missing from /dev/shm (1) ===
+  [MISSING]  NON_MMIO_0_PCIe
+```

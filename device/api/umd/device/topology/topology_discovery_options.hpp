@@ -58,7 +58,7 @@ struct TopologyDiscoveryOptions {
      * If set to IGNORE, discovery from this core is skipped as it is certain not to be possible.
      * Defaults to THROW.
      */
-    Action eth_fw_heartbeat_failure = Action::THROW;
+    Action eth_fw_heartbeat_failure = Action::IGNORE;
 
     /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.

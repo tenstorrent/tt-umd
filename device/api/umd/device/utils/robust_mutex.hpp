@@ -6,8 +6,11 @@
 
 #include <pthread.h>
 
+#include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <utility>
 
 namespace tt::umd {
 
@@ -20,6 +23,9 @@ namespace tt::umd {
 // and the new one tries to initialize it with the new pthread.
 class RobustMutex {
 public:
+    // Prefix used for shared memory files backing each mutex.
+    static constexpr std::string_view SHM_FILE_PREFIX = "TT_UMD_LOCK.";
+
     RobustMutex(std::string_view mutex_name);
     ~RobustMutex() noexcept;
 
@@ -38,9 +44,19 @@ public:
     RobustMutex(const RobustMutex&) = delete;
     RobustMutex& operator=(const RobustMutex&) = delete;
 
-    // Locks and unlocks the mutex.
-    void unlock();
+    // Locks the mutex, blocking indefinitely.  Uses a 1-second timed attempt first so that a
+    // warning can be emitted when the lock is contended before blocking without a timeout.
     void lock();
+
+    // Unlocks the mutex.
+    void unlock();
+
+    // Attempts to acquire the lock and returns immediately if timeout is zero (default), or waits
+    // up to `timeout` seconds before giving up.
+    // Returns std::nullopt if the lock was acquired successfully.
+    // Returns {owner_pid, owner_tid} if the lock is held by another thread/process (EBUSY/ETIMEDOUT).
+    // On EOWNERDEAD the dead owner's lock is recovered, the mutex is acquired, and nullopt is returned.
+    std::optional<std::pair<pid_t, pid_t>> try_lock(std::chrono::seconds timeout = std::chrono::seconds(0));
 
 private:
     // A wrapper which holds the flag for whether the mutex has been initialized or not,
@@ -70,6 +86,9 @@ private:
 
     // Performs initialization for the first time pthread mutex use.
     void initialize_pthread_mutex_first_use();
+
+    // Sets owner TID/PID to the calling thread and annotates for TSAN.
+    void record_acquisition();
 
     // Used for critical section needed during initialization.
     static pthread_mutex_t multithread_mutex_;

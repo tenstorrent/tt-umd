@@ -87,6 +87,17 @@ set_target_properties(
             warm_reset
 )
 
+add_executable(lock_virus lock_virus.cpp)
+target_link_libraries(lock_virus PRIVATE tools_common)
+set_target_properties(
+    lock_virus
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            lock_virus
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -96,4 +107,5 @@ add_custom_target(
         system_health
         warm_reset
         tlb_virus
+        lock_virus
 )

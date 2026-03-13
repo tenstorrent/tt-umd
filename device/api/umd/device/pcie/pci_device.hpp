@@ -159,7 +159,7 @@ public:
      *
      * @param pci_device_number     N in /dev/tenstorrent/N
      */
-    PCIDevice(int pci_device_number);
+    PCIDevice(int pci_device_number, bool low_power = false);
 
     /**
      * PCIDevice destructor.

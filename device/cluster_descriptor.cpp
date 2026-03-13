@@ -196,6 +196,162 @@ std::unordered_set<ChipId> filter_chip_collection(
     return filtered_collection;
 }
 
+namespace {
+template <typename Map>
+void remap_map_keys(Map &dst, const Map &src, const std::unordered_map<ChipId, ChipId> &old_to_new) {
+    for (const auto &[k, v] : src) {
+        auto it = old_to_new.find(k);
+        if (it != old_to_new.end()) {
+            dst.emplace(it->second, v);
+        }
+    }
+}
+}  // namespace
+
+void ClusterDescriptor::apply_chip_id_remapping(
+    ClusterDescriptor *remapped, const ClusterDescriptor *desc, const std::unordered_map<ChipId, ChipId> &old_to_new) {
+    remap_map_keys(remapped->chip_locations, desc->chip_locations, old_to_new);
+    remap_map_keys(remapped->chip_board_type, desc->chip_board_type, old_to_new);
+    remap_map_keys(remapped->chip_arch, desc->chip_arch, old_to_new);
+    remap_map_keys(remapped->chip_unique_ids, desc->chip_unique_ids, old_to_new);
+    remap_map_keys(remapped->noc_translation_enabled, desc->noc_translation_enabled, old_to_new);
+    remap_map_keys(remapped->chip_to_bus_id, desc->chip_to_bus_id, old_to_new);
+    remap_map_keys(remapped->chip_pci_bdfs, desc->chip_pci_bdfs, old_to_new);
+    remap_map_keys(remapped->harvesting_masks_map, desc->harvesting_masks_map, old_to_new);
+    remap_map_keys(remapped->asic_locations, desc->asic_locations, old_to_new);
+    remap_map_keys(remapped->active_eth_channels, desc->active_eth_channels, old_to_new);
+    remap_map_keys(remapped->idle_eth_channels, desc->idle_eth_channels, old_to_new);
+    remap_map_keys(
+        remapped->ethernet_connections_to_remote_devices, desc->ethernet_connections_to_remote_devices, old_to_new);
+
+    // chips_with_mmio: value (mmio chip ID) also needs remapping; fallback to self if not found
+    for (const auto &[old_id, mmio_val] : desc->chips_with_mmio) {
+        auto it = old_to_new.find(old_id);
+        if (it != old_to_new.end()) {
+            ChipId new_mmio = old_to_new.count(mmio_val) ? old_to_new.at(mmio_val) : it->second;
+            remapped->chips_with_mmio.emplace(it->second, new_mmio);
+        }
+    }
+
+    // chip_to_board_id + board_to_chips
+    remap_map_keys(remapped->chip_to_board_id, desc->chip_to_board_id, old_to_new);
+    for (const auto &[chip_id, board_id] : remapped->chip_to_board_id) {
+        remapped->board_to_chips[board_id].insert(chip_id);
+    }
+
+    // ethernet_connections: remap keys and remote_chip_id in each connection
+    for (const auto &[chip_id, eth_conns] : desc->ethernet_connections) {
+        auto it = old_to_new.find(chip_id);
+        if (it == old_to_new.end()) {
+            continue;
+        }
+        ChipId new_chip_id = it->second;
+        for (const auto &[eth_id, conn] : eth_conns) {
+            remapped->ethernet_connections[new_chip_id][eth_id] = {old_to_new.at(std::get<0>(conn)), std::get<1>(conn)};
+        }
+    }
+
+    // coords_to_chip_ids: remap leaf chip IDs
+    for (const auto &[rack_id, shelf_map] : desc->coords_to_chip_ids) {
+        for (const auto &[shelf_id, y_map] : shelf_map) {
+            for (const auto &[y_dim, x_map] : y_map) {
+                for (const auto &[x_dim, chip_id] : x_map) {
+                    remapped->coords_to_chip_ids[rack_id][shelf_id][y_dim][x_dim] = old_to_new.at(chip_id);
+                }
+            }
+        }
+    }
+
+    // chips_grouped_by_closest_mmio: remap keys and set elements
+    for (const auto &[chip_id, chip_group] : desc->chips_grouped_by_closest_mmio) {
+        auto it = old_to_new.find(chip_id);
+        if (it == old_to_new.end()) {
+            continue;
+        }
+        ChipId new_chip_id = it->second;
+        for (ChipId g : chip_group) {
+            remapped->chips_grouped_by_closest_mmio[new_chip_id].insert(old_to_new.at(g));
+        }
+    }
+}
+
+std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_devices(
+    const ClusterDescriptor *full_cluster_desc) {
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return full_cluster_desc->get_all_chips();
+    }
+
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::unordered_set<ChipId> target_chip_ids;
+
+    auto chip_bdfs = full_cluster_desc->get_chip_pci_bdfs();
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = utils::is_bdf_string(device_token);
+
+        if (is_bdf) {
+            bool matched_bdf_pattern = false;
+            for (const auto &[chip, bdf] : chip_bdfs) {
+                if (bdf == device_token) {
+                    target_chip_ids.insert(chip);
+                    log_debug(LogUMD, "Added chip id {} with BDF {}.", chip, device_token);
+                    matched_bdf_pattern = true;
+                }
+            }
+            if (!matched_bdf_pattern) {
+                TT_THROW(
+                    "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
+                    device_token);
+            }
+            continue;
+        }
+
+        bool is_integer = utils::is_integer_string(device_token);
+
+        if (is_integer) {
+            if (std::find(
+                    full_cluster_desc->get_all_chips().begin(),
+                    full_cluster_desc->get_all_chips().end(),
+                    std::stoi(device_token)) != full_cluster_desc->get_all_chips().end()) {
+                target_chip_ids.insert(std::stoi(device_token));
+                log_debug(
+                    LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
+            } else {
+                TT_THROW(
+                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
+                    "the cluster.",
+                    device_token);
+            }
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
+        }
+    }
+
+    return target_chip_ids;
+}
+
+std::unordered_set<ChipId> ClusterDescriptor::get_chips_from_same_boards(
+    const std::unordered_set<ChipId> &chips) const {
+    std::unordered_set<ChipId> chips_from_same_boards;
+    for (const auto &chip_id : chips) {
+        uint64_t board_id = get_board_id_for_chip(chip_id);
+        std::unordered_set<ChipId> chips_on_same_board = get_board_chips(board_id);
+        chips_from_same_boards.insert(chips_on_same_board.begin(), chips_on_same_board.end());
+    }
+    return chips_from_same_boards;
+}
+
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
     const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids) {
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
@@ -278,6 +434,29 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         }
 
         desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, target_chip_ids);
+    }
+
+    // When TT_VISIBLE_DEVICES filters to a subset (e.g. mock clusters), remap chip IDs to 0-based consecutive
+    // indices. This matches silicon behavior where the cluster assigns logical IDs starting from 0.
+    if (visible_chips.size() < full_cluster_desc->get_all_chips().size()) {
+        std::vector<ChipId> ordered_chips = desc->get_chips_local_first(visible_chips);
+        std::unordered_map<ChipId, ChipId> old_to_new;
+        for (size_t i = 0; i < ordered_chips.size(); i++) {
+            old_to_new[ordered_chips[i]] = static_cast<ChipId>(i);
+        }
+
+        auto remapped = std::make_unique<ClusterDescriptor>();
+        remapped->io_device_type = desc->io_device_type;
+        remapped->eth_fw_version = desc->eth_fw_version;
+        remapped->fw_bundle_version = desc->fw_bundle_version;
+
+        for (const auto &[old_id, new_id] : old_to_new) {
+            remapped->all_chips.insert(new_id);
+        }
+        apply_chip_id_remapping(remapped.get(), desc.get(), old_to_new);
+
+        remapped->verify_cluster_descriptor_info();
+        return remapped;
     }
 
     return desc;

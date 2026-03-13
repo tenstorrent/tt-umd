@@ -872,7 +872,7 @@ void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_dev
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
-    int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
+    int fd = open_pci_device(fmt::format("/dev/tenstorrent/{}", pci_device_num));
     if (fd == -1) {
         TT_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
     }
@@ -1014,6 +1014,7 @@ bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_
 
 void PCIDevice::set_power_state(bool busy) {
     if (kmd_version < KMD_POWER_STATE) {
+        log_warning(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
         return;
     }
 

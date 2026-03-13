@@ -68,7 +68,7 @@ int tt_device_open(const char* chardev_path, tt_device_t** out_dev) {
         return -ENOMEM;
     }
 
-    dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC);
+    dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC | O_APPEND);
     if (dev->fd == -1) {
         int e = errno;
         free(dev);

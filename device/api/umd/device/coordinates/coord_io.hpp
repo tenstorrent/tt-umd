@@ -26,6 +26,8 @@ public:
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
 
+    const SocDescriptor& get_soc_descriptor() const { return soc_descriptor_; }
+
 private:
     TTDevice* tt_device_ = nullptr;
     SocDescriptor soc_descriptor_;

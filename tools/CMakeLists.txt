@@ -87,6 +87,17 @@ set_target_properties(
             warm_reset
 )
 
+add_executable(eth_info eth_info.cpp)
+target_link_libraries(eth_info PRIVATE tools_common)
+set_target_properties(
+    eth_info
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            eth_info
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -96,4 +107,5 @@ add_custom_target(
         system_health
         warm_reset
         tlb_virus
+        eth_info
 )

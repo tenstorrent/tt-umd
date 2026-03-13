@@ -580,9 +580,9 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
 
         if (utils::check_timeout(
                 second_start,
-                std::chrono::milliseconds(10),
+                timeout::ETH_HEARTBEAT_TIMEOUT,
                 fmt::format(
-                    "Timed out waiting for ETH heartbeat on core {} to start. Stuck at {:#x} -> {:#x}",
+                    "Timed out waiting for ETH heartbeat on core {} to advance. Stuck at {:#x} -> {:#x}",
                     eth_core.str(),
                     previous_reading,
                     current_reading),
@@ -590,7 +590,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
             return false;
         }
 
-        std::this_thread::sleep_for(timeout::ETH_HEARTBEAT_TIMEOUT);
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 }
 

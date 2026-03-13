@@ -1,0 +1,90 @@
+# Run tooling tests (tt-smi etc.) on real hardware with the UMD wheel from the current branch.
+name: Run Tooling Tests
+
+on:
+  workflow_call:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
+      card:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
+      build-type:
+        required: true
+        type: string
+        default: Release
+      log-params:
+        required: false
+        type: string
+        default: ""
+
+env:
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+
+jobs:
+  test:
+    name: Run tooling tests (${{ inputs.card }}, ${{ inputs.ubuntu-docker-version }})
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - ${{ inputs.card }}
+    container:
+      image: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+
+    steps:
+      - name: Print all params
+        run: |
+          ${{ inputs.log-params }}
+          echo run-tooling-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo run-tooling-tests - card: ${{ inputs.card }}
+          echo run-tooling-tests - build-type: ${{ inputs.build-type }}
+
+      - name: Cleanup workspace directory from previous runs
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      - name: Use UMD wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ./
+
+      - name: Install tt-smi
+        run: pip install "tt-smi"
+
+      - name: Install UMD wheel
+        run: pip install tt_umd-*.whl --force-reinstall
+
+      # Textual provides App.run_test(headless=True) for testing TUIs without a real terminal.
+      # This discovers devices via UMD, initializes the tt-smi backend and app, renders one
+      # frame in headless mode, then quits — exercising the full startup path on real hardware.
+      - name: Run tt-smi
+        run: |
+          python3 - << 'EOF'
+          import asyncio
+          from tt_umd import TopologyDiscovery
+          from tt_smi.tt_smi import TTSMI
+          from tt_smi.tt_smi_backend import TTSMIBackend
+
+          cluster_descriptor, devices = TopologyDiscovery.discover()
+          backend = TTSMIBackend(devices=devices, umd_cluster_descriptor=cluster_descriptor, pretty_output=False)
+          app = TTSMI(backend=backend)
+
+          async def run():
+              async with app.run_test(headless=True) as pilot:
+                  await pilot.press("q")
+
+          asyncio.run(run())
+          print("tt-smi ran successfully")
+          EOF

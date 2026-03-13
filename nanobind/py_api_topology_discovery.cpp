@@ -78,7 +78,8 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
         .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
         .def_rw("perform_eth_fw_hash_check", &TopologyDiscoveryOptions::perform_eth_fw_hash_check)
-        .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain);
+        .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)
+        .def_rw("low_power", &TopologyDiscoveryOptions::low_power);
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

@@ -14,6 +14,7 @@
 #include <iostream>
 #include <set>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
@@ -69,8 +70,7 @@ static std::vector<std::string> scan_umd_locks() {
     while ((entry = readdir(dir)) != nullptr) {
         std::string name(entry->d_name);
         if (name.rfind(std::string(prefix), 0) == 0) {
-            // Strip the TT_UMD_LOCK. prefix to get the mutex name.
-            found.push_back(name.substr(prefix.size()));
+            found.push_back(name);
         }
     }
     closedir(dir);
@@ -80,22 +80,24 @@ static std::vector<std::string> scan_umd_locks() {
 
 // ── reporting ─────────────────────────────────────────────────────────────────
 
-static void report_lock(const std::string& mutex_name) {
+static void report_lock(const std::string& shm_name) {
+    // shm_name includes the TT_UMD_LOCK. prefix; RobustMutex wants the bare name.
+    const std::string mutex_name = shm_name.substr(RobustMutex::SHM_FILE_PREFIX.size());
     RobustMutex m(mutex_name);
     try {
         m.initialize();
     } catch (const std::exception& e) {
-        log_info(tt::LogUMD, "  [{:<45}]  ERROR initializing: {}", mutex_name, e.what());
+        log_info(tt::LogUMD, "  [{:<55}]  ERROR initializing: {}", shm_name, e.what());
         return;
     }
 
     if (auto owner = m.try_lock(std::chrono::seconds(0))) {
         // Optional has a value: lock is held by another thread/process.
-        log_info(tt::LogUMD, "  [{:<45}]  LOCKED  PID={} TID={}", mutex_name, owner->first, owner->second);
+        log_info(tt::LogUMD, "  [{:<55}]  LOCKED  PID={} TID={}", shm_name, owner->first, owner->second);
     } else {
         // nullopt: we acquired the lock — it was free.
         m.unlock();
-        log_info(tt::LogUMD, "  [{:<45}]  FREE", mutex_name);
+        log_info(tt::LogUMD, "  [{:<55}]  FREE", shm_name);
     }
 }
 
@@ -105,14 +107,38 @@ int main(int argc, char* argv[]) {
     cxxopts::Options options(
         "lock_virus",
         "Inspect all UMD shared-memory locks in /dev/shm and report their state.\n"
-        "Also enumerates PCIe devices and reports expected locks that are missing.");
+        "Also enumerates PCIe devices and reports expected locks that are missing.\n"
+        "\n"
+        "Testing mode: --hold-lock <name> acquires the named mutex and spins forever,\n"
+        "allowing lock_virus (run separately) to observe the lock as held.");
 
-    options.add_options()("h,help", "Print usage");
+    // clang-format off
+    options.add_options()
+        ("h,help",      "Print usage")
+        ("hold-lock",   "Acquire the named mutex and hold it indefinitely (for testing)",
+                        cxxopts::value<std::string>());
+    // clang-format on
 
     auto result = options.parse(argc, argv);
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
         return 0;
+    }
+
+    // ── Testing mode: hold a single lock and spin ─────────────────────────
+    if (result.count("hold-lock")) {
+        const std::string mutex_name = result["hold-lock"].as<std::string>();
+        RobustMutex m(mutex_name);
+        m.initialize();
+        if (auto owner = m.try_lock()) {
+            log_error(
+                tt::LogUMD, "Lock '{}' is already held by PID={} TID={}", mutex_name, owner->first, owner->second);
+            return 1;
+        }
+        log_info(tt::LogUMD, "Holding lock '{}' — press Ctrl-C to release.", mutex_name);
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
 
     try {
@@ -146,10 +172,14 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> expected_names;
         expected_names.reserve(SYSTEM_WIDE_MUTEX_NAMES.size() + device_ids.size() * CHIP_SPECIFIC_MUTEX_TYPES.size());
 
-        expected_names.insert(expected_names.end(), SYSTEM_WIDE_MUTEX_NAMES.begin(), SYSTEM_WIDE_MUTEX_NAMES.end());
+        static const std::string prefix(RobustMutex::SHM_FILE_PREFIX);
+        for (const auto& name : SYSTEM_WIDE_MUTEX_NAMES) {
+            expected_names.push_back(prefix + name);
+        }
         for (int id : device_ids) {
-            auto chip_names = chip_specific_mutex_names(id);
-            expected_names.insert(expected_names.end(), chip_names.begin(), chip_names.end());
+            for (const auto& name : chip_specific_mutex_names(id)) {
+                expected_names.push_back(prefix + name);
+            }
         }
 
         // ── 3. Report expected locks that are missing from /dev/shm ──────

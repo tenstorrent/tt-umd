@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <vector>
 
@@ -22,7 +23,7 @@ namespace tt::umd {
 class TTSimDeviceIOFixture : public ::testing::Test {
 protected:
     void SetUp() override {
-        const char* simulator_path = getenv("TT_UMD_SIMULATOR");
+        const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
         if (simulator_path == nullptr) {
             GTEST_SKIP() << "TT_UMD_SIMULATOR is not set. Skipping TTSim device IO tests.";
         }

@@ -548,7 +548,10 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
         if (utils::check_timeout(
                 start,
                 timeout::ETH_STARTUP_TIMEOUT,
-                "Timed out waiting for ETH heartbeat to start.",
+                fmt::format(
+                    "Timed out waiting for ETH heartbeat on core {} to start. Stuck at {:#x}",
+                    eth_core.str(),
+                    current_reading),
                 utils::TimeoutAction::Return)) {
             return false;
         }
@@ -565,7 +568,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
         if ((current_reading >> 16) != 0xABCD) {
             log_warning(
                 LogUMD,
-                "Read invalid heartbeat value: {} from ETH core: {}, FW possibly corrupted.",
+                "Read invalid heartbeat value: {:#x} from ETH core: {}, FW possibly corrupted.",
                 current_reading,
                 eth_core.str());
             return false;
@@ -578,12 +581,16 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
         if (utils::check_timeout(
                 second_start,
                 std::chrono::milliseconds(10),
-                "Timed out waiting for ETH heartbeat to change.",
+                fmt::format(
+                    "Timed out waiting for ETH heartbeat on core {} to start. Stuck at {:#x} -> {:#x}",
+                    eth_core.str(),
+                    previous_reading,
+                    current_reading),
                 utils::TimeoutAction::Return)) {
             return false;
         }
 
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
+        std::this_thread::sleep_for(timeout::ETH_HEARTBEAT_TIMEOUT);
     }
 }
 

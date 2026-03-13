@@ -36,11 +36,6 @@ public:
 
     SysmemManager* get_sysmem_manager() override { return tt_device_->get_sysmem_manager(); }
 
-    int get_num_host_channels() override;
-    int get_host_channel_size(std::uint32_t channel) override;
-    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
-    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
-
 private:
     std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };

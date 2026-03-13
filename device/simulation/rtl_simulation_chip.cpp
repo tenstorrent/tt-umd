@@ -65,21 +65,4 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
     tt_device_->deassert_risc_reset(translate_core, selected_riscs, staggered_start);
 }
 
-int RtlSimulationChip::get_num_host_channels() { return get_sysmem_manager()->get_num_host_mem_channels(); }
-
-int RtlSimulationChip::get_host_channel_size(std::uint32_t channel) {
-    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = get_sysmem_manager()->get_hugepage_mapping(channel);
-    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
-    return hugepage_map.mapping_size;
-}
-
-void RtlSimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    get_sysmem_manager()->write_to_sysmem(channel, src, sysmem_dest, size);
-}
-
-void RtlSimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    get_sysmem_manager()->read_from_sysmem(channel, dest, sysmem_src, size);
-}
-
 }  // namespace tt::umd

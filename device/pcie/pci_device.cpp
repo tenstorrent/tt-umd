@@ -421,7 +421,7 @@ PCIDevice::PCIDevice(int pci_device_number, bool low_power) :
             KMD_MAP_TO_NOC.to_string());
     }
 
-    int extra_flags = (low_power && kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+    int extra_flags = (low_power && arch == tt::ARCH::BLACKHOLE && kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {
@@ -1015,6 +1015,10 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
 
 void PCIDevice::set_power_state(bool busy) {
+    if (arch != tt::ARCH::BLACKHOLE) {
+        return;
+    }
+
     if (kmd_version < KMD_POWER_STATE) {
         log_warning(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
         return;

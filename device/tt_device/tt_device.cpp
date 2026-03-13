@@ -94,9 +94,6 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
         }
     }
 
-    SocDescriptor soc_desc_temp = SocDescriptor(get_arch(), get_chip_info());
-    coord_io_ = std::make_unique<CoordIO>(this, std::move(soc_desc_temp));
-
     try {
         arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     } catch (const std::runtime_error &e) {
@@ -112,6 +109,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     } catch (const std::runtime_error &e) {
         return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
     }
+    coord_io_ = std::make_unique<CoordIO>(this, SocDescriptor(get_arch(), get_chip_info()));
     return TTDeviceInitResult::SUCCESSFUL;
 }
 

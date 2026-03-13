@@ -68,7 +68,8 @@ private:
 
     int get_pcie_x_coordinate();
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number, IODeviceType device_type, bool use_safe_api, bool low_power);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

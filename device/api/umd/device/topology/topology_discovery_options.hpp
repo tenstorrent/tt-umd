@@ -87,5 +87,10 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool perform_6u_eth_retrain = false;
+
+    // Open devices in low-power mode. When true, devices are opened with O_APPEND
+    // to opt out of KMD legacy mode (KMD >= 2.6.0), allowing idle power reduction.
+    // Default is false (high-power / legacy mode) to preserve backward compatibility.
+    bool low_power = false;
 };
 }  // namespace tt::umd

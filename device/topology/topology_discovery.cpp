@@ -124,7 +124,8 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        std::unique_ptr<TTDevice> tt_device =
+            TTDevice::create(device_id, io_device_type, /*use_safe_api=*/false, options.low_power);
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(
                 LogUMD,

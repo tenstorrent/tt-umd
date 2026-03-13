@@ -65,7 +65,8 @@ protected:
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
 
 private:
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number, IODeviceType device_type, bool use_safe_api, bool low_power);
 
     bool is_hardware_hung() override;
 

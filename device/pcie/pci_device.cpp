@@ -386,19 +386,20 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
-static int open_pci_device(const std::string &device_path) {
+static int open_pci_device(const std::string &device_path, bool low_power = false) {
     // O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states.
+    // By default we open in legacy (high-power) mode to preserve backward compatibility.
     int flags = O_RDWR | O_CLOEXEC;
-    if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE) {
+    if (low_power && PCIDevice::read_kmd_version() >= KMD_POWER_STATE) {
         flags |= O_APPEND;
     }
     return open(device_path.c_str(), flags);
 }
 
-PCIDevice::PCIDevice(int pci_device_number) :
+PCIDevice::PCIDevice(int pci_device_number, bool low_power) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
+    pci_device_file_desc(open_pci_device(device_path, low_power)),
     info(read_device_info(pci_device_file_desc)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
@@ -420,7 +421,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
             KMD_MAP_TO_NOC.to_string());
     }
 
-    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle);
+    int extra_flags = (low_power && kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {
         if (tt_device_handle != nullptr) {

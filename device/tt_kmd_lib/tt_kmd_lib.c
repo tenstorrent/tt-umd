@@ -61,14 +61,14 @@ struct tt_dma_t {
     uint64_t noc;  /* NOC address (inside EP PCIe tile) */
 };
 
-int tt_device_open(const char* chardev_path, tt_device_t** out_dev) {
+int tt_device_open(const char* chardev_path, tt_device_t** out_dev, int extra_flags) {
     struct tt_device_t* dev = calloc(1, sizeof(struct tt_device_t));
 
     if (!dev) {
         return -ENOMEM;
     }
 
-    dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC | O_APPEND);
+    dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC | extra_flags);
     if (dev->fd == -1) {
         int e = errno;
         free(dev);

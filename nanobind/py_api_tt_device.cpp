@@ -417,6 +417,7 @@ void bind_tt_device(nb::module_ &m) {
             "create",
             &RtlSimulationTTDevice::create,
             nb::arg("simulator_directory"),
+            nb::arg("num_host_mem_channels") = 0,
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",

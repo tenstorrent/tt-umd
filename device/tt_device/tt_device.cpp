@@ -542,10 +542,52 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     }
 }
 
+void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
+    memcpy(dst, dma_buffer.buffer, size);
+}
+
+void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
+}
+
+void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
+}
+
+void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
+}
+
 TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
         cached_pcie_dma_tlb_window = std::make_unique<SiliconTlbWindow>(
-            get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+            get_pci_device()->allocate_tlb(get_pcie_dma_tlb_size(), TlbMapping::WC), config);
         return cached_pcie_dma_tlb_window.get();
     }
 

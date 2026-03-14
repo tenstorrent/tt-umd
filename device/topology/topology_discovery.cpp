@@ -197,6 +197,16 @@ void TopologyDiscovery::discover_remote_devices() {
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
 
+            if (is_eth_port_disabled(tt_device, eth_core)) {
+                log_debug(
+                    LogUMD,
+                    "Skipping disabled ETH core {} on device ASIC ID: {} (port_disable_mask bit {} is set)",
+                    eth_core.str(),
+                    current_device_asic_id,
+                    channel);
+                continue;
+            }
+
             if (!eth_heartbeat_running(tt_device, eth_core)) {
                 std::string msg = fmt::format(
                     "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",

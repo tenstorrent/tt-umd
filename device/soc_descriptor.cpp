@@ -217,7 +217,7 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
 }
 
 // Convenience wrapper around translate_chip_coord_to_translated that returns a CoreCoord
-// directly, preserving the core type and coordinate system.
+// directly, preserving the core type and setting the coordinate system to TRANSLATED.
 //
 // Note: Unlike translate_coord_to, which provides straightforward coordinate mappings,
 // translate_chip_coord_to_translated applies additional architecture-specific adjustments
@@ -226,7 +226,7 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
 // translate_chip_coord_to_translated are still needed until the underlying dependencies
 // are resolved (see comments in translate_chip_coord_to_translated for details).
 CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
-    return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, core.coord_system);
+    return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, CoordSystem::TRANSLATED);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {

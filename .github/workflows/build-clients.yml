@@ -13,46 +13,6 @@ on:
     branches: ["main"]
 
 jobs:
-  build-tt-metal:
-    # Due to parsing bug, fromJSON is used to convert string to number.
-    # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
-
-    name: Build tt-metal with newest UMD
-    runs-on: tt-ubuntu-2204-large-stable
-    container:
-      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
-      env:
-        # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
-        TRACY_NO_INVARIANT_CHECK: 1
-        TRACY_NO_ISA_EXTENSIONS: 1
-
-    steps:
-      - name: Checkout tt-metal repo
-        uses: actions/checkout@v4
-        with:
-          # Clone under tt-metal directory
-          path: tt-metal
-          repository: tenstorrent/tt-metal
-          submodules: recursive
-          fetch-depth: 500  # Need enough history for `git describe`
-          fetch-tags: true  # Need tags for `git describe`
-
-      - name: Checkout UMD
-        uses: actions/checkout@v4
-        with:
-          # Clone directly into tt-metal directory for umd
-          path: tt-metal/tt_metal/third_party/umd
-          submodules: recursive
-
-      - name: Build tt-metal
-        run: |
-          cd tt-metal
-          export TT_METAL_HOME=$(pwd)
-          export PYTHONPATH=$(pwd)
-          ./build_metal.sh --build-all --enable-ccache
-          cd ../
-
   build-tt-sim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
@@ -61,7 +21,8 @@ jobs:
     name: Build and run ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      image: >-
+        harbor.ci.tenstorrent.net/ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
         TRACY_NO_INVARIANT_CHECK: 1
@@ -130,7 +91,7 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          ./build_metal.sh --build-programming-examples --build-tests
+          ./build_metal.sh --build-all --enable-ccache
           cd ../
 
       - name: Prepare sim paths

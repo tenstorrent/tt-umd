@@ -18,11 +18,13 @@
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/coordinates/coord_io.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -75,6 +77,13 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
+CoordIO *TTDevice::get_coord_io() {
+    if (coord_io_ == nullptr) {
+        TT_THROW("CoordIO not available on uninitialized TTDevice.");
+    }
+    return coord_io_.get();
+}
+
 TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
@@ -84,6 +93,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
             return TTDeviceInitResult::ARC_STARTUP_FAILED;
         }
     }
+
     try {
         arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     } catch (const std::runtime_error &e) {
@@ -99,6 +109,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     } catch (const std::runtime_error &e) {
         return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
     }
+    coord_io_ = std::make_unique<CoordIO>(this, SocDescriptor(get_arch(), get_chip_info()));
     return TTDeviceInitResult::SUCCESSFUL;
 }
 

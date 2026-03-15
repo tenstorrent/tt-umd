@@ -14,6 +14,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/coordinates/coord_io.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -37,14 +38,6 @@ enum class TTDeviceInitResult {
     ARC_TELEMETRY_UNAVAILABLE,
     FIRMWARE_INFO_PROVIDER_UNAVAILABLE,
     SUCCESSFUL,
-};
-
-// Represents the status of the ETH core.
-enum class EthTrainingStatus {
-    IN_PROGRESS = 0,
-    SUCCESS = 1,
-    FAIL = 2,
-    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
 };
 
 class TTDevice {
@@ -74,6 +67,8 @@ public:
     std::shared_ptr<JtagDevice> get_jtag_device();
 
     tt::ARCH get_arch();
+
+    CoordIO *get_coord_io();
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
@@ -406,6 +401,8 @@ private:
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
+
+    std::unique_ptr<CoordIO> coord_io_ = nullptr;
 
     std::mutex tt_device_io_lock;
 

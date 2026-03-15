@@ -127,6 +127,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
+            simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/tt_sim_tlb_manager.cpp
@@ -172,6 +173,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/utils/kmd_versions.hpp
                 api/umd/device/pcie/pci_device.hpp
+                api/umd/device/pcie/pci_ids.h
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_window.hpp
@@ -205,11 +207,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
+                api/umd/device/simulation/rtl_sim_communicator.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
+                api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/exceptions.hpp
                 api/umd/device/utils/timeouts.hpp
@@ -220,6 +224,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/cluster_types.hpp
                 api/umd/device/types/communication_protocol.hpp
                 api/umd/device/types/core_coordinates.hpp
+                api/umd/device/types/gddr_telemetry.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/wormhole_dram.hpp

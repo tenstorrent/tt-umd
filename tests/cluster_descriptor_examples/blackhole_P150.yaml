@@ -18,8 +18,6 @@ harvesting:
     eth_harvesting_mask: 288
     pcie_harvesting_mask: 2
     l2cpu_harvesting_mask: 0
-chip_to_boardtype:
-  0: p150
 boards:
   -
     - board_id: 4476187513037

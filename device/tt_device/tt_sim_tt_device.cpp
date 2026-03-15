@@ -9,12 +9,10 @@
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/pcie/pci_ids.h"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
-
-static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
-static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
@@ -46,13 +44,14 @@ TTSimTTDevice::TTSimTTDevice(
     log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
-    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
+        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         // Compute physical address of BAR0 from PCI config registers.
         bar0_base = communicator_->pci_config_read32(0, 0x10);
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
-        if (libttsim_pci_device_id == WH_PCIE_DEVICE_ID) {
+        if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
         } else {
             tlb_region_size_ = 2 * 1024 * 1024;
@@ -71,32 +70,36 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
+        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
+        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
+        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return;
+    }
+
     get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
-        while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size_ - uint32_t(addr & (tlb_region_size_ - 1)));
-            communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, cur_size);
-            addr += cur_size;
-            mem_ptr = reinterpret_cast<uint8_t*>(mem_ptr) + cur_size;
-            size -= cur_size;
-        }
-    } else {
+    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
+        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
+        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    } else {
+        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
     }
     communicator_->advance_clock(10);
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
+        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint32_t reset_value = uint32_t(soft_resets);
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else if (libttsim_pci_device_id == 0xFEED) {  // QSR
+    } else if (libttsim_pci_device_id == TT_GRENDEL_PCI_DEVICE_ID) {
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint64_t reset_value = uint64_t(soft_resets);
         if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
@@ -168,6 +171,14 @@ void TTSimTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
 }
 
 void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
+}
+
+void TTSimTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
+}
+
+void TTSimTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
@@ -244,12 +255,22 @@ TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
             case ARCH::WORMHOLE_B0:
                 cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
                 break;
-            default:
-                TT_THROW("Unsupported architecture for TTSimTTDevice.");
+            default: {
+                log_debug(
+                    LogUMD,
+                    fmt::format(
+                        "Architecture {} does not yet have support for TLB allocation.",
+                        tt::arch_to_str(architecture_impl_->get_architecture())));
+                return nullptr;
+            }
         }
     }
 
     return cached_tlb_window_.get();
+}
+
+void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    throw std::runtime_error("DRAM retraining is not supported in TTSim device.");
 }
 
 }  // namespace tt::umd

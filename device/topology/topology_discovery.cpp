@@ -4,7 +4,10 @@
 
 #include "api/umd/device/topology/topology_discovery.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -13,6 +16,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -29,6 +33,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -79,6 +84,7 @@ TopologyDiscovery::TopologyDiscovery(
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     log_debug(LogUMD, "Starting topology discovery.");
     get_connected_devices();
+    retrain_eth_cores();
     discover_remote_devices();
     log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
@@ -131,12 +137,14 @@ void TopologyDiscovery::get_connected_devices() {
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 
+        verify_fw_bundle_version(tt_device.get());
+
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
             init_first_device(tt_device.get());
         }
 
-        if (!options.no_wait_for_eth_training) {
+        if (options.wait_on_ethernet_link_training) {
             wait_eth_cores_training(tt_device.get());
         }
 
@@ -179,7 +187,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
         verify_fw_bundle_version(tt_device);
 
-        if (options.no_remote_discovery) {
+        if (!options.discover_remote_devices) {
             continue;
         }
         log_debug(LogUMD, "Discovering from ASIC ID: {}", current_device_asic_id);
@@ -188,6 +196,20 @@ void TopologyDiscovery::discover_remote_devices() {
             CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
+
+            if (!eth_heartbeat_running(tt_device, eth_core)) {
+                std::string msg = fmt::format(
+                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
+                    current_device_asic_id,
+                    eth_core.str(),
+                    get_eth_postcode(tt_device, eth_core));
+                if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
+                    TT_THROW(msg);
+                } else {
+                    log_warning(LogUMD, msg);
+                    continue;
+                }
+            }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
                 log_warning(
@@ -203,7 +225,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value()) {
                     eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(LogUMD, "Device {} has ETH coord: {}", current_device_asic_id, local_eth_coord.value());
+                    log_debug(
+                        LogUMD,
+                        "Device ASIC ID: {} has ETH coord: {}",
+                        current_device_asic_id,
+                        local_eth_coord.value());
                 }
             }
 
@@ -211,9 +237,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!verify_routing_firmware_state(tt_device, eth_core)) {
-                continue;
-            }
+            verify_routing_firmware_state(tt_device, eth_core);
 
             log_debug(
                 LogUMD,
@@ -224,8 +248,7 @@ void TopologyDiscovery::discover_remote_devices() {
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
             uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
 
-            if (!is_board_id_included(
-                    get_remote_board_id(tt_device, eth_core), get_remote_board_type(tt_device, eth_core)) ||
+            if (!is_board_id_included(get_remote_board_id(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_devices.find(remote_asic_id) == discovered_devices.end())) {
                 ethernet_connections_to_remote_devices.push_back(
@@ -254,9 +277,6 @@ void TopologyDiscovery::discover_remote_devices() {
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
-                if (is_using_eth_coords()) {
-                    eth_coords.emplace(remote_asic_id, eth_coord.value());
-                }
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(
@@ -412,42 +432,52 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 
 void TopologyDiscovery::patch_eth_connections() {}
 
-bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
+void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
-            log_warning(
-                LogUMD,
-                fmt::format(
-                    "Firmware bundle version mismatch for device {}: expected {}, got {}",
-                    get_asic_id(tt_device),
-                    first_fw_bundle_version->to_string(),
-                    fw_bundle_version.to_string()));
-            return false;
+            const std::string mismatch_msg = fmt::format(
+                "Firmware bundle version mismatch for device {}: expected {}, got {}",
+                get_asic_id(tt_device),
+                first_fw_bundle_version->to_string(),
+                fw_bundle_version.to_string());
+            if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW) {
+                TT_THROW(mismatch_msg);
+            } else {
+                log_warning(LogUMD, mismatch_msg);
+                return;
+            }
         }
-        return true;
+        return;
     }
 
+    const tt::ARCH arch = tt_device->get_arch();
     first_fw_bundle_version = fw_bundle_version;
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
     FirmwareBundleVersion minimum_compatible_fw_bundle_version =
-        FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device->get_arch());
+        FirmwareInfoProvider::get_minimum_compatible_firmware_version(arch);
     FirmwareBundleVersion latest_supported_fw_bundle_version =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(tt_device->get_arch());
+        FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
         "UMD supported firmware bundle versions: {} - {}",
         minimum_compatible_fw_bundle_version.to_string(),
         latest_supported_fw_bundle_version.to_string());
 
-    TT_ASSERT(
-        fw_bundle_version >= minimum_compatible_fw_bundle_version,
-        "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
-        "architecture.",
-        fw_bundle_version.to_string(),
-        minimum_compatible_fw_bundle_version.to_string(),
-        arch_to_str(tt_device->get_arch()));
+    if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
+        const std::string cmfw_unsupported_msg = fmt::format(
+            "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
+            "architecture.",
+            fw_bundle_version.to_string(),
+            minimum_compatible_fw_bundle_version.to_string(),
+            arch_to_str(arch));
+        if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW) {
+            TT_THROW(cmfw_unsupported_msg);
+        } else {
+            return;
+        }
+    }
 
     if (fw_bundle_version > latest_supported_fw_bundle_version) {
         log_info(
@@ -456,9 +486,8 @@ bool TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
             "architecture. Newest features may not be supported.",
             fw_bundle_version.to_string(),
             latest_supported_fw_bundle_version.to_string(),
-            arch_to_str(tt_device->get_arch()));
+            arch_to_str(arch));
     }
-    return true;
 }
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
@@ -476,6 +505,10 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
 
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
+}
+
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+    return board_ids.find(board_id) != board_ids.end();
 }
 
 SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
@@ -498,6 +531,67 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 
     soc_descriptor_cache[tt_device] = soc_descriptor;
     return soc_descriptor;
+}
+
+bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core) {
+    const auto start = std::chrono::steady_clock::now();
+    uint32_t previous_reading = 0;
+    // First loop: Wait until heartbeat changes from 0 (post reset).
+    while (true) {
+        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+
+        if (current_reading != 0) {
+            previous_reading = current_reading;
+            break;
+        }
+
+        if (utils::check_timeout(
+                start,
+                timeout::ETH_STARTUP_TIMEOUT,
+                fmt::format(
+                    "Timed out waiting for ETH heartbeat on core {} to start. Stuck at {:#x}",
+                    eth_core.str(),
+                    current_reading),
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
+
+    // Second loop: Wait for heartbeat to change.
+    const auto second_start = std::chrono::steady_clock::now();
+    while (true) {
+        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+
+        // Heartbeat must be in the format 0xABCDxxxx.
+        if ((current_reading >> 16) != 0xABCD) {
+            log_warning(
+                LogUMD,
+                "Read invalid heartbeat value: {:#x} from ETH core: {}, FW possibly corrupted.",
+                current_reading,
+                eth_core.str());
+            return false;
+        }
+
+        if (previous_reading != current_reading) {
+            return true;
+        }
+
+        if (utils::check_timeout(
+                second_start,
+                timeout::ETH_HEARTBEAT_TIMEOUT,
+                fmt::format(
+                    "Timed out waiting for ETH heartbeat on core {} to advance. Stuck at {:#x} -> {:#x}",
+                    eth_core.str(),
+                    previous_reading,
+                    current_reading),
+                utils::TimeoutAction::Return)) {
+            return false;
+        }
+
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
 }
 
 }  // namespace tt::umd

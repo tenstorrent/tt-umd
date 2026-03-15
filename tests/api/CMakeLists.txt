@@ -14,6 +14,7 @@ set(API_TESTS_SRCS
     test_noc.cpp
     test_jtag.cpp
     test_arc_telemetry.cpp
+    test_firmware_info_provider.cpp
     test_warm_reset.cpp
     test_tt_visible_devices.cpp
 )

@@ -4,6 +4,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/set.h>
 #include <nanobind/stl/string.h>
@@ -16,6 +17,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -61,13 +63,22 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("chip"),
             "Get board ID for a chip");
 
-    nb::class_<TopologyDiscoveryOptions>(m, "TopologyDiscoveryOptions")
-        .def(nb::init<>())
-        .def_rw("no_remote_discovery", &TopologyDiscoveryOptions::no_remote_discovery)
-        .def_rw("no_wait_for_eth_training", &TopologyDiscoveryOptions::no_wait_for_eth_training)
-        .def_rw("no_eth_firmware_strictness", &TopologyDiscoveryOptions::no_eth_firmware_strictness)
-        .def_rw("predict_eth_fw_version", &TopologyDiscoveryOptions::predict_eth_fw_version)
-        .def_rw("verify_eth_fw_hash", &TopologyDiscoveryOptions::verify_eth_fw_hash);
+    nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
+
+    nb::enum_<TopologyDiscoveryOptions::Action>(topology_discovery_options, "Action")
+        .value("THROW", TopologyDiscoveryOptions::Action::THROW)
+        .value("IGNORE", TopologyDiscoveryOptions::Action::IGNORE);
+
+    topology_discovery_options.def(nb::init<>())
+        .def_rw("cmfw_mismatch_action", &TopologyDiscoveryOptions::cmfw_mismatch_action)
+        .def_rw("cmfw_unsupported_action", &TopologyDiscoveryOptions::cmfw_unsupported_action)
+        .def_rw("eth_fw_mismatch_action", &TopologyDiscoveryOptions::eth_fw_mismatch_action)
+        .def_rw("unexpected_routing_firmware_config", &TopologyDiscoveryOptions::unexpected_routing_firmware_config)
+        .def_rw("eth_fw_heartbeat_failure", &TopologyDiscoveryOptions::eth_fw_heartbeat_failure)
+        .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
+        .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
+        .def_rw("perform_eth_fw_hash_check", &TopologyDiscoveryOptions::perform_eth_fw_hash_check)
+        .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain);
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

@@ -12,7 +12,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -147,11 +146,6 @@ uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_x
     return remote_eth_id;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) {
-    // This function is not important for Blackhole, so we can return any value here.
-    return 0;
-}
-
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     return get_remote_eth_id(tt_device, local_eth_core);
 }
@@ -178,10 +172,6 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
-
-bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
-    return board_ids.find(board_id) != board_ids.end();
-}
 
 uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t asic_location) {
     return ((board_id << 5) | (asic_location & 0x1F));
@@ -230,10 +220,9 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version =
-            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::BLACKHOLE);
-        if (options.predict_eth_fw_version && expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
             log_debug(
@@ -256,7 +245,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         eth_fw_problem = true;
     }
 
-    if (options.verify_eth_fw_hash && !tt_device->is_remote()) {
+    if (options.perform_eth_fw_hash_check) {
         auto hash_check = verify_eth_fw_integrity(tt_device, translated_eth_core, eth_fw_version);
         if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
@@ -270,7 +259,7 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
         }
     }
 
-    return options.no_eth_firmware_strictness || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
@@ -279,8 +268,32 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_devi
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
-bool TopologyDiscoveryBlackhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
-    return true;
+uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    uint32_t heartbeat_value = 0;
+    tt_device->read_from_device(
+        &heartbeat_value,
+        translated_eth_core,
+        blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, heartbeat[0]),
+        sizeof(uint32_t));
+    return heartbeat_value;
+}
+
+uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
+        eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+    uint32_t postcode = 0;
+    tt_device->read_from_device(
+        &postcode,
+        translated_eth_core,
+        blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, postcode),
+        sizeof(uint32_t));  // eth_status.postcode
+    return postcode;
+}
+
+void TopologyDiscoveryBlackhole::retrain_eth_cores() {
+    log_debug(LogUMD, "Retraining ETH cores skipped for Blackhole.");
 }
 
 }  // namespace tt::umd

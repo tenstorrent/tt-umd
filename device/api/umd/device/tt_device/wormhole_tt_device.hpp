@@ -27,14 +27,6 @@ public:
 
     bool get_noc_translation_enabled() override;
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
-
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -50,6 +42,8 @@ public:
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
+    void retrain_eth_core(tt_xy_pair eth_core);
+
     ~WormholeTTDevice() override = default;
 
 protected:
@@ -64,11 +58,14 @@ protected:
      */
     WormholeTTDevice();
 
+    void retrain_dram_core(const uint32_t dram_channel) override;
+
+protected:
+    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) override;
+    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
+
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
-
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
     bool is_hardware_hung() override;
 

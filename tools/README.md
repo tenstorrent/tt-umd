@@ -97,3 +97,50 @@ You can run the following for more information:
 ```
 ./build/tools/umd/warm_reset --help
 ```
+
+## Lock Virus tool
+
+The lock virus tool inspects all UMD shared-memory locks present in `/dev/shm` and
+reports their state. For each lock it reports whether it is free or held, and if
+held, the PID and TID of the owning thread. It also enumerates all PCIe devices
+and cross-checks against the set of locks that should exist for each device,
+reporting any that are missing (i.e. UMD has not yet been used with that device
+since the last reboot).
+
+You can run the following for more information:
+```
+./build/tools/umd/lock_virus --help
+```
+
+Lock names are printed with their full `/dev/shm` filename (including the `TT_UMD_LOCK.` prefix).
+
+Example output:
+```
+=== UMD locks found in /dev/shm (8) ===
+  [TT_UMD_LOCK.ARC_MSG                                      ]  FREE
+  [TT_UMD_LOCK.ARC_MSG_0_PCIe                               ]  LOCKED  PID=12345 TID=12345
+  [TT_UMD_LOCK.CHIP_IN_USE_0_PCIe                           ]  LOCKED  PID=12345 TID=12346
+  [TT_UMD_LOCK.MEM_BARRIER_0_PCIe                           ]  FREE
+  ...
+
+=== PCIe devices found (1) ===
+  device 0
+
+=== Expected locks missing from /dev/shm (1) ===
+  [MISSING]  TT_UMD_LOCK.NON_MMIO_0_PCIe
+```
+
+### Testing mode
+
+The `--hold-lock <name>` flag acquires a single named mutex and holds it indefinitely, allowing
+a second invocation of `lock_virus` to observe it as `LOCKED`:
+
+```
+# Terminal 1 – hold the lock
+./build/tools/umd/lock_virus --hold-lock TT_UMD_LOCK.ARC_MSG
+
+# Terminal 2 – observe it as LOCKED
+./build/tools/umd/lock_virus
+```
+
+Press `Ctrl-C` in terminal 1 to release the lock.

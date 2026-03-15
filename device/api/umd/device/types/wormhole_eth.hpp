@@ -30,4 +30,8 @@ inline constexpr uint32_t ETH_LINK_UNUSED_ERROR_CODE_RANGE_START = 11;
 inline constexpr uint32_t ETH_POSTCODE_ADDR = 0xFFB3010C;
 inline constexpr uint32_t ETH_HEARTBEAT_ADDR = 0x1F80;  // test_results[48];
 
+// boot_params_t is copied from SPI to ETH core L1 at 0x1000.
+// port_disable_mask is field [2] (8 bytes in): bit N=1 means port N is disabled.
+inline constexpr uint32_t ETH_BOOT_PARAMS_PORT_DISABLE_ADDR = 0x1008;
+
 }  // namespace tt::umd::wormhole

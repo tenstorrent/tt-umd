@@ -216,6 +216,19 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
     return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
+// Convenience wrapper around translate_chip_coord_to_translated that returns a CoreCoord
+// directly, preserving the core type and coordinate system.
+//
+// Note: Unlike translate_coord_to, which provides straightforward coordinate mappings,
+// translate_chip_coord_to_translated applies additional architecture-specific adjustments
+// (e.g., Wormhole DRAM/ARC/PCIe cores falling back to NOC0/NOC1 instead of translated
+// coordinates). Ideally translate_coord_to would be sufficient, but the workarounds in
+// translate_chip_coord_to_translated are still needed until the underlying dependencies
+// are resolved (see comments in translate_chip_coord_to_translated for details).
+CoreCoord SocDescriptor::translate_core_coord_to_translated(const CoreCoord core) const {
+    return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, core.coord_system);
+}
+
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
     auto worker_l1_size = soc_desc_info.worker_l1_size;
     auto eth_l1_size = soc_desc_info.eth_l1_size;

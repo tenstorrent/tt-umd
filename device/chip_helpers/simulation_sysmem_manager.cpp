@@ -21,7 +21,18 @@
 
 namespace tt::umd {
 
-SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) {
+SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            pcie_base_ = 0x800000000;
+            break;
+        case tt::ARCH::BLACKHOLE:
+            pcie_base_ = 4ULL << 58;
+            break;
+        default:
+            pcie_base_ = 0;
+            break;
+    }
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 

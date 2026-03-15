@@ -80,6 +80,8 @@ public:
      */
     const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
 
+    TLBManager *get_tlb_manager();
+
     uint64_t bar0_base = 0;
 
 protected:

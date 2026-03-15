@@ -40,6 +40,8 @@ public:
 
     TTDevice* get_tt_device() override { return tt_device_.get(); }
 
+    TLBManager* get_tlb_manager() override;
+
 private:
     void create_simulator_binary();
     off_t resize_simulator_binary(int src_fd);

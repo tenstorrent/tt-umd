@@ -54,7 +54,10 @@ public:
      * Jtag support can be enabled.
      */
     static std::unique_ptr<TTDevice> create(
-        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
+        int device_number,
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_safe_api = false,
+        bool low_power = false);
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
 
@@ -271,6 +274,14 @@ public:
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
+
+    /**
+     * Request full power domains from KMD (busy=true) or release them (busy=false).
+     * No-op for remote devices and on KMD versions older than 2.6.0.
+     *
+     * @param busy true to claim all power domains, false to release them.
+     */
+    virtual void set_power_state(bool busy);
 
     virtual uint32_t get_clock() = 0;
 

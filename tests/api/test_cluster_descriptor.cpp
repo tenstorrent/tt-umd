@@ -23,6 +23,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -321,5 +322,34 @@ TEST(TestClusterDescriptor, TestClusterLogicalETHChannelsConnectivity) {
             EXPECT_TRUE(channel < num_channels_local_chip);
             EXPECT_TRUE(remote_channel < num_channels_remote_chip);
         }
+    }
+}
+
+// Test that TopologyDiscovery works in both default (high-power) and low-power modes.
+// Both modes should discover the same set of devices and produce equivalent cluster descriptors.
+TEST(TestClusterDescriptor, TopologyDiscoveryPowerModes) {
+    // Default mode (high power).
+    TopologyDiscoveryOptions default_options;
+    default_options.discover_remote_devices = false;
+    auto [desc_default, devices_default] = TopologyDiscovery::discover(default_options);
+
+    // Low-power mode.
+    TopologyDiscoveryOptions low_power_options;
+    low_power_options.discover_remote_devices = false;
+    low_power_options.low_power = true;
+    auto [desc_low_power, devices_low_power] = TopologyDiscovery::discover(low_power_options);
+
+    // Both modes should discover the same number of chips.
+    EXPECT_EQ(desc_default->get_number_of_chips(), desc_low_power->get_number_of_chips());
+
+    // Both modes should discover the same set of chips.
+    EXPECT_EQ(desc_default->get_all_chips(), desc_low_power->get_all_chips());
+
+    // Both modes should discover the same MMIO-capable chips.
+    EXPECT_EQ(desc_default->get_chips_with_mmio(), desc_low_power->get_chips_with_mmio());
+
+    // Both modes should report the same architecture for each chip.
+    for (auto chip_id : desc_default->get_all_chips()) {
+        EXPECT_EQ(desc_default->get_arch(chip_id), desc_low_power->get_arch(chip_id));
     }
 }

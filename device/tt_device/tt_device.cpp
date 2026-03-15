@@ -103,7 +103,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
-    int device_number, IODeviceType device_type, bool use_safe_api) {
+    int device_number, IODeviceType device_type, bool use_safe_api, bool low_power) {
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
@@ -118,7 +118,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
         }
     }
 
-    auto pci_device = std::make_shared<PCIDevice>(device_number);
+    auto pci_device = std::make_shared<PCIDevice>(device_number, low_power);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
@@ -152,6 +152,13 @@ std::unique_ptr<TTDevice> TTDevice::create(
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
+
+void TTDevice::set_power_state(bool busy) {
+    if (is_remote_tt_device || !pci_device_) {
+        return;
+    }
+    pci_device_->set_power_state(busy);
+}
 
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 

@@ -103,7 +103,7 @@ void bind_telemetry(nb::module_& m) {
         .value("L2CPUCLK3", TelemetryTag::L2CPUCLK3)
         .value("ETH_LIVE_STATUS", TelemetryTag::ETH_LIVE_STATUS)
         .value("DDR_STATUS", TelemetryTag::GDDR_STATUS)
-        .value("DDR_SPEED", TelemetryTag::GDDR_SPEED)
+        .value("GDDR_SPEED", TelemetryTag::GDDR_SPEED)
         .value("ETH_FW_VERSION", TelemetryTag::ETH_FW_VERSION)
         .value("GDDR_FW_VERSION", TelemetryTag::GDDR_FW_VERSION)
         .value("DM_APP_FW_VERSION", TelemetryTag::DM_APP_FW_VERSION)

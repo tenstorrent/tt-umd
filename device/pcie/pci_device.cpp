@@ -371,6 +371,7 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
         try {
             infos[n] = read_device_info(fd);
         } catch (...) {
+            // Ignore failed reads and continue with next device.
         }
 
         close(fd);

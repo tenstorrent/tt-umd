@@ -28,18 +28,24 @@ static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
 
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
-std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
+std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, DEFAULT_CHIP_ID);
+    return std::make_unique<RtlSimulationTTDevice>(
+        simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+    const std::filesystem::path& simulator_directory,
+    SocDescriptor soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
+    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     arch = soc_descriptor_.arch;
     communicator_->initialize();

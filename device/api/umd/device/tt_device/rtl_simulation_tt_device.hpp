@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -20,10 +21,14 @@ class RtlSimCommunicator;
 class RtlSimulationTTDevice : public TTDevice {
 public:
     RtlSimulationTTDevice(
-        const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+        const std::filesystem::path& simulator_directory,
+        SocDescriptor soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
     ~RtlSimulationTTDevice();
 
-    static std::unique_ptr<RtlSimulationTTDevice> create(const std::filesystem::path& simulator_directory);
+    static std::unique_ptr<RtlSimulationTTDevice> create(
+        const std::filesystem::path& simulator_directory, int num_host_mem_channels = 0);
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
@@ -61,6 +66,8 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
+    SimulationSysmemManager* get_sysmem_manager() { return sysmem_manager_.get(); }
+
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
@@ -74,5 +81,6 @@ private:
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 };
 }  // namespace tt::umd

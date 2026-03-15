@@ -225,7 +225,7 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
 // coordinates). Ideally translate_coord_to would be sufficient, but the workarounds in
 // translate_chip_coord_to_translated are still needed until the underlying dependencies
 // are resolved (see comments in translate_chip_coord_to_translated for details).
-CoreCoord SocDescriptor::translate_core_coord_to_translated(const CoreCoord core) const {
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
     return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, core.coord_system);
 }
 

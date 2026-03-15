@@ -1,0 +1,251 @@
+# YAML Schema for Tenstorrent Cluster Descriptors
+# This schema defines the structure and validation rules for cluster descriptor YAML files
+# used in tt-umd for describing Tenstorrent AI accelerator cluster configurations.
+# See examples in ./tests/cluster_descriptor_examples
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Tenstorrent Cluster Descriptor Schema
+description: Schema for YAML files describing Tenstorrent cluster configurations
+version: "1.0.0"
+type: object
+
+required:
+  - arch
+  - chips
+  - ethernet_connections
+  - chips_with_mmio
+  - harvesting
+  - boards
+
+properties:
+  # Architecture specification for each chip.
+  arch:
+    type: object
+    description: Maps Chip ID to its architecture type
+    patternProperties:
+      "^[0-9]+$":
+        type: string
+        enum:
+          - wormhole_b0
+          - Wormhole # alternative name for wormhole_b0
+          - blackhole
+    additionalProperties: false
+
+  # Ethernet coordinates (WH only).
+  chips:
+    type: object
+    description: Maps Chip ID to its Ethernet coordinates [rack, shelf, y, x]. Only used for Wormhole boards (n150, n300).
+    patternProperties:
+      "^[0-9]+$":
+        type: array
+        items:
+          type: integer
+          minimum: 0
+        minItems: 4
+        maxItems: 4
+    additionalProperties: false
+
+  # Unique identifiers for each chip. This identifier should be considered opaque and not unique outside of this cluster descriptor.
+  chip_unique_ids:
+    type: object
+    description: Maps chip ID to its topology unique identifier.
+    patternProperties:
+      "^[0-9]+$":
+        type: integer
+        minimum: 0
+    additionalProperties: false
+
+  # Ethernet connections between chips within the cluster
+  ethernet_connections:
+    type: array
+    description: List of ethernet connections between chips in the cluster
+    items:
+      type: array
+      minItems: 2
+      maxItems: 3
+      items:
+        anyOf:
+          - type: object
+            properties:
+              chip:
+                type: integer
+                minimum: 0
+                description: Chip ID
+              chan:
+                type: integer
+                minimum: 0
+                description: Ethernet channel number
+            required: [chip, chan]
+            additionalProperties: false
+          - type: object
+            properties:
+              routing_enabled:
+                type: boolean
+                description: Whether routing is enabled for this connection
+            required: [routing_enabled]
+            additionalProperties: false
+
+  # Ethernet connections to devices outside the host.
+  ethernet_connections_to_remote_devices:
+    type: array
+    description: List of ethernet connections to remote devices/clusters
+    items:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        anyOf:
+          - type: object
+            properties:
+              chip:
+                type: integer
+                minimum: 0
+                description: Local chip ID
+              chan:
+                type: integer
+                minimum: 0
+                description: Local ethernet channel number
+            required: [chip, chan]
+            additionalProperties: false
+          - type: object
+            properties:
+              remote_chip_id:
+                type: integer
+                minimum: 0
+                description: Remote chip unique ID
+              chan:
+                type: integer
+                minimum: 0
+                description: Remote ethernet channel number
+            required: [remote_chip_id, chan]
+            additionalProperties: false
+
+  # Chips that have MMIO (Memory-Mapped I/O) access
+  chips_with_mmio:
+    type: array
+    description: List of chips with MMIO access capability
+    items:
+      type: object
+      patternProperties:
+        "^[0-9]+$":
+          type: integer
+          minimum: 0
+          description: MMIO index or identifier
+      additionalProperties: false
+
+  # I/O device type specification
+  io_device_type:
+    type: string
+    description: Type of I/O device interface
+    enum:
+      - PCIe
+      - JTAG
+
+  # Harvesting information for each chip
+  harvesting:
+    type: object
+    description: Harvesting masks and configuration for each chip
+    patternProperties:
+      "^[0-9]+$":
+        type: object
+        properties:
+          noc_translation:
+            type: boolean
+            description: Whether NOC translation is enabled
+          harvest_mask:
+            type: integer
+            minimum: 0
+            description: Bitmask indicating which tensix rows are harvested
+          dram_harvesting_mask:
+            type: integer
+            minimum: 0
+            description: DRAM harvesting mask
+          eth_harvesting_mask:
+            type: integer
+            minimum: 0
+            description: Ethernet harvesting mask
+          pcie_harvesting_mask:
+            type: integer
+            minimum: 0
+            description: PCIe harvesting mask
+          l2cpu_harvesting_mask:
+            type: integer
+            minimum: 0
+            description: L2CPU harvesting mask
+        required: [noc_translation, harvest_mask]
+        additionalProperties: false
+    additionalProperties: false
+
+  # Bus ID mapping for each chip
+  chip_to_bus_id:
+    type: object
+    description: Maps chip ID to its PCI bus ID
+    patternProperties:
+      "^[0-9]+$":
+        type: string
+        pattern: "^0x[0-9a-fA-F]+$"
+        description: Hexadecimal bus ID
+    additionalProperties: false
+
+  # Board configuration information
+  boards:
+    type: array
+    description: List of board configurations in the cluster
+    items:
+      type: array
+      items:
+        type: object
+        anyOf:
+          - properties:
+              board_id:
+                type: integer
+                minimum: 0
+                description: Unique board identifier
+            required: [board_id]
+            additionalProperties: false
+          - properties:
+              board_type:
+                type: string
+                enum:
+                  - n150
+                  - n300
+                  - p100
+                  - p150
+                  - p300
+                  - ubb
+                description: Type of the board
+            required: [board_type]
+            additionalProperties: false
+          - properties:
+              chips:
+                type: array
+                items:
+                  type: integer
+                  minimum: 0
+                description: List of Chip IDs on this board
+            required: [chips]
+            additionalProperties: false
+
+  # ASIC location mapping
+  asic_locations:
+    type: object
+    description: Maps Chip ID to its ASIC location on the board
+    patternProperties:
+      "^[0-9]+$":
+        type: integer
+        minimum: 0
+        description: ASIC location index
+    additionalProperties: false
+
+  # PCI Bus:Device.Function addresses
+  chip_pci_bdfs:
+    type: object
+    description: Maps Chip ID to its PCI BDF (Bus:Device.Function) address
+    patternProperties:
+      "^[0-9]+$":
+        type: string
+        pattern: "^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-9a-fA-F]$"
+        description: PCI BDF in format DDDD:BB:DD.F
+    additionalProperties: false
+
+additionalProperties: false

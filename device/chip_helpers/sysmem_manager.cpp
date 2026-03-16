@@ -58,7 +58,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     if (tt_device_) {
         log_debug(
             LogUMD,
-            "Cluster::read_buffer (comm. device ID: {}, ch: {}) from {:p}",
+            "SysmemManager: read_from_sysmem (comm. device ID: {}, ch: {}) from {:p}",
             tt_device_->get_communication_device_id(),
             channel,
             user_scratchspace);

@@ -13,16 +13,25 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 
 namespace tt::umd {
 
 // Forward declaration to avoid circular dependency.
-class TTSimTlbManager;
+class SimulationTlbManager;
 
-TTSimTlbHandle::TTSimTlbHandle(TTSimTlbManager* manager, int tlb_id, size_t size, const TlbMapping tlb_mapping) :
-    sim_manager_(manager), sim_tlb_id_(tlb_id), sim_size_(size), sim_mapping_(tlb_mapping) {
+TTSimTlbHandle::TTSimTlbHandle(
+    SimulationTlbManager* manager,
+    TTSimCommunicator* communicator,
+    int tlb_id,
+    size_t size,
+    const TlbMapping tlb_mapping) :
+    sim_manager_(manager),
+    sim_communicator_(communicator),
+    sim_tlb_id_(tlb_id),
+    sim_size_(size),
+    sim_mapping_(tlb_mapping) {
     // Compute the address for this TLB based on BAR0 base + TLB offset.
     if (sim_manager_) {
         sim_address_ = sim_manager_->get_tlb_address_from_index(sim_tlb_id_);
@@ -33,9 +42,13 @@ TTSimTlbHandle::TTSimTlbHandle(TTSimTlbManager* manager, int tlb_id, size_t size
 }
 
 std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
-    TTSimTlbManager* manager, int tlb_id, size_t size, const TlbMapping tlb_mapping) {
-    // We need to bypass the normal constructor to avoid hardware operations.
-    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(manager, tlb_id, size, tlb_mapping));
+    SimulationTlbManager* manager,
+    TTSimCommunicator* communicator,
+    int tlb_id,
+    size_t size,
+    const TlbMapping tlb_mapping) {
+    auto* handle = new TTSimTlbHandle(manager, communicator, tlb_id, size, tlb_mapping);
+    return std::unique_ptr<TTSimTlbHandle>(handle);
 }
 
 TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
@@ -102,8 +115,8 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     // Apply the offsets to create the register value.
     auto [reg_val, reg_val_high] = sim_config_.apply_offset(*offsets);
 
-    // Get the communicator to write the register.
-    TTSimCommunicator* communicator = sim_manager_->get_communicator();
+    // Use the communicator to write the register.
+    TTSimCommunicator* communicator = sim_communicator_;
 
     // Write the TLB register based on architecture.
     if (architecture == tt::ARCH::BLACKHOLE) {

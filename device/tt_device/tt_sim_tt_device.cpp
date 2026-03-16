@@ -10,6 +10,8 @@
 #include "assert.hpp"
 #include "simulation_device_generated.h"
 #include "umd/device/pcie/pci_ids.h"
+#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
+#include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
@@ -58,7 +60,15 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<TTSimTlbManager>(this);
+    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+        this,
+        bar0_base,
+        architecture_impl_.get(),
+        [comm = communicator_.get()](
+            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
+            auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
+            return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
+        });
     get_cached_tlb_window();
 }
 

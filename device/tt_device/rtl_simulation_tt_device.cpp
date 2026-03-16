@@ -9,6 +9,8 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
+#include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
@@ -49,6 +51,17 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     arch = soc_descriptor_.arch;
     communicator_->initialize();
+
+    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+        this,
+        /*bar0_base=*/0,
+        architecture_impl_.get(),
+        [comm = communicator_.get()](
+            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
+            auto handle = RtlSimTlbHandle::create(mgr, id, sz, map);
+            return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
+        });
+    get_cached_tlb_window();
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
@@ -62,12 +75,12 @@ void RtlSimulationTTDevice::close_device() { communicator_->shutdown(); }
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 // Three overloads exist for send_tensix_risc_reset:
@@ -229,6 +242,28 @@ void RtlSimulationTTDevice::dma_multicast_write(
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
+}
+
+TlbWindow* RtlSimulationTTDevice::get_cached_tlb_window() {
+    if (!cached_tlb_window_) {
+        switch (architecture_impl_->get_architecture()) {
+            case ARCH::BLACKHOLE:
+                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
+                break;
+            case ARCH::WORMHOLE_B0:
+                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
+                break;
+            default: {
+                log_debug(
+                    LogUMD,
+                    fmt::format(
+                        "Architecture {} does not yet have support for TLB allocation.",
+                        tt::arch_to_str(architecture_impl_->get_architecture())));
+                return nullptr;
+            }
+        }
+    }
+    return cached_tlb_window_.get();
 }
 
 }  // namespace tt::umd

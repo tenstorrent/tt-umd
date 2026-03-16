@@ -9,6 +9,7 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -68,12 +69,16 @@ public:
 
     SimulationSysmemManager* get_sysmem_manager() { return sysmem_manager_.get(); }
 
+    const architecture_implementation* get_architecture_impl() const { return architecture_impl_.get(); }
+
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) override;
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
+
+    TlbWindow* get_cached_tlb_window();
 
     std::unique_ptr<RtlSimCommunicator> communicator_;
     std::recursive_mutex device_lock;
@@ -82,5 +87,7 @@ private:
     SocDescriptor soc_descriptor_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+    std::unique_ptr<SimulationTlbManager> tlb_manager_;
+    std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

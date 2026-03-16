@@ -150,34 +150,34 @@ FirmwareFeatures FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
         {FirmwareFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
         {FirmwareFeature::ASIC_TEMPERATURE,  {WormholeTag::ASIC_TEMPERATURE,  LinearTransform{0, 0xFFFF,     1.0 / 16.0,    0.0}}},
         {FirmwareFeature::BOARD_TEMPERATURE, {WormholeTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::GDDR_0_1_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::GDDR_2_3_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::GDDR_4_5_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::GDDR_6_7_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::MAX_GDDR_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_0_1_TEMP, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_2_3_TEMP, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_4_5_TEMP, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_6_7_TEMP, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::MAX_GDDR_TEMP, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::AICLK, {WormholeTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::AXICLK, {WormholeTag::AXICLK, LinearTransform{}}},
         {FirmwareFeature::ARCCLK, {WormholeTag::ARCCLK, LinearTransform{}}},
         {FirmwareFeature::MAX_CLOCK_FREQ, {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::DDR_SPEED, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::DDR_SPEED, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::TDP, {WormholeTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
-        {FirmwareFeature::TDC_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},      // figure out transformation
-        {FirmwareFeature::BOARD_POWER_LIMIT, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::TDC_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::BOARD_POWER_LIMIT, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
-        {FirmwareFeature::FAN_RPM, {FixedValue{0}, NotAvailable{}}},             // figure out transformation
-        {FirmwareFeature::THM_LIMIT_THROTTLE, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::THM_LIMIT_SHUTDOWN, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::FAN_RPM, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::THM_LIMIT_THROTTLE, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::THM_LIMIT_SHUTDOWN, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::DDR_STATUS, {WormholeTag::DDR_STATUS, LinearTransform{}}},
         {FirmwareFeature::HEARTBEAT, {WormholeTag::ARC0_HEALTH, LinearTransform{}}},
-        {FirmwareFeature::ETH_LIVE_STATUS,    {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},  // figure out transformation
-        {FirmwareFeature::THERM_TRIP_COUNT, {FixedValue{0}, NotAvailable{}}},    // figure out transformation
-        {FirmwareFeature::GDDR_UNCORR_ERRS, {FixedValue{0}, NotAvailable{}}},    // figure out transformation
-        {FirmwareFeature::GDDR_0_1_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::GDDR_2_3_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::GDDR_4_5_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
-        {FirmwareFeature::GDDR_6_7_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::ETH_LIVE_STATUS,    {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::THERM_TRIP_COUNT, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_UNCORR_ERRS, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_0_1_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_2_3_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_4_5_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::GDDR_6_7_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},
     };
 }
 

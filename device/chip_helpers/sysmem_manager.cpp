@@ -66,6 +66,17 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     memcpy(dest, user_scratchspace, size);
 }
 
+uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return 0x800000000;
+        case tt::ARCH::BLACKHOLE:
+            return 4ULL << 58;
+        default:
+            return 0;
+    }
+}
+
 size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
 
 HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {

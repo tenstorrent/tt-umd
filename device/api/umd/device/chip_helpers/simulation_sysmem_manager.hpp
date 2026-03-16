@@ -5,13 +5,12 @@
 #pragma once
 
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 
 class SimulationSysmemManager : public SysmemManager {
 public:
-    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch = tt::ARCH::WORMHOLE_B0);
+    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch);
     ~SimulationSysmemManager() override;
 
     bool pin_or_map_sysmem_to_device() override;

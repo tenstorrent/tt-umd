@@ -102,7 +102,7 @@ FirmwareFeatures FirmwareInfoProvider::create_modern_base() {
         {FirmwareFeature::GDDR_2_3_TEMP,     {TelemetryTag::GDDR_2_3_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
         {FirmwareFeature::GDDR_4_5_TEMP,     {TelemetryTag::GDDR_4_5_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
         {FirmwareFeature::GDDR_6_7_TEMP,     {TelemetryTag::GDDR_6_7_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::MAX_GDDR_TEMP,     {TelemetryTag::MAX_GDDR_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
+        {FirmwareFeature::MAX_GDDR_TEMP,     {TelemetryTag::MAX_GDDR_TEMP, LinearTransform{}}},
         {FirmwareFeature::AICLK,             {TelemetryTag::AICLK, LinearTransform{}}},
         {FirmwareFeature::AXICLK,            {TelemetryTag::AXICLK, LinearTransform{}}},
         {FirmwareFeature::ARCCLK,            {TelemetryTag::ARCCLK, LinearTransform{}}},

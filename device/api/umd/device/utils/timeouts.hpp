@@ -18,6 +18,7 @@ inline constexpr auto DRAM_TRAINING_TIMEOUT = std::chrono::milliseconds(300'000)
 inline constexpr auto ETH_QUEUE_ENABLE_TIMEOUT = std::chrono::milliseconds(30'000);
 inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(900'000);
 inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);
+inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);
 

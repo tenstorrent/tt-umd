@@ -82,19 +82,6 @@ struct TopologyDiscoveryOptions {
     bool perform_eth_fw_hash_check = false;
 
     /**
-     * @brief Controls how to determine the expect ETH FW version on Blackhole.
-     * Blackhole does not provide ETH FW version in ARC telemetry.
-     * This option has no effect on Wormhole.
-     * Used only for tt-exalens tests that break ETH FW.
-     * If set to true, the expected ETH FW version will be determined by observing the CMFW version.
-     * If set to false, the expected ETH FW version will be determined by reading the ETH FW version
-     * from the first observed ETH core during discovery. Defaults to false.
-     * TODO: This option should be removed once ETH FW heartbeat checks are implemented, because
-     * that will be used to check ETH core health instead of ETH FW version value.
-     */
-    bool predict_eth_fw_version_from_cmfw_version = false;
-
-    /**
      * @brief If true, enables Ethernet link retraining on 6U machines when training fails.
      * When enabled, failed Ethernet links will be retrained up to a configured number of attempts.
      * Defaults to false.

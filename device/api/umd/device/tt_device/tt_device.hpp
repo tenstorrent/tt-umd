@@ -86,7 +86,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from device to host.
@@ -96,7 +96,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -106,7 +106,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -116,7 +116,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -365,6 +365,30 @@ protected:
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
+
+    virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
+
+    /**
+     * Device-specific DMA transfer from device to host.
+     * This method performs the actual hardware-specific DMA transfer.
+     *
+     * @param dst destination host address
+     * @param src device AXI address
+     * @param size number of bytes
+     * @throws std::runtime_error if the transfer is not supported or fails
+     */
+    virtual void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) = 0;
+
+    /**
+     * Device-specific DMA transfer from host to device.
+     * This method performs the actual hardware-specific DMA transfer.
+     *
+     * @param dst device AXI address
+     * @param src source host address
+     * @param size number of bytes
+     * @throws std::runtime_error if the transfer fails
+     */
+    virtual void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) = 0;
 
 private:
     void probe_arc();

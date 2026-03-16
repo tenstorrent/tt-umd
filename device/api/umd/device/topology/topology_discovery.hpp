@@ -74,6 +74,8 @@ protected:
     // eth_core should be in NoC 0 coordinates.
     virtual uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
+    virtual bool is_eth_port_disabled(TTDevice* tt_device, tt_xy_pair eth_core) { return false; }
+
     virtual bool eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core);
 
     virtual uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) = 0;

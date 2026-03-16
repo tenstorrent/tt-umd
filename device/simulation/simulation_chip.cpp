@@ -35,16 +35,11 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 }
 
 SimulationChip::SimulationChip(
-    const std::filesystem::path& simulator_directory,
-    const SocDescriptor& soc_descriptor,
-    ChipId chip_id,
-    int num_host_mem_channels) :
+    const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
         TT_THROW("Simulator binary not found at: {}", simulator_directory_);
     }
-
-    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);
 }
 
 // Base class implementations (common simple methods).
@@ -121,29 +116,41 @@ int SimulationChip::arc_msg(
     return 0;
 }
 
-int SimulationChip::get_num_host_channels() { return get_sysmem_manager()->get_num_host_mem_channels(); }
-
-int SimulationChip::get_host_channel_size(std::uint32_t channel) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
-    // the program should still work. It removes the need for refactoring the whole code in case
-    // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+int SimulationChip::get_num_host_channels() {
+    SysmemManager* mgr = get_sysmem_manager();
+    if (!mgr) {
         log_warning(LogUMD, "sysmem_manager was not initialized for simulation device");
         return 0;
     }
+    return mgr->get_num_host_mem_channels();
+}
 
+int SimulationChip::get_host_channel_size(std::uint32_t channel) {
+    SysmemManager* mgr = get_sysmem_manager();
+    if (!mgr) {
+        log_warning(LogUMD, "sysmem_manager was not initialized for simulation device");
+        return 0;
+    }
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    HugepageMapping hugepage_map = mgr->get_hugepage_mapping(channel);
     TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    get_sysmem_manager()->write_to_sysmem(channel, src, sysmem_dest, size);
+    SysmemManager* mgr = get_sysmem_manager();
+    if (!mgr) {
+        TT_THROW("sysmem_manager was not initialized for simulation device");
+    }
+    mgr->write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    get_sysmem_manager()->read_from_sysmem(channel, dest, sysmem_src, size);
+    SysmemManager* mgr = get_sysmem_manager();
+    if (!mgr) {
+        TT_THROW("sysmem_manager was not initialized for simulation device");
+    }
+    mgr->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 int SimulationChip::get_numa_node() {
@@ -154,7 +161,7 @@ TTDevice* SimulationChip::get_tt_device() {
     throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
 }
 
-SysmemManager* SimulationChip::get_sysmem_manager() { return sysmem_manager_.get(); }
+SysmemManager* SimulationChip::get_sysmem_manager() { return nullptr; }
 
 TLBManager* SimulationChip::get_tlb_manager() {
     throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");

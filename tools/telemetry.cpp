@@ -68,8 +68,8 @@ int main(int argc, char* argv[]) {
 
     options.add_options()(
         "t,tag",
-        "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
-        "power, temperature and vcore. See device/api/umd/device/types/telemetry.hpp"
+        "Telemetry tag to read. If set to -1, will run default telemetry mode which reads aiclk, "
+        "power, temperature and vcore. See device/api/umd/device/types/telemetry.hpp "
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(

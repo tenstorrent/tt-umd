@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cstdint>
-#include <map>
+#include <unordered_map>
 #include <variant>
 
 #include "umd/device/types/telemetry.hpp"
@@ -144,6 +144,6 @@ struct FeatureProfile {
 };
 
 // The configuration map: FirmwareFeature -> FeatureProfile.
-using FirmwareFeatures = std::map<FirmwareFeature, FeatureProfile>;
+using FirmwareFeatures = std::unordered_map<FirmwareFeature, FeatureProfile>;
 
 }  // namespace tt::umd

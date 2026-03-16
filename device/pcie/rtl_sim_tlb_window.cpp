@@ -54,39 +54,6 @@ void RtlSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size
 
 void RtlSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) { translate_and_read(offset, data, size); }
 
-void RtlSimTlbWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
-
-uint32_t RtlSimTlbWindow::safe_read32(uint64_t offset) { return read32(offset); }
-
-void RtlSimTlbWindow::safe_write_register(uint64_t offset, const void* data, size_t size) {
-    write_register(offset, data, size);
-}
-
-void RtlSimTlbWindow::safe_read_register(uint64_t offset, void* data, size_t size) {
-    read_register(offset, data, size);
-}
-
-void RtlSimTlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size) {
-    write_block(offset, data, size);
-}
-
-void RtlSimTlbWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
-
-void RtlSimTlbWindow::safe_write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
-    write_block_reconfigure(mem_ptr, core, addr, size, ordering);
-}
-
-void RtlSimTlbWindow::safe_read_block_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
-    read_block_reconfigure(mem_ptr, core, addr, size, ordering);
-}
-
-void RtlSimTlbWindow::safe_noc_multicast_write_reconfigure(
-    void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
-    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, ordering);
-}
-
 tt::ARCH RtlSimTlbWindow::get_arch() const {
     RtlSimTlbHandle* handle = dynamic_cast<RtlSimTlbHandle*>(tlb_handle.get());
     return handle->get_tlb_manager()->get_tt_device()->get_arch();

@@ -52,23 +52,23 @@ public:
 
     virtual uint16_t safe_read16(uint64_t offset) = 0;
 
-    virtual void safe_write32(uint64_t offset, uint32_t value) = 0;
+    virtual void safe_write32(uint64_t offset, uint32_t value);
 
-    virtual uint32_t safe_read32(uint64_t offset) = 0;
+    virtual uint32_t safe_read32(uint64_t offset);
 
-    virtual void safe_write_register(uint64_t offset, const void* data, size_t size) = 0;
+    virtual void safe_write_register(uint64_t offset, const void* data, size_t size);
 
-    virtual void safe_read_register(uint64_t offset, void* data, size_t size) = 0;
+    virtual void safe_read_register(uint64_t offset, void* data, size_t size);
 
-    virtual void safe_write_block(uint64_t offset, const void* data, size_t size) = 0;
+    virtual void safe_write_block(uint64_t offset, const void* data, size_t size);
 
-    virtual void safe_read_block(uint64_t offset, void* data, size_t size) = 0;
+    virtual void safe_read_block(uint64_t offset, void* data, size_t size);
 
     virtual void safe_write_block_reconfigure(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict) = 0;
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict) = 0;
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_noc_multicast_write_reconfigure(
         void* dst,
@@ -76,7 +76,7 @@ public:
         tt_xy_pair core_start,
         tt_xy_pair core_end,
         uint64_t addr,
-        uint64_t ordering = tlb_data::Strict) = 0;
+        uint64_t ordering = tlb_data::Strict);
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;

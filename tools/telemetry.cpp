@@ -73,6 +73,9 @@ int main(int argc, char* argv[]) {
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(
+        "n,count",
+        "Number of polling iterations. If set to 0, will poll indefinitely.",
+        cxxopts::value<int>()->default_value("0"))(
         "o,outfile",
         "Output file to dump telemetry to. If omitted, will print out to stdout.",
         cxxopts::value<std::string>())("h,help", "Print usage");
@@ -86,6 +89,7 @@ int main(int argc, char* argv[]) {
 
     int frequency_us = result["freq"].as<int>();
     int telemetry_tag = result["tag"].as<int>();
+    int max_count = result["count"].as<int>();
 
     auto [cluster_desc, tt_devices_map] = TopologyDiscovery::discover();
 
@@ -106,7 +110,7 @@ int main(int argc, char* argv[]) {
         telemetry_readers.push_back(std::make_pair(chip_id, std::move(arc_telemetry_reader)));
     }
 
-    while (true) {
+    for (int iteration = 0; max_count == 0 || iteration < max_count; iteration++) {
         auto start_time = std::chrono::steady_clock::now();
         for (int i = 0; i < (int)telemetry_readers.size(); i++) {
             tt::ChipId chip_id = telemetry_readers.at(i).first;

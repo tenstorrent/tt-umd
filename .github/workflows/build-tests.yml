@@ -50,11 +50,12 @@ on:
 env:
   CC: clang-20
   CXX: clang++-20
-  BUILD_TARGETS: "umd_tests umd_microbenchmark"
+  BUILD_TARGETS: "umd_tests umd_microbenchmark umd_tools"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
+  TOOLS_OUTPUT_DIR: ./build/tools
   WHEEL_OUTPUT_DIR: ./build/wheel
   CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
@@ -91,7 +92,7 @@ jobs:
             -DTT_UMD_BUILD_SIMULATION=OFF \
             -DTT_UMD_BUILD_PYTHON=OFF \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
@@ -103,6 +104,7 @@ jobs:
         shell: bash
         run: |
           tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
+          ${{ env.TOOLS_OUTPUT_DIR }} \
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \

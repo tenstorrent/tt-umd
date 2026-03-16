@@ -56,7 +56,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
             } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_wormhole_18_4_base();
             }
-            return create_18_8_base();
+            return create_wormhole_18_8_base();
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
@@ -68,8 +68,9 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 }
 
 // clang-format off
-// Create base map for modern firmware (StandardTag).
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_18_8_base() {
+// Base map for all StandardTag firmware versions (18.4+). Does not include MAX_CLOCK_FREQ
+// since its source differs per architecture and version.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_18_4_new_telemetry_base() {
     return {
         {FirmwareFeature::ETH_FW_VERSION,    {TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::GDDR_FW_VERSION,   {TelemetryTag::GDDR_FW_VERSION, LinearTransform{}}},
@@ -90,7 +91,6 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::AICLK,             {TelemetryTag::AICLK, LinearTransform{}}},
         {FirmwareFeature::AXICLK,            {TelemetryTag::AXICLK, LinearTransform{}}},
         {FirmwareFeature::ARCCLK,            {TelemetryTag::ARCCLK, LinearTransform{}}},
-        {FirmwareFeature::MAX_CLOCK_FREQ,    {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}}},
         {FirmwareFeature::DDR_SPEED,         {TelemetryTag::GDDR_SPEED, LinearTransform{}}},
         {FirmwareFeature::TDP,               {TelemetryTag::TDP, LinearTransform{}}},
         {FirmwareFeature::TDC,               {TelemetryTag::TDC, LinearTransform{}}},
@@ -163,16 +163,16 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 
 // clang-format on
 
-// Wormhole 18.4-18.7: modern tags, but MAX_CLOCK_FREQ read via SMBus.
+// Wormhole 18.4-18.7: StandardTag base, but MAX_CLOCK_FREQ read via SMBus.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_4_base() {
-    FirmwareFeatures map = create_18_8_base();
+    FirmwareFeatures map = create_18_4_new_telemetry_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
     return map;
 }
 
-// Blackhole 18.5-18.7: modern tags, but fixed AICLK and no ETH support.
+// Blackhole 18.5-18.7: StandardTag base, but fixed AICLK and no ETH support.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_5_base() {
-    FirmwareFeatures map = create_18_8_base();
+    FirmwareFeatures map = create_18_4_new_telemetry_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
     // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
     map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
@@ -181,9 +181,17 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Blackhole > 18.7: modern tags, but no ETH support.
+// Wormhole > 18.7: StandardTag base with StandardTag MAX_CLOCK_FREQ.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
+    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Blackhole > 18.7: StandardTag base with StandardTag MAX_CLOCK_FREQ, no ETH support.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_8_base() {
-    FirmwareFeatures map = create_18_8_base();
+    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
     // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
     map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
     // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.

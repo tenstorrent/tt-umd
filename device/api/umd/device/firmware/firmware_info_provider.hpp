@@ -199,10 +199,11 @@ private:
 
     // Factory helpers for creating telemetry feature configuration maps.
     static FirmwareFeatures create_firmware_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
-    static FirmwareFeatures create_18_8_base();
+    static FirmwareFeatures create_18_4_new_telemetry_base();
     static FirmwareFeatures create_wormhole_18_3_base();
     static FirmwareFeatures create_wormhole_18_4_base();
     static FirmwareFeatures create_blackhole_18_5_base();
+    static FirmwareFeatures create_wormhole_18_8_base();
     static FirmwareFeatures create_blackhole_18_8_base();
 
     // Engine methods for reading and transforming telemetry data.

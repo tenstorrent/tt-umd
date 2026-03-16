@@ -36,7 +36,8 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
 }
 
-std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(TTDevice* tt_device) {
+/* static */ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info_provider(
+    TTDevice* tt_device) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
         case ARCH::BLACKHOLE:
@@ -46,42 +47,21 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
     }
 }
 
-FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
     TTDevice* tt_device, const FirmwareBundleVersion& fw_version) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
             if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
-                // Legacy Wormhole <= 18.3.
-                return create_legacy_wormhole_18_3_base();
+                return create_wormhole_18_3_base();
             } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
-                // Legacy Wormhole 18.4 - 18.7.
-                FirmwareFeatures map = create_modern_base();
-                map[FirmwareFeature::MAX_CLOCK_FREQ] = {
-                    SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
-                return map;
+                return create_wormhole_18_4_base();
             }
-            // Modern Wormhole > 18.7.
-            return create_modern_base();
+            return create_18_8_base();
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
-                // Legacy Blackhole <= 18.7.
-                FirmwareFeatures map = create_modern_base();
-                map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
-                // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
-                map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-                // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
-                map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
-                return map;
+                return create_blackhole_18_5_base();
             }
-            // Modern Blackhole > 18.7.
-            {
-                FirmwareFeatures map = create_modern_base();
-                // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
-                map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-                // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
-                map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
-                return map;
-            }
+            return create_blackhole_18_8_base();
         default:
             TT_THROW("Unsupported architecture for telemetry feature map.");
     }
@@ -89,7 +69,7 @@ FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
 
 // clang-format off
 // Create base map for modern firmware (StandardTag).
-FirmwareFeatures FirmwareInfoProvider::create_modern_base() {
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_18_8_base() {
     return {
         {FirmwareFeature::ETH_FW_VERSION,    {TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::GDDR_FW_VERSION,   {TelemetryTag::GDDR_FW_VERSION, LinearTransform{}}},
@@ -137,7 +117,7 @@ FirmwareFeatures FirmwareInfoProvider::create_modern_base() {
 
 // clang-format off
 // Create base map for legacy Wormhole 18.3 firmware (WormholeTag).
-FirmwareFeatures FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_3_base() {
     return {
         {FirmwareFeature::ETH_FW_VERSION, {WormholeTag::ETH_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::GDDR_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
@@ -182,6 +162,34 @@ FirmwareFeatures FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
 }
 
 // clang-format on
+
+// Wormhole 18.4-18.7: modern tags, but MAX_CLOCK_FREQ read via SMBus.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_4_base() {
+    FirmwareFeatures map = create_18_8_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
+    return map;
+}
+
+// Blackhole 18.5-18.7: modern tags, but fixed AICLK and no ETH support.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_5_base() {
+    FirmwareFeatures map = create_18_8_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
+    // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
+    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
+    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
+    map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
+    return map;
+}
+
+// Blackhole > 18.7: modern tags, but no ETH support.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_8_base() {
+    FirmwareFeatures map = create_18_8_base();
+    // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
+    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
+    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
+    map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
+    return map;
+}
 
 uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
     return std::visit(
@@ -274,11 +282,11 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
+/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
     return FirmwareBundleVersion(19, 5, 0);
 }
 
-FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
+/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             return FirmwareBundleVersion(18, 3, 0);
@@ -598,7 +606,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
     return read_scalar<uint32_t>(FirmwareFeature::THERM_TRIP_COUNT);
 }
 
-std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
+/* static */ std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
     static constexpr uint32_t max_eth_links = 16;
     std::vector<bool> statuses(max_eth_links);
     for (uint32_t link = 0; link < max_eth_links; ++link) {

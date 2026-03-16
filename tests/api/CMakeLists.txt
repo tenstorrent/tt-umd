@@ -19,6 +19,10 @@ set(API_TESTS_SRCS
     test_tt_visible_devices.cpp
 )
 
+if(TT_UMD_BUILD_SIMULATION)
+    list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
+endif()
+
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
 set_target_properties(

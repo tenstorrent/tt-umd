@@ -69,6 +69,8 @@ FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
                 map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
                 // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
                 map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
+                // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
+                map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
                 return map;
             }
             // Modern Blackhole > 18.7.
@@ -76,6 +78,8 @@ FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
                 FirmwareFeatures map = create_modern_base();
                 // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
                 map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
+                // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
+                map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
                 return map;
             }
         default:

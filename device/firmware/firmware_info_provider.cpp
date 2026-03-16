@@ -212,8 +212,7 @@ uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
                 auto* tel = tt_device->get_arc_telemetry_reader();
                 return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const std::unique_ptr<SmBusArcTelemetryReader> sm_bus_telemetry =
-                    std::make_unique<SmBusArcTelemetryReader>(tt_device);
+                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
                 return sm_bus_telemetry->read_entry(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return arg.value;
@@ -242,8 +241,11 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 auto* tel = tt_device->get_arc_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
-            } else if constexpr (std::is_same_v<T, SmBusTag> || std::is_same_v<T, FixedValue>) {
-                return true;  // Both SMBus and Fixed values are always available
+            } else if constexpr (std::is_same_v<T, SmBusTag>) {
+                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+                return sm_bus_telemetry->is_entry_available(arg.tag);
+            } else if constexpr (std::is_same_v<T, FixedValue>) {
+                return true;
             }
             return false;
         },

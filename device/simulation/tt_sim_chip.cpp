@@ -72,4 +72,6 @@ void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_risc
         soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs, staggered_start);
 }
 
+TLBManager* TTSimChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
+
 }  // namespace tt::umd

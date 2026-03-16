@@ -298,15 +298,9 @@ std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
     return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
 }
 
-// Verify this function.
 std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    auto raw = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
-    if (!raw.has_value()) {
-        return std::nullopt;
-    }
     auto tag_value = get_eth_fw_version();
-
-    if (!tag_value.has_value() == 0) {
+    if (!tag_value.has_value()) {
         return std::nullopt;
     }
     // Return early if tag value is 0, meaning no ETH cores on chip or version not populated.
@@ -315,9 +309,9 @@ std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     }
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return SemVer::from_wormhole_eth_firmware_tag(raw.value());
+            return SemVer::from_wormhole_eth_firmware_tag(tag_value.value());
         case tt::ARCH::BLACKHOLE:
-            return SemVer::from_blackhole_eth_firmware_tag(raw.value());
+            return SemVer::from_blackhole_eth_firmware_tag(tag_value.value());
         default:
             return std::nullopt;
     }

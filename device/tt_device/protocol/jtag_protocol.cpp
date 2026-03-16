@@ -23,7 +23,7 @@ void JtagProtocol::read_from_device(void*, tt_xy_pair, uint64_t, uint32_t) {
     throw std::runtime_error("JtagProtocol::read_from_device not yet implemented");
 }
 
-bool JtagProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+bool JtagProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
 JtagDevice* JtagProtocol::get_jtag_device() { return jtag_device_.get(); }
 

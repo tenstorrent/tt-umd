@@ -34,6 +34,8 @@ struct FixedValue {
 };
 
 // FeatureKey: The "Where" - can be a standard enum, legacy enum, SMBus tag, or fixed value.
+// Using a variant allows a single FirmwareFeatures map to hold keys of different types,
+// so all features can be iterated and processed uniformly via std::visit.
 using FeatureKey = std::variant<StandardTag, WormholeTag, SmBusTag, FixedValue>;
 
 // Signedness of the raw telemetry value before scaling.

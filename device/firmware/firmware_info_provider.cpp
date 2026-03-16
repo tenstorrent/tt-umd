@@ -238,15 +238,11 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
 
 template <typename T>
 std::optional<T> FirmwareInfoProvider::read_scalar(FirmwareFeature feature) const {
-    auto it = firmware_feature_map.find(feature);
-    if (it == firmware_feature_map.end()) {
+    if (!is_feature_available(feature)) {
         return std::nullopt;
     }
 
-    // Check if feature is not available.
-    if (std::holds_alternative<NotAvailable>(it->second.converter)) {
-        return std::nullopt;
-    }
+    auto it = firmware_feature_map.find(feature);
 
     uint32_t raw = read_raw_telemetry(it->second.key);
 

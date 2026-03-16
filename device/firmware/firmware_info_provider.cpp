@@ -42,7 +42,7 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
         case ARCH::BLACKHOLE:
             return std::make_unique<FirmwareInfoProvider>(tt_device);
         default:
-            TT_THROW("Unsupported architecture for firmware versioner.");
+            TT_THROW("Unsupported architecture for firmware info provider.");
     }
 }
 

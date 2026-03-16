@@ -29,13 +29,6 @@ public:
     ~RtlSimTlbHandle() noexcept;
 
     void configure(const tlb_data& new_config) override;
-    uint8_t* get_base() override;
-    size_t get_size() const override;
-    const tlb_data& get_config() const override;
-    TlbMapping get_tlb_mapping() const override;
-    int get_tlb_id() const override;
-
-    uint64_t get_address() const;
 
     SimulationTlbManager* get_tlb_manager() const { return manager_; }
 
@@ -45,11 +38,6 @@ private:
     void free_tlb() noexcept override;
 
     SimulationTlbManager* manager_;
-    int tlb_id_;
-    size_t size_;
-    tlb_data config_;
-    TlbMapping mapping_;
-    uint64_t address_{0};
 };
 
 }  // namespace tt::umd

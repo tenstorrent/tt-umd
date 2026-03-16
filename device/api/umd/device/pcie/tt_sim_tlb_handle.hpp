@@ -36,17 +36,6 @@ public:
     ~TTSimTlbHandle() noexcept;
 
     void configure(const tlb_data& new_config) override;
-    uint8_t* get_base() override;
-    size_t get_size() const override;
-    const tlb_data& get_config() const override;
-    TlbMapping get_tlb_mapping() const override;
-    int get_tlb_id() const override;
-
-    /**
-     * Returns the computed address for this TLB based on BAR0 base + TLB offset.
-     * This represents where this TLB would be mapped in the memory space.
-     */
-    uint64_t get_address() const;
 
     SimulationTlbManager* get_tlb_manager() const { return sim_manager_; }
 
@@ -63,11 +52,6 @@ private:
 
     SimulationTlbManager* sim_manager_;
     class TTSimCommunicator* sim_communicator_;
-    int sim_tlb_id_;
-    size_t sim_size_;
-    tlb_data sim_config_;
-    TlbMapping sim_mapping_;
-    uint64_t sim_address_{0};  // Computed address from BAR0 + TLB offset
     uint64_t tlb_reg_addr_ = 0;
 };
 

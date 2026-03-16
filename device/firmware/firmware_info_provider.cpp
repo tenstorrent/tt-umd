@@ -192,6 +192,8 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 }
 
 uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
+    // std::visit with if-constexpr on the variant type resolves the correct read path at compile time.
+    // Each FeatureKey alternative (StandardTag, WormholeTag, SmBusTag, FixedValue) gets its own branch.
     return std::visit(
         [this](auto&& arg) -> uint32_t {
             using T = std::decay_t<decltype(arg)>;

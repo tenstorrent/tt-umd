@@ -42,7 +42,7 @@ Most getter functions return `std::optional<T>` to indicate whether a feature is
 ### Adding New Features
 
 1. Add a new entry to `FirmwareFeature` enum in `firmware_telemetry_mapping.hpp`
-2. Add the feature to the appropriate base map (`create_modern_base()` or `create_legacy_wormhole_18_3_base()`)
+2. Add the feature to the appropriate base map (e.g. `create_18_8_base()`, `create_wormhole_18_3_base()`, etc.)
 3. Override the feature in `create_firmware_feature_map()` for any architecture/version that needs different behavior
 4. Add the corresponding getter function that calls `read_scalar<T>(FirmwareFeature::YOUR_FEATURE)`
 

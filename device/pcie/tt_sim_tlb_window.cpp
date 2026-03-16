@@ -74,9 +74,7 @@ void TTSimTlbWindow::safe_write_register(uint64_t offset, const void* data, size
     write_register(offset, data, size);
 }
 
-void TTSimTlbWindow::safe_read_register(uint64_t offset, void* data, size_t size) {
-    read_register(offset, data, size);
-}
+void TTSimTlbWindow::safe_read_register(uint64_t offset, void* data, size_t size) { read_register(offset, data, size); }
 
 void TTSimTlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size) {
     write_block(offset, data, size);

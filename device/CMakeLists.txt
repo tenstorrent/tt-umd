@@ -288,6 +288,12 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
+if(TT_UMD_ENABLE_TRACY)
+    target_link_libraries(device PRIVATE TracyClient)
+    target_compile_definitions(device PUBLIC TRACY_ENABLE)
+    message(STATUS "Tracy profiling enabled for device library")
+endif()
+
 # Install functionality requires CMake 3.23+ for FILE_SET support
 # Skip install for static libraries as they are typically used for internal linking only
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)

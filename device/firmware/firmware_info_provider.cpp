@@ -208,10 +208,7 @@ uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
         [this](auto&& arg) -> uint32_t {
             using T = std::decay_t<decltype(arg)>;
 
-            if constexpr (std::is_same_v<T, StandardTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
-                return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
-            } else if constexpr (std::is_same_v<T, WormholeTag>) {
+            if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 auto* tel = tt_device->get_arc_telemetry_reader();
                 return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
@@ -242,10 +239,7 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
         [this](auto&& arg) -> bool {
             using T = std::decay_t<decltype(arg)>;
 
-            if constexpr (std::is_same_v<T, StandardTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
-                return tel && tel->is_entry_available(arg);
-            } else if constexpr (std::is_same_v<T, WormholeTag>) {
+            if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 auto* tel = tt_device->get_arc_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag> || std::is_same_v<T, FixedValue>) {
@@ -437,8 +431,6 @@ uint8_t FirmwareInfoProvider::get_asic_location() const {
 uint32_t FirmwareInfoProvider::get_heartbeat() const {
     return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
 }
-
-// New APIs, figure out transformations.
 
 // Legacy Wormhole: Each channel uses 4 bits.
 static std::vector<DramTrainingStatus> get_legacy_wormhole_dram_statuses(

@@ -78,27 +78,49 @@ enum class FirmwareFeature {
     // Board identification.
     BOARD_ID_HIGH,
     BOARD_ID_LOW,
+    ASIC_LOCATION,
 
     // Temperature readings.
     ASIC_TEMPERATURE,
     BOARD_TEMPERATURE,
+    GDDR_0_1_TEMP,
+    GDDR_2_3_TEMP,
+    GDDR_4_5_TEMP,
+    GDDR_6_7_TEMP,
+    MAX_GDDR_TEMP,
 
-    // Clock frequencies.
+    // Clock frequencies and speed.
     AICLK,
     AXICLK,
     ARCCLK,
     MAX_CLOCK_FREQ,
+    DDR_SPEED,
 
-    // Power metrics.
-    FAN_SPEED,
+    // Power & voltage metrics.
     TDP,
     TDC,
     VCORE,
+    TDC_LIMIT_MAX,
+    BOARD_POWER_LIMIT,
 
-    // Status information.
+    // Cooling & thermal management.
+    FAN_SPEED,
+    FAN_RPM,
+    THM_LIMIT_THROTTLE,
+    THM_LIMIT_SHUTDOWN,
+
+    // General status.
     DDR_STATUS,
-    ASIC_LOCATION,
     HEARTBEAT,
+
+    // RAS (Reliability) & error counters.
+    ETH_LIVE_STATUS,
+    THERM_TRIP_COUNT,
+    GDDR_UNCORR_ERRS,
+    GDDR_0_1_CORR_ERRS,
+    GDDR_2_3_CORR_ERRS,
+    GDDR_4_5_CORR_ERRS,
+    GDDR_6_7_CORR_ERRS
 };
 
 /**

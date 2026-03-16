@@ -42,7 +42,7 @@ class TestTopologyDiscovery(unittest.TestCase):
     def test_no_remote_discovery_true(self):
         """Test that with no_remote_discovery=True, only local chips are discovered."""
         options = tt_umd.TopologyDiscoveryOptions()
-        options.no_remote_discovery = True
+        options.discover_remote_devices = False
 
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor(options)
         all_chips = cluster_descriptor.get_all_chips()

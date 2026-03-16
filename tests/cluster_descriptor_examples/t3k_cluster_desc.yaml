@@ -214,15 +214,6 @@ harvesting:
     dram_harvesting_mask: 0
     eth_harvesting_mask: 0
     pcie_harvesting_mask: 0
-chip_to_boardtype:
-  0: n300
-  1: n300
-  2: n300
-  3: n300
-  4: n300
-  5: n300
-  6: n300
-  7: n300
 boards:
   -
     - board_id: 72058994491928619

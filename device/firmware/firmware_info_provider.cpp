@@ -18,6 +18,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -85,58 +86,117 @@ FirmwareFeatures FirmwareInfoProvider::create_firmware_feature_map(
 // Create base map for modern firmware (StandardTag).
 FirmwareFeatures FirmwareInfoProvider::create_modern_base() {
     return {
-        {FirmwareFeature::BOARD_ID_HIGH, {TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
-        {FirmwareFeature::BOARD_ID_LOW, {TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
-        {FirmwareFeature::ASIC_TEMPERATURE,
-         {TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::BOARD_TEMPERATURE,
-         {TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::AICLK, {TelemetryTag::AICLK, LinearTransform{}}},
-        {FirmwareFeature::AXICLK, {TelemetryTag::AXICLK, LinearTransform{}}},
-        {FirmwareFeature::ARCCLK, {TelemetryTag::ARCCLK, LinearTransform{}}},
-        {FirmwareFeature::MAX_CLOCK_FREQ, {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}}},
-        {FirmwareFeature::FAN_SPEED, {TelemetryTag::FAN_SPEED, LinearTransform{}}},
-        {FirmwareFeature::TDP, {TelemetryTag::TDP, LinearTransform{}}},
-        {FirmwareFeature::TDC, {TelemetryTag::TDC, LinearTransform{}}},
-        {FirmwareFeature::VCORE, {TelemetryTag::VCORE, LinearTransform{}}},
-        {FirmwareFeature::DDR_STATUS, {TelemetryTag::DDR_STATUS, LinearTransform{}}},
-        {FirmwareFeature::ASIC_LOCATION, {TelemetryTag::ASIC_LOCATION, LinearTransform{}}},
-        {FirmwareFeature::HEARTBEAT, {TelemetryTag::TIMER_HEARTBEAT, LinearTransform{}}},
         {FirmwareFeature::ETH_FW_VERSION, {TelemetryTag::ETH_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::GDDR_FW_VERSION, {TelemetryTag::GDDR_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::CM_FW_VERSION, {TelemetryTag::CM_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::DM_APP_FW_VERSION, {TelemetryTag::DM_APP_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::DM_BL_FW_VERSION, {TelemetryTag::DM_BL_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::TT_FLASH_VERSION, {TelemetryTag::TT_FLASH_VERSION, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_HIGH, {TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_LOW, {TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
+        {FirmwareFeature::ASIC_LOCATION, {TelemetryTag::ASIC_LOCATION, LinearTransform{}}},
+        {FirmwareFeature::ASIC_TEMPERATURE,
+         {TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
+        {FirmwareFeature::BOARD_TEMPERATURE,
+         {TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
+        {FirmwareFeature::GDDR_0_1_TEMP,
+         {TelemetryTag::GDDR_0_1_TEMP,
+          LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},  // figure out transformation
+        {FirmwareFeature::GDDR_2_3_TEMP,
+         {TelemetryTag::GDDR_2_3_TEMP,
+          LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},  // figure out transformation
+        {FirmwareFeature::GDDR_4_5_TEMP,
+         {TelemetryTag::GDDR_4_5_TEMP,
+          LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},  // figure out transformation
+        {FirmwareFeature::GDDR_6_7_TEMP,
+         {TelemetryTag::GDDR_6_7_TEMP,
+          LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},  // figure out transformation
+        {FirmwareFeature::MAX_GDDR_TEMP,
+         {TelemetryTag::MAX_GDDR_TEMP,
+          LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},  // figure out transformation
+        {FirmwareFeature::AICLK, {TelemetryTag::AICLK, LinearTransform{}}},
+        {FirmwareFeature::AXICLK, {TelemetryTag::AXICLK, LinearTransform{}}},
+        {FirmwareFeature::ARCCLK, {TelemetryTag::ARCCLK, LinearTransform{}}},
+        {FirmwareFeature::MAX_CLOCK_FREQ,
+         {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::DDR_SPEED, {TelemetryTag::GDDR_SPEED, LinearTransform{}}},
+        {FirmwareFeature::TDP, {TelemetryTag::TDP, LinearTransform{}}},
+        {FirmwareFeature::TDC, {TelemetryTag::TDC, LinearTransform{}}},
+        {FirmwareFeature::VCORE, {TelemetryTag::VCORE, LinearTransform{}}},
+        {FirmwareFeature::TDC_LIMIT_MAX,
+         {TelemetryTag::TDC_LIMIT_MAX, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::BOARD_POWER_LIMIT,
+         {TelemetryTag::BOARD_POWER_LIMIT, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::FAN_SPEED, {TelemetryTag::FAN_SPEED, LinearTransform{}}},
+        {FirmwareFeature::FAN_RPM, {TelemetryTag::FAN_RPM, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::THM_LIMIT_THROTTLE,
+         {TelemetryTag::THM_LIMIT_THROTTLE, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::THM_LIMIT_SHUTDOWN,
+         {TelemetryTag::THM_LIMIT_SHUTDOWN, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::DDR_STATUS, {TelemetryTag::GDDR_STATUS, LinearTransform{}}},
+        {FirmwareFeature::HEARTBEAT, {TelemetryTag::TIMER_HEARTBEAT, LinearTransform{}}},
+        {FirmwareFeature::ETH_LIVE_STATUS,
+         {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::THERM_TRIP_COUNT,
+         {TelemetryTag::THERM_TRIP_COUNT, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_UNCORR_ERRS,
+         {TelemetryTag::GDDR_UNCORR_ERRS, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_0_1_CORR_ERRS,
+         {TelemetryTag::GDDR_0_1_CORR_ERRS, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_2_3_CORR_ERRS,
+         {TelemetryTag::GDDR_2_3_CORR_ERRS, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_4_5_CORR_ERRS,
+         {TelemetryTag::GDDR_4_5_CORR_ERRS, LinearTransform{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_6_7_CORR_ERRS,
+         {TelemetryTag::GDDR_6_7_CORR_ERRS, LinearTransform{}}},  // figure out transformation
     };
 }
 
 // Create base map for legacy Wormhole 18.3 firmware (WormholeTag).
 FirmwareFeatures FirmwareInfoProvider::create_legacy_wormhole_18_3_base() {
     return {
-        {FirmwareFeature::BOARD_ID_HIGH, {WormholeTag::BOARD_ID_HIGH, LinearTransform{}}},
-        {FirmwareFeature::BOARD_ID_LOW, {WormholeTag::BOARD_ID_LOW, LinearTransform{}}},
-        {FirmwareFeature::ASIC_TEMPERATURE,
-         {WormholeTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
-        {FirmwareFeature::BOARD_TEMPERATURE,
-         {WormholeTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::AICLK, {WormholeTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::AXICLK, {WormholeTag::AXICLK, LinearTransform{}}},
-        {FirmwareFeature::ARCCLK, {WormholeTag::ARCCLK, LinearTransform{}}},
-        {FirmwareFeature::MAX_CLOCK_FREQ, {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
-        {FirmwareFeature::TDP, {WormholeTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
-        {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
-        {FirmwareFeature::DDR_STATUS, {WormholeTag::DDR_STATUS, LinearTransform{}}},
-        {FirmwareFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
-        {FirmwareFeature::HEARTBEAT, {WormholeTag::ARC0_HEALTH, LinearTransform{}}},
         {FirmwareFeature::ETH_FW_VERSION, {WormholeTag::ETH_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::GDDR_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::CM_FW_VERSION, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::DM_APP_FW_VERSION, {WormholeTag::DM_APP_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::DM_BL_FW_VERSION, {WormholeTag::DM_BL_FW_VERSION, LinearTransform{}}},
         {FirmwareFeature::TT_FLASH_VERSION, {WormholeTag::TT_FLASH_VERSION, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_HIGH, {WormholeTag::BOARD_ID_HIGH, LinearTransform{}}},
+        {FirmwareFeature::BOARD_ID_LOW, {WormholeTag::BOARD_ID_LOW, LinearTransform{}}},
+        {FirmwareFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
+        {FirmwareFeature::ASIC_TEMPERATURE,
+         {WormholeTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
+        {FirmwareFeature::BOARD_TEMPERATURE,
+         {WormholeTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
+        {FirmwareFeature::GDDR_0_1_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_2_3_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_4_5_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_6_7_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::MAX_GDDR_TEMP, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::AICLK, {WormholeTag::AICLK, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::AXICLK, {WormholeTag::AXICLK, LinearTransform{}}},
+        {FirmwareFeature::ARCCLK, {WormholeTag::ARCCLK, LinearTransform{}}},
+        {FirmwareFeature::MAX_CLOCK_FREQ, {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::DDR_SPEED, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::TDP, {WormholeTag::TDP, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
+        {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
+        {FirmwareFeature::TDC_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},      // figure out transformation
+        {FirmwareFeature::BOARD_POWER_LIMIT, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
+        {FirmwareFeature::FAN_RPM, {FixedValue{0}, NotAvailable{}}},             // figure out transformation
+        {FirmwareFeature::THM_LIMIT_THROTTLE, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::THM_LIMIT_SHUTDOWN, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::DDR_STATUS, {WormholeTag::DDR_STATUS, LinearTransform{}}},
+        {FirmwareFeature::HEARTBEAT, {WormholeTag::ARC0_HEALTH, LinearTransform{}}},
+        {FirmwareFeature::ETH_LIVE_STATUS,
+         {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},                     // figure out transformation
+        {FirmwareFeature::THERM_TRIP_COUNT, {FixedValue{0}, NotAvailable{}}},    // figure out transformation
+        {FirmwareFeature::GDDR_UNCORR_ERRS, {FixedValue{0}, NotAvailable{}}},    // figure out transformation
+        {FirmwareFeature::GDDR_0_1_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_2_3_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_4_5_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
+        {FirmwareFeature::GDDR_6_7_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},  // figure out transformation
     };
 }
 
@@ -228,6 +288,7 @@ std::optional<T> FirmwareInfoProvider::read_scalar(FirmwareFeature feature) cons
 template std::optional<uint32_t> FirmwareInfoProvider::read_scalar<uint32_t>(FirmwareFeature feature) const;
 template std::optional<double> FirmwareInfoProvider::read_scalar<double>(FirmwareFeature feature) const;
 template std::optional<uint8_t> FirmwareInfoProvider::read_scalar<uint8_t>(FirmwareFeature feature) const;
+template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(FirmwareFeature feature) const;
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
@@ -238,7 +299,7 @@ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_versio
 FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return FirmwareBundleVersion(0, 0, 0);
+            return FirmwareBundleVersion(18, 3, 0);
         }
         case tt::ARCH::BLACKHOLE: {
             return FirmwareBundleVersion(18, 5, 0);
@@ -258,15 +319,27 @@ std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
     return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
 }
 
+// Verify this function.
 std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
     }
+    auto tag_value = get_eth_fw_version();
+
+    if (!tag_value.has_value() == 0) {
+        return std::nullopt;
+    }
+    // Return early if tag value is 0, meaning no ETH cores on chip or version not populated.
+    if (tag_value.value() == 0) {
+        return std::nullopt;
+    }
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
             return SemVer::from_wormhole_eth_firmware_tag(raw.value());
-        default:  // ETH FW version is not reported in ARC telemetry for Blackhole.
+        case tt::ARCH::BLACKHOLE:
+            return SemVer::from_blackhole_eth_firmware_tag(raw.value());
+        default:
             return std::nullopt;
     }
 }
@@ -346,6 +419,15 @@ std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
 
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const {
+    auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
+    // All ones mean fans not present on board, or not under control of firmware.
+    if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
+        return std::nullopt;
+    }
+    return fan_speed;
+}
+
 std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const { return read_scalar<uint32_t>(FirmwareFeature::TDC); }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
@@ -359,6 +441,8 @@ uint8_t FirmwareInfoProvider::get_asic_location() const {
 uint32_t FirmwareInfoProvider::get_heartbeat() const {
     return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
 }
+
+// New APIs, figure out transformations.
 
 // Legacy Wormhole: Each channel uses 4 bits.
 static std::vector<DramTrainingStatus> get_legacy_wormhole_dram_statuses(
@@ -423,6 +507,144 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
 
     return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data.value(), num_dram_channels)
                               : get_modern_dram_statuses(telemetry_data.value(), num_dram_channels);
+}
+
+static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    // All GDDR telemetry tags from GDDR_0_1_TEMP through MAX_GDDR_TEMP must be present.
+    for (uint8_t tag = static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP);
+         tag <= static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP);
+         ++tag) {
+        if (!telemetry->is_entry_available(tag)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Ensure GDDR telemetry tags are consecutive so pair_index arithmetic is safe.
+static_assert(
+    static_cast<uint8_t>(TelemetryTag::GDDR_6_7_TEMP) - static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) == 3,
+    "GDDR_x_y_TEMP tags must be consecutive");
+static_assert(
+    static_cast<uint8_t>(TelemetryTag::GDDR_6_7_CORR_ERRS) - static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) ==
+        3,
+    "GDDR_x_y_CORR_ERRS tags must be consecutive");
+
+// Decode a single GDDR module's telemetry from the packed pair words.
+// Telemetry packs two modules per 32-bit word.  Even modules (0,2,4,6) occupy bits [15:0],
+// odd modules (1,3,5,7) occupy bits [31:16].  Within each half:
+//   [7:0]  = bottom temp / read errors     [15:8] = top temp / write errors
+// Uncorrected errors use a separate bitmask: bit module_index*2 = read, bit module_index*2+1 = write.
+static GddrModuleTelemetry decode_gddr_module_telemetry(
+    uint8_t module_index, uint32_t temp_word, uint32_t corr_word, uint32_t uncorr_bitmask) {
+    const uint8_t bit_shift = (module_index % 2 == 1) ? 16 : 0;
+
+    GddrModuleTelemetry module{};
+    module.dram_temperature_bottom = static_cast<double>((temp_word >> bit_shift) & 0xFFu);
+    module.dram_temperature_top = static_cast<double>((temp_word >> (bit_shift + 8)) & 0xFFu);
+    module.corr_edc_rd_errors = static_cast<uint8_t>((corr_word >> bit_shift) & 0xFFu);
+    module.corr_edc_wr_errors = static_cast<uint8_t>((corr_word >> (bit_shift + 8)) & 0xFFu);
+    module.uncorr_edc_rd_error = (uncorr_bitmask & (1u << (module_index * 2))) != 0 ? 1 : 0;
+    module.uncorr_edc_wr_error = (uncorr_bitmask & (1u << (module_index * 2 + 1))) != 0 ? 1 : 0;
+    return module;
+}
+
+std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) const {
+    const uint8_t module_index = static_cast<uint8_t>(gddr_module);
+    const uint8_t pair_index = module_index / 2;
+
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+
+    if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index) ||
+        !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index) ||
+        !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS))) {
+        return std::nullopt;
+    }
+
+    const uint32_t temp_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
+    const uint32_t corr_word =
+        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
+    const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+
+    return decode_gddr_module_telemetry(module_index, temp_word, corr_word, uncorr_bitmask);
+}
+
+std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
+    if (!gddr_telemetry_tags_available(tt_device)) {
+        return std::nullopt;
+    }
+
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    GddrTelemetry aggregated{};
+
+    const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+
+    for (uint8_t pair = 0; pair < 4; ++pair) {
+        const uint32_t temp_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair);
+        const uint32_t corr_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair);
+
+        const uint8_t even_module = pair * 2;
+        const uint8_t odd_module = pair * 2 + 1;
+
+        aggregated.modules[static_cast<GddrModule>(even_module)] =
+            decode_gddr_module_telemetry(even_module, temp_word, corr_word, uncorr_bitmask);
+        aggregated.modules[static_cast<GddrModule>(odd_module)] =
+            decode_gddr_module_telemetry(odd_module, temp_word, corr_word, uncorr_bitmask);
+    }
+
+    return aggregated;
+}
+
+std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() const {
+    return read_scalar<uint16_t>(FirmwareFeature::DDR_SPEED);
+}
+
+std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() const {
+    return read_scalar<double>(FirmwareFeature::MAX_GDDR_TEMP);
+}
+
+std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
+    // Stored as a plain integer in degrees Celsius.
+    return read_scalar<double>(FirmwareFeature::THM_LIMIT_SHUTDOWN);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {
+    return read_scalar<uint32_t>(FirmwareFeature::BOARD_POWER_LIMIT);
+}
+
+std::optional<double> FirmwareInfoProvider::get_thm_limit_throttle() const {
+    // Stored as a plain integer in degrees Celsius.
+    return read_scalar<double>(FirmwareFeature::THM_LIMIT_THROTTLE);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
+    return read_scalar<uint32_t>(FirmwareFeature::THERM_TRIP_COUNT);
+}
+
+std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
+    static constexpr uint32_t max_eth_links = 16;
+    std::vector<bool> statuses(max_eth_links);
+    for (uint32_t link = 0; link < max_eth_links; ++link) {
+        statuses[link] = static_cast<bool>(bitmask & (1u << link));
+    }
+    return statuses;
+}
+
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+    if (!is_feature_available(FirmwareFeature::ETH_LIVE_STATUS)) {
+        return std::nullopt;
+    }
+    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
+    return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+}
+
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
+    if (!is_feature_available(FirmwareFeature::ETH_LIVE_STATUS)) {
+        return std::nullopt;
+    }
+    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
+    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 }  // namespace tt::umd

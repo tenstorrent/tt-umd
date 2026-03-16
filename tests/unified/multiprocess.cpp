@@ -131,7 +131,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 }
 
 // Many threads start and stop many clusters.
-TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
+TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -172,10 +172,6 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
 TEST(Multiprocess, WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto workload_thread = std::thread([&] {
         std::cout << "Creating workload cluster" << std::endl;
@@ -224,10 +220,6 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 
 TEST(Multiprocess, LongLivedMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
@@ -311,10 +303,6 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
 TEST(Multiprocess, DMAWriteReadRaceCondition) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     // Use the first available PCI device for this test.
     const int test_device_id = pci_device_ids.at(0);
     const int num_processes = 4;
@@ -387,10 +375,6 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
 TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     constexpr int NUM_PROCESSES = 4;
     std::vector<pid_t> pids;

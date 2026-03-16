@@ -38,6 +38,7 @@ enum class ArcMessageType : uint8_t {
     ASIC_STATE1 = 0xA1,
     ASIC_STATE3 = 0xA3,
     ASIC_STATE5 = 0xA5,
+    TOGGLE_GDDR_RESET = 0xB6,
     SET_LAST_SERIAL = 0xBE,
     EFUSE_BURN = 0xBF,
     SPI_UNLOCK = 0xC2,  // Unlock SPI for write (required since fw 19.0)

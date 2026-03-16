@@ -18,8 +18,6 @@ public:
 protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::BLACKHOLE; }
 
-    bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
-
     uint64_t get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     uint64_t get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) override;
@@ -42,15 +40,13 @@ protected:
 
     uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
-    uint64_t get_remote_board_type(TTDevice* tt_device, tt_xy_pair eth_core) override;
-
     bool is_using_eth_coords() override;
 
     uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);
 
     bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
-    bool verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
+    void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override {}
 
     std::unique_ptr<TTDevice> create_remote_device(
         std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;
@@ -60,6 +56,12 @@ protected:
     void init_first_device(TTDevice* tt_device) override;
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    uint32_t get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) override;
+
+    void retrain_eth_cores() override;
 };
 
 }  // namespace tt::umd

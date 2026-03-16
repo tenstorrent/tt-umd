@@ -17,8 +17,6 @@
 
 #include "pcie/ioctl.h"
 
-#define BLACKHOLE_PCI_DEVICE_ID 0xb140
-#define WORMHOLE_PCI_DEVICE_ID 0x401e
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DEBUG(fmt, ...)                                                        \
     do {                                                                       \
@@ -101,9 +99,9 @@ int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out
     }
 
     uint64_t arch = TT_DEVICE_ARCH_UNKNOWN;
-    if (get_device_info.out.device_id == BLACKHOLE_PCI_DEVICE_ID) {
+    if (get_device_info.out.device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         arch = TT_DEVICE_ARCH_BLACKHOLE;
-    } else if (get_device_info.out.device_id == WORMHOLE_PCI_DEVICE_ID) {
+    } else if (get_device_info.out.device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         arch = TT_DEVICE_ARCH_WORMHOLE;
     }
 

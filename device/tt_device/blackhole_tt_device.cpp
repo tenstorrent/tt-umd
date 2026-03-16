@@ -195,10 +195,10 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
                 start,
                 timeout_ms,
                 fmt::format(
-                    "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                    "ARC core {} startup timed out after: {}. Status: 0x{:x}",
+                    arc_core.str(),
                     timeout_ms.count(),
-                    arc_core.x,
-                    arc_core.y),
+                    arc_boot_status),
                 utils::TimeoutAction::Return)) {
             return false;
         }
@@ -343,6 +343,15 @@ bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordin
 void BlackholeTTDevice::dma_multicast_write(
     void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
+}
+
+void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    uint32_t ret_code = get_arc_messenger()->send_message(
+        static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});
+    if (ret_code != 0) {
+        throw std::runtime_error(
+            fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
+    }
 }
 
 }  // namespace tt::umd

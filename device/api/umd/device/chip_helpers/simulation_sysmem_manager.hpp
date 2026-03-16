@@ -27,7 +27,8 @@ protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 
 private:
-    std::vector<uint8_t> system_memory_;
+    uint8_t* system_memory_ = nullptr;
+    size_t system_memory_size_ = 0;
 };
 
 }  // namespace tt::umd

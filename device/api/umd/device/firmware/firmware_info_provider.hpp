@@ -10,6 +10,7 @@
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -85,10 +86,16 @@ public:
     std::optional<uint32_t> get_arcclk() const;
 
     /*
-     * Get fan speed in rpm, if fans are present and controllable by firmware.
-     * @returns Fan speed [rpm]
+     * Get fan speed as a percentage (0-100), if fans are present and controllable by firmware.
+     * @returns Fan speed [percent]
      */
     std::optional<uint32_t> get_fan_speed() const;
+
+    /*
+     * Get fan speed in RPM, if fans are present and controllable by firmware.
+     * @returns Fan speed [RPM]
+     */
+    std::optional<uint32_t> get_fan_rpm() const;
 
     /*
      * Get TDP in watts.
@@ -114,6 +121,46 @@ public:
      */
     std::optional<double> get_board_temperature() const;
 
+    /*
+     * Get thermal limit shutdown threshold in Celsius.
+     * @returns Thermal limit shutdown threshold [Celsius]
+     */
+    std::optional<double> get_thm_limit_shutdown() const;
+
+    /*
+     * Get board power limit in watts.
+     * @returns Board power limit [W]
+     */
+    std::optional<uint32_t> get_board_power_limit() const;
+
+    /*
+     * Get thermal limit throttle threshold in Celsius.
+     * @returns Thermal limit throttle threshold [Celsius]
+     */
+    std::optional<double> get_thm_limit_throttle() const;
+
+    /*
+     * Get thermal trip count.
+     * @returns Number of thermal trips that have occurred.
+     */
+    std::optional<uint32_t> get_therm_trip_count() const;
+
+    /*
+     * Get per-link ethernet heartbeat status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
+     */
+    std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+
+    /*
+     * Get per-link ethernet retrain status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
+     */
+    std::optional<std::vector<bool>> get_eth_retrain_status() const;
+
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
     uint32_t get_max_clock_freq() const;
@@ -128,7 +175,21 @@ public:
      */
     uint32_t get_heartbeat() const;
 
+    std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
+
+    std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const;
+
+    std::optional<uint16_t> get_dram_speed() const;
+
+    std::optional<double> get_current_max_dram_temperature() const;
+
 private:
+    /**
+     * Parse a 16-bit bitmask into a per-link boolean vector.
+     * Bit indices align with ETH channels (i.e. logical coordinates).
+     */
+    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
+
     TTDevice* tt_device = nullptr;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);

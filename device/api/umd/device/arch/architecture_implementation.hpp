@@ -45,6 +45,7 @@ public:
     virtual uint32_t get_dram_channel_0_x() const = 0;
     virtual uint32_t get_dram_channel_0_y() const = 0;
     virtual uint32_t get_dram_banks_number() const = 0;
+    virtual uint32_t get_aiclk_busy_val() const = 0;
     virtual uint32_t get_broadcast_tlb_index() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_base() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_size() const = 0;

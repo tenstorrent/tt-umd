@@ -56,3 +56,67 @@ class TestTelemetry(unittest.TestCase):
                         tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE
                     )
                     print(f"Device {pci_id} - SMBUS telemetry ASIC temperature: {temp}")
+
+    def test_gddr_telemetry(self):
+        """Test GDDR telemetry (temperatures, errors, status) for DRAM monitoring."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.init_tt_device()
+
+            fw_info = tt_umd.FirmwareInfoProvider.create_firmware_info_provider(dev)
+
+            # Test DRAM speed (available on Blackhole and Wormhole >= 18.4)
+            dram_speed = fw_info.get_dram_speed()
+            if dram_speed is not None:
+                print(f"Device {pci_id} - GDDR speed: {dram_speed} Mbps")
+
+            # GDDR telemetry (temperatures, errors) is only available on Blackhole
+            if dev.get_arch() != tt_umd.ARCH.BLACKHOLE:
+                print(
+                    f"Device {pci_id} - Skipping detailed GDDR telemetry (not Blackhole, arch={dev.get_arch()})"
+                )
+                continue
+
+            # Test aggregated GDDR telemetry
+            gddr_telemetry = fw_info.get_aggregated_dram_telemetry()
+            if gddr_telemetry is None:
+                print(f"Device {pci_id} - GDDR telemetry not available")
+                continue
+
+            # Test max DRAM temperature
+            max_temp = fw_info.get_current_max_dram_temperature()
+            if max_temp is not None:
+                print(f"Device {pci_id} - Max GDDR temperature: {max_temp}C")
+
+            # Print per-module telemetry from aggregated data
+            print(f"Device {pci_id} - Per-module GDDR telemetry:")
+            for gddr_index, module_telemetry in gddr_telemetry.modules.items():
+                print(
+                    f"  GDDR_{int(gddr_index)}: "
+                    f"top={module_telemetry.dram_temperature_top}C "
+                    f"bottom={module_telemetry.dram_temperature_bottom}C "
+                    f"corr_rd={module_telemetry.corr_edc_rd_errors} "
+                    f"corr_wr={module_telemetry.corr_edc_wr_errors} "
+                    f"uncorr_rd={module_telemetry.uncorr_edc_rd_error} "
+                    f"uncorr_wr={module_telemetry.uncorr_edc_wr_error}"
+                )
+
+            # Test individual module telemetry access
+            print(f"Device {pci_id} - Testing individual module access:")
+            for gddr_index in [
+                tt_umd.GddrModule.GDDR_0,
+                tt_umd.GddrModule.GDDR_1,
+                tt_umd.GddrModule.GDDR_7,
+            ]:
+                module_telemetry = fw_info.get_dram_telemetry(gddr_index)
+                if module_telemetry is not None:
+                    print(
+                        f"  GDDR_{int(gddr_index)}: "
+                        f"top={module_telemetry.dram_temperature_top}C "
+                        f"bottom={module_telemetry.dram_temperature_bottom}C"
+                    )

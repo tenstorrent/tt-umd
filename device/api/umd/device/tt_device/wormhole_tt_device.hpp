@@ -50,6 +50,8 @@ public:
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
+    void retrain_eth_core(tt_xy_pair eth_core);
+
     ~WormholeTTDevice() override = default;
 
 protected:
@@ -63,6 +65,8 @@ protected:
      * communication device over PCIe would require overriding several methods from the base class.
      */
     WormholeTTDevice();
+
+    void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);

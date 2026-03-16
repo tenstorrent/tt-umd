@@ -19,6 +19,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -53,7 +54,7 @@ TEST(TestTTVisibleDevices, OpenChipsById) {
         std::string value = test_utils::convert_to_comma_separated_string(target_device_ids);
 
         if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
-            ASSERT_TRUE(false) << "Failed to unset environment variable.";
+            ASSERT_TRUE(false) << "Failed to set environment variable.";
         }
 
         // Make sure that Cluster construction is without exceptions.
@@ -77,10 +78,6 @@ TEST(TestTTVisibleDevices, OpenChipsById) {
 TEST(TestTTVisibleDevices, OpenChipsByBDF) {
     // Get all available PCI devices and their BDF addresses.
     auto device_info_map = PCIDevice::enumerate_devices_info();
-
-    if (device_info_map.empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
-    }
 
     // Extract BDF addresses.
     std::vector<std::string> pci_bdf_addresses;
@@ -142,10 +139,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES";
-    }
-
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
     }
@@ -171,10 +164,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
 TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
-    }
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
@@ -204,10 +193,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
-    }
-
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
     }
@@ -234,10 +219,6 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
 TEST(TestTTVisibleDevices, OpenChipsByIdException) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No PCI devices found for testing TT_VISIBLE_DEVICES.";
-    }
-
     std::unordered_set<int> target_device_ids;
     target_device_ids.insert(pci_device_ids.size());
 
@@ -250,7 +231,7 @@ TEST(TestTTVisibleDevices, OpenChipsByIdException) {
     std::string value = test_utils::convert_to_comma_separated_string(target_device_ids);
 
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset environment variable.";
+        ASSERT_TRUE(false) << "Failed to set environment variable.";
     }
 
     // Since target ID is not in the range of available devices, expect an exception.
@@ -261,54 +242,24 @@ TEST(TestTTVisibleDevices, OpenChipsByIdException) {
     }
 }
 
-TEST(TestTTVisibleDevices, OpenClusterByLogicalID) {
-    // First, pregenerate a cluster descriptor and save it to a file.
-    // This will run topology discovery and touch all the devices.
-    std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
+TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
 
-    // Now, the user can create the cluster descriptor without touching the devices.
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
-    // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
-    // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
-    // connections.
-    std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<ChipId, ChipId> chips_with_pcie = cluster_desc->get_chips_with_mmio();
-    auto eth_connections = cluster_desc->get_ethernet_connections();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (all_chips.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
-    // The first cluster will open the first chip only, and the second cluster will open the rest of them.
-    ChipId first_chip_only = chips_with_pcie.begin()->first;
-    std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
-        .target_devices = {first_chip_only},
-        .cluster_descriptor = cluster_desc.get(),
-    });
-
-    auto chips1 = umd_cluster1->get_target_device_ids();
-    EXPECT_EQ(chips1.size(), 1);
-    EXPECT_EQ(*chips1.begin(), first_chip_only);
-
-    std::unordered_set<ChipId> other_chips;
-    for (auto chip : all_chips) {
-        // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
-        // first local chip.
-        if (chip != first_chip_only && cluster_desc->is_chip_mmio_capable(chip)) {
-            other_chips.insert(chip);
-        }
-    }
-    // Continue the test only if there there is more than one card in the system.
-    if (!other_chips.empty()) {
-        std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
-            .target_devices = other_chips,
-            .cluster_descriptor = cluster_desc.get(),
-        });
-
-        // Cluster 2 should have the rest of the chips and not contain the first chip.
-        auto chips2 = umd_cluster2->get_target_device_ids();
-        EXPECT_EQ(chips2.size(), chips_with_pcie.size() - 1);
-        EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
+    // Verify that for each logical ID i, the PCI device behind it matches
+    // the i-th device returned by enumerate_devices() (which is BDF-sorted).
+    for (const ChipId chip_id : cluster->get_target_mmio_device_ids()) {
+        TTDevice* tt_device = cluster->get_tt_device(chip_id);
+        ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << chip_id;
+        std::shared_ptr<PCIDevice> pci_device = tt_device->get_pci_device();
+        ASSERT_NE(pci_device, nullptr) << "No PCI device found for logical ID " << chip_id;
+        ASSERT_LT(chip_id, enumerated_ids.size())
+            << "Logical chip ID " << chip_id << " is out of bounds for enumerate_devices() result of size "
+            << enumerated_ids.size();
+        EXPECT_EQ(pci_device->get_device_num(), enumerated_ids[chip_id])
+            << "Chip ID " << chip_id << " maps to PCI device " << pci_device->get_device_num()
+            << " but enumerate_devices() returned " << enumerated_ids[chip_id] << " at index " << chip_id;
     }
 }
 
@@ -321,14 +272,7 @@ TEST(TestTTVisibleDevices, DifferentConstructors) {
     umd_cluster.reset();
 
     if (chips_available) {
-        // 2. Constructor which allows choosing a subset of Chips to open.
-        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-            .target_devices = {0},
-        });
-        EXPECT_EQ(umd_cluster->get_target_device_ids().size(), 1);
-        umd_cluster.reset();
-
-        // 3. Constructor taking a custom soc descriptor in addition.
+        // 2. Constructor taking a custom soc descriptor in addition.
         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
         std::string sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
@@ -338,7 +282,7 @@ TEST(TestTTVisibleDevices, DifferentConstructors) {
         umd_cluster.reset();
     }
 
-    // 4. Constructor taking cluster descriptor based on which to create cluster.
+    // 3. Constructor taking cluster descriptor based on which to create cluster.
     // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
     // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
     // created Cluster class.
@@ -353,7 +297,7 @@ TEST(TestTTVisibleDevices, DifferentConstructors) {
     });
     umd_cluster.reset();
 
-    // 5. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+    // 4. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .chip_type = ChipType::MOCK,
         .target_devices = {0},

@@ -29,9 +29,6 @@ constexpr uint32_t NUM_EPOCHS = 100;
 // and the average time per page.
 TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
@@ -82,9 +79,6 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
 // Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
 TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
@@ -139,9 +133,6 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
 // Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
 TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }

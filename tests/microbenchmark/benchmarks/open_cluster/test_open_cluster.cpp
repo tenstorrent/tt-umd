@@ -39,7 +39,7 @@ TEST(MicrobenchmarkOpenCluster, TopologyDiscovery) {
         ankerl::nanobench::doNotOptimizeAway(devices);
     });
     bench.name("local only").run([&] {
-        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({.no_remote_discovery = true});
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({.discover_remote_devices = false});
         ankerl::nanobench::doNotOptimizeAway(devices);
     });
 

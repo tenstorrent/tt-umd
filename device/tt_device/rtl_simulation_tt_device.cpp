@@ -75,12 +75,22 @@ void RtlSimulationTTDevice::close_device() { communicator_->shutdown(); }
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
+    TlbWindow* tlb_window = get_cached_tlb_window();
+    if (tlb_window) {
+        tlb_window->write_block_reconfigure(mem_ptr, core, addr, size);
+    } else {
+        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    }
 }
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+    TlbWindow* tlb_window = get_cached_tlb_window();
+    if (tlb_window) {
+        tlb_window->read_block_reconfigure(mem_ptr, core, addr, size);
+    } else {
+        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    }
 }
 
 // Three overloads exist for send_tensix_risc_reset:

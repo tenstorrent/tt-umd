@@ -96,8 +96,8 @@ FirmwareFeatures FirmwareInfoProvider::create_modern_base() {
         {FirmwareFeature::BOARD_ID_HIGH,     {TelemetryTag::BOARD_ID_HIGH, LinearTransform{}}},
         {FirmwareFeature::BOARD_ID_LOW,      {TelemetryTag::BOARD_ID_LOW, LinearTransform{}}},
         {FirmwareFeature::ASIC_LOCATION,     {TelemetryTag::ASIC_LOCATION, LinearTransform{}}},
-        {FirmwareFeature::ASIC_TEMPERATURE,  {TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
-        {FirmwareFeature::BOARD_TEMPERATURE, {TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
+        {FirmwareFeature::ASIC_TEMPERATURE,  {TelemetryTag::ASIC_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0, NumericSign::SIGNED}}},
+        {FirmwareFeature::BOARD_TEMPERATURE, {TelemetryTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0, NumericSign::SIGNED}}},
         {FirmwareFeature::GDDR_0_1_TEMP,     {TelemetryTag::GDDR_0_1_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
         {FirmwareFeature::GDDR_2_3_TEMP,     {TelemetryTag::GDDR_2_3_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
         {FirmwareFeature::GDDR_4_5_TEMP,     {TelemetryTag::GDDR_4_5_TEMP, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
@@ -252,8 +252,11 @@ std::optional<T> FirmwareInfoProvider::read_scalar(FirmwareFeature feature) cons
             using C = std::decay_t<decltype(converter)>;
 
             if constexpr (std::is_same_v<C, LinearTransform>) {
-                double result =
-                    static_cast<double>((raw >> converter.shift) & converter.mask) * converter.scale + converter.offset;
+                uint32_t masked = (raw >> converter.shift) & converter.mask;
+                double value = converter.signedness == NumericSign::SIGNED
+                                   ? static_cast<double>(static_cast<int32_t>(masked))
+                                   : static_cast<double>(masked);
+                double result = value * converter.scale + converter.offset;
                 return static_cast<T>(result);
             } else if constexpr (std::is_same_v<C, NotAvailable>) {
                 return std::nullopt;

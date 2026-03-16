@@ -36,16 +36,22 @@ struct FixedValue {
 // FeatureKey: The "Where" - can be a standard enum, legacy enum, SMBus tag, or fixed value.
 using FeatureKey = std::variant<StandardTag, WormholeTag, SmBusTag, FixedValue>;
 
+// Signedness of the raw telemetry value before scaling.
+enum class NumericSign { UNSIGNED, SIGNED };
+
 /**
  * LinearTransform: Applies shift, mask, scale, and offset to raw telemetry data.
  *
  * Formula: result = ((raw >> shift) & mask) * scale + offset
  *
+ * When signedness is SIGNED, the masked value is reinterpreted as signed (int32_t)
+ * before scaling. This is needed for s16.16 fixed-point formats (e.g. temperatures).
+ *
  * Default values provide identity transform (pass-through).
  *
  * Examples:
  *   - Identity (pass-through): LinearTransform{} or LinearTransform{0, 0xFFFFFFFF, 1.0, 0.0}
- *   - ASIC temperature (modern): LinearTransform{0, 0xFFFFFFFF, 1.0/65536.0, 0.0}
+ *   - ASIC temperature (modern, s16.16): LinearTransform{0, 0xFFFFFFFF, 1.0/65536.0, 0.0, NumericSign::SIGNED}
  *   - ASIC temperature (legacy WH): LinearTransform{0, 0xFFFF, 1.0/16.0, 0.0}
  *   - Max clock freq from AICLK: LinearTransform{16, 0xFFFF, 1.0, 0.0}
  *   - AICLK (legacy WH): LinearTransform{0, 0xFFFF, 1.0, 0.0}
@@ -55,6 +61,7 @@ struct LinearTransform {
     uint32_t mask = 0xFFFFFFFF;
     double scale = 1.0;
     double offset = 0.0;
+    NumericSign signedness = NumericSign::UNSIGNED;
 };
 
 /**

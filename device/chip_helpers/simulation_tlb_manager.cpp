@@ -225,6 +225,21 @@ uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
 
 const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
 
+std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
+    switch (architecture_) {
+        case tt::ARCH::BLACKHOLE:
+            return allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
+        case tt::ARCH::WORMHOLE_B0:
+            return allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not support TLB allocation, returning nullptr.",
+                tt::arch_to_str(architecture_));
+            return nullptr;
+    }
+}
+
 void SimulationTlbManager::initialize_architecture_config() {
     architecture_ = get_architecture_impl()->get_architecture();
 

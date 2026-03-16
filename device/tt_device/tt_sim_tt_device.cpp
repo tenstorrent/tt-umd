@@ -69,7 +69,7 @@ TTSimTTDevice::TTSimTTDevice(
             auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
             return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
         });
-    get_cached_tlb_window();
+    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
 TTSimTTDevice::~TTSimTTDevice() = default;
@@ -80,24 +80,19 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
-        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
-        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
+    if (cached_tlb_window_) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
+    } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
-        return;
     }
-
-    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
-        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
-        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (cached_tlb_window_) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
     communicator_->advance_clock(10);
 }
@@ -254,29 +249,6 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
     uint64_t channel = paddr / (1ULL << 30);
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->write_to_sysmem(channel, p, offset, size);
-}
-
-TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
-    if (cached_tlb_window_ == nullptr) {
-        switch (architecture_impl_->get_architecture()) {
-            case ARCH::BLACKHOLE:
-                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
-                break;
-            case ARCH::WORMHOLE_B0:
-                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
-                break;
-            default: {
-                log_debug(
-                    LogUMD,
-                    fmt::format(
-                        "Architecture {} does not yet have support for TLB allocation.",
-                        tt::arch_to_str(architecture_impl_->get_architecture())));
-                return nullptr;
-            }
-        }
-    }
-
-    return cached_tlb_window_.get();
 }
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {

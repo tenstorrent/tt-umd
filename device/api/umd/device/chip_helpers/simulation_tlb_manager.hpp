@@ -35,6 +35,12 @@ public:
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;
 
     /**
+     * Allocate a TLB window with a default size based on the device architecture.
+     * Returns nullptr if the architecture does not support TLBs.
+     */
+    std::unique_ptr<TlbWindow> allocate_default_tlb_window();
+
+    /**
      * Allocate a TLB index based on the requested size.
      * @param size Requested TLB size (0 means any available)
      * @return TLB index if successful, -1 if no TLB available

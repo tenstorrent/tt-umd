@@ -61,7 +61,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
             auto handle = RtlSimTlbHandle::create(mgr, id, sz, map);
             return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
         });
-    get_cached_tlb_window();
+    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
@@ -75,9 +75,8 @@ void RtlSimulationTTDevice::close_device() { communicator_->shutdown(); }
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    TlbWindow* tlb_window = get_cached_tlb_window();
-    if (tlb_window) {
-        tlb_window->write_block_reconfigure(mem_ptr, core, addr, size);
+    if (cached_tlb_window_) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -85,9 +84,8 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    TlbWindow* tlb_window = get_cached_tlb_window();
-    if (tlb_window) {
-        tlb_window->read_block_reconfigure(mem_ptr, core, addr, size);
+    if (cached_tlb_window_) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -252,28 +250,6 @@ void RtlSimulationTTDevice::dma_multicast_write(
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
-}
-
-TlbWindow* RtlSimulationTTDevice::get_cached_tlb_window() {
-    if (!cached_tlb_window_) {
-        switch (architecture_impl_->get_architecture()) {
-            case ARCH::BLACKHOLE:
-                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
-                break;
-            case ARCH::WORMHOLE_B0:
-                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
-                break;
-            default: {
-                log_debug(
-                    LogUMD,
-                    fmt::format(
-                        "Architecture {} does not yet have support for TLB allocation.",
-                        tt::arch_to_str(architecture_impl_->get_architecture())));
-                return nullptr;
-            }
-        }
-    }
-    return cached_tlb_window_.get();
 }
 
 }  // namespace tt::umd

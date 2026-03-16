@@ -108,9 +108,6 @@ private:
     uint32_t libttsim_pci_device_id;
 
     std::unique_ptr<SimulationTlbManager> tlb_manager_;
-
-    TlbWindow *get_cached_tlb_window();
-
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 };
 }  // namespace tt::umd

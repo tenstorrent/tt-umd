@@ -9,7 +9,9 @@
 #include <mutex>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/dma/dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 
@@ -55,6 +57,8 @@ private:
     TlbWindow* get_cached_tlb_window();
     TlbWindow* get_cached_dma_tlb_window(tlb_data config);
 
+    static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
+
     void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
     void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
 
@@ -65,6 +69,7 @@ private:
     void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     std::unique_ptr<PCIDevice> pci_device_;
+    DmaTransferStrategy dma_strategy_;
     bool use_safe_api_;
     std::mutex io_lock_;
     std::mutex dma_mutex_;

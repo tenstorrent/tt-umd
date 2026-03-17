@@ -6,11 +6,11 @@
 
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
-#include <chrono>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <variant>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -19,8 +19,21 @@
 
 namespace tt::umd {
 
+DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return WormholeDmaTransfer{};
+        case tt::ARCH::BLACKHOLE:
+            return BlackholeDmaTransfer{};
+        default:
+            throw std::runtime_error("Unsupported architecture for DMA transfer strategy.");
+    }
+}
+
 PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
-    pci_device_(std::move(pci_device)), use_safe_api_(use_safe_api) {}
+    pci_device_(std::move(pci_device)),
+    dma_strategy_(create_dma_strategy(pci_device_->get_arch())),
+    use_safe_api_(use_safe_api) {}
 
 PcieProtocol::~PcieProtocol() = default;
 
@@ -122,33 +135,11 @@ TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
 }
 
 void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    if (pci_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("DMA is not supported on Blackhole.");
-    }
-
-    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
-    static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
-    static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
-    static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
-    static constexpr uint64_t DMA_WRITE_DONE_IMWR_LOW_OFF = 0x60;
-    static constexpr uint64_t DMA_WRITE_CH01_IMWR_DATA_OFF = 0x70;
-    static constexpr uint64_t DMA_WRITE_DONE_IMWR_HIGH_OFF = 0x64;
-    static constexpr uint64_t DMA_WRITE_ABORT_IMWR_LOW_OFF = 0x68;
-    static constexpr uint64_t DMA_WRITE_ABORT_IMWR_HIGH_OFF = 0x6c;
-    static constexpr uint64_t DMA_TRANSFER_SIZE_OFF_WRCH_0 = 0x208;
-    static constexpr uint64_t DMA_SAR_LOW_OFF_WRCH_0 = 0x20c;
-    static constexpr uint64_t DMA_SAR_HIGH_OFF_WRCH_0 = 0x210;
-    static constexpr uint64_t DMA_DAR_LOW_OFF_WRCH_0 = 0x214;
-    static constexpr uint64_t DMA_DAR_HIGH_OFF_WRCH_0 = 0x218;
-    static constexpr uint64_t DMA_WRITE_DOORBELL_OFF = 0x10;
-
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
-    volatile uint32_t* completion = reinterpret_cast<volatile uint32_t*>(dma_buffer.completion);
 
-    if (!completion || !dma_buffer.buffer) {
+    if (!dma_buffer.completion || !dma_buffer.buffer) {
         throw std::runtime_error("DMA buffer is not initialized");
     }
 
@@ -164,70 +155,15 @@ void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, cons
         throw std::runtime_error("BAR2 is not mapped");
     }
 
-    *completion = 0;
-
-    auto write_reg = [&](uint64_t offset, uint32_t value) {
-        *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
-    };
-
-    write_reg(DMA_WRITE_ENGINE_EN_OFF, 0x1);
-    write_reg(DMA_WRITE_INT_MASK_OFF, 0);
-    write_reg(DMA_CH_CONTROL1_OFF_WRCH_0, 0x00000010);
-    write_reg(DMA_WRITE_DONE_IMWR_LOW_OFF, static_cast<uint32_t>(dma_buffer.completion_pa & 0xFFFFFFFF));
-    write_reg(DMA_WRITE_DONE_IMWR_HIGH_OFF, static_cast<uint32_t>((dma_buffer.completion_pa >> 32) & 0xFFFFFFFF));
-    write_reg(DMA_WRITE_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);
-    write_reg(DMA_WRITE_ABORT_IMWR_LOW_OFF, 0);
-    write_reg(DMA_WRITE_ABORT_IMWR_HIGH_OFF, 0);
-    write_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, size);
-    write_reg(DMA_SAR_LOW_OFF_WRCH_0, src);
-    write_reg(DMA_SAR_HIGH_OFF_WRCH_0, 0);
-    write_reg(DMA_DAR_LOW_OFF_WRCH_0, static_cast<uint32_t>(dst & 0xFFFFFFFF));
-    write_reg(DMA_DAR_HIGH_OFF_WRCH_0, static_cast<uint32_t>((dst >> 32) & 0xFFFFFFFF));
-    write_reg(DMA_WRITE_DOORBELL_OFF, 0);
-
-    auto start = std::chrono::steady_clock::now();
-    for (;;) {
-        if (*completion == DMA_COMPLETION_VALUE) {
-            break;
-        }
-
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-        if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout");
-        }
-    }
+    std::visit([&](auto& strategy) { strategy.d2h_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
 }
 
 void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
-    if (pci_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("DMA is not supported on Blackhole.");
-    }
-
-    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
-    static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
-    static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
-    static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
-    static constexpr uint64_t DMA_READ_DONE_IMWR_LOW_OFF = 0xcc;
-    static constexpr uint64_t DMA_READ_CH01_IMWR_DATA_OFF = 0xdc;
-    static constexpr uint64_t DMA_READ_DONE_IMWR_HIGH_OFF = 0xd0;
-    static constexpr uint64_t DMA_READ_ABORT_IMWR_LOW_OFF = 0xd4;
-    static constexpr uint64_t DMA_READ_ABORT_IMWR_HIGH_OFF = 0xd8;
-    static constexpr uint64_t DMA_TRANSFER_SIZE_OFF_RDCH_0 = 0x308;
-    static constexpr uint64_t DMA_SAR_LOW_OFF_RDCH_0 = 0x30c;
-    static constexpr uint64_t DMA_SAR_HIGH_OFF_RDCH_0 = 0x310;
-    static constexpr uint64_t DMA_DAR_LOW_OFF_RDCH_0 = 0x314;
-    static constexpr uint64_t DMA_DAR_HIGH_OFF_RDCH_0 = 0x318;
-    static constexpr uint64_t DMA_READ_DOORBELL_OFF = 0x30;
-
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
-    volatile uint32_t* completion = reinterpret_cast<volatile uint32_t*>(dma_buffer.completion);
 
-    if (!completion || !dma_buffer.buffer) {
+    if (!dma_buffer.completion || !dma_buffer.buffer) {
         throw std::runtime_error("DMA buffer is not initialized");
     }
 
@@ -243,40 +179,7 @@ void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, cons
         throw std::runtime_error("BAR2 is not mapped");
     }
 
-    *completion = 0;
-
-    auto write_reg = [&](uint64_t offset, uint32_t value) {
-        *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
-    };
-
-    write_reg(DMA_READ_ENGINE_EN_OFF, 0x1);
-    write_reg(DMA_READ_INT_MASK_OFF, 0);
-    write_reg(DMA_CH_CONTROL1_OFF_RDCH_0, 0x10);
-    write_reg(DMA_READ_DONE_IMWR_LOW_OFF, static_cast<uint32_t>(dma_buffer.completion_pa & 0xFFFFFFFF));
-    write_reg(DMA_READ_DONE_IMWR_HIGH_OFF, static_cast<uint32_t>((dma_buffer.completion_pa >> 32) & 0xFFFFFFFF));
-    write_reg(DMA_READ_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);
-    write_reg(DMA_READ_ABORT_IMWR_LOW_OFF, 0);
-    write_reg(DMA_READ_ABORT_IMWR_HIGH_OFF, 0);
-    write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, size);
-    write_reg(DMA_SAR_LOW_OFF_RDCH_0, static_cast<uint32_t>(src & 0xFFFFFFFF));
-    write_reg(DMA_SAR_HIGH_OFF_RDCH_0, static_cast<uint32_t>((src >> 32) & 0xFFFFFFFF));
-    write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);
-    write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);
-    write_reg(DMA_READ_DOORBELL_OFF, 0);
-
-    auto start = std::chrono::steady_clock::now();
-    for (;;) {
-        if (*completion == DMA_COMPLETION_VALUE) {
-            break;
-        }
-
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-        if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout");
-        }
-    }
+    std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
 }
 
 void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {

@@ -73,6 +73,25 @@ export CC=gcc
 export CXX=g++
 ```
 
+#### Build with Tracy profiling
+
+[Tracy](https://github.com/wolfpld/tracy) is a real-time profiler. To enable it, Tracy must be initialized as a submodule:
+
+```bash
+git submodule update --init --recursive
+```
+
+Then build with the `TT_UMD_ENABLE_TRACY` flag:
+
+```bash
+cmake -B build -G Ninja -DTT_UMD_ENABLE_TRACY=ON
+cmake --build build
+```
+
+To capture a trace, run the Tracy server from the [Tenstorrent Tracy fork](https://github.com/tenstorrent/tracy) and start your application — it will connect automatically.
+
+When `TT_UMD_ENABLE_TRACY=OFF` (the default), Tracy has zero footprint: no headers are compiled in and no binary overhead is introduced.
+
 #### Build debian dev package
 ```
 cmake --build build --target package

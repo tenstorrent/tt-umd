@@ -19,9 +19,9 @@ class JtagDevice;
  */
 class JtagProtocol : public DeviceProtocol, public JtagInterface {
 public:
-    JtagProtocol(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    JtagProtocol(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
-    ~JtagProtocol() override = default;
+    ~JtagProtocol() override;
 
     // DeviceProtocol interface.
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
@@ -33,7 +33,8 @@ public:
     JtagDevice* get_jtag_device() override;
 
 private:
-    std::shared_ptr<JtagDevice> jtag_device_;
+    std::unique_ptr<JtagDevice> jtag_device_;
+    int communication_device_id_;
 };
 
 }  // namespace tt::umd

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -13,6 +14,7 @@
 namespace tt::umd {
 
 class PCIDevice;
+class TlbWindow;
 
 /**
  * PcieProtocol implements DeviceProtocol and PcieInterface for PCIe-connected devices.
@@ -22,9 +24,9 @@ class PCIDevice;
  */
 class PcieProtocol : public DeviceProtocol, public PcieInterface {
 public:
-    explicit PcieProtocol(std::shared_ptr<PCIDevice> pci_device);
+    explicit PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api = false);
 
-    ~PcieProtocol() override = default;
+    ~PcieProtocol() override;
 
     // DeviceProtocol interface.
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
@@ -49,7 +51,18 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
 
 private:
-    std::shared_ptr<PCIDevice> pci_device_;
+    TlbWindow* get_cached_tlb_window();
+
+    template <bool safe>
+    void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    template <bool safe>
+    void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    std::unique_ptr<PCIDevice> pci_device_;
+    bool use_safe_api_;
+    std::mutex io_lock_;
+    std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 
 }  // namespace tt::umd

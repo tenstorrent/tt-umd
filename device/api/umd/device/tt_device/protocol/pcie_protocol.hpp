@@ -15,10 +15,7 @@ namespace tt::umd {
 
 class PCIDevice;
 class TlbWindow;
-<<<<<<< HEAD
 struct tlb_data;
-=======
->>>>>>> main
 
 /**
  * PcieProtocol implements DeviceProtocol and PcieInterface for PCIe-connected devices.

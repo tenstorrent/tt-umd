@@ -288,7 +288,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
-    const uint32_t bar0_offset = 0x1FD00000;
+    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
+    constexpr uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
         throw std::runtime_error("Write Invalid BAR address for this device.");
     }
@@ -297,7 +298,8 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
-    const uint32_t bar0_offset = 0x1FD00000;
+    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
+    constexpr uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
         throw std::runtime_error("Read Invalid BAR address for this device.");
     }

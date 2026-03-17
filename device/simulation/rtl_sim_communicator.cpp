@@ -8,9 +8,6 @@
 #include <uv.h>
 
 #include <cstring>
-#include <iomanip>
-#include <random>
-#include <sstream>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
@@ -232,6 +229,11 @@ void RtlSimCommunicator::neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t 
         host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, core, dm_index));
 }
 
+void RtlSimCommunicator::set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb) {
+    ram_write_callback_ = std::move(write_cb);
+    ram_read_callback_ = std::move(read_cb);
+}
+
 void RtlSimCommunicator::notification_handler_thread() {
     log_info(tt::LogEmulationDriver, "Notification handler thread started.");
 
@@ -285,22 +287,15 @@ void RtlSimCommunicator::notification_handler_thread() {
 
 void RtlSimCommunicator::handle_ram_write_notification(const void *notification) {
     auto buf = GetDeviceRequestResponse(notification);
-    uint32_t ram_idx = buf->core()->x();
     uint64_t address = buf->address();
     uint32_t size = buf->size();
 
-    log_info(tt::LogEmulationDriver, "[AXI_RAM_WRITE] RAM[{}] @ 0x{:08x} size={}.", ram_idx, address, size);
+    log_debug(tt::LogEmulationDriver, "[AXI_RAM_WRITE] @ 0x{:016x} size={}.", address, size);
 
-    if (buf->data() && buf->data()->size() > 0) {
-        std::stringstream ss;
-        size_t num_to_print = std::min<size_t>(4, buf->data()->size());
-        for (size_t i = 0; i < num_to_print; i++) {
-            ss << std::hex << std::setw(8) << std::setfill('0') << buf->data()->Get(i) << " ";
-        }
-        if (buf->data()->size() > 4) {
-            ss << "...";
-        }
-        log_debug(tt::LogEmulationDriver, "  Data: {}", ss.str());
+    if (ram_write_callback_ && buf->data() && buf->data()->size() > 0) {
+        ram_write_callback_(address, buf->data()->data(), size);
+    } else if (!ram_write_callback_) {
+        log_warning(tt::LogEmulationDriver, "[AXI_RAM_WRITE] No callback registered, dropping write.");
     }
 }
 
@@ -310,43 +305,22 @@ void RtlSimCommunicator::handle_ram_read_notification(const void *notification) 
     uint64_t address = buf->address();
     uint32_t size = buf->size();
 
-    log_info(
-        tt::LogEmulationDriver,
-        "[AXI_RAM_READ] RAM[{}] @ 0x{:08x} size={} - generating random data.",
-        ram_idx,
-        address,
-        size);
-
-    // Generate random data for the read response.
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<uint32_t> dist(0, 0xFFFFFFFF);
+    log_debug(tt::LogEmulationDriver, "[AXI_RAM_READ] @ 0x{:016x} size={}.", address, size);
 
     uint32_t num_uint32s = (size + 3) / 4;
-    std::vector<uint32_t> random_data(num_uint32s);
-    for (uint32_t i = 0; i < num_uint32s; i++) {
-        random_data[i] = dist(gen);
+    std::vector<uint32_t> read_data(num_uint32s, 0);
+
+    if (ram_read_callback_) {
+        ram_read_callback_(address, read_data.data(), size);
+    } else {
+        log_warning(tt::LogEmulationDriver, "[AXI_RAM_READ] No callback registered, returning zeros.");
     }
 
-    if (!random_data.empty()) {
-        std::stringstream ss;
-        size_t num_to_print = std::min<size_t>(4, random_data.size());
-        for (size_t i = 0; i < num_to_print; i++) {
-            ss << std::hex << std::setw(8) << std::setfill('0') << random_data[i] << " ";
-        }
-        if (random_data.size() > 4) {
-            ss << "...";
-        }
-        log_debug(tt::LogEmulationDriver, "  Sending data: {}", ss.str());
-    }
-
-    // Send response back to remote with random data.
+    // Send response back to simulator.
     tt_xy_pair core = {ram_idx, 0};
     std::lock_guard<std::mutex> lock(device_lock_);
     send_command_to_simulation_host(
-        host_, create_flatbuffer(DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION, random_data, core, address, size));
-
-    log_debug(tt::LogEmulationDriver, "[AXI_RAM_READ] Response sent.");
+        host_, create_flatbuffer(DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION, read_data, core, address, size));
 }
 
 RtlSimCommunicator::ReceivedMessage RtlSimCommunicator::wait_for_command_response() {

@@ -8,6 +8,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -129,6 +130,21 @@ public:
      */
     SimulationHost &get_host() { return host_; }
 
+    // Callback for AXI RAM write: (address, data, size) -> write data into host memory.
+    using RamWriteCallback = std::function<void(uint64_t address, const void *data, uint32_t size)>;
+
+    // Callback for AXI RAM read: (address, data_out, size) -> read data from host memory into data_out.
+    using RamReadCallback = std::function<void(uint64_t address, void *data_out, uint32_t size)>;
+
+    /**
+     * Set callbacks for AXI RAM notifications from the simulator.
+     * These allow the caller to handle device-initiated reads/writes to host system memory.
+     *
+     * @param write_cb Called when the device writes to host RAM.
+     * @param read_cb Called when the device reads from host RAM.
+     */
+    void set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb);
+
     // Structure for received messages queued by the notification thread.
     struct ReceivedMessage {
         void *data = nullptr;
@@ -165,6 +181,10 @@ private:
     std::queue<ReceivedMessage> command_queue_;
     std::mutex command_queue_mutex_;
     std::condition_variable command_queue_cv_;
+
+    // AXI RAM callbacks.
+    RamWriteCallback ram_write_callback_;
+    RamReadCallback ram_read_callback_;
 };
 
 }  // namespace tt::umd

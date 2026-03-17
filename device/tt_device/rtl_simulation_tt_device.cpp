@@ -50,6 +50,29 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     arch = soc_descriptor_.arch;
+
+    // Register sysmem callbacks so the simulator can read/write host memory.
+    if (num_host_mem_channels > 0) {
+        SimulationSysmemManager* mgr = sysmem_manager_.get();
+        communicator_->set_ram_callbacks(
+            // Write callback: simulator writes data into host sysmem.
+            [mgr](uint64_t address, const void* data, uint32_t size) {
+                uint64_t pcie_base = mgr->get_pcie_base();
+                uint64_t offset = address - pcie_base;
+                uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
+                uint64_t offset_in_channel = offset % (1ULL << 30);
+                mgr->write_to_sysmem(channel, data, offset_in_channel, size);
+            },
+            // Read callback: simulator reads data from host sysmem.
+            [mgr](uint64_t address, void* data_out, uint32_t size) {
+                uint64_t pcie_base = mgr->get_pcie_base();
+                uint64_t offset = address - pcie_base;
+                uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
+                uint64_t offset_in_channel = offset % (1ULL << 30);
+                mgr->read_from_sysmem(channel, data_out, offset_in_channel, size);
+            });
+    }
+
     communicator_->initialize();
 
     tlb_manager_ = std::make_unique<SimulationTlbManager>(

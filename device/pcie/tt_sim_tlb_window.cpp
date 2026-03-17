@@ -21,6 +21,18 @@ TTSimTlbWindow::TTSimTlbWindow(
     std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
     TlbWindow(std::move(handle), config), sim_communicator_(communicator) {}
 
+void TTSimTlbWindow::write16(uint64_t offset, uint16_t value) {
+    validate(offset, sizeof(uint16_t));
+    sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), &value, sizeof(uint16_t));
+}
+
+uint16_t TTSimTlbWindow::read16(uint64_t offset) {
+    validate(offset, sizeof(uint16_t));
+    uint16_t value = 0;
+    sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), &value, sizeof(uint16_t));
+    return value;
+}
+
 void TTSimTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
     sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), &value, sizeof(uint32_t));
@@ -58,6 +70,10 @@ uint64_t TTSimTlbWindow::get_physical_address(uint64_t offset) const {
     // This should give us the physical address in the simulated device memory space.
     return reinterpret_cast<uint64_t>(tlb_handle->get_base()) + get_total_offset(offset);
 }
+
+void TTSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(offset, value); }
+
+uint16_t TTSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
 
 void TTSimTlbWindow::safe_write32(uint64_t offset, uint32_t value) {
     // In simulation, we can assume all accesses are "safe" since we're not dealing with real hardware constraints.

@@ -122,7 +122,7 @@ void SimulationChip::deassert_risc_resets() {}
 
 void SimulationChip::set_power_state(DevicePowerState state) {}
 
-int SimulationChip::get_clock() { return 0; }
+int SimulationChip::get_clock() { return 1350; }
 
 int SimulationChip::arc_msg(
     uint32_t msg_code,

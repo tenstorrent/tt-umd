@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <map>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -136,6 +137,12 @@ public:
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
     static std::map<int, PciDeviceInfo> enumerate_devices_info();
+
+    /**
+     * Returns the PCI device ID for the given UMD logical ID (index into enumerate_devices()).
+     * @return PCI device ID, or std::nullopt if umd_logical_id is out of range.
+     */
+    static std::optional<int> get_pci_device_id(int umd_logical_id);
 
     /**
      * Read device information from sysfs.
@@ -358,6 +365,14 @@ private:
      * @return vector of all available device IDs
      */
     static std::vector<int> get_all_device_ids();
+
+    /**
+     * Sort a list of device IDs by their PCI BDF (Bus:Device.Function) order.
+     * Any IDs that cannot be mapped to a BDF are appended at the end in their original order.
+     * @param pci_device_ids list of device IDs to sort
+     * @return sorted device IDs
+     */
+    static std::vector<int> sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids);
 
     /**
      * Get mapping of BDF to device ID without considering TT_VISIBLE_DEVICES environment variable.

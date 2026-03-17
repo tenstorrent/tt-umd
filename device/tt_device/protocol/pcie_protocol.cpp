@@ -68,12 +68,18 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
     }
 }
 
-bool PcieProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
 void PcieProtocol::noc_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     std::lock_guard<std::mutex> lock(io_lock_);
-    get_cached_tlb_window()->noc_multicast_write_reconfigure(src, size, core_start, core_end, addr, tlb_data::Strict);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
+            src, size, core_start, core_end, addr, tlb_data::Strict);
+    } else {
+        get_cached_tlb_window()->noc_multicast_write_reconfigure(
+            src, size, core_start, core_end, addr, tlb_data::Strict);
+    }
 }
 
 void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {
@@ -83,7 +89,8 @@ void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint
 }
 
 void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
-    const uint32_t bar0_offset = 0x1FD00000;
+    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
+    constexpr uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
         throw std::runtime_error("Write Invalid BAR address for this device.");
     }
@@ -92,7 +99,8 @@ void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
 }
 
 uint32_t PcieProtocol::bar_read32(uint32_t addr) {
-    const uint32_t bar0_offset = 0x1FD00000;
+    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
+    constexpr uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
         throw std::runtime_error("Read Invalid BAR address for this device.");
     }

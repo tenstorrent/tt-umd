@@ -4,6 +4,8 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
+#include <fmt/core.h>
+
 #include <cstdint>
 #include <memory>
 #include <stdexcept>

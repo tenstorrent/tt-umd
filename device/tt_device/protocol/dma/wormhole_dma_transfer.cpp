@@ -13,11 +13,10 @@
 
 namespace tt::umd {
 
-static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
-
 void WormholeDmaTransfer::d2h_transfer(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size) {
+    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -72,6 +71,8 @@ void WormholeDmaTransfer::d2h_transfer(
 
 void WormholeDmaTransfer::h2d_transfer(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
+    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;

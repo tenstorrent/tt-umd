@@ -28,7 +28,7 @@ public:
     // DeviceProtocol interface.
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    bool write_to_device_range(
+    bool write_to_core_range(
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) override;
 
     // RemoteInterface.

@@ -246,6 +246,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
             dram_channel,
             architecture_impl_->get_dram_banks_number() - 1));
     }
+    const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
+    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
     auto start = std::chrono::steady_clock::now();
     while (true) {
         std::vector<DramTrainingStatus> dram_training_status =
@@ -257,7 +259,21 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            throw std::runtime_error("DRAM training failed");
+            if (num_retrain_dram_core > 0) {
+                log_warning(
+                    LogUMD,
+                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
+                    dram_channel,
+                    num_retrain_dram_core - 1);
+                retrain_dram_core(dram_channel);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                num_retrain_dram_core--;
+            } else {
+                throw std::runtime_error(fmt::format(
+                    "DRAM training failed for channel {} after {} retrain attempts",
+                    dram_channel,
+                    MAX_DRAM_RETRAIN_ATTEMPTS));
+            }
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
@@ -526,10 +542,52 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     }
 }
 
+void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
+    memcpy(dst, dma_buffer.buffer, size);
+}
+
+void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
+}
+
+void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
+}
+
+void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
+}
+
 TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
         cached_pcie_dma_tlb_window = std::make_unique<SiliconTlbWindow>(
-            get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+            get_pci_device()->allocate_tlb(get_pcie_dma_tlb_size(), TlbMapping::WC), config);
         return cached_pcie_dma_tlb_window.get();
     }
 

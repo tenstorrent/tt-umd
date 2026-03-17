@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "umd/device/utils/timeouts.hpp"
@@ -18,6 +19,16 @@ class WarmReset {
 public:
     static void warm_reset(
         std::vector<int> pci_device_ids = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
+
+    // Resets devices identified by their UMD chip IDs (indices into the list returned by
+    // PCIDevice::enumerate_devices(), corresponding to /dev/tenstorrent/<N> device numbers).
+    // These are equivalent to chip_id values from Cluster::get_target_mmio_device_ids().
+    // This differs from warm_reset() which takes raw PCI device IDs directly.
+    static void warm_reset_chip_id(
+        const std::vector<int>& chip_ids = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
+
+    static void warm_reset_pci_bdfs(
+        const std::vector<std::string>& pci_bdfs = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
 
     static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 

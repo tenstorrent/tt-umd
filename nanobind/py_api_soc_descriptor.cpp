@@ -121,5 +121,21 @@ void bind_soc_descriptor(nb::module_ &m) {
             nb::arg("core_location"),
             nb::arg("input_coord_system"),
             nb::arg("target_coord_system"),
-            "Translate a tt_xy_pair from one coordinate system to another");
+            "Translate a tt_xy_pair from one coordinate system to another")
+        .def(
+            "translate_chip_coord_to_translated",
+            &SocDescriptor::translate_chip_coord_to_translated,
+            nb::arg("core"),
+            "Translate a chip coordinate to translated coordinate system in tt_xy_pair")
+        .def(
+            "translate_chip_coord_to_translated_coord",
+            &SocDescriptor::translate_chip_coord_to_translated_coord,
+            nb::arg("core"),
+            "Translate a chip coordinate to translated coordinate system in CoreCoord")
+        .def(
+            "get_coord_at",
+            &SocDescriptor::get_coord_at,
+            nb::arg("core"),
+            nb::arg("coord_system"),
+            "Get a CoreCoord at the given tt_xy_pair location in the specified coordinate system");
 }

@@ -94,7 +94,7 @@ bool ClusterDescriptor::is_chip_remote(const ChipId chip_id) const { return !is_
 
 // Returns the closest mmio chip to the given chip.
 ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
-    log_debug(LogUMD, "get_closest_mmio_chip to chip{}", chip);
+    log_trace(LogUMD, "get_closest_mmio_chip to chip{}", chip);
 
     if (this->is_chip_mmio_capable(chip)) {
         return chip;
@@ -195,6 +195,85 @@ std::unordered_set<ChipId> filter_chip_collection(
         }
     }
     return filtered_collection;
+}
+
+namespace {
+template <typename Map>
+void remap_map_keys(Map &dst, const Map &src, const std::unordered_map<ChipId, ChipId> &old_to_new) {
+    for (const auto &[k, v] : src) {
+        auto it = old_to_new.find(k);
+        if (it != old_to_new.end()) {
+            dst.emplace(it->second, v);
+        }
+    }
+}
+}  // namespace
+
+void ClusterDescriptor::apply_chip_id_remapping(
+    ClusterDescriptor *remapped, const ClusterDescriptor *desc, const std::unordered_map<ChipId, ChipId> &old_to_new) {
+    remap_map_keys(remapped->chip_locations, desc->chip_locations, old_to_new);
+    remap_map_keys(remapped->chip_board_type, desc->chip_board_type, old_to_new);
+    remap_map_keys(remapped->chip_arch, desc->chip_arch, old_to_new);
+    remap_map_keys(remapped->chip_unique_ids, desc->chip_unique_ids, old_to_new);
+    remap_map_keys(remapped->noc_translation_enabled, desc->noc_translation_enabled, old_to_new);
+    remap_map_keys(remapped->chip_to_bus_id, desc->chip_to_bus_id, old_to_new);
+    remap_map_keys(remapped->chip_pci_bdfs, desc->chip_pci_bdfs, old_to_new);
+    remap_map_keys(remapped->harvesting_masks_map, desc->harvesting_masks_map, old_to_new);
+    remap_map_keys(remapped->asic_locations, desc->asic_locations, old_to_new);
+    remap_map_keys(remapped->active_eth_channels, desc->active_eth_channels, old_to_new);
+    remap_map_keys(remapped->idle_eth_channels, desc->idle_eth_channels, old_to_new);
+    remap_map_keys(
+        remapped->ethernet_connections_to_remote_devices, desc->ethernet_connections_to_remote_devices, old_to_new);
+
+    // chips_with_mmio: value (mmio chip ID) also needs remapping; fallback to self if not found
+    for (const auto &[old_id, mmio_val] : desc->chips_with_mmio) {
+        auto it = old_to_new.find(old_id);
+        if (it != old_to_new.end()) {
+            ChipId new_mmio = old_to_new.count(mmio_val) ? old_to_new.at(mmio_val) : it->second;
+            remapped->chips_with_mmio.emplace(it->second, new_mmio);
+        }
+    }
+
+    // chip_to_board_id + board_to_chips
+    remap_map_keys(remapped->chip_to_board_id, desc->chip_to_board_id, old_to_new);
+    for (const auto &[chip_id, board_id] : remapped->chip_to_board_id) {
+        remapped->board_to_chips[board_id].insert(chip_id);
+    }
+
+    // ethernet_connections: remap keys and remote_chip_id in each connection
+    for (const auto &[chip_id, eth_conns] : desc->ethernet_connections) {
+        auto it = old_to_new.find(chip_id);
+        if (it == old_to_new.end()) {
+            continue;
+        }
+        ChipId new_chip_id = it->second;
+        for (const auto &[eth_id, conn] : eth_conns) {
+            remapped->ethernet_connections[new_chip_id][eth_id] = {old_to_new.at(std::get<0>(conn)), std::get<1>(conn)};
+        }
+    }
+
+    // coords_to_chip_ids: remap leaf chip IDs
+    for (const auto &[rack_id, shelf_map] : desc->coords_to_chip_ids) {
+        for (const auto &[shelf_id, y_map] : shelf_map) {
+            for (const auto &[y_dim, x_map] : y_map) {
+                for (const auto &[x_dim, chip_id] : x_map) {
+                    remapped->coords_to_chip_ids[rack_id][shelf_id][y_dim][x_dim] = old_to_new.at(chip_id);
+                }
+            }
+        }
+    }
+
+    // chips_grouped_by_closest_mmio: remap keys and set elements
+    for (const auto &[chip_id, chip_group] : desc->chips_grouped_by_closest_mmio) {
+        auto it = old_to_new.find(chip_id);
+        if (it == old_to_new.end()) {
+            continue;
+        }
+        ChipId new_chip_id = it->second;
+        for (ChipId g : chip_group) {
+            remapped->chips_grouped_by_closest_mmio[new_chip_id].insert(old_to_new.at(g));
+        }
+    }
 }
 
 std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_devices(
@@ -341,10 +420,29 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
         for (const auto &[eth_id, connection] : eth_connections) {
             const auto &[remote_chip_id, remote_eth_id] = connection;
-            if (visible_chips.find(remote_chip_id) == visible_chips.end()) {
-                continue;
+            if (visible_chips.find(remote_chip_id) != visible_chips.end()) {
+                // Both chips are visible: keep as local connection.
+                desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
+            } else {
+                // Local chip is visible but remote chip is not: convert to remote connection
+                // Look up the remote chip's unique_id from the full cluster descriptor.
+                auto unique_id_it = full_cluster_desc->chip_unique_ids.find(remote_chip_id);
+                if (unique_id_it != full_cluster_desc->chip_unique_ids.end()) {
+                    desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = {
+                        unique_id_it->second, remote_eth_id};
+                } else {
+                    // Fallback: use chip_id as unique_id if not found (shouldn't happen in normal operation).
+                    log_warning(
+                        LogUMD,
+                        "Remote chip {} unique_id not found in cluster descriptor, using chip_id as unique_id for "
+                        "ethernet connection (chip: {}, eth_id: {}).",
+                        remote_chip_id,
+                        chip_id,
+                        eth_id);
+                    desc->ethernet_connections_to_remote_devices[chip_id][eth_id] = {
+                        static_cast<uint64_t>(remote_chip_id), remote_eth_id};
+                }
             }
-            desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
         }
     }
 
@@ -377,6 +475,29 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         }
 
         desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, visible_chips);
+    }
+
+    // When TT_VISIBLE_DEVICES filters to a subset (e.g. mock clusters), remap chip IDs to 0-based consecutive
+    // indices. This matches silicon behavior where the cluster assigns logical IDs starting from 0.
+    if (visible_chips.size() < full_cluster_desc->get_all_chips().size()) {
+        std::vector<ChipId> ordered_chips = desc->get_chips_local_first(visible_chips);
+        std::unordered_map<ChipId, ChipId> old_to_new;
+        for (size_t i = 0; i < ordered_chips.size(); i++) {
+            old_to_new[ordered_chips[i]] = static_cast<ChipId>(i);
+        }
+
+        auto remapped = std::make_unique<ClusterDescriptor>();
+        remapped->io_device_type = desc->io_device_type;
+        remapped->eth_fw_version = desc->eth_fw_version;
+        remapped->fw_bundle_version = desc->fw_bundle_version;
+
+        for (const auto &[old_id, new_id] : old_to_new) {
+            remapped->all_chips.insert(new_id);
+        }
+        apply_chip_id_remapping(remapped.get(), desc.get(), old_to_new);
+
+        remapped->verify_cluster_descriptor_info();
+        return remapped;
     }
 
     return desc;
@@ -637,41 +758,6 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         log_debug(LogUMD, "\tchip: {}, coord: {}", chip_id, chip_location);
     }
 
-    if (yaml["chip_to_boardtype"]) {
-        for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = yaml_chip_board_type.first;
-            const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
-            if (board_type == BoardType::UNKNOWN) {
-                log_warning(
-                    LogUMD,
-                    "Unknown board type for chip {}. This might happen because chip is running old firmware. "
-                    "Defaulting to UNKNOWN",
-                    chip);
-            }
-            chip_board_type.insert({chip, board_type});
-        }
-    } else if (yaml["boardtype"]) {
-        // Legacy format support: parse old "boardtype" field for backward compatibility.
-        for (const auto &yaml_chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = yaml_chip_board_type.first;
-            const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = board_type_from_string(board_type_str);
-            if (board_type == BoardType::UNKNOWN) {
-                log_warning(
-                    LogUMD,
-                    "Unknown board type for chip {} from legacy boardtype field. "
-                    "Defaulting to UNKNOWN",
-                    chip);
-            }
-            chip_board_type.insert({chip, board_type});
-        }
-    } else {
-        for (const auto &chip : all_chips) {
-            chip_board_type.insert({chip, BoardType::UNKNOWN});
-        }
-    }
-
     if (yaml["boards"]) {
         YAML::Node boardsNode = yaml["boards"];
         if (!boardsNode || !boardsNode.IsSequence()) {
@@ -684,9 +770,21 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             }
 
             uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
+            const std::string &board_type_str = boardEntry[1]["board_type"].as<std::string>();
+            BoardType board_type = board_type_from_string(board_type_str);
+
+            if (board_type == BoardType::UNKNOWN) {
+                log_warning(
+                    LogUMD,
+                    "Unknown board type '{}' for board id {}. "
+                    "Defaulting to UNKNOWN",
+                    board_type_str,
+                    board_id);
+            }
 
             for (const auto &chip : boardEntry[2]["chips"]) {
                 add_chip_to_board(chip.as<ChipId>(), board_id);
+                chip_board_type.insert({chip.as<ChipId>(), board_type});
             }
         }
     }
@@ -985,12 +1083,6 @@ std::string ClusterDescriptor::serialize() const {
         out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << harvesting.pcie_harvesting_mask;
         out << YAML::Key << "l2cpu_harvesting_mask" << YAML::Value << harvesting.l2cpu_harvesting_mask;
         out << YAML::EndMap;
-    }
-    out << YAML::EndMap;
-
-    out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips_map) {
-        out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
     }
     out << YAML::EndMap;
 

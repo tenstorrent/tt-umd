@@ -341,38 +341,6 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
     }
 }
 
-TEST(WarmResetTest, ClusterWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
-    }
-
-    uint32_t write_test_data = 0xDEADBEEF;
-
-    auto chip_id = *cluster->get_target_mmio_device_ids().begin();
-    auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
-
-    tt_device->bar_write32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
-        write_test_data);
-
-    WarmReset::warm_reset();
-
-    cluster.reset();
-
-    cluster = std::make_unique<Cluster>();
-    chip_id = *cluster->get_target_mmio_device_ids().begin();
-    tt_device = cluster->get_chip(chip_id)->get_tt_device();
-
-    auto read_test_data = tt_device->bar_read32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
-
-    EXPECT_NE(write_test_data, read_test_data);
-}
-
 TEST(WarmResetTest, GalaxyWarmResetScratch) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
@@ -483,6 +451,85 @@ TEST(WarmResetTest, ClusterWarmReset) {
         }
     }
 }
+
+enum class WarmResetMethod { PCI_DEVICE_IDS, CHIP_IDS, PCI_BDFS };
+
+class ClusterWarmResetScratchMethodTest : public testing::TestWithParam<WarmResetMethod> {};
+
+TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
+    }
+
+    uint32_t write_test_data = 0xDEADBEEF;
+
+    auto chip_id = *cluster->get_target_mmio_device_ids().begin();
+    auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    tt_device->bar_write32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+        write_test_data);
+
+    switch (GetParam()) {
+        case WarmResetMethod::PCI_DEVICE_IDS:
+            WarmReset::warm_reset();
+            break;
+        case WarmResetMethod::CHIP_IDS: {
+            std::vector<int> chip_ids;
+            chip_ids.reserve(cluster->get_target_mmio_device_ids().size());
+            for (auto& id : cluster->get_target_mmio_device_ids()) {
+                chip_ids.push_back(id);
+            }
+            WarmReset::warm_reset_chip_id(chip_ids);
+            break;
+        }
+        case WarmResetMethod::PCI_BDFS: {
+            auto pci_device_info = PCIDevice::enumerate_devices_info();
+            std::vector<std::string> pci_bdfs;
+            pci_bdfs.reserve(pci_device_info.size());
+            for (const auto& [id, info] : pci_device_info) {
+                pci_bdfs.push_back(info.pci_bdf);
+            }
+            WarmReset::warm_reset_pci_bdfs(pci_bdfs);
+            break;
+        }
+    }
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+    chip_id = *cluster->get_target_device_ids().begin();
+    tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    auto read_test_data = tt_device->bar_read32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+
+    EXPECT_NE(write_test_data, read_test_data);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    WarmResetMethods,
+    ClusterWarmResetScratchMethodTest,
+    testing::Values(WarmResetMethod::PCI_DEVICE_IDS, WarmResetMethod::CHIP_IDS, WarmResetMethod::PCI_BDFS),
+    [](const testing::TestParamInfo<WarmResetMethod>& info) {
+        switch (info.param) {
+            case WarmResetMethod::PCI_DEVICE_IDS:
+                return "PCIDeviceIDs";
+            case WarmResetMethod::CHIP_IDS:
+                return "ChipIDs";
+            case WarmResetMethod::PCI_BDFS:
+                return "PCIBDFs";
+        }
+        return "Unknown";
+    });
 
 class WarmResetNotificationTest : public ::testing::Test {
 public:

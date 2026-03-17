@@ -64,7 +64,7 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
     }
 }
 
-bool PcieProtocol::write_to_device_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
 void PcieProtocol::noc_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

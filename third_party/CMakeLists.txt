@@ -236,3 +236,16 @@ if(umd_asio_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
 endif()
+
+####################################################################################################################
+# Tracy (Profiler)
+####################################################################################################################
+if(TT_UMD_ENABLE_TRACY)
+    CPMAddPackage(
+        NAME tracy
+        GITHUB_REPOSITORY tenstorrent/tracy
+        GIT_TAG 0aaefbb689b4c60694edc905545fc4709fd13f6a
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
+endif()

@@ -22,7 +22,7 @@
 #define DLSYM_FUNCTION(func_name)                                                           \
     pfn_##func_name##_ = (decltype(pfn_##func_name##_))dlsym(libttsim_handle_, #func_name); \
     if (!pfn_##func_name##_) {                                                              \
-        TT_THROW("Failed to find symbol: ", #func_name, dlerror());                         \
+        TT_THROW("Failed to find symbol: {} {}", #func_name, dlerror());                    \
     }
 
 // NOLINTEND.

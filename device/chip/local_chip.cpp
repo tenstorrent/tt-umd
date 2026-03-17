@@ -496,10 +496,12 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
+    const bool include_dram_in_l1_membar = soc_descriptor_.arch == tt::ARCH::BLACKHOLE;
     if (!cores.empty()) {
         // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
+        std::vector<CoreCoord> dram_to_sync = {};
 
         for (const auto& core : cores) {
             auto core_from_soc = soc_descriptor_.get_coord_at(core, core.coord_system);
@@ -507,12 +509,17 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
                 eth_to_sync.push_back(core);
+            } else if (include_dram_in_l1_membar && core_from_soc.core_type == CoreType::DRAM) {
+                dram_to_sync.push_back(core);
             } else {
                 TT_THROW("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
             }
         }
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(dram_to_sync, dram_address_params.DRAM_BARRIER_BASE);
+        }
     } else {
         // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
@@ -520,6 +527,11 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
             l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(
+                soc_descriptor_.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED),
+                dram_address_params.DRAM_BARRIER_BASE);
+        }
     }
 }
 

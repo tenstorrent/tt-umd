@@ -47,9 +47,6 @@ harvesting:
     eth_harvesting_mask: 0
     pcie_harvesting_mask: 0
     l2cpu_harvesting_mask: 0
-chip_to_boardtype:
-  0: n300
-  1: n300
 chip_to_bus_id:
   {}
 boards:

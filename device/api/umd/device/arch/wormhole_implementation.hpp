@@ -340,8 +340,6 @@ inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
-// ETH related constants.
-inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {
@@ -403,6 +401,8 @@ public:
     uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
 
     uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
+
+    uint32_t get_aiclk_busy_val() const override { return wormhole::AICLK_BUSY_VAL; }
 
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
 

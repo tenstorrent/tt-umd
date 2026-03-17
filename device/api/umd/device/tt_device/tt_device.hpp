@@ -55,10 +55,7 @@ public:
      * Jtag support can be enabled.
      */
     static std::unique_ptr<TTDevice> create(
-        int device_number,
-        IODeviceType device_type = IODeviceType::PCIe,
-        bool use_safe_api = false,
-        bool low_power = false);
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
 

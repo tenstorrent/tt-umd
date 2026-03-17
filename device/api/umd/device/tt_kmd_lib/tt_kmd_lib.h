@@ -116,7 +116,7 @@ enum tt_noc_ordering {
  *
  * @param chardev_path e.g. "/dev/tenstorrent/0"
  * @param out_dev Device handle
- * @param extra_flags Additional flags to pass to open(2), e.g. O_APPEND for low-power mode.
+ * @param extra_flags Additional flags to pass to open(2), e.g. O_APPEND.
  */
 int tt_device_open(const char* chardev_path, tt_device_t** out_dev, int extra_flags);
 

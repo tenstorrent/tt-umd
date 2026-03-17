@@ -159,6 +159,13 @@ public:
     ClusterDescriptor* get_cluster_description();
 
     /**
+     * Re-runs topology discovery and updates the cluster descriptor's ethernet fields in-place.
+     * Chip objects, TLB mappings, and BAR state are preserved.  Call after link retraining to
+     * reflect recovered links without restarting the process.
+     */
+    void rediscover_ethernet_links();
+
+    /**
      * Get set of chip ids for all chips in the cluster.
      */
     std::set<ChipId> get_target_device_ids();

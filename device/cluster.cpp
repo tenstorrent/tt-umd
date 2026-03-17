@@ -458,6 +458,19 @@ void Cluster::deassert_risc_reset(
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
+void Cluster::rediscover_ethernet_links() {
+    auto new_desc = create_cluster_descriptor({}, cluster_desc->get_io_device_type());
+    cluster_desc->update_eth_topology(std::move(*new_desc));
+
+    // Re-sync Wormhole local chips' cached remote-transfer channels.
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        for (const ChipId chip_id : local_chip_ids_) {
+            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(
+                cluster_desc->get_active_eth_channels(chip_id));
+        }
+    }
+}
+
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);

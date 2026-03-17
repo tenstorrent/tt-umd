@@ -415,3 +415,77 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
         }
     }
 }
+
+static constexpr ChipId kChip = 0;
+static constexpr EthernetChannel kDroppedChanA = 8;  // chip 0 <-> chip 4 chan 0
+static constexpr EthernetChannel kDroppedChanB = 9;  // chip 0 <-> chip 4 chan 1
+
+TEST(ClusterDescriptorUpdateEthTopology, LinkDrop_ActiveLinkBecomesInactive) {
+    // Start from t3k (channels 8+9 active), simulate drop by applying n300 topology.
+    auto desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+    ASSERT_TRUE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanA));
+    ASSERT_TRUE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanB));
+
+    auto dropped = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("2x2_n300_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*dropped));
+
+    EXPECT_FALSE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanA));
+    EXPECT_FALSE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanB));
+}
+
+TEST(ClusterDescriptorUpdateEthTopology, LinkDrop_ChannelsRemovedFromActiveSet) {
+    auto desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+    auto dropped = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("2x2_n300_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*dropped));
+
+    auto active = desc->get_active_eth_channels(kChip);
+    EXPECT_EQ(active.count(kDroppedChanA), 0u);
+    EXPECT_EQ(active.count(kDroppedChanB), 0u);
+}
+
+TEST(ClusterDescriptorUpdateEthTopology, LinkRecovery_InactiveLinkBecomesActive) {
+    // Start from t3k, drop to n300, then recover back to t3k.
+    auto desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+
+    auto dropped = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("2x2_n300_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*dropped));
+    ASSERT_FALSE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanA));
+
+    auto recovered = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*recovered));
+
+    EXPECT_TRUE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanA));
+    EXPECT_TRUE(desc->ethernet_core_has_active_ethernet_link(kChip, kDroppedChanB));
+}
+
+TEST(ClusterDescriptorUpdateEthTopology, LinkRecovery_ConnectionQueryable) {
+    // After recovery, get_chip_and_channel_of_remote_ethernet_core must resolve
+    // the previously-dropped link: chip 0 chan 8 <-> chip 4 chan 0.
+    auto desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+
+    auto dropped = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("2x2_n300_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*dropped));
+
+    auto recovered = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*recovered));
+
+    auto [remote_chip, remote_chan] = desc->get_chip_and_channel_of_remote_ethernet_core(kChip, kDroppedChanA);
+    EXPECT_EQ(remote_chip, ChipId{4});
+    EXPECT_EQ(remote_chan, EthernetChannel{0});
+}
+
+TEST(ClusterDescriptorUpdateEthTopology, ChipIdentityUnchangedAfterUpdate) {
+    // Sanity: chip-identity fields must survive an eth topology swap.
+    auto desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+    size_t chip_count = desc->get_all_chips().size();
+    size_t mmio_count = desc->get_chips_with_mmio().size();
+    tt::ARCH arch = desc->get_arch(0);
+
+    auto source = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("2x2_n300_cluster_desc.yaml"));
+    desc->update_eth_topology(std::move(*source));
+
+    EXPECT_EQ(desc->get_all_chips().size(), chip_count);
+    EXPECT_EQ(desc->get_chips_with_mmio().size(), mmio_count);
+    EXPECT_EQ(desc->get_arch(0), arch);
+}
+

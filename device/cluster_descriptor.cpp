@@ -1172,6 +1172,13 @@ std::set<uint32_t> ClusterDescriptor::get_idle_eth_channels(ChipId chip_id) {
     return it->second;
 }
 
+void ClusterDescriptor::update_eth_topology(ClusterDescriptor&& source) {
+    ethernet_connections = std::move(source.ethernet_connections);
+    ethernet_connections_to_remote_devices = std::move(source.ethernet_connections_to_remote_devices);
+    active_eth_channels = std::move(source.active_eth_channels);
+    idle_eth_channels = std::move(source.idle_eth_channels);
+}
+
 HarvestingMasks ClusterDescriptor::get_harvesting_masks(ChipId chip_id) const {
     auto it = harvesting_masks_map.find(chip_id);
     if (it == harvesting_masks_map.end()) {

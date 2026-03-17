@@ -216,6 +216,14 @@ public:
      * Returns wether the ethernet core has an active ethernet link.
      */
     bool ethernet_core_has_active_ethernet_link(ChipId local_chip, EthernetChannel local_ethernet_channel) const;
+
+    /**
+     * Replaces ethernet_connections, ethernet_connections_to_remote_devices, active_eth_channels,
+     * and idle_eth_channels in-place from source.  All chip-identity fields are left untouched.
+     * Intended for use after link retraining via Cluster::rediscover_ethernet_links().
+     */
+    void update_eth_topology(ClusterDescriptor&& source);
+
     std::tuple<ChipId, EthernetChannel> get_chip_and_channel_of_remote_ethernet_core(
         ChipId local_chip, EthernetChannel local_ethernet_channel) const;
 

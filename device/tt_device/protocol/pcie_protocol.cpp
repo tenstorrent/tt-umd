@@ -30,6 +30,17 @@ DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
     }
 }
 
+size_t PcieProtocol::get_dma_tlb_size(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+            return 2 * 1024 * 1024;
+        case tt::ARCH::WORMHOLE_B0:
+            return 16 * 1024 * 1024;
+        default:
+            throw std::runtime_error("Unsupported architecture for DMA TLB size.");
+    }
+}
+
 PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
     pci_device_(std::move(pci_device)),
     dma_strategy_(create_dma_strategy(pci_device_->get_arch())),
@@ -125,8 +136,8 @@ PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {
-        cached_dma_tlb_window_ =
-            std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(
+            pci_device_->allocate_tlb(get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC), config);
         return cached_dma_tlb_window_.get();
     }
 

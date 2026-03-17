@@ -58,6 +58,7 @@ private:
     TlbWindow* get_cached_dma_tlb_window(tlb_data config);
 
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
+    static size_t get_dma_tlb_size(tt::ARCH arch);
 
     void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
     void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);

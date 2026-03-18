@@ -262,7 +262,6 @@ SocDescriptor Cluster::construct_soc_descriptor(
         chip_info.noc_translation_enabled = cluster_desc->get_noc_translation_table_en().at(chip_id);
         chip_info.harvesting_masks =
             get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
-        std::cout << "harvesting masks eth " << chip_info.harvesting_masks.eth_harvesting_mask << std::endl;
         chip_info.board_type = cluster_desc->get_board_type(chip_id);
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }

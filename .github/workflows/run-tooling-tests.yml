@@ -32,7 +32,7 @@ jobs:
     runs-on:
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       options: --device /dev/tenstorrent
       volumes:
         - /dev/hugepages:/dev/hugepages
@@ -85,6 +85,6 @@ jobs:
               async with app.run_test(headless=True) as pilot:
                   await pilot.press("q")
 
-          asyncio.run(run())
+          asyncio.run(asyncio.wait_for(run(), timeout=60))
           print("tt-smi ran successfully")
           EOF

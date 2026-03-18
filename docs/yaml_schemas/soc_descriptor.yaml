@@ -216,4 +216,4 @@ properties:
 
     additionalProperties: false
 
-additionalProperties: false
+additionalProperties: true

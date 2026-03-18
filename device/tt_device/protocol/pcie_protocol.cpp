@@ -6,6 +6,7 @@
 
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>

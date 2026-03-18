@@ -474,7 +474,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
+    TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 

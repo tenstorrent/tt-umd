@@ -474,6 +474,19 @@ public:
      *
      * @param target The target chip and core to write to.
      */
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
+
+    /**
+     * Provide fast read/write access to a statically-mapped TLB.
+     * It is the caller's responsibility to ensure that
+     * - the target has a static TLB mapping configured.
+     * - the mapping is unchanged during the lifetime of the returned pointer.
+     * - the Cluster instance outlives the returned pointer.
+     * - use of the returned pointer is congruent with the target's TLB setup.
+     *
+     * @param chip The chip to access.
+     * @param core The core to access.
+     */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.

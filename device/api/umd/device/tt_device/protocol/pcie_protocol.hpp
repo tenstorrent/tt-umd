@@ -68,6 +68,9 @@ private:
     template <bool safe>
     void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
+    static inline constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
+
     std::unique_ptr<PCIDevice> pci_device_;
     DmaTransferStrategy dma_strategy_;
     bool use_safe_api_;

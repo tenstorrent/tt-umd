@@ -113,22 +113,18 @@ void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint
 }
 
 void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
-    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
-    constexpr uint32_t bar0_offset = 0x1FD00000;
-    if (addr < bar0_offset) {
+    if (addr < BAR0_OFFSET) {
         throw std::runtime_error("Write Invalid BAR address for this device.");
     }
-    addr -= bar0_offset;
+    addr -= BAR0_OFFSET;
     *reinterpret_cast<volatile uint32_t*>(static_cast<uint8_t*>(pci_device_->bar0) + addr) = data;
 }
 
 uint32_t PcieProtocol::bar_read32(uint32_t addr) {
-    // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
-    constexpr uint32_t bar0_offset = 0x1FD00000;
-    if (addr < bar0_offset) {
+    if (addr < BAR0_OFFSET) {
         throw std::runtime_error("Read Invalid BAR address for this device.");
     }
-    addr -= bar0_offset;
+    addr -= BAR0_OFFSET;
     return *reinterpret_cast<volatile uint32_t*>(static_cast<uint8_t*>(pci_device_->bar0) + addr);
 }
 

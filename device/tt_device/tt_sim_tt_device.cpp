@@ -18,10 +18,11 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(const std::filesystem::path& simulator_directory) {
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, 0);
+    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, 0, false, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(

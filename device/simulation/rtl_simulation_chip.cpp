@@ -19,9 +19,10 @@ RtlSimulationChip::RtlSimulationChip(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id),
-    tt_device_(
-        std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels)) {
+    SimulationChip(simulator_directory, soc_descriptor, chip_id), tt_device_([&]() {
+        auto device = TTDevice::create_simulation_tt_device(simulator_directory, num_host_mem_channels);
+        return std::unique_ptr<RtlSimulationTTDevice>(dynamic_cast<RtlSimulationTTDevice*>(device.release()));
+    }()) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 }
 

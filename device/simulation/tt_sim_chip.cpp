@@ -32,8 +32,8 @@ TTSimChip::TTSimChip(
     bool copy_sim_binary,
     int num_host_mem_channels) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id) {
-    tt_device_ = std::make_unique<TTSimTTDevice>(
-        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
+    auto device = TTDevice::create_simulation_tt_device(simulator_directory, num_host_mem_channels);
+    tt_device_ = std::unique_ptr<TTSimTTDevice>(dynamic_cast<TTSimTTDevice*>(device.release()));
 }
 
 TTSimChip::~TTSimChip() = default;

@@ -57,12 +57,14 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         log_info(LogUMD, "No PCI devices found.");
         return false;
     }
+    bool reset_success = true;
 
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
+        reset_success =
+            warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
         // Re-enumerate here as a safety net for potential race conditions where devices disappear
         // between the pre-reset notification and now. Clients are still guaranteed to receive the
@@ -73,23 +75,23 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+                reset_success = warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
                 break;
             case ARCH::BLACKHOLE:
                 if (reset_m3) {
                     log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
                 }
-                warm_reset_blackhole_legacy(pci_device_ids);
+                reset_success = warm_reset_blackhole_legacy(pci_device_ids);
                 break;
             default:
                 log_warning(tt::LogUMD, "Unknown architecture '{}'. Skipping reset actions.", arch_to_str(arch));
-                return false;
+                reset_success = false;
         }
     }
 
     log_info(tt::LogUMD, "Notifying all listeners of completed warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
-    return true;
+    return reset_success;
 }
 
 bool WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset) {
@@ -274,7 +276,7 @@ bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     }
 
     if (all_reset_bits_set) {
-        log_info(tt::LogUMD, "Reset succesfully completed.");
+        log_info(tt::LogUMD, "Reset successfully completed.");
     }
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
     return all_reset_bits_set;
@@ -432,12 +434,12 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     static int constexpr OP_MODE = 0x0;
     static int constexpr RESET_TIME = 0xF;
 
-    wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+    const bool reset_success = wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
     log_debug(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
     sleep(30);
     log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
-    return true;
+    return reset_success;
 }
 
 // Free helper function for extracting pid.

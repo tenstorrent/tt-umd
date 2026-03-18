@@ -36,7 +36,8 @@ int main(int argc, char* argv[]) {
     bool reset_result = false;
 
     try {
-        if (result.count("6u")) {
+        const bool is_6u_reset = result["6u"].as<bool>();
+        if (is_6u_reset) {
             log_info(tt::LogUMD, "Performing 6U warm reset...");
             reset_result = WarmReset::ubb_warm_reset();
         } else {

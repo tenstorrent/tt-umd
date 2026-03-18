@@ -122,7 +122,13 @@ void SimulationChip::deassert_risc_resets() {}
 
 void SimulationChip::set_power_state(DevicePowerState state) {}
 
-int SimulationChip::get_clock() { return 1350; }
+int SimulationChip::get_clock() { 
+    switch(arch_name){
+    case tt::ARCH::WORMHOLE_B0: return 1000;
+    case tt::ARCH::BLACKHOLE: return 1350;
+    default: return 0;
+    }
+}
 
 int SimulationChip::arc_msg(
     uint32_t msg_code,

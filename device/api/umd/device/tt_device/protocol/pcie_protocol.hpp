@@ -65,7 +65,6 @@ private:
 
     template <bool safe>
     void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
     template <bool safe>
     void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 

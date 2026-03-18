@@ -33,16 +33,23 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    bool reset_result = false;
+
     try {
         if (result.count("6u")) {
             log_info(tt::LogUMD, "Performing 6U warm reset...");
-            WarmReset::ubb_warm_reset();
+            reset_result = WarmReset::ubb_warm_reset();
         } else {
             log_info(tt::LogUMD, "Performing warm reset on all available devices...");
-            WarmReset::warm_reset();
+            reset_result = WarmReset::warm_reset();
         }
-        log_info(tt::LogUMD, "Warm reset completed successfully. Running Topology discovery...");
 
+        if (reset_result) {
+            log_info(tt::LogUMD, "Warm reset completed successfully. Running Topology discovery...");
+        } else {
+            log_error(tt::LogUMD, "Warm reset failed. Exiting.");
+            return 1;
+        }
         TopologyDiscovery::discover({});
         log_info(tt::LogUMD, "Topology discovery completed successfully.");
     } catch (const std::exception& e) {

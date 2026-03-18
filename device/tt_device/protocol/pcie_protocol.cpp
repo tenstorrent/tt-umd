@@ -130,93 +130,6 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
-    if (cached_dma_tlb_window_ == nullptr) {
-        cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(
-            pci_device_->allocate_tlb(get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC), config);
-        return cached_dma_tlb_window_.get();
-    }
-
-    cached_dma_tlb_window_->configure(config);
-    return cached_dma_tlb_window_.get();
-}
-
-void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-    volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
-
-    if (!dma_buffer.completion || !dma_buffer.buffer) {
-        throw std::runtime_error("DMA buffer is not initialized");
-    }
-
-    if (src % 4 != 0) {
-        throw std::runtime_error("DMA source address must be aligned to 4 bytes");
-    }
-
-    if (size % 4 != 0) {
-        throw std::runtime_error("DMA size must be a multiple of 4");
-    }
-
-    if (!bar2) {
-        throw std::runtime_error("BAR2 is not mapped");
-    }
-
-    std::visit([&](auto& strategy) { strategy.d2h_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
-}
-
-void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-    volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
-
-    if (!dma_buffer.completion || !dma_buffer.buffer) {
-        throw std::runtime_error("DMA buffer is not initialized");
-    }
-
-    if (dst % 4 != 0) {
-        throw std::runtime_error("DMA destination address must be aligned to 4 bytes");
-    }
-
-    if (size % 4 != 0) {
-        throw std::runtime_error("DMA size must be a multiple of 4");
-    }
-
-    if (!bar2) {
-        throw std::runtime_error("BAR2 is not mapped");
-    }
-
-    std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
-}
-
-void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
-    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
-    std::memcpy(dst, dma_buffer.buffer, size);
-}
-
-void PcieProtocol::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
-}
-
-void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
-    std::memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
-}
-
-void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
-}
-
 bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
@@ -357,6 +270,93 @@ bool PcieProtocol::dma_multicast_write(
     }
 
     return true;
+}
+
+TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
+    if (cached_dma_tlb_window_ == nullptr) {
+        cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(
+            pci_device_->allocate_tlb(get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC), config);
+        return cached_dma_tlb_window_.get();
+    }
+
+    cached_dma_tlb_window_->configure(config);
+    return cached_dma_tlb_window_.get();
+}
+
+void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+    volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
+
+    if (!dma_buffer.completion || !dma_buffer.buffer) {
+        throw std::runtime_error("DMA buffer is not initialized");
+    }
+
+    if (src % 4 != 0) {
+        throw std::runtime_error("DMA source address must be aligned to 4 bytes");
+    }
+
+    if (size % 4 != 0) {
+        throw std::runtime_error("DMA size must be a multiple of 4");
+    }
+
+    if (!bar2) {
+        throw std::runtime_error("BAR2 is not mapped");
+    }
+
+    std::visit([&](auto& strategy) { strategy.d2h_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+}
+
+void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+    volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
+
+    if (!dma_buffer.completion || !dma_buffer.buffer) {
+        throw std::runtime_error("DMA buffer is not initialized");
+    }
+
+    if (dst % 4 != 0) {
+        throw std::runtime_error("DMA destination address must be aligned to 4 bytes");
+    }
+
+    if (size % 4 != 0) {
+        throw std::runtime_error("DMA size must be a multiple of 4");
+    }
+
+    if (!bar2) {
+        throw std::runtime_error("BAR2 is not mapped");
+    }
+
+    std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+}
+
+void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
+    std::memcpy(dst, dma_buffer.buffer, size);
+}
+
+void PcieProtocol::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
+}
+
+void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    std::memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
+}
+
+void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
 }  // namespace tt::umd

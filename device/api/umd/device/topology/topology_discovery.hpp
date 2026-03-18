@@ -117,7 +117,7 @@ protected:
     // Configure some TopologyDiscovery paramaters from first discovered device.
     virtual void init_first_device(TTDevice* tt_device) = 0;
 
-    virtual bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
+    bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core);
 
     virtual void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 

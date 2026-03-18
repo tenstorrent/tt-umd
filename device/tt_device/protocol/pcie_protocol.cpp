@@ -221,17 +221,13 @@ void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size)
     dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
-void PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) write.",
-            pci_device_->get_device_num());
-        write_to_device(src, core, addr, size);
-        return;
+        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
+        return false;
     }
 
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
@@ -267,19 +263,17 @@ void PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair 
         tlb_window->configure(config);
         axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
+
+    return true;
 }
 
-void PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+bool PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) read.",
-            pci_device_->get_device_num());
-        read_from_device(dst, core, addr, size);
-        return;
+        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
+        return false;
     }
 
     uint8_t* buffer = static_cast<uint8_t*>(dst);
@@ -315,21 +309,18 @@ void PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core,
         tlb_window->configure(config);
         axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
+
+    return true;
 }
 
-void PcieProtocol::dma_multicast_write(
+bool PcieProtocol::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) multicast "
-            "write.",
-            pci_device_->get_device_num());
-        noc_multicast_write(src, size, core_start, core_end, addr);
-        return;
+        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
+        return false;
     }
 
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
@@ -368,6 +359,8 @@ void PcieProtocol::dma_multicast_write(
         tlb_window->configure(config);
         axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
+
+    return true;
 }
 
 }  // namespace tt::umd

@@ -26,9 +26,9 @@ public:
 
     virtual PCIDevice* get_pci_device() = 0;
 
-    virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) = 0;
-    virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) = 0;
-    virtual void dma_multicast_write(
+    [[nodiscard]] virtual bool dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) = 0;
+    [[nodiscard]] virtual bool dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) = 0;
+    [[nodiscard]] virtual bool dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
 
     virtual void dma_d2h(void* dst, uint32_t src, size_t size) = 0;

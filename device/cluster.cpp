@@ -211,12 +211,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-// <<<<<<< HEAD
-//         return SimulationChip::create(
-//             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
-// =======
         return SimulationChip::create(simulator_directory, soc_desc, cluster_desc, chip_id, num_host_mem_channels);
-// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "

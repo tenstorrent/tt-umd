@@ -23,16 +23,9 @@ class TTSimChip : public SimulationChip {
 public:
     TTSimChip(
         const std::filesystem::path& simulator_directory,
-// <<<<<<< HEAD
-//         const SocDescriptor& soc_descriptor,
-//         ChipId chip_id,
-//         bool copy_sim_binary = false,
-//         int num_host_mem_channels = 0);
-// =======
         SocDescriptor soc_descriptor,
         ClusterDescriptor* cluster_desc,
         ChipId chip_id);
-// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
     ~TTSimChip() override;
 
     void start_device() override;

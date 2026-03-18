@@ -134,8 +134,8 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/tt_sim_tlb_manager.cpp
-            pcie/simulation_tlb_window.cpp
-            pcie/simulation_tlb_handle.cpp
+            pcie/tt_sim_tlb_window.cpp
+            pcie/tt_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -181,8 +181,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/silicon_tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_window.hpp
                 api/umd/device/pcie/tlb_window.hpp
-                api/umd/device/pcie/simulation_tlb_window.hpp
-                api/umd/device/pcie/simulation_tlb_handle.hpp
+                api/umd/device/pcie/tt_sim_tlb_window.hpp
+                api/umd/device/pcie/tt_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp

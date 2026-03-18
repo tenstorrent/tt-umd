@@ -12,6 +12,8 @@
 
 namespace tt::umd {
 
+class JtagDevice;
+
 /**
  * JtagProtocol implements DeviceProtocol and JtagInterface for JTAG-connected devices.
  */

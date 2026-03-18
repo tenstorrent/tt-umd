@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/tt_device/protocol/dma/blackhole_dma_transfer.hpp"
+#include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 
 #include <chrono>
 #include <stdexcept>

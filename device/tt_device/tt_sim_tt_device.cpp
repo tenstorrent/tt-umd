@@ -21,9 +21,9 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    std::cout << "here" << std::endl;
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    std::cout << "done" << std::endl;
+    ChipInfo chip_info{};
+    chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
     return std::make_unique<TTSimTTDevice>(
         simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
 }

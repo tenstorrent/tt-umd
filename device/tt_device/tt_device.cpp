@@ -154,9 +154,9 @@ std::unique_ptr<TTDevice> TTDevice::create(
 }
 
 std::unique_ptr<TTDevice> TTDevice::create_simulation_tt_device(
-    const std::filesystem::path &simulator_path, int num_host_mem_channels) {
+    const std::filesystem::path &simulator_path, int num_host_mem_channels, bool copy_sim_binary) {
     if (simulator_path.extension() == ".so") {
-        return TTSimTTDevice::create(simulator_path, num_host_mem_channels);
+        return TTSimTTDevice::create(simulator_path, num_host_mem_channels, copy_sim_binary);
     } else {
         return RtlSimulationTTDevice::create(simulator_path, num_host_mem_channels);
     }

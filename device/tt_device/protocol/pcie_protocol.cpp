@@ -146,7 +146,6 @@ TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
 }
 
 void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
@@ -170,7 +169,6 @@ void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, cons
 }
 
 void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
-    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
@@ -224,6 +222,7 @@ void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size)
 }
 
 void PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
@@ -271,6 +270,7 @@ void PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair 
 }
 
 void PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
@@ -319,6 +319,7 @@ void PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core,
 
 void PcieProtocol::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {

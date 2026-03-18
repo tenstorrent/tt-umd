@@ -204,7 +204,7 @@ void TopologyDiscovery::discover_remote_devices() {
                     eth_core.str(),
                     get_eth_postcode(tt_device, eth_core));
                 if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                    // TODO: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
+                    // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
                     // TT_THROW(msg);.
                 } else {
                     log_warning(LogUMD, msg);

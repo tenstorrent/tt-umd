@@ -17,7 +17,7 @@ namespace tt::umd {
  *
  * Each architecture (Wormhole, Blackhole, ...) provides its own DMA register programming
  * sequence and completion mechanism. The variant dispatches to the correct implementation
- * at runtime with zero heap allocation.
+ * at runtime.
  */
 using DmaTransferStrategy = std::variant<WormholeDmaTransfer, BlackholeDmaTransfer>;
 

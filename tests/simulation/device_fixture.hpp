@@ -30,13 +30,9 @@ protected:
         }
         auto soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
-// <<<<<<< HEAD
-//         device = SimulationChip::create(simulator_path, soc_descriptor, 0, 1);
-// =======
         ChipId chip_id = 0;
         std::shared_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_mock_cluster({chip_id}, soc_descriptor.arch, true);
         device = SimulationChip::create(simulator_path, soc_descriptor, cluster_desc.get(), chip_id);
-// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
         device->start_device();
     }
 

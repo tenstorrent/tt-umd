@@ -17,15 +17,6 @@ namespace tt::umd {
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
     const std::filesystem::path& simulator_directory,
-// <<<<<<< HEAD
-//     const SocDescriptor& soc_descriptor,
-//     ChipId chip_id,
-//     size_t num_chips,
-//     int num_host_mem_channels) {
-//     if (simulator_directory.extension() == ".so") {
-//         return std::make_unique<TTSimChip>(
-//             simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
-// =======
     SocDescriptor soc_descriptor,
     ClusterDescriptor* cluster_desc,
     ChipId chip_id, 
@@ -37,7 +28,6 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
             return std::make_unique<TTSimChip>(
                 simulator_directory, soc_descriptor, cluster_desc, chip_id);
         }
-// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
     }

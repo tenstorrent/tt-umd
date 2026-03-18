@@ -99,8 +99,11 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
 
           # Get the previous tag, excluding the current version tag
-          PREV_TAG=$(git tag --sort=-version:refname | \
-            grep -v "^${CURRENT_VERSION}$" | head -n 1 2>/dev/null || echo "")
+          # Use sort -rV (GNU version sort) instead of git's --sort=-version:refname
+          # because git's version sort does not reliably handle 4-segment versions (e.g. v0.9.3.260313).
+          # Use grep -Fxv for fixed-string exact matching (dots in version numbers are regex wildcards).
+          PREV_TAG=$(git tag | sort -rV | \
+            grep -Fxv "${CURRENT_VERSION}" | head -n 1 2>/dev/null || echo "")
 
           if [ -n "$PREV_TAG" ]; then
             echo "Found previous tag: $PREV_TAG"

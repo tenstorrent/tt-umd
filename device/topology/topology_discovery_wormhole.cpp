@@ -180,9 +180,10 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, 
         return get_remote_eth_id(tt_device, local_eth_core);
     }
     tt_xy_pair remote_eth_core = get_remote_eth_core(tt_device, local_eth_core);
+    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED;
 
     // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
-    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, noc_system, CoordSystem::LOGICAL).y;
 }
 
 uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
@@ -276,7 +277,7 @@ bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, tt_xy_
     uint32_t port_disable_mask = 0;
     tt_device->read_from_device(
         &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
-    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0;
+    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED;
     const uint32_t channel =
         get_soc_descriptor(tt_device).translate_coord_to(eth_core, noc_system, CoordSystem::LOGICAL).y;
     return (port_disable_mask >> channel) & 1;

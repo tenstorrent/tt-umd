@@ -66,7 +66,8 @@ void BlackholeDmaTransfer::h2d_transfer(
     write_reg(XFERSIZE_OFF_RDCH_0, static_cast<uint32_t>(size));
     write_reg(DOORBELL_OFF_RDCH_0, 0x1);
 
-    // Poll until XFERSIZE reaches 0, which indicates the transfer is complete.
+    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
+    // CPU and memory bus contention.
     auto start = std::chrono::steady_clock::now();
     while (read_reg(XFERSIZE_OFF_RDCH_0) != 0) {
         auto now = std::chrono::steady_clock::now();

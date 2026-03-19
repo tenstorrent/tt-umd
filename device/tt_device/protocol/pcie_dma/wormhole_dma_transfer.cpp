@@ -54,6 +54,8 @@ void WormholeDmaTransfer::d2h_transfer(
     write_reg(DMA_DAR_HIGH_OFF_WRCH_0, static_cast<uint32_t>((dst >> 32) & 0xFFFFFFFF));
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
 
+    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
+    // CPU and memory bus contention.
     auto start = std::chrono::steady_clock::now();
     for (;;) {
         if (*completion == DMA_COMPLETION_VALUE) {
@@ -110,6 +112,8 @@ void WormholeDmaTransfer::h2d_transfer(
     write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);
     write_reg(DMA_READ_DOORBELL_OFF, 0);
 
+    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
+    // CPU and memory bus contention.
     auto start = std::chrono::steady_clock::now();
     for (;;) {
         if (*completion == DMA_COMPLETION_VALUE) {

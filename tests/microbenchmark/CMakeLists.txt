@@ -1,6 +1,7 @@
 set(MICROBENCHMARK_SRC_FILES
     benchmarks/tlb/test_tlb.cpp
     benchmarks/pcie_dma/test_pcie_dma.cpp
+    benchmarks/pcie_dma/test_pcie_protocol_dma.cpp
     benchmarks/open_cluster/test_open_cluster.cpp
     benchmarks/ethernet_io/test_ethernet_io.cpp
     benchmarks/iommu/test_iommu.cpp

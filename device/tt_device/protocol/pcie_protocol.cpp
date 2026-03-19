@@ -219,6 +219,44 @@ TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     return cached_dma_tlb_window_.get();
 }
 
+// TODO: These public DMA methods are locked for safety since they can be called directly by
+// consumers. The goal is to make the protocol class lockless and push synchronization to
+// higher-level components. dma_transfer() calls the private _transfer methods directly to
+// avoid lock contention.
+void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
+    std::memcpy(dst, dma_buffer.buffer, size);
+}
+
+void PcieProtocol::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
+}
+
+void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    std::memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
+}
+
+void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
+}
+
 void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
@@ -263,44 +301,6 @@ void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, cons
     }
 
     std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
-}
-
-// TODO: These public DMA methods are locked for safety since they can be called directly by
-// consumers. The goal is to make the protocol class lockless and push synchronization to
-// higher-level components. dma_transfer() calls the private _transfer methods directly to
-// avoid lock contention.
-void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
-    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
-    std::memcpy(dst, dma_buffer.buffer, size);
-}
-
-void PcieProtocol::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
-}
-
-void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
-    std::memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
-}
-
-void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
 }  // namespace tt::umd

@@ -189,9 +189,11 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         if (direction == DmaDirection::H2D) {
-            dma_h2d(static_cast<uint32_t>(axi_address), buf, transfer_size);
+            std::memcpy(dma_buffer.buffer, buf, transfer_size);
+            dma_h2d_transfer(static_cast<uint32_t>(axi_address), dma_buffer.buffer_pa, transfer_size);
         } else {
-            dma_d2h(buf, static_cast<uint32_t>(axi_address), transfer_size);
+            dma_d2h_transfer(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
+            std::memcpy(buf, dma_buffer.buffer, transfer_size);
         }
 
         size -= transfer_size;
@@ -263,7 +265,12 @@ void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, cons
     std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
 }
 
+// TODO: These public DMA methods are locked for safety since they can be called directly by
+// consumers. The goal is to make the protocol class lockless and push synchronization to
+// higher-level components. dma_transfer() calls the private _transfer methods directly to
+// avoid lock contention.
 void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
@@ -275,10 +282,12 @@ void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
 }
 
 void PcieProtocol::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
     dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
 }
 
 void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
@@ -290,6 +299,7 @@ void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
 }
 
 void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
     dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 

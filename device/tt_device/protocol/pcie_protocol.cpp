@@ -131,100 +131,36 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (dma_buffer.buffer == nullptr) {
-        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
-        return false;
-    }
-
-    const uint8_t* buffer = static_cast<const uint8_t*>(src);
-    size_t dmabuf_size = dma_buffer.size;
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
-
-    auto axi_address_base = pci_device_->get_architecture_implementation()
-                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        dma_h2d(axi_address, buffer, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
-
-    return true;
+bool PcieProtocol::dma_write_to_device(void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core), DmaDirection::H2D);
 }
 
 bool PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (dma_buffer.buffer == nullptr) {
-        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
-        return false;
-    }
-
-    uint8_t* buffer = static_cast<uint8_t*>(dst);
-    size_t dmabuf_size = dma_buffer.size;
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
-
-    auto axi_address_base = pci_device_->get_architecture_implementation()
-                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        dma_d2h(buffer, axi_address, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
-
-    return true;
+    return dma_transfer(dst, size, addr, create_dma_tlb_config(addr, core), DmaDirection::D2H);
 }
 
 bool PcieProtocol::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core_end, core_start), DmaDirection::H2D);
+}
+
+tlb_data PcieProtocol::create_dma_tlb_config(uint64_t addr, tt_xy_pair core, std::optional<tt_xy_pair> mcast_start) {
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+    if (mcast_start) {
+        config.x_start = mcast_start->x;
+        config.y_start = mcast_start->y;
+        config.mcast = true;
+    }
+    return config;
+}
+
+bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
@@ -233,19 +169,8 @@ bool PcieProtocol::dma_multicast_write(
         return false;
     }
 
-    const uint8_t* buffer = static_cast<const uint8_t*>(src);
+    uint8_t* buf = static_cast<uint8_t*>(buffer);
     size_t dmabuf_size = dma_buffer.size;
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_start = core_start.x;
-    config.y_start = core_start.y;
-    config.x_end = core_end.x;
-    config.y_end = core_end.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
-    config.mcast = true;
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
     auto axi_address_base = pci_device_->get_architecture_implementation()
@@ -259,11 +184,15 @@ bool PcieProtocol::dma_multicast_write(
         auto tlb_size = tlb_window->get_size();
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
-        dma_h2d(axi_address, buffer, transfer_size);
+        if (direction == DmaDirection::H2D) {
+            dma_h2d(static_cast<uint32_t>(axi_address), buf, transfer_size);
+        } else {
+            dma_d2h(buf, static_cast<uint32_t>(axi_address), transfer_size);
+        }
 
         size -= transfer_size;
         addr += transfer_size;
-        buffer += transfer_size;
+        buf += transfer_size;
 
         config.local_offset = addr;
         tlb_window->configure(config);

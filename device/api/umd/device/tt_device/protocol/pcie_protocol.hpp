@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp"
@@ -39,7 +40,7 @@ public:
 
     // PcieInterface.
     PCIDevice* get_pci_device() override;
-    [[nodiscard]] bool dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
+    [[nodiscard]] bool dma_write_to_device(void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
     [[nodiscard]] bool dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
     [[nodiscard]] bool dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
@@ -62,6 +63,11 @@ private:
 
     void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
     void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
+
+    enum class DmaDirection { H2D, D2H };
+    tlb_data create_dma_tlb_config(
+        uint64_t addr, tt_xy_pair core, std::optional<tt_xy_pair> mcast_start = std::nullopt);
+    bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
     template <bool safe>
     void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);

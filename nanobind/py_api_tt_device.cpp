@@ -421,6 +421,19 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
 #ifdef TT_UMD_BUILD_SIMULATION
+    // Add simulation factory to TTDevice - must be inside TT_UMD_BUILD_SIMULATION guard
+    // since it links against simulation code.
+    m.def(
+        "create_simulation_tt_device",
+        &TTDevice::create_simulation_tt_device,
+        nb::arg("simulator_path"),
+        nb::arg("num_host_mem_channels") = 0,
+        nb::arg("copy_sim_binary") = false,
+        nb::rv_policy::take_ownership,
+        "Creates a simulation TTDevice from a simulator path. "
+        "If the path ends with '.so', creates a TTSimTTDevice (functional simulator). "
+        "Otherwise, creates an RtlSimulationTTDevice (RTL simulator).");
+
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
         .def_static(
             "create",

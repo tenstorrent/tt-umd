@@ -139,7 +139,7 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run tools
+      - name: Run UMD tools
         run: |
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/telemetry --count 1000
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology

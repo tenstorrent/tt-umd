@@ -34,6 +34,8 @@ public:
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
+    SysmemManager* get_sysmem_manager() override { return tt_device_->get_sysmem_manager(); }
+
 private:
     std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };

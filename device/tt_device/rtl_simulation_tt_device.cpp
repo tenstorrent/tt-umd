@@ -28,18 +28,24 @@ static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
 
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
-std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(const std::filesystem::path& simulator_directory) {
+std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, DEFAULT_CHIP_ID);
+    return std::make_unique<RtlSimulationTTDevice>(
+        simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id) :
+    const std::filesystem::path& simulator_directory,
+    SocDescriptor soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)) {
+    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     arch = soc_descriptor_.arch;
     communicator_->initialize();
@@ -157,6 +163,14 @@ void RtlSimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) 
 
 void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
     TT_THROW("dma_h2d_zero_copy not supported for RTL simulation");
+}
+
+void RtlSimulationTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in RTL simulation device.");
 }
 
 void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {

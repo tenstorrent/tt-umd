@@ -82,6 +82,9 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
+        tt_device/protocol/pcie_protocol.cpp
+        tt_device/protocol/jtag_protocol.cpp
+        tt_device/protocol/remote_protocol.cpp
         firmware/firmware_info_provider.cpp
         firmware/wormhole_18_3_firmware_info_provider.cpp
         firmware/wormhole_18_7_firmware_info_provider.cpp
@@ -131,8 +134,8 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/tt_sim_tlb_manager.cpp
-            pcie/simulation_tlb_window.cpp
-            pcie/simulation_tlb_handle.cpp
+            pcie/tt_sim_tlb_window.cpp
+            pcie/tt_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -178,8 +181,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/silicon_tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_window.hpp
                 api/umd/device/pcie/tlb_window.hpp
-                api/umd/device/pcie/simulation_tlb_window.hpp
-                api/umd/device/pcie/simulation_tlb_handle.hpp
+                api/umd/device/pcie/tt_sim_tlb_window.hpp
+                api/umd/device/pcie/tt_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
@@ -191,6 +194,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
+                api/umd/device/tt_device/protocol/device_protocol.hpp
+                api/umd/device/tt_device/protocol/pcie_interface.hpp
+                api/umd/device/tt_device/protocol/pcie_protocol.hpp
+                api/umd/device/tt_device/protocol/jtag_interface.hpp
+                api/umd/device/tt_device/protocol/jtag_protocol.hpp
+                api/umd/device/tt_device/protocol/remote_interface.hpp
+                api/umd/device/tt_device/protocol/remote_protocol.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp

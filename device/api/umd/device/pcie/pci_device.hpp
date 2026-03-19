@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <map>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -136,6 +137,12 @@ public:
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
     static std::map<int, PciDeviceInfo> enumerate_devices_info();
+
+    /**
+     * Returns the PCI device ID for the given UMD logical ID (index into enumerate_devices()).
+     * @return PCI device ID, or std::nullopt if umd_logical_id is out of range.
+     */
+    static std::optional<int> get_pci_device_id(int umd_logical_id);
 
     /**
      * Read device information from sysfs.

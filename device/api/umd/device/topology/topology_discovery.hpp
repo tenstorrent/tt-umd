@@ -74,6 +74,8 @@ protected:
     // eth_core should be in NoC 0 coordinates.
     virtual uint64_t get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
+    virtual bool is_eth_port_disabled(TTDevice* tt_device, tt_xy_pair eth_core) { return false; }
+
     virtual bool eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair eth_core);
 
     virtual uint32_t get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
@@ -122,6 +124,8 @@ protected:
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
+
+    virtual void retrain_eth_cores() = 0;
 
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices_to_discover;
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices;

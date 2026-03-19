@@ -257,12 +257,13 @@ TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
     }
 
     // Test 2: With TT_VISIBLE_DEVICES, should NOT expand to include all chips on the same boards.
+    // When filtering, chip IDs are remapped to 0-based consecutive indices (silicon behavior).
     std::string tt_visible_devices_value = "0,15,20,10,2,9,17,29,5,26,12,8,21,7,31,22";
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), tt_visible_devices_value.c_str(), 1) != 0) {
         ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
     }
 
-    std::unordered_set<ChipId> expected_chips = {0, 15, 20, 10, 2, 9, 17, 29, 5, 26, 12, 8, 21, 7, 31, 22};
+    constexpr size_t expected_chip_count = 16;
     std::unique_ptr<ClusterDescriptor> constrained_desc_tt =
         ClusterDescriptor::create_constrained_cluster_descriptor(cluster_desc.get(), {});
 
@@ -270,20 +271,15 @@ TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
     std::unordered_set<ChipId> constrained_chips_tt = constrained_desc_tt->get_all_chips();
 
     // Should have exactly the chips specified in TT_VISIBLE_DEVICES (16 chips), not all 32.
-    EXPECT_EQ(constrained_chips_tt.size(), expected_chips.size())
-        << "Expected exactly " << expected_chips.size() << " chips from TT_VISIBLE_DEVICES, but got "
+    // Chip IDs are remapped to 0-based consecutive indices (0..15).
+    EXPECT_EQ(constrained_chips_tt.size(), expected_chip_count)
+        << "Expected exactly " << expected_chip_count << " chips from TT_VISIBLE_DEVICES, but got "
         << constrained_chips_tt.size();
 
-    // Verify all expected chips from TT_VISIBLE_DEVICES are present.
-    for (ChipId expected_chip : expected_chips) {
-        EXPECT_TRUE(constrained_chips_tt.count(expected_chip) > 0)
-            << "Expected chip " << expected_chip << " from TT_VISIBLE_DEVICES not found in constrained descriptor";
-    }
-
-    // Verify no unexpected chips (chips not in TT_VISIBLE_DEVICES).
-    for (ChipId chip : constrained_chips_tt) {
-        EXPECT_TRUE(expected_chips.count(chip) > 0)
-            << "Unexpected chip " << chip << " found in constrained descriptor (not in TT_VISIBLE_DEVICES)";
+    // Verify we have 0-based consecutive chip IDs (0, 1, 2, ..., 15).
+    for (ChipId chip = 0; chip < expected_chip_count; chip++) {
+        EXPECT_TRUE(constrained_chips_tt.count(chip) > 0)
+            << "Expected remapped chip " << chip << " not found in constrained descriptor";
     }
 
     // Clean up: unset TT_VISIBLE_DEVICES.
@@ -325,6 +321,7 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
     // Chip 0 has connections to chips 1, 2, and 4.
     // After filtering (with board expansion), chip 1 will also be visible (same board as 0).
     // Connections from visible chips to non-visible chips (2-7, except 1) should become remote connections.
+    // Chip IDs are remapped to 0-based indices, so we match by unique_id to map constrained chips to original.
     std::unique_ptr<ClusterDescriptor> full_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
     ASSERT_NE(full_desc, nullptr);
@@ -334,36 +331,54 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
         ClusterDescriptor::create_constrained_cluster_descriptor(full_desc.get(), target_chips);
     ASSERT_NE(constrained_desc, nullptr);
 
-    // Get actual visible chips after filtering (may include board expansion).
-    std::unordered_set<ChipId> visible_chips = constrained_desc->get_all_chips();
-    ASSERT_FALSE(visible_chips.empty()) << "Should have at least one visible chip";
-
     const auto& constrained_local = constrained_desc->get_ethernet_connections();
     const auto& constrained_remote = constrained_desc->get_ethernet_connections_to_remote_devices();
-    const auto& chip_unique_ids = full_desc->get_chip_unique_ids();
+    const auto& full_chip_unique_ids = full_desc->get_chip_unique_ids();
+    const auto& constrained_chip_unique_ids = constrained_desc->get_chip_unique_ids();
+
+    // Build mapping from constrained (remapped) chip ID to original chip ID via unique_id.
+    std::unordered_map<ChipId, ChipId> remapped_to_original;
+    for (ChipId remapped_id : constrained_desc->get_all_chips()) {
+        uint64_t uid = constrained_chip_unique_ids.at(remapped_id);
+        for (const auto& [orig_id, orig_uid] : full_chip_unique_ids) {
+            if (orig_uid == uid) {
+                remapped_to_original[remapped_id] = orig_id;
+                break;
+            }
+        }
+        ASSERT_TRUE(remapped_to_original.count(remapped_id) > 0)
+            << "Could not find original chip for remapped chip " << remapped_id;
+    }
+
+    std::unordered_set<ChipId> original_visible_chips;
+    for (const auto& [_, orig] : remapped_to_original) {
+        original_visible_chips.insert(orig);
+    }
 
     // Verify connections from visible chips to non-visible chips are converted to remote connections.
-    for (const auto& [chip_id, connections] : full_desc->get_ethernet_connections()) {
-        if (visible_chips.count(chip_id) == 0) {
-            continue;
-        }
+    for (ChipId remapped_id : constrained_desc->get_all_chips()) {
+        ChipId original_id = remapped_to_original.at(remapped_id);
+        const auto& connections = full_desc->get_ethernet_connections().at(original_id);
+
         for (const auto& [eth_channel, remote_chip_and_channel] : connections) {
             ChipId remote_chip = std::get<0>(remote_chip_and_channel);
-            if (visible_chips.count(remote_chip) == 0) {
+            if (original_visible_chips.count(remote_chip) == 0) {
                 // Should be converted to remote connection with correct unique_id.
-                ASSERT_TRUE(constrained_remote.find(chip_id) != constrained_remote.end())
-                    << "Chip " << chip_id << " should have remote connections";
-                ASSERT_TRUE(constrained_remote.at(chip_id).find(eth_channel) != constrained_remote.at(chip_id).end())
-                    << "Connection from chip " << chip_id << " channel " << eth_channel << " to non-visible chip "
+                ASSERT_TRUE(constrained_remote.find(remapped_id) != constrained_remote.end())
+                    << "Chip " << remapped_id << " (orig " << original_id << ") should have remote connections";
+                ASSERT_TRUE(
+                    constrained_remote.at(remapped_id).find(eth_channel) != constrained_remote.at(remapped_id).end())
+                    << "Connection from chip " << original_id << " channel " << eth_channel << " to non-visible chip "
                     << remote_chip << " should be in remote connections";
-                auto [remote_unique_id, remote_channel] = constrained_remote.at(chip_id).at(eth_channel);
-                EXPECT_EQ(remote_unique_id, chip_unique_ids.at(remote_chip))
+                auto [remote_unique_id, remote_channel] = constrained_remote.at(remapped_id).at(eth_channel);
+                EXPECT_EQ(remote_unique_id, full_chip_unique_ids.at(remote_chip))
                     << "Remote unique_id should match chip_unique_ids";
             } else {
                 // Should remain as local connection.
-                ASSERT_TRUE(constrained_local.find(chip_id) != constrained_local.end())
-                    << "Chip " << chip_id << " should have local connections";
-                EXPECT_TRUE(constrained_local.at(chip_id).find(eth_channel) != constrained_local.at(chip_id).end())
+                ASSERT_TRUE(constrained_local.find(remapped_id) != constrained_local.end())
+                    << "Chip " << remapped_id << " should have local connections";
+                EXPECT_TRUE(
+                    constrained_local.at(remapped_id).find(eth_channel) != constrained_local.at(remapped_id).end())
                     << "Connection between visible chips should remain local";
             }
         }

@@ -21,6 +21,17 @@ repos:
   hooks:
     - id: check-copyright
       args: ['--config', '.pre-commit-hooks/check-copyright-config.yaml', "--ignore", ""]
+- repo: https://github.com/python-jsonschema/check-jsonschema
+  rev: 0.29.3
+  hooks:
+    - id: check-jsonschema
+      name: Validate cluster descriptor YAML files
+      files: ^tests/cluster_descriptor_examples/.*\.yaml$
+      args: ['--schemafile', 'docs/yaml_schemas/cluster_descriptor.yaml']
+    - id: check-jsonschema
+      name: Validate SoC descriptor YAML files
+      files: ^tests/soc_descs/.*\.yaml$
+      args: ['--schemafile', 'docs/yaml_schemas/soc_descriptor.yaml']
 - repo: local
   hooks:
     - id: check-cpp-comment-periods

@@ -25,6 +25,7 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     axiclk_available = telemetry->is_entry_available(wormhole::TelemetryTag::AXICLK);
     arcclk_available = telemetry->is_entry_available(wormhole::TelemetryTag::ARCCLK);
     fan_speed_available = telemetry->is_entry_available(wormhole::TelemetryTag::FAN_SPEED);
+    fan_rpm_available = false;
     tdp_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);
@@ -127,11 +128,16 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() cons
         return std::nullopt;
     }
     const uint32_t fan_speed = telemetry->read_entry(wormhole::TelemetryTag::FAN_SPEED);
-    // All ones mean fans not present on board, or not under control of firmware.
+    // The value 0xFFFFFFFF means fans are not present on board, or not under control of firmware.
     if (fan_speed == 0xFFFFFFFF) {
         return std::nullopt;
     }
     return fan_speed;
+}
+
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_rpm() const {
+    // FAN_RPM is not available in Wormhole 18.3 telemetry (only FAN_SPEED as percentage).
+    return std::nullopt;
 }
 
 std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdp() const {

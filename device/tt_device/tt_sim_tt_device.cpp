@@ -33,7 +33,7 @@ TTSimTTDevice::TTSimTTDevice(
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
     architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels)) {
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -174,6 +174,14 @@ void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
+void TTSimTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
+}
+
+void TTSimTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
+}
+
 void TTSimTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in TTSim simulation device.");
 }
@@ -264,5 +272,7 @@ TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in TTSim device.");
 }
+
+TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

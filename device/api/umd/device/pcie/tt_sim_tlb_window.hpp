@@ -19,17 +19,23 @@ class TTSimCommunicator;
  * This allows TLB operations to work with TTSim where the device
  * memory is not mapped into the user process.
  */
-class SimulationTlbWindow : public TlbWindow {
+class TTSimTlbWindow : public TlbWindow {
 public:
-    SimulationTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
+    TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
 
     // Implementation of memory access methods using TTSimCommunicator.
+    void write16(uint64_t offset, uint16_t value) override;
+    uint16_t read16(uint64_t offset) override;
     void write32(uint64_t offset, uint32_t value) override;
     uint32_t read32(uint64_t offset) override;
     void write_register(uint64_t offset, const void* data, size_t size) override;
     void read_register(uint64_t offset, void* data, size_t size) override;
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
+
+    void safe_write16(uint64_t offset, uint16_t value) override;
+
+    uint16_t safe_read16(uint64_t offset) override;
 
     void safe_write32(uint64_t offset, uint32_t value) override;
 

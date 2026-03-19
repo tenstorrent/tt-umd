@@ -378,6 +378,14 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
     return infos;
 }
 
+std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
+    if (umd_logical_id < 0 || umd_logical_id >= static_cast<int>(enumerated_ids.size())) {
+        return std::nullopt;
+    }
+    return enumerated_ids[umd_logical_id];
+}
+
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
@@ -938,8 +946,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
 }
 
 void PCIDevice::allocate_pcie_dma_buffer() {
-    if (arch != tt::ARCH::WORMHOLE_B0) {
-        // DMA buffer is only supported on Wormhole B0.
+    if (arch != tt::ARCH::WORMHOLE_B0 && arch != tt::ARCH::BLACKHOLE) {
+        // DMA buffer is only supported on Wormhole B0 and Blackhole.
         return;
     }
     // DMA buffer allocation.

@@ -64,6 +64,16 @@ struct ScopedJumpGuard {
 SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
     TlbWindow(std::move(handle), config) {}
 
+void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
+    validate(offset, sizeof(uint16_t));
+    *reinterpret_cast<volatile uint16_t *>(tlb_handle->get_base() + get_total_offset(offset)) = value;
+}
+
+uint16_t SiliconTlbWindow::read16(uint64_t offset) {
+    validate(offset, sizeof(uint16_t));
+    return *reinterpret_cast<volatile uint16_t *>(tlb_handle->get_base() + get_total_offset(offset));
+}
+
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
     *reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset)) = value;
@@ -232,6 +242,12 @@ decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
         throw SigbusError("SIGBUS signal detected: Device access failed.");
     }
 }
+
+void SiliconTlbWindow::safe_write16(uint64_t offset, uint16_t value) {
+    execute_safe(&SiliconTlbWindow::write16, offset, value);
+}
+
+uint16_t SiliconTlbWindow::safe_read16(uint64_t offset) { return execute_safe(&SiliconTlbWindow::read16, offset); }
 
 void SiliconTlbWindow::safe_write32(uint64_t offset, uint32_t value) {
     execute_safe(&SiliconTlbWindow::write32, offset, value);

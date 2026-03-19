@@ -212,6 +212,128 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     }
 }
 
+TEST(TestTlb, TestTlbWindowReadWrite16) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+
+    for (CoreCoord core : tensix_cores) {
+        tlb_data config;
+        config.local_offset = 0;
+        config.x_end = core.x;
+        config.y_end = core.y;
+        config.x_start = 0;
+        config.y_start = 0;
+        config.noc_sel = 0;
+        config.mcast = 0;
+        config.ordering = tlb_data::Relaxed;
+        config.linked = 0;
+        config.static_vc = 1;
+
+        std::unique_ptr<TlbWindow> tlb_write =
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+        std::unique_ptr<TlbWindow> tlb_read =
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+
+        // Test basic write16/read16.
+        tlb_write->write16(0, 0xABCD);
+        uint16_t readback16 = tlb_read->read16(0);
+        EXPECT_EQ(readback16, 0xABCD);
+
+        tlb_write->write16(2, 0x1234);
+        readback16 = tlb_read->read16(2);
+        EXPECT_EQ(readback16, 0x1234);
+
+        // Two write16 calls should be equivalent to one write32.
+        // Write via two write16 at offset 0, then read back as write32.
+        const uint16_t low16 = 0xBEEF;
+        const uint16_t high16 = 0xDEAD;
+        const uint32_t combined32 = (static_cast<uint32_t>(high16) << 16) | low16;
+
+        tlb_write->write16(0, low16);
+        tlb_write->write16(2, high16);
+        uint32_t readback32 = tlb_read->read32(0);
+        EXPECT_EQ(readback32, combined32);
+
+        // Conversely, write32 and read back as two read16.
+        const uint32_t test_val32 = 0xCAFEBABE;
+        tlb_write->write32(4, test_val32);
+        uint16_t low_half = tlb_read->read16(4);
+        uint16_t high_half = tlb_read->read16(6);
+        EXPECT_EQ(low_half, static_cast<uint16_t>(test_val32 & 0xFFFF));
+        EXPECT_EQ(high_half, static_cast<uint16_t>((test_val32 >> 16) & 0xFFFF));
+
+        // Write a full 32-bit pattern via write16, then verify equivalence with a direct write32 on a different offset.
+        tlb_write->write16(8, 0x1111);
+        tlb_write->write16(10, 0x2222);
+        tlb_write->write32(12, 0x22221111);
+        uint32_t from_16 = tlb_read->read32(8);
+        uint32_t from_32 = tlb_read->read32(12);
+        EXPECT_EQ(from_16, from_32);
+    }
+}
+
+TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+
+    for (CoreCoord core : tensix_cores) {
+        tlb_data config;
+        config.local_offset = 0;
+        config.x_end = core.x;
+        config.y_end = core.y;
+        config.x_start = 0;
+        config.y_start = 0;
+        config.noc_sel = 0;
+        config.mcast = 0;
+        config.ordering = tlb_data::Relaxed;
+        config.linked = 0;
+        config.static_vc = 1;
+
+        std::unique_ptr<TlbWindow> tlb_write =
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+        std::unique_ptr<TlbWindow> tlb_read =
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+
+        // Write a known 32-bit value, then overwrite only the low half with write16.
+        tlb_write->write32(0, 0xAAAABBBB);
+        tlb_write->write16(0, 0xCCCC);
+        EXPECT_EQ(tlb_read->read16(0), 0xCCCC) << "Low half should be updated by write16";
+        EXPECT_EQ(tlb_read->read16(2), 0xAAAA) << "High half should be untouched by write16 to low half";
+        EXPECT_EQ(tlb_read->read32(0), 0xAAAACCCC);
+
+        // Now overwrite only the high half with write16.
+        tlb_write->write16(2, 0xDDDD);
+        EXPECT_EQ(tlb_read->read16(2), 0xDDDD) << "High half should be updated by write16";
+        EXPECT_EQ(tlb_read->read16(0), 0xCCCC) << "Low half should be untouched by write16 to high half";
+        EXPECT_EQ(tlb_read->read32(0), 0xDDDDCCCC);
+
+        // Verify across two adjacent 32-bit words: writing to one does not affect the other.
+        tlb_write->write32(4, 0x11112222);
+        tlb_write->write32(8, 0x33334444);
+        tlb_write->write16(4, 0x5555);
+        EXPECT_EQ(tlb_read->read32(4), 0x11115555) << "Only low half of first word should change";
+        EXPECT_EQ(tlb_read->read32(8), 0x33334444) << "Second word should be completely untouched";
+    }
+}
+
 TEST(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";

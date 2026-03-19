@@ -21,7 +21,6 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
@@ -382,7 +381,7 @@ void RobustMutex::unlock() {
     }
 }
 
-std::optional<std::pair<pid_t, pid_t>> RobustMutex::try_lock(std::chrono::seconds timeout) {
+std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seconds timeout) {
     int lock_res;
 
     if (timeout.count() == 0) {
@@ -416,7 +415,7 @@ std::optional<std::pair<pid_t, pid_t>> RobustMutex::try_lock(std::chrono::second
 
 void RobustMutex::lock() {
     // Use a 1-second timed attempt first so we can emit a warning when the lock is contended.
-    if (auto owner = try_lock(std::chrono::seconds(1))) {
+    if (auto owner = probe_lock(std::chrono::seconds(1))) {
         log_warning(
             LogUMD,
             "Waiting for lock '{}' which is currently held by thread TID: {}, PID: {}",

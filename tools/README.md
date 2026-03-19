@@ -137,7 +137,7 @@ a second invocation of `lock_virus` to observe it as `LOCKED`:
 
 ```
 # Terminal 1 – hold the lock
-./build/tools/umd/lock_virus --hold-lock TT_UMD_LOCK.ARC_MSG
+./build/tools/umd/lock_virus --hold-lock ARC_MSG
 
 # Terminal 2 – observe it as LOCKED
 ./build/tools/umd/lock_virus

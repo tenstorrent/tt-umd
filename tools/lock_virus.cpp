@@ -9,7 +9,9 @@
 #include <dirent.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <cxxopts.hpp>
 #include <iostream>
 #include <set>
@@ -91,7 +93,7 @@ static void report_lock(const std::string& shm_name) {
         return;
     }
 
-    if (auto owner = m.try_lock(std::chrono::seconds(0))) {
+    if (auto owner = m.probe_lock(std::chrono::seconds(0))) {
         // Optional has a value: lock is held by another thread/process.
         log_info(tt::LogUMD, "  [{:<55}]  LOCKED  PID={} TID={}", shm_name, owner->first, owner->second);
     } else {
@@ -130,7 +132,7 @@ int main(int argc, char* argv[]) {
         const std::string mutex_name = result["hold-lock"].as<std::string>();
         RobustMutex m(mutex_name);
         m.initialize();
-        if (auto owner = m.try_lock()) {
+        if (auto owner = m.probe_lock()) {
             log_error(
                 tt::LogUMD, "Lock '{}' is already held by PID={} TID={}", mutex_name, owner->first, owner->second);
             return 1;

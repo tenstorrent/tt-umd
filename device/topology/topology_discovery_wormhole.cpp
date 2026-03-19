@@ -180,10 +180,9 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, 
         return get_remote_eth_id(tt_device, local_eth_core);
     }
     tt_xy_pair remote_eth_core = get_remote_eth_core(tt_device, local_eth_core);
-    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED;
 
     // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
-    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, noc_system, CoordSystem::LOGICAL).y;
+    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
 }
 
 uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {

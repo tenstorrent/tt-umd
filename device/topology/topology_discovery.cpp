@@ -294,7 +294,8 @@ void TopologyDiscovery::discover_remote_devices() {
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
             } else {
-                log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
+                log_debug(
+                    LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, translated_eth_core.str());
                 ethernet_connections.push_back(
                     {{current_device_asic_id, channel},
                      {remote_asic_id, get_remote_eth_channel(tt_device, translated_eth_core)}});

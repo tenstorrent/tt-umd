@@ -100,7 +100,7 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkPCIeDMA*
 
-      - name: Run PCIe Proto benchmarks
+      - name: Run PCIe Protocol benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark --gtest_filter=MicrobenchmarkPcieProtocolDMA*

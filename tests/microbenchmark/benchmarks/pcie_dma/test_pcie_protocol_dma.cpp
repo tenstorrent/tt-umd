@@ -15,11 +15,13 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
+#include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -28,10 +30,15 @@ using namespace tt::umd::test::utils;
 namespace {
 
 struct PcieProtocolFixture {
+    std::unique_ptr<Cluster> cluster;
     std::unique_ptr<PcieProtocol> protocol;
     SocDescriptor soc_desc;
 
     PcieProtocolFixture() {
+        // Create Cluster to initialize the device and set power state to max clock.
+        cluster = std::make_unique<Cluster>();
+        cluster->set_power_state(DevicePowerState::BUSY);
+
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         EXPECT_FALSE(pci_device_ids.empty()) << "No PCI devices found.";
 
@@ -39,6 +46,13 @@ struct PcieProtocolFixture {
         tt::ARCH arch = pci_device->get_arch();
         soc_desc = SocDescriptor(arch);
         protocol = std::make_unique<PcieProtocol>(std::move(pci_device));
+    }
+
+    ~PcieProtocolFixture() {
+        protocol.reset();
+        if (cluster) {
+            cluster->set_power_state(DevicePowerState::LONG_IDLE);
+        }
     }
 
     tt_xy_pair get_core(CoreType type) const {

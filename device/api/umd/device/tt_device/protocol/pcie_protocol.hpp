@@ -66,7 +66,7 @@ private:
 
     enum class DmaDirection { H2D, D2H };
     tlb_data create_dma_tlb_config(
-        uint64_t addr, tt_xy_pair core, std::optional<tt_xy_pair> mcast_start = std::nullopt);
+        uint64_t addr, tt_xy_pair core_end, std::optional<tt_xy_pair> core_start = std::nullopt);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
     template <bool safe>

@@ -144,17 +144,21 @@ bool PcieProtocol::dma_multicast_write(
     return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core_end, core_start), DmaDirection::H2D);
 }
 
-tlb_data PcieProtocol::create_dma_tlb_config(uint64_t addr, tt_xy_pair core, std::optional<tt_xy_pair> mcast_start) {
+// Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
+// the x_end/y_end and x_start/y_start fields in tlb_data. For unicast, only core_end is needed
+// (the target core). When core_start is provided, the transfer becomes a multicast to the
+// core range [core_start, core_end].
+tlb_data PcieProtocol::create_dma_tlb_config(uint64_t addr, tt_xy_pair core_end, std::optional<tt_xy_pair> core_start) {
     tlb_data config{};
     config.local_offset = addr;
-    config.x_end = core.x;
-    config.y_end = core.y;
+    config.x_end = core_end.x;
+    config.y_end = core_end.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
-    if (mcast_start) {
-        config.x_start = mcast_start->x;
-        config.y_start = mcast_start->y;
+    if (core_start) {
+        config.x_start = core_start->x;
+        config.y_start = core_start->y;
         config.mcast = true;
     }
     return config;

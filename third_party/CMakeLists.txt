@@ -236,3 +236,18 @@ if(umd_asio_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_STANDALONE)
     target_compile_definitions(umd_asio_lib INTERFACE ASIO_NO_DEPRECATED)
 endif()
+
+####################################################################################################################
+# Tracy (Profiler)
+# Using the Tenstorrent fork for compatibility with tt-metal, which uses the same fork.
+####################################################################################################################
+if(TT_UMD_ENABLE_TRACY)
+    CPMAddPackage(
+        NAME tracy
+        GITHUB_REPOSITORY tenstorrent/tracy
+        GIT_TAG 0aaefbb689b4c60694edc905545fc4709fd13f6a
+        SYSTEM YES
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
+endif()

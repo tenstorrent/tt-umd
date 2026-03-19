@@ -88,9 +88,6 @@ target_sources(
         tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
         tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
         firmware/firmware_info_provider.cpp
-        firmware/wormhole_18_3_firmware_info_provider.cpp
-        firmware/wormhole_18_7_firmware_info_provider.cpp
-        firmware/blackhole_18_7_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
@@ -209,9 +206,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
-                api/umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp
-                api/umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp
-                api/umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp
+                api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp

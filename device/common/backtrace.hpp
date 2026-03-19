@@ -5,9 +5,11 @@
 #pragma once
 
 #include <cxxabi.h>
+#include <dlfcn.h>
 #include <execinfo.h>
 
 #include <csignal>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -33,7 +35,7 @@ static std::string demangle(const char *str) {
 // https://www.fatalerrors.org/a/backtrace-function-and-assert-assertion-macro-encapsulation.html
 
 /**
- * @brief Get the current call stack
+ * @brief Get the current call stack with enhanced symbol resolution using dladdr()
  * @param[out] bt Save Call Stack
  * @param[in] size Maximum number of return layers
  * @param[in] skip Skip the number of layers at the top of the stack
@@ -47,15 +49,35 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void *cal
     }
 
     size_t s = ::backtrace(array.data(), size);
-    std::unique_ptr<char *, decltype(&free)> strings(backtrace_symbols(array.data(), s), &free);
-
-    if (strings == nullptr) {
-        std::cout << "backtrace_symbols error." << std::endl;
-        return bt;
-    }
 
     for (size_t i = skip; i < s; ++i) {
-        bt.push_back(demangle(strings.get()[i]));
+        Dl_info info;
+        std::ostringstream oss;
+
+        if (dladdr(array[i], &info) && info.dli_sname) {
+            // Use dladdr for better symbol resolution.
+            int status = 0;
+            char *demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
+            const char *symbol_name = (status == 0) ? demangled : info.dli_sname;
+
+            oss << symbol_name << " [" << std::hex << std::setw(16) << std::setfill('0')
+                << reinterpret_cast<uintptr_t>(array[i]) << "]";
+
+            if (demangled) {
+                free(demangled);
+            }
+        } else {
+            // Fallback to backtrace_symbols if dladdr fails.
+            char **symbols = backtrace_symbols(&array[i], 1);
+            if (symbols) {
+                oss << demangle(symbols[0]);
+                free(symbols);
+            } else {
+                oss << std::hex << std::setw(16) << std::setfill('0') << reinterpret_cast<uintptr_t>(array[i]);
+            }
+        }
+
+        bt.push_back(oss.str());
     }
 
     return bt;

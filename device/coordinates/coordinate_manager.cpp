@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "assert.hpp"
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
@@ -161,8 +162,8 @@ CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSyst
 
     auto coord_it = to_core_type_map.find({core, coord_system});
     if (coord_it == to_core_type_map.end()) {
-        throw std::runtime_error(fmt::format(
-            "No core type found for system {} at location: ({}, {})", to_str(coord_system), core.x, core.y));
+        TT_THROW(fmt::format(
+            "No core coordinate found for system {} at location: ({}, {})", to_str(coord_system), core.x, core.y));
     }
     return coord_it->second;
 }

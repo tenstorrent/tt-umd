@@ -142,7 +142,7 @@ cmake --build build
 
 #### Capturing a trace
 
-Launch the [Tracy server](https://github.com/tenstorrent/tracy) before or after starting your application — Tracy will connect automatically.
+Launch the [Tracy server](https://github.com/tenstorrent/tracy), start the application you want to profile, then click connect
 
 # Integration
 UMD can be consumed by downstream projects in multiple ways.

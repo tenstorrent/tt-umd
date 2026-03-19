@@ -100,6 +100,11 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkPCIeDMA*
 
+      - name: Run PCIe Proto benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark --gtest_filter=MicrobenchmarkPcieProtocolDMA*
+
       - name: Run IOMMU benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |

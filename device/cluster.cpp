@@ -328,6 +328,8 @@ HarvestingMasks Cluster::get_harvesting_masks(
 }
 
 Cluster::Cluster(ClusterOptions options) {
+    options_ = options;
+
     switch (options.chip_type) {
         case ChipType::SILICON: {
             if (options.cluster_descriptor != nullptr) {
@@ -457,6 +459,24 @@ void Cluster::deassert_risc_reset(
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
+
+void Cluster::refresh_cluster_description() {
+    if (options_.chip_type != ChipType::SILICON) {
+        throw std::runtime_error("refresh_cluster_description is only supported for SILICON chip type.");
+    }
+
+    cluster_desc = Cluster::create_cluster_descriptor(
+        options_.sdesc_path, options_.io_device_type, options_.topology_discovery_options);
+
+    eth_fw_version = cluster_desc->eth_fw_version;
+    bcast_header_cache.clear();
+
+    for (const ChipId chip_id : local_chip_ids_) {
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
+        }
+    }
+}
 
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);

@@ -159,6 +159,14 @@ public:
     ClusterDescriptor* get_cluster_description();
 
     /**
+     * Refresh the cluster descriptor by re-running topology discovery.
+     * This updates the cluster's view of the topology (e.g. firmware versions, ethernet connections)
+     * without recreating the chips and devices.
+     * Only supported for SILICON chip type.
+     */
+    void refresh_cluster_description();
+
+    /**
      * Get set of chip ids for all chips in the cluster.
      */
     std::set<ChipId> get_target_device_ids();
@@ -750,6 +758,9 @@ private:
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
+
+    // Options used to construct this cluster, needed to re-run topology discovery on refresh.
+    ClusterOptions options_;
 
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;

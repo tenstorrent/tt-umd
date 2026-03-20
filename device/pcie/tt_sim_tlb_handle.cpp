@@ -34,10 +34,8 @@ TTSimTlbHandle::TTSimTlbHandle(TTSimTlbManager* manager, int tlb_id, size_t size
 
 std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
     TTSimTlbManager* manager, int tlb_id, size_t size, const TlbMapping tlb_mapping) {
-    // We need to bypass the normal constructor to avoid hardware operations
-    // Use the private constructor through make_unique won't work, so we use new.
-    auto* handle = new TTSimTlbHandle(manager, tlb_id, size, tlb_mapping);
-    return std::unique_ptr<TTSimTlbHandle>(handle);
+    // We need to bypass the normal constructor to avoid hardware operations.
+    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(manager, tlb_id, size, tlb_mapping));
 }
 
 TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }

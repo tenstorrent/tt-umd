@@ -207,18 +207,21 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!eth_heartbeat_running(tt_device, eth_core)) {
-                std::string msg = fmt::format(
-                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
-                    current_device_asic_id,
-                    eth_core.str(),
-                    get_eth_postcode(tt_device, eth_core));
-                if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                    // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
-                    // TT_THROW(msg);.
-                } else {
-                    log_warning(LogUMD, msg);
-                    continue;
+            // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
+            // Note that even checking can slow down the CI enough for it to time out.
+            if (options.eth_fw_heartbeat_failure != TopologyDiscoveryOptions::Action::THROW) {
+                if (!eth_heartbeat_running(tt_device, eth_core)) {
+                    std::string msg = fmt::format(
+                        "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
+                        current_device_asic_id,
+                        eth_core.str(),
+                        get_eth_postcode(tt_device, eth_core));
+                    if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
+                        TT_THROW(msg);
+                    } else {
+                        log_warning(LogUMD, msg);
+                        continue;
+                    }
                 }
             }
 

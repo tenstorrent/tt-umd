@@ -9,108 +9,47 @@
 #include <gtest/gtest.h>
 #include <nanobench.h>
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
-// Sends a Wormhole ARC message via BAR0 registers and waits for completion.
-// Replicates the protocol from WormholeArcMessenger::send_message without requiring TTDevice.
-// Returns the ARC exit code, and optionally writes the return value from SCRATCH_RES0.
-static uint32_t send_wh_arc_msg(PCIDevice* pci_device, uint32_t msg_code, uint32_t arg = 0, uint32_t* ret = nullptr) {
-    volatile uint8_t* bar0 = static_cast<volatile uint8_t*>(pci_device->bar0);
-
-    auto read32 = [bar0](uint64_t off) -> uint32_t { return *reinterpret_cast<volatile uint32_t*>(bar0 + off); };
-    auto write32 = [bar0](uint64_t off, uint32_t val) { *reinterpret_cast<volatile uint32_t*>(bar0 + off) = val; };
-
-    constexpr uint64_t XBAR = wormhole::ARC_APB_BAR0_XBAR_OFFSET_START;
-
-    write32(XBAR + wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, arg);
-    write32(XBAR + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, msg_code);
-
-    // Trigger FW interrupt via ARC_MISC_CNTL bit 16.
-    uint32_t misc = read32(XBAR + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET);
-    if (misc & (1 << 16)) {
-        return 1;  // Interrupt bit already set — FW not ready.
-    }
-    write32(XBAR + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, misc | (1 << 16));
-
-    // Poll for ARC response.
-    auto start = std::chrono::steady_clock::now();
-    while (true) {
-        uint32_t status = read32(XBAR + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
-        if ((status & 0xffff) == (msg_code & 0xff)) {
-            if (ret != nullptr) {
-                *ret = read32(XBAR + wormhole::ARC_RESET_SCRATCH_RES0_OFFSET);
-            }
-            return (status & 0xffff0000) >> 16;
-        }
-        auto elapsed = std::chrono::steady_clock::now() - start;
-        if (elapsed > std::chrono::seconds(10)) {
-            return 0xffffffff;  // Timeout.
-        }
-    }
-}
-
-// Sets AICLK to max frequency via ARC GO_BUSY and waits for the clock to ramp up.
-// Only supports Wormhole — Blackhole uses a queue-based ARC protocol that requires TTDevice.
-static void set_power_state_busy(PCIDevice* pci_device) {
-    if (pci_device->get_arch() != tt::ARCH::WORMHOLE_B0) {
-        return;
-    }
-
-    constexpr uint32_t GO_BUSY_MSG =
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_BUSY);
-    ASSERT_EQ(send_wh_arc_msg(pci_device, GO_BUSY_MSG), 0u) << "ARC GO_BUSY message failed";
-
-    // Poll AICLK until it stabilizes at max frequency.
-    constexpr uint32_t GET_AICLK_MSG =
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK);
-    auto start = std::chrono::steady_clock::now();
-    uint32_t prev = 0;
-    uint32_t curr = 0;
-    ASSERT_EQ(send_wh_arc_msg(pci_device, GET_AICLK_MSG, 0, &curr), 0u);
-    while (curr != prev) {
-        prev = curr;
-        ASSERT_EQ(send_wh_arc_msg(pci_device, GET_AICLK_MSG, 0, &curr), 0u);
-        ASSERT_LT(
-            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count(), 10)
-            << "Timed out waiting for AICLK to stabilize";
-    }
-}
+namespace {
 
 struct PcieProtocolFixture {
-    tt::ARCH arch = tt::ARCH::Invalid;
+    std::unique_ptr<Cluster> cluster;
     std::unique_ptr<PcieProtocol> protocol;
     SocDescriptor soc_desc;
 
     PcieProtocolFixture() {
+        cluster = std::make_unique<Cluster>();
+        if (is_blackhole()) {
+            return;  // Tests call GTEST_SKIP after construction.
+        }
+        cluster->set_power_state(DevicePowerState::BUSY);
+
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         EXPECT_FALSE(pci_device_ids.empty()) << "No PCI devices found.";
 
         auto pci_device = std::make_unique<PCIDevice>(pci_device_ids.at(0));
-        arch = pci_device->get_arch();
-        if (arch == tt::ARCH::BLACKHOLE) {
-            return;  // BH skipped — tests check is_blackhole() and GTEST_SKIP.
-        }
-        soc_desc = SocDescriptor(arch);
-        set_power_state_busy(pci_device.get());
+        soc_desc = cluster->get_soc_descriptor(0);
         protocol = std::make_unique<PcieProtocol>(std::move(pci_device));
     }
 
-    bool is_blackhole() const { return arch == tt::ARCH::BLACKHOLE; }
+    bool is_blackhole() const { return cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE; }
 
     tt_xy_pair get_core(CoreType type) const {
         auto cores = soc_desc.get_cores(type, CoordSystem::TRANSLATED);
@@ -286,3 +225,5 @@ TEST(MicrobenchmarkPcieProtocolDMA, EthernetSweepSizes) {
     }
     export_results(bench);
 }
+
+}  // namespace

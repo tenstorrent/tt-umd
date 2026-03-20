@@ -390,18 +390,18 @@ EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair et
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {
-    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
 
-    // TODO: I am commented that out because we end up in this code path if we
-    // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
-    // it doesn't necessarily mean the hardware is hung. It's possible to write
-    // 0xffffffff to device memory and reading it back should not trigger an
-    // exception. In my case, the hardware was not hung but the 0xffffffff was
-    // related to a failure which was obscured by the exception. For now,
-    // just return false.  -- @joelsmithTT, Oct 1 2025
+    // Reading user data that happens to be 0xFFFFFFFF does not mean the chip is
+    // hung. To distinguish a real hang from legitimate data, we read the NOC
+    // node ID register — it holds the PCIe tile coordinates and can never be
+    // 0xFFFFFFFF on healthy hardware. If this independent read also returns all
+    // ones, the NOC/chip is truly hung.
+    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
-    log_debug(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
-    return false;
+    return (node_id == HANG_READ_VALUE);
 }
 
 int BlackholeTTDevice::get_pcie_x_coordinate() {

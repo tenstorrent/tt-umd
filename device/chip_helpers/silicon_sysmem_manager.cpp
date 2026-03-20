@@ -6,8 +6,8 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
-#include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
+#include <linux/mman.h>  // for MAP_HUGE_1GB
+#include <sys/mman.h>   // for mmap, munmap
 
 #include <cerrno>
 #include <cstddef>
@@ -27,6 +27,33 @@
 #include "hugepage.hpp"
 
 namespace tt::umd {
+
+// Try to mmap with 1GB hugepages first, then 2MB hugepages, then regular pages.
+// This is a performance optimization: hugepages reduce page fault overhead during allocation.
+// All three options are functionally correct when IOMMU is enabled.
+static void *mmap_with_hugepage_fallback(size_t size) {
+    void *addr = mmap(
+        nullptr, size, PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE, -1, 0);
+    if (addr != MAP_FAILED) {
+        log_debug(LogUMD, "Allocated {:#x} bytes using 1GB hugepages.", size);
+        return addr;
+    }
+
+    addr = mmap(
+        nullptr, size, PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB | MAP_POPULATE, -1, 0);
+    if (addr != MAP_FAILED) {
+        log_debug(LogUMD, "Allocated {:#x} bytes using 2MB hugepages.", size);
+        return addr;
+    }
+
+    addr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+    if (addr != MAP_FAILED) {
+        log_debug(LogUMD, "Allocated {:#x} bytes using regular pages.", size);
+    }
+    return addr;
+}
 
 SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
     tlb_manager_ = tlb_manager;
@@ -113,59 +140,28 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
-    std::string hugepage_dir = find_hugepage_dir(hugepage_size);
-    if (hugepage_dir.empty()) {
-        log_warning(
-            LogUMD,
-            "SiliconSysmemManager::init_hugepage: no huge page mount found for hugepage_size: {}.",
-            hugepage_size);
-        return false;
-    }
-
     bool success = true;
 
     hugepage_mapping_per_channel.resize(num_host_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
-        if (hugepage_fd == -1) {
-            // Probably a permissions problem.
-            log_warning(
-                LogUMD,
-                "SiliconSysmemManager::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file "
-                "failed.",
-                physical_device_id,
-                ch);
-            success = false;
-            continue;
-        }
-
-        // Verify opened file size.
-        struct stat hugepage_st;
-        if (fstat(hugepage_fd, &hugepage_st) == -1) {
-            log_warning(LogUMD, "Error reading hugepage file size after opening.");
-        }
-
-        std::byte *mapping = static_cast<std::byte *>(
-            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
-
-        close(hugepage_fd);
+        std::byte *mapping = static_cast<std::byte *>(mmap(
+            nullptr,
+            hugepage_size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
+            -1,
+            0));
 
         if (mapping == MAP_FAILED) {
             log_warning(
                 LogUMD,
-                "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).",
+                "UMD: Hugepage allocation failed. (device: {}, {}/{} errno: {}).",
                 physical_device_id,
                 ch,
                 num_host_mem_channels,
                 strerror(errno));
-            if (hugepage_st.st_size == 0) {
-                log_warning(
-                    LogUMD,
-                    "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough "
-                    "hugepages are provided.");
-            }
             print_file_contents("/proc/cmdline");
             print_file_contents(
                 "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
@@ -173,7 +169,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
             continue;
         }
 
-        // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
+        // Better performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
         // numanode as TT device.
         if (!tt::cpuset::cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)) {
             log_warning(
@@ -278,8 +274,8 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
     }
 
-    log_info(LogUMD, "Allocating sysmem without hugepages (size: {:#x}).", iommu_mapping_size);
-    iommu_mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    log_info(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
+    iommu_mapping = mmap_with_hugepage_fallback(size);
 
     if (iommu_mapping == MAP_FAILED) {
         TT_THROW(
@@ -348,8 +344,7 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
-    void *mapping =
-        mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }
 

@@ -55,7 +55,7 @@ pip install .
 
 ### Build flow for C++ lib
 
-To build `libdevice.so`:
+To build `libtt-umd.so`:
 ```
 cmake -B build -G Ninja
 cmake --build build
@@ -151,7 +151,7 @@ UMD can be consumed by downstream projects in multiple ways.
 You can use tt_umd module by installing it in your current python environment
 
 ## From Source (CMake)
-You can link `libdevice.so` by linking against the `umd::device` target.
+You can link `libtt-umd.so` by linking against the `umd::tt-umd` target.
 
 ### Using CPM Package Manager
 ```

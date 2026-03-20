@@ -56,7 +56,7 @@ When you install UMD to `/path/to/install`, it creates:
 ```
 /path/to/install/
 ├── lib/
-│   ├── libdevice.so                    # Main UMD library
+│   ├── libtt-umd.so                    # Main UMD library
 │   └── cmake/
 │       └── umd/                        # CMake config files
 │           ├── umdConfig.cmake

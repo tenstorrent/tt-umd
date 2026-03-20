@@ -7,8 +7,8 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
-#include <sys/mman.h>   // for mmap, munmap
-#include <sys/stat.h>   // for fstat
+#include <sys/mman.h>    // for mmap, munmap
+#include <sys/stat.h>    // for fstat
 
 #include <cerrno>
 #include <cstddef>
@@ -34,16 +34,24 @@ namespace tt::umd {
 // All three options are functionally correct when IOMMU is enabled.
 static void *mmap_with_hugepage_fallback(size_t size) {
     void *addr = mmap(
-        nullptr, size, PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE, -1, 0);
+        nullptr,
+        size,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
+        -1,
+        0);
     if (addr != MAP_FAILED) {
         log_debug(LogUMD, "Allocated {:#x} bytes using 1GB hugepages.", size);
         return addr;
     }
 
     addr = mmap(
-        nullptr, size, PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB | MAP_POPULATE, -1, 0);
+        nullptr,
+        size,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB | MAP_POPULATE,
+        -1,
+        0);
     if (addr != MAP_FAILED) {
         log_debug(LogUMD, "Allocated {:#x} bytes using 2MB hugepages.", size);
         return addr;

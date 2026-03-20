@@ -15,7 +15,7 @@
 
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
@@ -28,7 +28,7 @@ protected:
         if (simulator_path == nullptr) {
             GTEST_SKIP() << "TT_UMD_SIMULATOR is not set. Skipping TTSim device IO tests.";
         }
-        auto device = TTDevice::create_simulation_tt_device(simulator_path);
+        auto device = create_simulation_tt_device(simulator_path);
         tt_device.reset(dynamic_cast<TTSimTTDevice*>(device.release()));
         tt_device->start_device();
     }

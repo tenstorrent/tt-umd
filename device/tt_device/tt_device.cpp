@@ -25,10 +25,6 @@
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
-#ifdef TT_UMD_BUILD_SIMULATION
-#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
-#endif
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -153,20 +149,6 @@ std::unique_ptr<TTDevice> TTDevice::create(
         default:
             throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
     }
-}
-
-std::unique_ptr<TTDevice> TTDevice::create_simulation_tt_device(
-    const std::filesystem::path &simulator_path, int num_host_mem_channels, bool copy_sim_binary) {
-#ifdef TT_UMD_BUILD_SIMULATION
-    if (simulator_path.extension() == ".so") {
-        return TTSimTTDevice::create(simulator_path, num_host_mem_channels, copy_sim_binary);
-    } else {
-        return RtlSimulationTTDevice::create(simulator_path, num_host_mem_channels);
-    }
-#else
-    throw std::runtime_error(
-        "Simulation device is not supported in this build. Build with TT_UMD_BUILD_SIMULATION=ON.");
-#endif
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }

@@ -23,6 +23,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
+#include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -425,7 +426,7 @@ void bind_tt_device(nb::module_ &m) {
     // since it links against simulation code.
     m.def(
         "create_simulation_tt_device",
-        &TTDevice::create_simulation_tt_device,
+        &create_simulation_tt_device,
         nb::arg("simulator_path"),
         nb::arg("num_host_mem_channels") = 0,
         nb::arg("copy_sim_binary") = false,

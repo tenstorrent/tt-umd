@@ -134,6 +134,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
             nb::rv_policy::take_ownership)
+        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"))
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,

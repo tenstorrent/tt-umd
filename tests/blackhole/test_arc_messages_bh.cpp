@@ -23,6 +23,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
 
         std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
 
@@ -31,6 +32,8 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
             uint32_t response = bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
             ASSERT_EQ(response, 0);
         }
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -41,6 +44,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
@@ -64,6 +68,8 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         aiclk = tt_device->get_clock();
 
         EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -74,6 +80,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         std::thread thread0([&]() {
@@ -95,5 +102,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
 
         thread0.join();
         thread1.join();
+
+        tt_device->set_power_state(false);
     }
 }

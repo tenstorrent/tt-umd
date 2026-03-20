@@ -215,6 +215,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -226,6 +227,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
             tt_device->read_from_device(&example_read, arc_core, 0x8003042C, sizeof(uint32_t));
         }
         std::cout << "Destroying low level monitor cluster" << std::endl;
+        tt_device->set_power_state(false);
     });
 
     workload_thread.join();
@@ -239,6 +241,7 @@ TEST(Multiprocess, LongLivedMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -250,6 +253,7 @@ TEST(Multiprocess, LongLivedMonitor) {
             tt_device->read_from_device(&example_read, arc_core, 0x8003042C, sizeof(uint32_t));
         }
         std::cout << "Destroying low level monitor cluster" << std::endl;
+        tt_device->set_power_state(false);
     });
 
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -337,6 +341,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
             // Each process creates its own TTDevice object with the same PCIDevice.
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            tt_device->set_power_state(true);
             tt_device->init_tt_device();
 
             SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -378,6 +383,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
             std::cout << "Process " << process_id << ": Completed " << num_iterations << " DMA operations successfully"
                       << std::endl;
+            tt_device->set_power_state(false);
         }));
     }
 
@@ -410,6 +416,7 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
 
             // Each process creates its own TTDevice object with the same PCIDevice.
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            tt_device->set_power_state(true);
             tt_device->init_tt_device();
 
             SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());

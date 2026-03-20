@@ -31,6 +31,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/exceptions.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -214,8 +215,13 @@ void TopologyDiscovery::discover_remote_devices() {
                     eth_core.str(),
                     get_eth_postcode(tt_device, eth_core));
                 if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                    // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
-                    // TT_THROW(msg);.
+                    throw ETHHeartbeatException(
+                        "ETH Heartbeat check failed.",
+                        ETHHeartbeatFailureData{
+                            {eth_core},
+                            get_eth_postcode(tt_device, eth_core),
+                            get_eth_heartbeat(tt_device, eth_core),
+                        });
                 } else {
                     log_warning(LogUMD, msg);
                     continue;

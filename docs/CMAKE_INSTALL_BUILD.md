@@ -7,18 +7,18 @@ This document explains how to build UMD examples, tools, and Python bindings usi
 The UMD project supports two build modes:
 
 1. **Source Build** (default): Build everything from source in one go
-2. **Install Build**: Build device library first, install it, then build client components from install
+2. **Install Build**: Build tt-umd library first, install it, then build client components from install
 
 ## Quick Start
 
-### Step 1: Build and Install Device Library
+### Step 1: Build and Install tt-umd Library
 
 ```bash
-# Build the device library
+# Build the tt-umd library
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/install
-cmake --build build --target device
+cmake --build build --target tt-umd
 
-# Install the device library and headers
+# Install the tt-umd library and headers
 cmake --install build --prefix /path/to/install
 ```
 

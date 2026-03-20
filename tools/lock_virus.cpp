@@ -21,35 +21,18 @@
 #include <vector>
 
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 
 using namespace tt::umd;
 
 // ── lock-name helpers ─────────────────────────────────────────────────────────
 
-// Mutex type names as used by LockManager (must stay in sync with lock_manager.cpp).
-static const std::vector<std::string> CHIP_SPECIFIC_MUTEX_TYPES = {
-    "ARC_MSG",
-    "REMOTE_ARC_MSG",
-    "NON_MMIO",
-    "MEM_BARRIER",
-    "CHIP_IN_USE",
-    "PCIE_DMA",
-};
-
-// System-wide locks that exist independently of any particular device.
-// ARC_MSG is also initialised as a system-wide lock by ArcMessenger.
-// CREATE_ETH_MAP is reserved for CEM tool calls.
-static const std::vector<std::string> SYSTEM_WIDE_MUTEX_NAMES = {
-    "ARC_MSG",
-    "CREATE_ETH_MAP",
-};
-
 static std::vector<std::string> chip_specific_mutex_names(int device_id, const std::string& device_type = "PCIe") {
     std::vector<std::string> names;
-    names.reserve(CHIP_SPECIFIC_MUTEX_TYPES.size());
-    for (const auto& type : CHIP_SPECIFIC_MUTEX_TYPES) {
-        std::string name = type;
+    names.reserve(LockManager::CHIP_SPECIFIC_MUTEX_TYPES.size());
+    for (MutexType type : LockManager::CHIP_SPECIFIC_MUTEX_TYPES) {
+        std::string name = LockManager::MUTEX_TYPE_TO_STRING.at(type);
         name.append("_").append(std::to_string(device_id)).append("_").append(device_type);
         names.push_back(std::move(name));
     }
@@ -172,11 +155,13 @@ int main(int argc, char* argv[]) {
         // Build the full set of expected lock names.
         std::set<std::string> found_set(found_locks.begin(), found_locks.end());
         std::vector<std::string> expected_names;
-        expected_names.reserve(SYSTEM_WIDE_MUTEX_NAMES.size() + device_ids.size() * CHIP_SPECIFIC_MUTEX_TYPES.size());
+        expected_names.reserve(
+            LockManager::SYSTEM_WIDE_MUTEX_TYPES.size() +
+            device_ids.size() * LockManager::CHIP_SPECIFIC_MUTEX_TYPES.size());
 
         static const std::string prefix(RobustMutex::SHM_FILE_PREFIX);
-        for (const auto& name : SYSTEM_WIDE_MUTEX_NAMES) {
-            expected_names.push_back(prefix + name);
+        for (MutexType type : LockManager::SYSTEM_WIDE_MUTEX_TYPES) {
+            expected_names.push_back(prefix + LockManager::MUTEX_TYPE_TO_STRING.at(type));
         }
         for (int id : device_ids) {
             for (const auto& name : chip_specific_mutex_names(id)) {

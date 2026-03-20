@@ -92,6 +92,7 @@ static void set_power_state_busy(PCIDevice* pci_device) {
 }
 
 struct PcieProtocolFixture {
+    tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<PcieProtocol> protocol;
     SocDescriptor soc_desc;
 
@@ -100,11 +101,16 @@ struct PcieProtocolFixture {
         EXPECT_FALSE(pci_device_ids.empty()) << "No PCI devices found.";
 
         auto pci_device = std::make_unique<PCIDevice>(pci_device_ids.at(0));
-        tt::ARCH arch = pci_device->get_arch();
+        arch = pci_device->get_arch();
+        if (arch == tt::ARCH::BLACKHOLE) {
+            return;  // BH skipped — tests check is_blackhole() and GTEST_SKIP.
+        }
         soc_desc = SocDescriptor(arch);
         set_power_state_busy(pci_device.get());
         protocol = std::make_unique<PcieProtocol>(std::move(pci_device));
     }
+
+    bool is_blackhole() const { return arch == tt::ARCH::BLACKHOLE; }
 
     tt_xy_pair get_core(CoreType type) const {
         auto cores = soc_desc.get_cores(type, CoordSystem::TRANSLATED);
@@ -137,7 +143,7 @@ TEST(MicrobenchmarkPcieProtocolDMA, DRAM) {
     };
 
     PcieProtocolFixture fixture;
-    if (fixture.protocol->get_pci_device()->get_arch() == ARCH::BLACKHOLE) {
+    if (fixture.is_blackhole()) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 
@@ -163,7 +169,7 @@ TEST(MicrobenchmarkPcieProtocolDMA, Tensix) {
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
 
     PcieProtocolFixture fixture;
-    if (fixture.protocol->get_pci_device()->get_arch() == ARCH::BLACKHOLE) {
+    if (fixture.is_blackhole()) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 
@@ -189,7 +195,7 @@ TEST(MicrobenchmarkPcieProtocolDMA, Ethernet) {
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
 
     PcieProtocolFixture fixture;
-    if (fixture.protocol->get_pci_device()->get_arch() == ARCH::BLACKHOLE) {
+    if (fixture.is_blackhole()) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 
@@ -214,7 +220,7 @@ TEST(MicrobenchmarkPcieProtocolDMA, DRAMSweepSizes) {
     const uint64_t ADDRESS = 0x0;
 
     PcieProtocolFixture fixture;
-    if (fixture.protocol->get_pci_device()->get_arch() == ARCH::BLACKHOLE) {
+    if (fixture.is_blackhole()) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 
@@ -238,7 +244,7 @@ TEST(MicrobenchmarkPcieProtocolDMA, TensixSweepSizes) {
     const uint64_t ADDRESS = 0x0;
 
     PcieProtocolFixture fixture;
-    if (fixture.protocol->get_pci_device()->get_arch() == ARCH::BLACKHOLE) {
+    if (fixture.is_blackhole()) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 
@@ -262,7 +268,7 @@ TEST(MicrobenchmarkPcieProtocolDMA, EthernetSweepSizes) {
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
 
     PcieProtocolFixture fixture;
-    if (fixture.protocol->get_pci_device()->get_arch() == ARCH::BLACKHOLE) {
+    if (fixture.is_blackhole()) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
     }
 

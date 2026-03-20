@@ -7,7 +7,7 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 #include <linux/mman.h>  // for MAP_HUGE_1GB
-#include <sys/mman.h>   // for mmap, munmap
+#include <sys/mman.h>    // for mmap, munmap
 
 #include <cerrno>
 #include <cstddef>

@@ -34,10 +34,14 @@ protected:
     std::unique_ptr<SocDescriptor> soc_desc_;
 
     void SetUp() override {
+        if (is_arm_platform()) {
+            GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
+        }
         pci_device_ids_ = PCIDevice::enumerate_devices();
         if (pci_device_ids_.empty()) {
             GTEST_SKIP() << "No PCI devices found.";
         }
+        init_device();
     }
 
     void init_device(int pci_device_id = -1) {
@@ -120,14 +124,8 @@ TEST_F(HangDetectionTest, HangCheckRegisterReadEquivalence) {
 class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};
 
 TEST_P(NocHangDetectionTest, TestNocHangDetection) {
-    if (is_arm_platform()) {
-        GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
-    }
-
     NocId noc_to_hang = GetParam();
     NocId verify_noc = (noc_to_hang == NocId::NOC0) ? NocId::NOC1 : NocId::NOC0;
-
-    init_device();
 
     if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE && noc_to_hang == NocId::NOC0) {
         GTEST_SKIP()
@@ -166,11 +164,6 @@ INSTANTIATE_TEST_SUITE_P(
     [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
 
 TEST_F(HangDetectionTest, DISABLED_TestDeviceHangDetection) {
-    if (is_arm_platform()) {
-        GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
-    }
-
-    init_device();
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     ASSERT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() returned true before any hang.";

@@ -49,11 +49,11 @@ protected:
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
     }
 
-    uint32_t read_hang_check_via_bar() {
+    uint32_t read_hang_check_reg_via_bar() {
         return tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
     }
 
-    uint32_t read_hang_check_via_noc(NocId noc = NocId::NOC0) {
+    uint32_t read_hang_check_reg_via_noc(NocId noc = NocId::NOC0) {
         const auto* arch_impl = tt_device_->get_architecture_implementation();
         uint32_t value = 0;
 
@@ -106,8 +106,8 @@ TEST_F(HangDetectionTest, HangCheckRegisterReadEquivalence) {
     for (int pci_device_id : pci_device_ids_) {
         init_device(pci_device_id);
 
-        uint32_t bar_value = read_hang_check_via_bar();
-        uint32_t noc_value = read_hang_check_via_noc(NocId::NOC0);
+        uint32_t bar_value = read_hang_check_reg_via_bar();
+        uint32_t noc_value = read_hang_check_reg_via_noc(NocId::NOC0);
 
         log_info(LogUMD, "Device {}: hang-check BAR=0x{:08X}  NOC=0x{:08X}", pci_device_id, bar_value, noc_value);
 
@@ -136,12 +136,12 @@ TEST_P(NocHangDetectionTest, TestNocHangDetection) {
 
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-    uint32_t baseline = read_hang_check_via_noc(verify_noc);
+    uint32_t baseline = read_hang_check_reg_via_noc(verify_noc);
     ASSERT_NE(baseline, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc) << " appears hung before test started.";
 
     hang_noc(tensix_core, noc_to_hang);
 
-    uint32_t verify_value = read_hang_check_via_noc(verify_noc);
+    uint32_t verify_value = read_hang_check_reg_via_noc(verify_noc);
 
     EXPECT_NE(verify_value, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc)
                                         << " should still work after hanging NOC" << static_cast<int>(noc_to_hang);
@@ -150,10 +150,10 @@ TEST_P(NocHangDetectionTest, TestNocHangDetection) {
 
     warm_reset_and_reinit();
 
-    uint32_t bar_recovered = read_hang_check_via_bar();
+    uint32_t bar_recovered = read_hang_check_reg_via_bar();
     EXPECT_NE(bar_recovered, 0xFFFFFFFF) << "BAR read still returns all ones after warm reset.";
 
-    uint32_t noc_recovered = read_hang_check_via_noc(verify_noc);
+    uint32_t noc_recovered = read_hang_check_reg_via_noc(verify_noc);
     EXPECT_NE(noc_recovered, 0xFFFFFFFF) << "NOC read still returns all ones after warm reset.";
 
     log_info(LogUMD, "Post-reset: BAR=0x{:08X}  NOC=0x{:08X}", bar_recovered, noc_recovered);

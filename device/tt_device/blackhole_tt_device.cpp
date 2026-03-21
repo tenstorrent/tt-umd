@@ -25,6 +25,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -402,6 +403,18 @@ bool BlackholeTTDevice::is_hardware_hung() {
     uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
     return (node_id == HANG_READ_VALUE);
+}
+
+uint32_t BlackholeTTDevice::read_hang_check_reg_via_noc(NocId noc) {
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    tt_xy_pair pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
+                    architecture_impl_->get_noc_node_id_offset();
+
+    uint32_t value = 0;
+    NocIdSwitcher switcher(noc);
+    read_from_device(&value, pcie_core, addr, sizeof(value));
+    return value;
 }
 
 int BlackholeTTDevice::get_pcie_x_coordinate() {

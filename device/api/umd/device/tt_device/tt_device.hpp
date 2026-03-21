@@ -20,6 +20,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -77,6 +78,8 @@ public:
 
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
+    bool is_noc_hung(NocId noc);
+    virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
 
     /**
      * DMA transfer from device to host.

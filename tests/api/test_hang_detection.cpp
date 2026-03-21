@@ -165,6 +165,26 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(NocId::NOC0, NocId::NOC1),
     [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
 
+TEST_P(NocHangDetectionTest, TestIsNocHungAPI) {
+    NocId noc_to_hang = GetParam();
+
+    if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE && noc_to_hang == NocId::NOC0) {
+        GTEST_SKIP()
+            << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
+    }
+
+    ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() returned true before any hang.";
+
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    hang_noc(tensix_core, noc_to_hang);
+
+    EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() did not detect the hang.";
+
+    warm_reset_and_reinit();
+
+    EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() still true after warm reset.";
+}
+
 TEST_F(HangDetectionTest, DISABLED_TestDeviceHangDetection) {
     ASSERT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() returned true before any hang.";
 

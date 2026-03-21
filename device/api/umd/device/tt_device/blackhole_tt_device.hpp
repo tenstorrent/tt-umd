@@ -50,6 +50,7 @@ protected:
     BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     bool is_hardware_hung() override;
+    uint32_t read_hang_check_reg_via_noc(NocId noc) override;
 
     virtual bool is_arc_available_over_axi();
 

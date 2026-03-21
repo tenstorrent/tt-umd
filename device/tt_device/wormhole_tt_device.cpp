@@ -21,6 +21,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -571,6 +572,18 @@ bool WormholeTTDevice::is_hardware_hung() {
         6 * 4);
 
     return (scratch_data == HANG_READ_VALUE);
+}
+
+uint32_t WormholeTTDevice::read_hang_check_reg_via_noc(NocId noc) {
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
+    uint64_t addr =
+        architecture_impl_->get_arc_apb_noc_base_address() + architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4;
+
+    uint32_t value = 0;
+    NocIdSwitcher switcher(noc);
+    read_from_device(&value, arc_core, addr, sizeof(value));
+    return value;
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {

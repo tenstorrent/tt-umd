@@ -38,6 +38,8 @@ public:
 
     bool is_hardware_hung() override { return false; }
 
+    uint32_t read_hang_check_reg_via_noc(NocId /*noc*/) override { return 0; }
+
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void* src, size_t size) override;

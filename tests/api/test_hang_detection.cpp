@@ -76,17 +76,17 @@ protected:
         return value;
     }
 
-    void hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
+    uint32_t hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
+        uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            uint32_t dummy;
             NocIdSwitcher switcher(noc);
-            tt_device_->read_from_device(&dummy, tensix_core, WH_NOC_HANG_ADDR, sizeof(dummy));
+            tt_device_->read_from_device(&hang_read_value, tensix_core, WH_NOC_HANG_ADDR, sizeof(hang_read_value));
         } else if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
             tt_device_->set_risc_reset_state(tensix_core, static_cast<uint32_t>(TENSIX_ASSERT_SOFT_RESET));
-            uint32_t dummy;
             NocIdSwitcher switcher(noc);
-            tt_device_->read_from_device(&dummy, tensix_core, BH_NOC_HANG_ADDR, sizeof(dummy));
+            tt_device_->read_from_device(&hang_read_value, tensix_core, BH_NOC_HANG_ADDR, sizeof(hang_read_value));
         }
+        return hang_read_value;
     }
 
     void warm_reset_and_reinit() {
@@ -130,9 +130,18 @@ TEST_P(NocHangDetectionTest, TestNocHangDetection) {
     uint32_t baseline = read_hang_check_reg_via_noc(verify_noc);
     ASSERT_NE(baseline, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc) << " appears hung before test started.";
 
-    hang_noc(tensix_core, noc_to_hang);
+    uint32_t hang_read_value = hang_noc(tensix_core, noc_to_hang);
 
     uint32_t verify_value = read_hang_check_reg_via_noc(verify_noc);
+
+    log_info(
+        LogUMD,
+        "After hanging NOC{}: hang_read=0x{:08X}, verify NOC{}=0x{:08X}, baseline=0x{:08X}",
+        static_cast<int>(noc_to_hang),
+        hang_read_value,
+        static_cast<int>(verify_noc),
+        verify_value,
+        baseline);
 
     EXPECT_NE(verify_value, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc)
                                         << " should still work after hanging NOC" << static_cast<int>(noc_to_hang);

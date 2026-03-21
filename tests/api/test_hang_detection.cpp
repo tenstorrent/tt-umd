@@ -53,7 +53,7 @@ protected:
         return tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
     }
 
-    uint32_t read_hang_check_via_noc(uint32_t noc_index = 0) {
+    uint32_t read_hang_check_via_noc(NocId noc = NocId::NOC0) {
         const auto* arch_impl = tt_device_->get_architecture_implementation();
         uint32_t value = 0;
 
@@ -62,14 +62,14 @@ protected:
             uint64_t scratch6_noc_addr =
                 arch_impl->get_arc_apb_noc_base_address() + arch_impl->get_arc_reset_scratch_offset() + 6 * 4;
 
-            NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
+            NocIdSwitcher noc_switcher(noc);
             tt_device_->read_from_device(&value, arc_core, scratch6_noc_addr, sizeof(value));
         } else {
             tt_xy_pair pcie_core = soc_desc_->get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
-            uint64_t noc_node_id_addr =
-                arch_impl->get_noc_reg_base(CoreType::PCIE, noc_index) + arch_impl->get_noc_node_id_offset();
+            uint64_t noc_node_id_addr = arch_impl->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
+                                        arch_impl->get_noc_node_id_offset();
 
-            NocIdSwitcher noc_switcher(static_cast<NocId>(noc_index));
+            NocIdSwitcher noc_switcher(noc);
             tt_device_->read_from_device(&value, pcie_core, noc_node_id_addr, sizeof(value));
         }
 
@@ -107,7 +107,7 @@ TEST_F(HangDetectionTest, HangCheckRegisterReadEquivalence) {
         init_device(pci_device_id);
 
         uint32_t bar_value = read_hang_check_via_bar();
-        uint32_t noc_value = read_hang_check_via_noc(0);
+        uint32_t noc_value = read_hang_check_via_noc(NocId::NOC0);
 
         log_info(LogUMD, "Device {}: hang-check BAR=0x{:08X}  NOC=0x{:08X}", pci_device_id, bar_value, noc_value);
 
@@ -125,7 +125,7 @@ TEST_P(NocHangDetectionTest, TestNocHangDetection) {
     }
 
     NocId noc_to_hang = GetParam();
-    uint32_t verify_noc = (noc_to_hang == NocId::NOC0) ? 1 : 0;
+    NocId verify_noc = (noc_to_hang == NocId::NOC0) ? NocId::NOC1 : NocId::NOC0;
 
     init_device();
 
@@ -137,15 +137,16 @@ TEST_P(NocHangDetectionTest, TestNocHangDetection) {
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     uint32_t baseline = read_hang_check_via_noc(verify_noc);
-    ASSERT_NE(baseline, 0xFFFFFFFF) << "NOC" << verify_noc << " appears hung before test started.";
+    ASSERT_NE(baseline, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc) << " appears hung before test started.";
 
     hang_noc(tensix_core, noc_to_hang);
 
     uint32_t verify_value = read_hang_check_via_noc(verify_noc);
 
-    EXPECT_NE(verify_value, 0xFFFFFFFF) << "NOC" << verify_noc << " should still work after hanging NOC"
-                                        << static_cast<int>(noc_to_hang);
-    EXPECT_EQ(verify_value, baseline) << "NOC" << verify_noc << " value should match pre-hang baseline.";
+    EXPECT_NE(verify_value, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc)
+                                        << " should still work after hanging NOC" << static_cast<int>(noc_to_hang);
+    EXPECT_EQ(verify_value, baseline) << "NOC" << static_cast<int>(verify_noc)
+                                      << " value should match pre-hang baseline.";
 
     warm_reset_and_reinit();
 

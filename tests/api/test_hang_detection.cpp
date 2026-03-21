@@ -117,63 +117,52 @@ TEST_F(HangDetectionTest, HangCheckRegisterReadEquivalence) {
     }
 }
 
-TEST_F(HangDetectionTest, TestNocHangDetection) {
+class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};
+
+TEST_P(NocHangDetectionTest, TestNocHangDetection) {
     if (is_arm_platform()) {
         GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
     }
 
+    NocId noc_to_hang = GetParam();
+    uint32_t verify_noc = (noc_to_hang == NocId::NOC0) ? 1 : 0;
+
     init_device();
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-    uint32_t bar_baseline = read_hang_check_via_bar();
-    ASSERT_NE(bar_baseline, 0xFFFFFFFF) << "Hardware already hung before test started.";
-
-    uint32_t noc0_baseline = read_hang_check_via_noc(0);
-    ASSERT_NE(noc0_baseline, 0xFFFFFFFF) << "NOC0 appears hung before test started.";
-
-    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        log_info(
-            LogUMD,
-            "WH: Intentionally hanging NOCs by reading 0x{:08X} on tensix core ({}, {})",
-            WH_NOC_HANG_ADDR,
-            tensix_core.x,
-            tensix_core.y);
-
-        hang_noc(tensix_core);
-
-        uint32_t bar_hung = read_hang_check_via_bar();
-        EXPECT_EQ(bar_hung, 0xFFFFFFFF) << "Expected BAR read to return all ones after hanging NOC on WH.";
-
-        log_info(LogUMD, "WH: Performing warm reset to recover from NOC hang.");
-
-    } else if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-        log_info(
-            LogUMD,
-            "BH: Hanging NOC1 by reading 0x{:08X} via NOC1 on soft-reset tensix ({}, {}).",
-            BH_NOC_HANG_ADDR,
-            tensix_core.x,
-            tensix_core.y);
-
-        hang_noc(tensix_core, NocId::NOC1);
-
-        uint32_t noc0_value = read_hang_check_via_noc(static_cast<uint8_t>(NocId::NOC0));
-        log_info(LogUMD, "BH: NOC0 read after NOC1 hang: 0x{:08X}", noc0_value);
-        EXPECT_NE(noc0_value, 0xFFFFFFFF) << "NOC0 should still be functional after hanging NOC1 on BH.";
-        EXPECT_EQ(noc0_value, noc0_baseline) << "NOC0 read should match the pre-hang baseline value.";
-
-    } else {
-        GTEST_SKIP() << "Unsupported architecture for NOC hang test.";
+    if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE && noc_to_hang == NocId::NOC0) {
+        GTEST_SKIP()
+            << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
     }
 
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    uint32_t baseline = read_hang_check_via_noc(verify_noc);
+    ASSERT_NE(baseline, 0xFFFFFFFF) << "NOC" << verify_noc << " appears hung before test started.";
+
+    hang_noc(tensix_core, noc_to_hang);
+
+    uint32_t verify_value = read_hang_check_via_noc(verify_noc);
+
+    EXPECT_NE(verify_value, 0xFFFFFFFF) << "NOC" << verify_noc << " should still work after hanging NOC"
+                                        << static_cast<int>(noc_to_hang);
+    EXPECT_EQ(verify_value, baseline) << "NOC" << verify_noc << " value should match pre-hang baseline.";
+
     warm_reset_and_reinit();
+
     uint32_t bar_recovered = read_hang_check_via_bar();
     EXPECT_NE(bar_recovered, 0xFFFFFFFF) << "BAR read still returns all ones after warm reset.";
 
-    uint32_t noc_recovered = read_hang_check_via_noc(0);
+    uint32_t noc_recovered = read_hang_check_via_noc(verify_noc);
     EXPECT_NE(noc_recovered, 0xFFFFFFFF) << "NOC read still returns all ones after warm reset.";
 
     log_info(LogUMD, "Post-reset: BAR=0x{:08X}  NOC=0x{:08X}", bar_recovered, noc_recovered);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    HangNoc,
+    NocHangDetectionTest,
+    ::testing::Values(NocId::NOC0, NocId::NOC1),
+    [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
 
 TEST_F(HangDetectionTest, DISABLED_TestDeviceHangDetection) {
     if (is_arm_platform()) {

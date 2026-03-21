@@ -148,12 +148,11 @@ void TopologyDiscovery::get_connected_devices() {
             wait_eth_cores_training(tt_device.get());
         }
 
+        const SocDescriptor& soc_desc = get_soc_descriptor(tt_device.get());
         std::vector<CoreCoord> eth_cores =
-            get_soc_descriptor(tt_device.get())
-                .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+            soc_desc.get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            tt_xy_pair translated_eth_core =
-                get_soc_descriptor(tt_device.get()).translate_chip_coord_to_translated(eth_core);
+            tt_xy_pair translated_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
             uint64_t board_id = get_local_board_id(tt_device.get(), translated_eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);
@@ -194,11 +193,12 @@ void TopologyDiscovery::discover_remote_devices() {
         }
         log_debug(LogUMD, "Discovering from ASIC ID: {}", current_device_asic_id);
 
-        std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
-            CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        const SocDescriptor& soc_desc = get_soc_descriptor(tt_device);
+        std::vector<CoreCoord> eth_cores =
+            soc_desc.get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            const uint32_t channel = get_soc_descriptor(tt_device).get_eth_channel_for_core(eth_core);
-            tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_chip_coord_to_translated(eth_core);
+            const uint32_t channel = soc_desc.get_eth_channel_for_core(eth_core);
+            tt_xy_pair translated_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
 
             if (is_eth_port_disabled(tt_device, translated_eth_core)) {
                 log_debug(
@@ -434,11 +434,12 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
     // If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
-    std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
-        CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    const SocDescriptor& soc_desc = get_soc_descriptor(tt_device);
+    std::vector<CoreCoord> eth_cores =
+        soc_desc.get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_chip_coord_to_translated(eth_core);
+        tt_xy_pair translated_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
         if (!is_eth_trained(tt_device, translated_eth_core)) {
             continue;
         }
@@ -511,9 +512,10 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
     auto timeout_left = timeout_ms;
-    const std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(CoreType::ETH);
+    const SocDescriptor& soc_desc = get_soc_descriptor(tt_device);
+    const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = get_soc_descriptor(tt_device).translate_chip_coord_to_translated(eth_core);
+        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
 }

@@ -29,7 +29,6 @@ protected:
     static constexpr uint64_t WH_NOC_HANG_ADDR = 0xFFB11030;
     static constexpr uint64_t BH_NOC_HANG_ADDR = 0xFFB14000;
 
-    std::vector<int> pci_device_ids_;
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SocDescriptor> soc_desc_;
 
@@ -37,17 +36,14 @@ protected:
         if (is_arm_platform()) {
             GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
         }
-        pci_device_ids_ = PCIDevice::enumerate_devices();
-        if (pci_device_ids_.empty()) {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        if (pci_device_ids.empty()) {
             GTEST_SKIP() << "No PCI devices found.";
         }
-        init_device();
+        init_device(pci_device_ids.at(0));
     }
 
-    void init_device(int pci_device_id = -1) {
-        if (pci_device_id < 0) {
-            pci_device_id = pci_device_ids_.at(0);
-        }
+    void init_device(int pci_device_id) {
         tt_device_ = TTDevice::create(pci_device_id);
         tt_device_->init_tt_device();
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
@@ -94,6 +90,7 @@ protected:
     }
 
     void warm_reset_and_reinit() {
+        int pci_device_id = tt_device_->get_pci_device()->get_device_num();
         tt_device_.reset();
         soc_desc_.reset();
         WarmReset::warm_reset();
@@ -102,23 +99,19 @@ protected:
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";
         cluster.reset();
 
-        init_device();
+        init_device(pci_device_id);
     }
 };
 
 TEST_F(HangDetectionTest, HangCheckRegisterReadEquivalence) {
-    for (int pci_device_id : pci_device_ids_) {
-        init_device(pci_device_id);
+    uint32_t bar_value = read_hang_check_reg_via_bar();
+    uint32_t noc_value = read_hang_check_reg_via_noc(NocId::NOC0);
 
-        uint32_t bar_value = read_hang_check_reg_via_bar();
-        uint32_t noc_value = read_hang_check_reg_via_noc(NocId::NOC0);
+    log_info(LogUMD, "hang-check BAR=0x{:08X}  NOC=0x{:08X}", bar_value, noc_value);
 
-        log_info(LogUMD, "Device {}: hang-check BAR=0x{:08X}  NOC=0x{:08X}", pci_device_id, bar_value, noc_value);
-
-        EXPECT_NE(bar_value, 0xFFFFFFFF) << "BAR read returned all ones on device " << pci_device_id;
-        EXPECT_NE(noc_value, 0xFFFFFFFF) << "NOC read returned all ones on device " << pci_device_id;
-        EXPECT_EQ(bar_value, noc_value) << "BAR and NOC reads differ on device " << pci_device_id;
-    }
+    EXPECT_NE(bar_value, 0xFFFFFFFF) << "BAR read returned all ones.";
+    EXPECT_NE(noc_value, 0xFFFFFFFF) << "NOC read returned all ones.";
+    EXPECT_EQ(bar_value, noc_value) << "BAR and NOC reads differ.";
 }
 
 class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};

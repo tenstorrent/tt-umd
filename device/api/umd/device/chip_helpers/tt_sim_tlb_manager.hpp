@@ -21,7 +21,7 @@ public:
     TTSimTlbManager(TTDevice* tt_device);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
-        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
+        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;
 
     /**
      * Allocate a TLB index based on the requested size.

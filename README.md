@@ -129,6 +129,21 @@ cmake --build build
 TT_LOGGER_LEVEL=debug ./build/bin/your_program
 ```
 
+### Tracy Profiling
+
+UMD supports [Tracy](https://github.com/tenstorrent/tracy) profiling via the `TT_UMD_ENABLE_TRACY` build option. When disabled (the default), Tracy has zero footprint — no binary overhead, no runtime cost.
+
+#### Building with Tracy
+
+```bash
+cmake -B build -G Ninja -DTT_UMD_ENABLE_TRACY=ON
+cmake --build build
+```
+
+#### Capturing a trace
+
+Launch the [Tracy server](https://github.com/tenstorrent/tracy), start the application you want to profile, then click connect
+
 # Integration
 UMD can be consumed by downstream projects in multiple ways.
 

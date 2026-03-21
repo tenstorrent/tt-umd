@@ -166,24 +166,12 @@ INSTANTIATE_TEST_SUITE_P(
     [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
 
 TEST_F(HangDetectionTest, DISABLED_TestDeviceHangDetection) {
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
     ASSERT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() returned true before any hang.";
 
-    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        log_info(LogUMD, "WH: Hanging NOC via read of 0x{:08X}.", WH_NOC_HANG_ADDR);
-        hang_noc(tensix_core);
-    } else if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-        log_info(LogUMD, "BH: Soft-resetting tensix, then hanging NOC0 via 0x{:08X}.", BH_NOC_HANG_ADDR);
-        hang_noc(tensix_core);
-    } else {
-        GTEST_SKIP() << "Unsupported architecture for device hang test.";
-    }
+    // TODO: Add hang_pcie_tile() to make BAR reads return 0xFFFFFFFF.
 
     EXPECT_TRUE(tt_device_->is_hardware_hung()) << "is_hardware_hung() did not detect the hang.";
-    EXPECT_THROW(tt_device_->detect_hang_read(), std::runtime_error);
 
-    log_info(LogUMD, "Performing warm reset to recover.");
     warm_reset_and_reinit();
 
     EXPECT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() still true after warm reset.";
